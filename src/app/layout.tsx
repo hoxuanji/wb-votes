@@ -5,7 +5,6 @@ import { Footer } from '@/components/layout/Footer';
 import { BottomNav } from '@/components/layout/BottomNav';
 import { Disclaimer } from '@/components/layout/Disclaimer';
 import { LanguageProvider } from '@/lib/language-context';
-import { Analytics } from '@vercel/analytics/next';
 
 export const viewport: Viewport = {
   width: 'device-width',
@@ -56,7 +55,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Footer />
           <BottomNav />
         </LanguageProvider>
-        <Analytics />
       </body>
     </html>
   );

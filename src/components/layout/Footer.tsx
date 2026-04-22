@@ -89,8 +89,12 @@ export function Footer() {
           <p className="mt-1">© {new Date().getFullYear()} WB Votes · Open source under MIT License · Not affiliated with ECI or any political party.</p>
         </div>
 
-        {/* Developer contact — icon-only */}
-        <div className="mt-6 flex items-center justify-center gap-1" role="list" aria-label="Developer contact">
+        {/* Developer contact */}
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <p className="text-xs text-gray-400">
+            Built by <span className="font-medium text-gray-500">Jeemut Jana</span> · Feedback, bugs, or suggestions?
+          </p>
+        <div className="flex items-center justify-center gap-1" role="list" aria-label="Developer contact">
           <a
             href="mailto:jeemutjana98@gmail.com"
             role="listitem"
@@ -119,6 +123,7 @@ export function Footer() {
           >
             <IconX className="h-[18px] w-[18px]" />
           </a>
+        </div>
         </div>
       </div>
     </footer>
