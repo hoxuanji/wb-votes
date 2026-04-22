@@ -24,6 +24,11 @@ body {
   -webkit-text-size-adjust: 100%;
 }
 
+/* iOS Safari zooms any input < 16px on focus — this prevents that */
+input, select, textarea {
+  font-size: 16px;
+}
+
 /* Bengali text */
 .font-bengali, [lang="bn"] {
   font-family: 'Noto Sans Bengali', sans-serif;
