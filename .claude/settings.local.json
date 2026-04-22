@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(curl *)",
+      "Bash(node *)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:affidavit.eci.gov.in)",
+      "WebFetch(domain:results.eci.gov.in)",
+      "WebFetch(domain:data.gov.in)",
+      "WebFetch(domain:lok-dhaba.org)",
+      "WebFetch(domain:adrindia.org)",
+      "WebFetch(domain:eci.gov.in)",
+      "WebFetch(domain:myneta.info)",
+      "Bash(echo \"Scraper started with PID $!\")",
+      "Bash(grep -v \"^$\")",
+      "Bash(echo \"PID: $!\")",
+      "Bash(xargs basename *)",
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "Bash(echo \"EXIT:$?\")",
+      "Bash(npx next *)",
+      "Bash(xargs -I {} basename {})",
+      "Bash(echo \"Background PID: $!\")"
+    ]
+  }
+}
