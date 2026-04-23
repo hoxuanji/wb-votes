@@ -17,7 +17,14 @@ function get(urlPath, retries = 3) {
   return new Promise((resolve, reject) => {
     const attempt = (n) => {
       exec(
-        `curl -s -L --max-time 20 -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36" "${fullUrl}"`,
+        `curl -s -L --compressed --max-time 20 \
+          -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
+          -H "Accept-Language: en-US,en;q=0.5" \
+          -H "Accept-Encoding: gzip, deflate" \
+          -H "Referer: https://myneta.info/WestBengal2026/" \
+          -H "Cookie: visited=1" \
+          -A "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36" \
+          "${fullUrl}"`,
         { maxBuffer: 10 * 1024 * 1024 },
         (err, stdout) => {
           if (err) {
