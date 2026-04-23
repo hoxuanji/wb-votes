@@ -52,7 +52,7 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
     },
     {
       label: 'Gender', labelBn: 'লিঙ্গ', key: 'gender', highlight: 'none',
-      render: (c) => t(c.gender, c.gender === 'Male' ? 'পুরুষ' : c.gender === 'Female' ? 'মহিলা' : 'অন্যান্য'),
+      render: (c) => { const g = c.gender ?? 'Male'; return t(g, g === 'Male' ? 'পুরুষ' : g === 'Female' ? 'মহিলা' : 'অন্যান্য'); },
     },
     {
       label: 'Education', labelBn: 'শিক্ষা', key: 'education', highlight: 'none',

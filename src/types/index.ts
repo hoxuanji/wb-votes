@@ -30,7 +30,7 @@ export interface Candidate {
   constituencyId: string;
   photoUrl?: string;
   age: number;
-  gender: Gender;
+  gender?: Gender;
   education: string;
   educationBn?: string;
   criminalCases: number;
