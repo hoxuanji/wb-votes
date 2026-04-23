@@ -36,8 +36,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 4,
     "name": "Coochbehar Dakshin",
     "nameBn": "Coochbehar Dakshin",
-    "district": "Coochbehar",
-    "districtBn": "Coochbehar",
+    "district": "Cooch Behar",
+    "districtBn": "Cooch Behar",
     "reservation": "General"
   },
   {
@@ -252,8 +252,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 28,
     "name": "Chopra",
     "nameBn": "Chopra",
-    "district": "Kalimpong",
-    "districtBn": "Kalimpong",
+    "district": "Uttar Dinajpur",
+    "districtBn": "Uttar Dinajpur",
     "reservation": "General"
   },
   {
@@ -333,8 +333,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 37,
     "name": "Kushmandi",
     "nameBn": "Kushmandi",
-    "district": "Uttar Dinajpur",
-    "districtBn": "Uttar Dinajpur",
+    "district": "Dakshin Dinajpur",
+    "districtBn": "Dakshin Dinajpur",
     "reservation": "SC"
   },
   {
@@ -369,8 +369,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 41,
     "name": "Balurghat",
     "nameBn": "Balurghat",
-    "district": "Dakhsin Dinajpur",
-    "districtBn": "Dakhsin Dinajpur",
+    "district": "Dakshin Dinajpur",
+    "districtBn": "Dakshin Dinajpur",
     "reservation": "General"
   },
   {
@@ -693,8 +693,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 79,
     "name": "Karimpur",
     "nameBn": "Karimpur",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -702,8 +702,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 80,
     "name": "Tehatta",
     "nameBn": "Tehatta",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -711,8 +711,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 81,
     "name": "Palashipara",
     "nameBn": "Palashipara",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -720,8 +720,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 82,
     "name": "Kaliganj",
     "nameBn": "Kaliganj",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -729,8 +729,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 83,
     "name": "Nakashipara",
     "nameBn": "Nakashipara",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -738,8 +738,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 84,
     "name": "Chapra",
     "nameBn": "Chapra",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -747,8 +747,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 85,
     "name": "Krishnanagar Uttar",
     "nameBn": "Krishnanagar Uttar",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -756,8 +756,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 86,
     "name": "Nabadwip",
     "nameBn": "Nabadwip",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -765,8 +765,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 87,
     "name": "Krishnanagar Dakshin",
     "nameBn": "Krishnanagar Dakshin",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -774,8 +774,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 88,
     "name": "Krishnaganj",
     "nameBn": "Krishnaganj",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "SC"
   },
   {
@@ -783,8 +783,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 89,
     "name": "Santipur",
     "nameBn": "Santipur",
-    "district": "Birbhum",
-    "districtBn": "Birbhum",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -792,8 +792,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 90,
     "name": "Ranaghat Uttar Paschim",
     "nameBn": "Ranaghat Uttar Paschim",
-    "district": "Paschim Bardhaman",
-    "districtBn": "Paschim Bardhaman",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "General"
   },
   {
@@ -801,8 +801,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 91,
     "name": "Ranaghat Uttar Purba",
     "nameBn": "Ranaghat Uttar Purba",
-    "district": "Paschim Bardhaman",
-    "districtBn": "Paschim Bardhaman",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "SC"
   },
   {
@@ -810,8 +810,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 92,
     "name": "Ranaghat Dakshin",
     "nameBn": "Ranaghat Dakshin",
-    "district": "Paschim Bardhaman",
-    "districtBn": "Paschim Bardhaman",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "SC"
   },
   {
@@ -828,8 +828,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 95,
     "name": "Kalyani",
     "nameBn": "Kalyani",
-    "district": "Paschim Bardhaman",
-    "districtBn": "Paschim Bardhaman",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "SC"
   },
   {
@@ -837,8 +837,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 96,
     "name": "Haringhata",
     "nameBn": "Haringhata",
-    "district": "Paschim Bardhaman",
-    "districtBn": "Paschim Bardhaman",
+    "district": "Nadia",
+    "districtBn": "Nadia",
     "reservation": "SC"
   },
   {
@@ -846,8 +846,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 97,
     "name": "Bagda",
     "nameBn": "Bagda",
-    "district": "Paschim Bardhaman",
-    "districtBn": "Paschim Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -855,8 +855,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 98,
     "name": "Bangaon Uttar",
     "nameBn": "Bangaon Uttar",
-    "district": "Paschim Bardhaman",
-    "districtBn": "Paschim Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -864,8 +864,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 99,
     "name": "Bangaon Dakshin",
     "nameBn": "Bangaon Dakshin",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -873,8 +873,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 100,
     "name": "Gaighata",
     "nameBn": "Gaighata",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -882,8 +882,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 101,
     "name": "Swarupnagar",
     "nameBn": "Swarupnagar",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -891,8 +891,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 102,
     "name": "Baduria",
     "nameBn": "Baduria",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -900,8 +900,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 103,
     "name": "Basirhat Uttar",
     "nameBn": "Basirhat Uttar",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -909,8 +909,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 104,
     "name": "Habra",
     "nameBn": "Habra",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -918,8 +918,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 105,
     "name": "Ashoknagar",
     "nameBn": "Ashoknagar",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -927,8 +927,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 106,
     "name": "Amdanga",
     "nameBn": "Amdanga",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -936,8 +936,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 107,
     "name": "Bijpur",
     "nameBn": "Bijpur",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -945,8 +945,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 108,
     "name": "Naihati",
     "nameBn": "Naihati",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -954,8 +954,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 109,
     "name": "Bhatpara",
     "nameBn": "Bhatpara",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -963,8 +963,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 110,
     "name": "Jagatdal",
     "nameBn": "Jagatdal",
-    "district": "Purba Bardhaman",
-    "districtBn": "Purba Bardhaman",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -972,8 +972,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 112,
     "name": "Noapara",
     "nameBn": "Noapara",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -981,8 +981,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 113,
     "name": "Barrackpur",
     "nameBn": "Barrackpur",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -990,8 +990,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 114,
     "name": "Khardaha",
     "nameBn": "Khardaha",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -999,8 +999,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 115,
     "name": "Panihati",
     "nameBn": "Panihati",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1008,8 +1008,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 116,
     "name": "Dum Dum Uttar",
     "nameBn": "Dum Dum Uttar",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1017,8 +1017,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 117,
     "name": "Kamarhati",
     "nameBn": "Kamarhati",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1026,8 +1026,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 118,
     "name": "Baranagar",
     "nameBn": "Baranagar",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1035,8 +1035,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 119,
     "name": "Dum Dum",
     "nameBn": "Dum Dum",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1044,8 +1044,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 120,
     "name": "Rajarhat New Town",
     "nameBn": "Rajarhat New Town",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1053,8 +1053,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 121,
     "name": "Bidhannagar",
     "nameBn": "Bidhannagar",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1062,8 +1062,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 122,
     "name": "Rajarhat Gopalpur",
     "nameBn": "Rajarhat Gopalpur",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1071,8 +1071,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 123,
     "name": "Madhyamgram",
     "nameBn": "Madhyamgram",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1080,8 +1080,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 124,
     "name": "Haroa",
     "nameBn": "Haroa",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1089,8 +1089,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 125,
     "name": "Barasat",
     "nameBn": "Barasat",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1098,8 +1098,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 127,
     "name": "Minakhan",
     "nameBn": "Minakhan",
-    "district": "Nadia",
-    "districtBn": "Nadia",
+    "district": "North 24 Parganas",
+    "districtBn": "North 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1143,8 +1143,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 132,
     "name": "Gosaba",
     "nameBn": "Gosaba",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1152,8 +1152,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 133,
     "name": "Basanti",
     "nameBn": "Basanti",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1161,8 +1161,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 134,
     "name": "Kultali",
     "nameBn": "Kultali",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1170,8 +1170,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 135,
     "name": "Joynagar",
     "nameBn": "Joynagar",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1179,8 +1179,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 136,
     "name": "Patharpratima",
     "nameBn": "Patharpratima",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1188,8 +1188,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 137,
     "name": "Kakdwip",
     "nameBn": "Kakdwip",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1197,8 +1197,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 138,
     "name": "Sagar",
     "nameBn": "Sagar",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1206,8 +1206,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 139,
     "name": "Kulpi",
     "nameBn": "Kulpi",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1215,8 +1215,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 140,
     "name": "Raidighi",
     "nameBn": "Raidighi",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1224,8 +1224,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 141,
     "name": "Mandirbazar",
     "nameBn": "Mandirbazar",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1233,8 +1233,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 142,
     "name": "Baruipur Purba",
     "nameBn": "Baruipur Purba",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1242,8 +1242,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 143,
     "name": "Canning Paschim",
     "nameBn": "Canning Paschim",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1251,8 +1251,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 144,
     "name": "Canning Purba",
     "nameBn": "Canning Purba",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1260,8 +1260,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 145,
     "name": "Baruipur Paschim",
     "nameBn": "Baruipur Paschim",
-    "district": "Purulia",
-    "districtBn": "Purulia",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1269,8 +1269,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 147,
     "name": "Sonarpur Dakshin",
     "nameBn": "Sonarpur Dakshin",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1278,8 +1278,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 148,
     "name": "Sonarpur Uttar",
     "nameBn": "Sonarpur Uttar",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1287,8 +1287,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 149,
     "name": "Magrahat Purba",
     "nameBn": "Magrahat Purba",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1296,8 +1296,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 150,
     "name": "Magrahat Paschim",
     "nameBn": "Magrahat Paschim",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1305,8 +1305,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 151,
     "name": "Diamond Harbour",
     "nameBn": "Diamond Harbour",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1314,8 +1314,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 152,
     "name": "Falta",
     "nameBn": "Falta",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1323,8 +1323,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 153,
     "name": "Satgachhia",
     "nameBn": "Satgachhia",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1332,8 +1332,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 154,
     "name": "Bishnupur",
     "nameBn": "Bishnupur",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "SC"
   },
   {
@@ -1341,8 +1341,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 155,
     "name": "Maheshtala",
     "nameBn": "Maheshtala",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1350,8 +1350,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 156,
     "name": "Budge Budge",
     "nameBn": "Budge Budge",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1359,8 +1359,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 157,
     "name": "Metiaburuz",
     "nameBn": "Metiaburuz",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1368,8 +1368,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 158,
     "name": "Bhangar",
     "nameBn": "Bhangar",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "South 24 Parganas",
+    "districtBn": "South 24 Parganas",
     "reservation": "General"
   },
   {
@@ -1377,8 +1377,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 159,
     "name": "Kasba",
     "nameBn": "Kasba",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "Kolkata",
+    "districtBn": "Kolkata",
     "reservation": "General"
   },
   {
@@ -1386,8 +1386,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 160,
     "name": "Jadavpur",
     "nameBn": "Jadavpur",
-    "district": "North 24 Parganas",
-    "districtBn": "North 24 Parganas",
+    "district": "Kolkata",
+    "districtBn": "Kolkata",
     "reservation": "General"
   },
   {
@@ -1449,8 +1449,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 168,
     "name": "Ballygunge",
     "nameBn": "Ballygunge",
-    "district": "Kolkata South",
-    "districtBn": "Kolkata South",
+    "district": "Kolkata",
+    "districtBn": "Kolkata",
     "reservation": "General"
   },
   {
@@ -1476,8 +1476,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 171,
     "name": "Beleghata",
     "nameBn": "Beleghata",
-    "district": "Kolkata North",
-    "districtBn": "Kolkata North",
+    "district": "Kolkata",
+    "districtBn": "Kolkata",
     "reservation": "General"
   },
   {
@@ -1485,8 +1485,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 172,
     "name": "Jorasanko",
     "nameBn": "Jorasanko",
-    "district": "Howrah",
-    "districtBn": "Howrah",
+    "district": "Kolkata",
+    "districtBn": "Kolkata",
     "reservation": "General"
   },
   {
@@ -1494,8 +1494,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 173,
     "name": "Shyampukur",
     "nameBn": "Shyampukur",
-    "district": "Howrah",
-    "districtBn": "Howrah",
+    "district": "Kolkata",
+    "districtBn": "Kolkata",
     "reservation": "General"
   },
   {
@@ -1503,8 +1503,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 174,
     "name": "Maniktala",
     "nameBn": "Maniktala",
-    "district": "Howrah",
-    "districtBn": "Howrah",
+    "district": "Kolkata",
+    "districtBn": "Kolkata",
     "reservation": "General"
   },
   {
@@ -1512,8 +1512,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 175,
     "name": "Kashipur-Belgachhia",
     "nameBn": "Kashipur-Belgachhia",
-    "district": "Howrah",
-    "districtBn": "Howrah",
+    "district": "Kolkata",
+    "districtBn": "Kolkata",
     "reservation": "General"
   },
   {
@@ -1629,8 +1629,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 188,
     "name": "Uluberia Dakshin",
     "nameBn": "Uluberia Dakshin",
-    "district": "Hooghly",
-    "districtBn": "Hooghly",
+    "district": "Howrah",
+    "districtBn": "Howrah",
     "reservation": "General"
   },
   {
@@ -1638,8 +1638,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 189,
     "name": "Shyampur",
     "nameBn": "Shyampur",
-    "district": "Hooghly",
-    "districtBn": "Hooghly",
+    "district": "Howrah",
+    "districtBn": "Howrah",
     "reservation": "General"
   },
   {
@@ -1647,8 +1647,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 191,
     "name": "Bagnan",
     "nameBn": "Bagnan",
-    "district": "Hooghly",
-    "districtBn": "Hooghly",
+    "district": "Howrah",
+    "districtBn": "Howrah",
     "reservation": "General"
   },
   {
@@ -1782,8 +1782,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 206,
     "name": "Tarakeswar",
     "nameBn": "Tarakeswar",
-    "district": "Jhargram",
-    "districtBn": "Jhargram",
+    "district": "Hooghly",
+    "districtBn": "Hooghly",
     "reservation": "General"
   },
   {
@@ -1791,8 +1791,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 208,
     "name": "Pursurah",
     "nameBn": "Pursurah",
-    "district": "Jhargram",
-    "districtBn": "Jhargram",
+    "district": "Hooghly",
+    "districtBn": "Hooghly",
     "reservation": "General"
   },
   {
@@ -1809,8 +1809,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 210,
     "name": "Goghat",
     "nameBn": "Goghat",
-    "district": "Jhargram",
-    "districtBn": "Jhargram",
+    "district": "Hooghly",
+    "districtBn": "Hooghly",
     "reservation": "SC"
   },
   {
@@ -1818,8 +1818,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 211,
     "name": "Khanakul",
     "nameBn": "Khanakul",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Hooghly",
+    "districtBn": "Hooghly",
     "reservation": "General"
   },
   {
@@ -1827,8 +1827,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 212,
     "name": "Tamluk",
     "nameBn": "Tamluk",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1836,8 +1836,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 213,
     "name": "Panskura Purba",
     "nameBn": "Panskura Purba",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1845,8 +1845,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 214,
     "name": "Panskura Paschim",
     "nameBn": "Panskura Paschim",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1854,8 +1854,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 215,
     "name": "Moyna",
     "nameBn": "Moyna",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1863,8 +1863,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 216,
     "name": "Nandakumar",
     "nameBn": "Nandakumar",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1872,8 +1872,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 217,
     "name": "Mahishadal",
     "nameBn": "Mahishadal",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1881,8 +1881,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 218,
     "name": "Haldia",
     "nameBn": "Haldia",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "SC"
   },
   {
@@ -1890,8 +1890,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 219,
     "name": "Nandigram",
     "nameBn": "Nandigram",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1899,8 +1899,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 220,
     "name": "Chandipur",
     "nameBn": "Chandipur",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1908,8 +1908,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 221,
     "name": "Patashpur",
     "nameBn": "Patashpur",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1917,8 +1917,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 222,
     "name": "Bhagabanpur",
     "nameBn": "Bhagabanpur",
-    "district": "Purbo Medinipur",
-    "districtBn": "Purbo Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1926,8 +1926,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 223,
     "name": "Khejuri",
     "nameBn": "Khejuri",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "SC"
   },
   {
@@ -1935,8 +1935,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 224,
     "name": "Kanthi Uttar",
     "nameBn": "Kanthi Uttar",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1944,8 +1944,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 225,
     "name": "Kanthi Dakshin",
     "nameBn": "Kanthi Dakshin",
-    "district": "Paschim Medinipur",
-    "districtBn": "Paschim Medinipur",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1953,8 +1953,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 227,
     "name": "Ramnagar",
     "nameBn": "Ramnagar",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1962,8 +1962,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 228,
     "name": "Egra",
     "nameBn": "Egra",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Purba Medinipur",
+    "districtBn": "Purba Medinipur",
     "reservation": "General"
   },
   {
@@ -1971,8 +1971,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 229,
     "name": "Dantan",
     "nameBn": "Dantan",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -1980,8 +1980,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 230,
     "name": "Keshiary",
     "nameBn": "Keshiary",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "ST"
   },
   {
@@ -1989,8 +1989,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 231,
     "name": "Narayangarh",
     "nameBn": "Narayangarh",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -1998,8 +1998,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 232,
     "name": "Sabang",
     "nameBn": "Sabang",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2007,8 +2007,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 233,
     "name": "Kharagpur Sadar",
     "nameBn": "Kharagpur Sadar",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2016,8 +2016,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 234,
     "name": "Pingla",
     "nameBn": "Pingla",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2025,8 +2025,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 235,
     "name": "Kharagpur",
     "nameBn": "Kharagpur",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2034,8 +2034,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 236,
     "name": "Debra",
     "nameBn": "Debra",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2043,8 +2043,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 237,
     "name": "Daspur",
     "nameBn": "Daspur",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2052,8 +2052,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 238,
     "name": "Ghatal",
     "nameBn": "Ghatal",
-    "district": "Bankura",
-    "districtBn": "Bankura",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "SC"
   },
   {
@@ -2070,8 +2070,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 240,
     "name": "Keshpur",
     "nameBn": "Keshpur",
-    "district": "Purulia",
-    "districtBn": "Purulia",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "SC"
   },
   {
@@ -2079,8 +2079,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 241,
     "name": "Garbeta",
     "nameBn": "Garbeta",
-    "district": "Purulia",
-    "districtBn": "Purulia",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2088,8 +2088,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 242,
     "name": "Salboni",
     "nameBn": "Salboni",
-    "district": "Purulia",
-    "districtBn": "Purulia",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2097,8 +2097,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 244,
     "name": "Medinipur",
     "nameBn": "Medinipur",
-    "district": "Purulia",
-    "districtBn": "Purulia",
+    "district": "Paschim Medinipur",
+    "districtBn": "Paschim Medinipur",
     "reservation": "General"
   },
   {
@@ -2106,8 +2106,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 245,
     "name": "Nayagram",
     "nameBn": "Nayagram",
-    "district": "Purulia",
-    "districtBn": "Purulia",
+    "district": "Jhargram",
+    "districtBn": "Jhargram",
     "reservation": "ST"
   },
   {
@@ -2115,8 +2115,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 246,
     "name": "Gopiballavpur",
     "nameBn": "Gopiballavpur",
-    "district": "Purulia",
-    "districtBn": "Purulia",
+    "district": "Jhargram",
+    "districtBn": "Jhargram",
     "reservation": "General"
   },
   {
@@ -2124,8 +2124,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 247,
     "name": "Jhargram",
     "nameBn": "Jhargram",
-    "district": "Purulia",
-    "districtBn": "Purulia",
+    "district": "Jhargram",
+    "districtBn": "Jhargram",
     "reservation": "General"
   },
   {
@@ -2142,8 +2142,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 249,
     "name": "Bandwan",
     "nameBn": "Bandwan",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purulia",
+    "districtBn": "Purulia",
     "reservation": "ST"
   },
   {
@@ -2151,8 +2151,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 250,
     "name": "Balarampur",
     "nameBn": "Balarampur",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purulia",
+    "districtBn": "Purulia",
     "reservation": "General"
   },
   {
@@ -2169,8 +2169,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 252,
     "name": "Joypur",
     "nameBn": "Joypur",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purulia",
+    "districtBn": "Purulia",
     "reservation": "General"
   },
   {
@@ -2178,8 +2178,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 253,
     "name": "Purulia",
     "nameBn": "Purulia",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purulia",
+    "districtBn": "Purulia",
     "reservation": "General"
   },
   {
@@ -2187,8 +2187,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 254,
     "name": "Manbazar",
     "nameBn": "Manbazar",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purulia",
+    "districtBn": "Purulia",
     "reservation": "ST"
   },
   {
@@ -2196,8 +2196,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 255,
     "name": "Kashipur",
     "nameBn": "Kashipur",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purulia",
+    "districtBn": "Purulia",
     "reservation": "General"
   },
   {
@@ -2205,8 +2205,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 256,
     "name": "Para",
     "nameBn": "Para",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purulia",
+    "districtBn": "Purulia",
     "reservation": "SC"
   },
   {
@@ -2214,8 +2214,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 257,
     "name": "Raghunathpur",
     "nameBn": "Raghunathpur",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purulia",
+    "districtBn": "Purulia",
     "reservation": "SC"
   },
   {
@@ -2223,8 +2223,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 258,
     "name": "Saltora",
     "nameBn": "Saltora",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "SC"
   },
   {
@@ -2232,8 +2232,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 259,
     "name": "Chhatna",
     "nameBn": "Chhatna",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "General"
   },
   {
@@ -2250,8 +2250,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 261,
     "name": "Barjora",
     "nameBn": "Barjora",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "General"
   },
   {
@@ -2259,8 +2259,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 262,
     "name": "Ranibandh",
     "nameBn": "Ranibandh",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "ST"
   },
   {
@@ -2268,8 +2268,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 263,
     "name": "Raipur",
     "nameBn": "Raipur",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "ST"
   },
   {
@@ -2277,8 +2277,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 264,
     "name": "Taldangra",
     "nameBn": "Taldangra",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "General"
   },
   {
@@ -2286,8 +2286,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 265,
     "name": "Onda",
     "nameBn": "Onda",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "General"
   },
   {
@@ -2295,8 +2295,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 266,
     "name": "Bishnupur",
     "nameBn": "Bishnupur",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "General"
   },
   {
@@ -2304,8 +2304,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 267,
     "name": "Katulpur",
     "nameBn": "Katulpur",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "SC"
   },
   {
@@ -2313,8 +2313,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 268,
     "name": "Indus",
     "nameBn": "Indus",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "SC"
   },
   {
@@ -2322,8 +2322,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 269,
     "name": "Sonamukhi",
     "nameBn": "Sonamukhi",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Bankura",
+    "districtBn": "Bankura",
     "reservation": "SC"
   },
   {
@@ -2331,8 +2331,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 271,
     "name": "Khandaghosh",
     "nameBn": "Khandaghosh",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "SC"
   },
   {
@@ -2340,8 +2340,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 272,
     "name": "Bardhaman Dakshin",
     "nameBn": "Bardhaman Dakshin",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2349,8 +2349,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 273,
     "name": "Raina",
     "nameBn": "Raina",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "SC"
   },
   {
@@ -2358,8 +2358,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 274,
     "name": "Jamalpur",
     "nameBn": "Jamalpur",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "SC"
   },
   {
@@ -2367,8 +2367,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 275,
     "name": "Monteswar",
     "nameBn": "Monteswar",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2376,8 +2376,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 276,
     "name": "Kalna",
     "nameBn": "Kalna",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "SC"
   },
   {
@@ -2385,8 +2385,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 277,
     "name": "Memari",
     "nameBn": "Memari",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2394,8 +2394,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 278,
     "name": "Bardhaman Uttar",
     "nameBn": "Bardhaman Uttar",
-    "district": "South 24 Parganas",
-    "districtBn": "South 24 Parganas",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "SC"
   },
   {
@@ -2403,8 +2403,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 279,
     "name": "Bhatar",
     "nameBn": "Bhatar",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2412,8 +2412,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 280,
     "name": "Mongalkote",
     "nameBn": "Mongalkote",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2430,8 +2430,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 282,
     "name": "Galsi",
     "nameBn": "Galsi",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "SC"
   },
   {
@@ -2439,8 +2439,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 283,
     "name": "Purbasthali Dakshin",
     "nameBn": "Purbasthali Dakshin",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2448,8 +2448,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 284,
     "name": "Purbasthali Uttar",
     "nameBn": "Purbasthali Uttar",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2457,8 +2457,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 286,
     "name": "Katwa",
     "nameBn": "Katwa",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2466,8 +2466,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 287,
     "name": "Ketugram",
     "nameBn": "Ketugram",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Purba Bardhaman",
+    "districtBn": "Purba Bardhaman",
     "reservation": "General"
   },
   {
@@ -2475,8 +2475,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 288,
     "name": "Pandabeswar",
     "nameBn": "Pandabeswar",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Paschim Bardhaman",
+    "districtBn": "Paschim Bardhaman",
     "reservation": "General"
   },
   {
@@ -2484,8 +2484,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 289,
     "name": "Durgapur Purba",
     "nameBn": "Durgapur Purba",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Paschim Bardhaman",
+    "districtBn": "Paschim Bardhaman",
     "reservation": "General"
   },
   {
@@ -2493,8 +2493,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 290,
     "name": "Durgapur Paschim",
     "nameBn": "Durgapur Paschim",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Paschim Bardhaman",
+    "districtBn": "Paschim Bardhaman",
     "reservation": "General"
   },
   {
@@ -2502,8 +2502,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 291,
     "name": "Raniganj",
     "nameBn": "Raniganj",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Paschim Bardhaman",
+    "districtBn": "Paschim Bardhaman",
     "reservation": "General"
   },
   {
@@ -2511,8 +2511,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 292,
     "name": "Jamuria",
     "nameBn": "Jamuria",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Paschim Bardhaman",
+    "districtBn": "Paschim Bardhaman",
     "reservation": "General"
   },
   {
@@ -2529,8 +2529,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 294,
     "name": "Asansol Uttar",
     "nameBn": "Asansol Uttar",
-    "district": "Purba Medinipur",
-    "districtBn": "Purba Medinipur",
+    "district": "Paschim Bardhaman",
+    "districtBn": "Paschim Bardhaman",
     "reservation": "General"
   },
   {
@@ -2628,8 +2628,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 305,
     "name": "Hansan",
     "nameBn": "Hansan",
-    "district": "Murshidabad",
-    "districtBn": "Murshidabad",
+    "district": "Birbhum",
+    "districtBn": "Birbhum",
     "reservation": "General"
   },
   {
@@ -2637,8 +2637,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 306,
     "name": "Nalhati",
     "nameBn": "Nalhati",
-    "district": "Murshidabad",
-    "districtBn": "Murshidabad",
+    "district": "Birbhum",
+    "districtBn": "Birbhum",
     "reservation": "General"
   },
   {
@@ -2646,8 +2646,8 @@ export const constituencies: Constituency[] = [
     "assemblyNumber": 307,
     "name": "Murarai",
     "nameBn": "Murarai",
-    "district": "Murshidabad",
-    "districtBn": "Murshidabad",
+    "district": "Birbhum",
+    "districtBn": "Birbhum",
     "reservation": "General"
   }
 ];

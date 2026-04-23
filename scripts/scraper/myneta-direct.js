@@ -223,6 +223,33 @@ const PARTY_COLORS = {
   'CPI(M)': 'B71C1C', 'SUCI': '880E4F', 'RSP': 'C62828', 'IND': '546E7A',
 };
 
+// Static district map — overrides unreliable HTML dropdown parsing
+const CORRECT_DISTRICTS = {
+  'c0001':'Cooch Behar','c0002':'Cooch Behar','c0003':'Cooch Behar','c0004':'Cooch Behar','c0005':'Cooch Behar','c0006':'Cooch Behar','c0007':'Cooch Behar','c0008':'Cooch Behar','c0009':'Cooch Behar',
+  'c0010':'Alipurduar','c0011':'Alipurduar','c0012':'Alipurduar','c0013':'Alipurduar','c0014':'Alipurduar',
+  'c0015':'Jalpaiguri','c0016':'Jalpaiguri','c0017':'Jalpaiguri','c0018':'Jalpaiguri','c0019':'Jalpaiguri','c0020':'Jalpaiguri','c0021':'Jalpaiguri',
+  'c0022':'Kalimpong',
+  'c0023':'Darjeeling','c0024':'Darjeeling','c0025':'Darjeeling','c0026':'Darjeeling','c0027':'Darjeeling',
+  'c0028':'Uttar Dinajpur','c0029':'Uttar Dinajpur','c0030':'Uttar Dinajpur','c0031':'Uttar Dinajpur','c0032':'Uttar Dinajpur','c0033':'Uttar Dinajpur','c0034':'Uttar Dinajpur','c0035':'Uttar Dinajpur','c0036':'Uttar Dinajpur',
+  'c0037':'Dakshin Dinajpur','c0038':'Dakshin Dinajpur','c0039':'Dakshin Dinajpur','c0040':'Dakshin Dinajpur','c0041':'Dakshin Dinajpur','c0042':'Dakshin Dinajpur','c0043':'Dakshin Dinajpur',
+  'c0044':'Malda','c0045':'Malda','c0046':'Malda','c0047':'Malda','c0048':'Malda','c0049':'Malda','c0050':'Malda','c0051':'Malda','c0052':'Malda','c0053':'Malda','c0054':'Malda',
+  'c0055':'Murshidabad','c0056':'Murshidabad','c0057':'Murshidabad','c0058':'Murshidabad','c0059':'Murshidabad','c0060':'Murshidabad','c0061':'Murshidabad','c0062':'Murshidabad','c0063':'Murshidabad','c0064':'Murshidabad','c0065':'Murshidabad','c0066':'Murshidabad','c0067':'Murshidabad','c0068':'Murshidabad','c0069':'Murshidabad','c0070':'Murshidabad','c0071':'Murshidabad','c0072':'Murshidabad','c0073':'Murshidabad','c0074':'Murshidabad','c0075':'Murshidabad','c0076':'Murshidabad','c0077':'Murshidabad','c0078':'Murshidabad',
+  'c0079':'Nadia','c0080':'Nadia','c0081':'Nadia','c0082':'Nadia','c0083':'Nadia','c0084':'Nadia','c0085':'Nadia','c0086':'Nadia','c0087':'Nadia','c0088':'Nadia','c0089':'Nadia','c0090':'Nadia','c0091':'Nadia','c0092':'Nadia','c0093':'Nadia','c0094':'Nadia','c0095':'Nadia','c0096':'Nadia',
+  'c0097':'North 24 Parganas','c0098':'North 24 Parganas','c0099':'North 24 Parganas','c0100':'North 24 Parganas','c0101':'North 24 Parganas','c0102':'North 24 Parganas','c0103':'North 24 Parganas','c0104':'North 24 Parganas','c0105':'North 24 Parganas','c0106':'North 24 Parganas','c0107':'North 24 Parganas','c0108':'North 24 Parganas','c0109':'North 24 Parganas','c0110':'North 24 Parganas','c0111':'North 24 Parganas','c0112':'North 24 Parganas','c0113':'North 24 Parganas','c0114':'North 24 Parganas','c0115':'North 24 Parganas','c0116':'North 24 Parganas','c0117':'North 24 Parganas','c0118':'North 24 Parganas','c0119':'North 24 Parganas','c0120':'North 24 Parganas','c0121':'North 24 Parganas','c0122':'North 24 Parganas','c0123':'North 24 Parganas','c0124':'North 24 Parganas','c0125':'North 24 Parganas','c0126':'North 24 Parganas','c0127':'North 24 Parganas','c0128':'North 24 Parganas','c0129':'North 24 Parganas','c0130':'North 24 Parganas','c0131':'North 24 Parganas',
+  'c0132':'South 24 Parganas','c0133':'South 24 Parganas','c0134':'South 24 Parganas','c0135':'South 24 Parganas','c0136':'South 24 Parganas','c0137':'South 24 Parganas','c0138':'South 24 Parganas','c0139':'South 24 Parganas','c0140':'South 24 Parganas','c0141':'South 24 Parganas','c0142':'South 24 Parganas','c0143':'South 24 Parganas','c0144':'South 24 Parganas','c0145':'South 24 Parganas','c0146':'South 24 Parganas','c0147':'South 24 Parganas','c0148':'South 24 Parganas','c0149':'South 24 Parganas','c0150':'South 24 Parganas','c0151':'South 24 Parganas','c0152':'South 24 Parganas','c0153':'South 24 Parganas','c0154':'South 24 Parganas','c0155':'South 24 Parganas','c0156':'South 24 Parganas','c0157':'South 24 Parganas','c0158':'South 24 Parganas','c0159':'Kolkata','c0160':'Kolkata',
+  'c0161':'Kolkata','c0162':'Kolkata','c0163':'Kolkata','c0164':'Kolkata','c0165':'Kolkata','c0166':'Kolkata','c0167':'Kolkata','c0168':'Kolkata','c0169':'Kolkata','c0170':'Kolkata','c0171':'Kolkata','c0172':'Kolkata','c0173':'Kolkata','c0174':'Kolkata','c0175':'Kolkata',
+  'c0176':'Howrah','c0177':'Howrah','c0178':'Howrah','c0179':'Howrah','c0180':'Howrah','c0181':'Howrah','c0182':'Howrah','c0183':'Howrah','c0184':'Howrah','c0185':'Howrah','c0186':'Howrah','c0187':'Howrah','c0188':'Howrah','c0189':'Howrah','c0190':'Howrah','c0191':'Howrah','c0192':'Howrah',
+  'c0193':'Hooghly','c0194':'Hooghly','c0195':'Hooghly','c0196':'Hooghly','c0197':'Hooghly','c0198':'Hooghly','c0199':'Hooghly','c0200':'Hooghly','c0201':'Hooghly','c0202':'Hooghly','c0203':'Hooghly','c0204':'Hooghly','c0205':'Hooghly','c0206':'Hooghly','c0207':'Hooghly','c0208':'Hooghly','c0209':'Hooghly','c0210':'Hooghly','c0211':'Hooghly',
+  'c0212':'Purba Medinipur','c0213':'Purba Medinipur','c0214':'Purba Medinipur','c0215':'Purba Medinipur','c0216':'Purba Medinipur','c0217':'Purba Medinipur','c0218':'Purba Medinipur','c0219':'Purba Medinipur','c0220':'Purba Medinipur','c0221':'Purba Medinipur','c0222':'Purba Medinipur','c0223':'Purba Medinipur','c0224':'Purba Medinipur','c0225':'Purba Medinipur','c0226':'Purba Medinipur','c0227':'Purba Medinipur','c0228':'Purba Medinipur',
+  'c0229':'Paschim Medinipur','c0230':'Paschim Medinipur','c0231':'Paschim Medinipur','c0232':'Paschim Medinipur','c0233':'Paschim Medinipur','c0234':'Paschim Medinipur','c0235':'Paschim Medinipur','c0236':'Paschim Medinipur','c0237':'Paschim Medinipur','c0238':'Paschim Medinipur','c0239':'Paschim Medinipur','c0240':'Paschim Medinipur','c0241':'Paschim Medinipur','c0242':'Paschim Medinipur','c0243':'Paschim Medinipur','c0244':'Paschim Medinipur',
+  'c0245':'Jhargram','c0246':'Jhargram','c0247':'Jhargram','c0248':'Jhargram',
+  'c0249':'Purulia','c0250':'Purulia','c0251':'Purulia','c0252':'Purulia','c0253':'Purulia','c0254':'Purulia','c0255':'Purulia','c0256':'Purulia','c0257':'Purulia',
+  'c0258':'Bankura','c0259':'Bankura','c0260':'Bankura','c0261':'Bankura','c0262':'Bankura','c0263':'Bankura','c0264':'Bankura','c0265':'Bankura','c0266':'Bankura','c0267':'Bankura','c0268':'Bankura','c0269':'Bankura',
+  'c0270':'Purba Bardhaman','c0271':'Purba Bardhaman','c0272':'Purba Bardhaman','c0273':'Purba Bardhaman','c0274':'Purba Bardhaman','c0275':'Purba Bardhaman','c0276':'Purba Bardhaman','c0277':'Purba Bardhaman','c0278':'Purba Bardhaman','c0279':'Purba Bardhaman','c0280':'Purba Bardhaman','c0281':'Purba Bardhaman','c0282':'Purba Bardhaman','c0283':'Purba Bardhaman','c0284':'Purba Bardhaman','c0285':'Purba Bardhaman','c0286':'Purba Bardhaman','c0287':'Purba Bardhaman',
+  'c0288':'Paschim Bardhaman','c0289':'Paschim Bardhaman','c0290':'Paschim Bardhaman','c0291':'Paschim Bardhaman','c0292':'Paschim Bardhaman','c0293':'Paschim Bardhaman','c0294':'Paschim Bardhaman','c0295':'Paschim Bardhaman','c0296':'Paschim Bardhaman',
+  'c0297':'Birbhum','c0298':'Birbhum','c0299':'Birbhum','c0300':'Birbhum','c0301':'Birbhum','c0302':'Birbhum','c0303':'Birbhum','c0304':'Birbhum','c0305':'Birbhum','c0306':'Birbhum','c0307':'Birbhum',
+};
+
 async function main() {
   fs.mkdirSync(OUT_DIR, { recursive: true });
 
@@ -237,7 +264,7 @@ async function main() {
   for (let i = 0; i < ids.length; i++) {
     const id       = ids[i];
     const rawName  = nameMap.get(id);
-    const district = districtMap.get(id) ?? 'West Bengal';
+    const district = CORRECT_DISTRICTS[`c${id.padStart(4, '0')}`] ?? districtMap.get(id) ?? 'West Bengal';
     const res      = parseReservation(rawName);
     const cleanName = rawName.replace(/\s*\(SC\)|\s*\(ST\)/g, '').trim();
     const cId       = `c${id.padStart(4, '0')}`;

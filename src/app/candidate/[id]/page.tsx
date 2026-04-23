@@ -52,7 +52,6 @@ export default function CandidatePage({ params }: PageProps) {
 
   const infoRows = [
     { label: 'Age',               value: `${candidate.age} years` },
-    { label: 'Gender',            value: candidate.gender },
     { label: 'Education',         value: candidate.education },
     { label: 'Occupation',        value: candidate.occupation || 'Not declared' },
     ...(candidate.spouseProfession ? [{ label: 'Spouse Occupation', value: candidate.spouseProfession }] : []),
