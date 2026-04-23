@@ -8,9 +8,10 @@
 const { exec } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
+const vm   = require('vm');
 
-const DELAY_MS    = 350;
-const CONCURRENCY = 5;
+const DELAY_MS    = 800;
+const CONCURRENCY = 2;
 const CANDIDATES_FILE = path.resolve(__dirname, '../src/data/candidates.ts');
 
 function get(url, retries = 3) {
@@ -53,6 +54,35 @@ async function pool(tasks, concurrency) {
   return results;
 }
 
+/**
+ * Decode any eval(function(h,u,n,t,e,r){...}) challenge scripts in the page.
+ * myneta.info uses this packer to hide financial data from non-JS scrapers.
+ */
+function decodeChallenges(html) {
+  let extra = '';
+  let idx = 0;
+  while (true) {
+    const start = html.indexOf('<script>', idx);
+    if (start === -1) break;
+    const end = html.indexOf('</script>', start);
+    if (end === -1) break;
+    const content = html.slice(start + 8, end);
+    if (content.includes('eval(function(h,u,n,t,e,r)')) {
+      let written = '';
+      const ctx = {
+        document: { write: (s) => { written += s; } },
+        window: {}, location: { href: '' },
+        decodeURIComponent, escape, unescape,
+        String, Math, RegExp, parseInt,
+      };
+      try { vm.runInNewContext(content, ctx); } catch (_) {}
+      if (written.length > 0) extra += written + '\n';
+    }
+    idx = end + 9;
+  }
+  return extra;
+}
+
 function parseRupees(s) {
   if (!s) return 0;
   const clean = s.replace(/Rs\.?|&nbsp;|,|\s/gi, '').trim();
@@ -68,23 +98,27 @@ function parseRupees(s) {
  * Movable/Immovable totals are the last purple-colored cell in each detail table.
  */
 function parseFinancials(html) {
+  // Decode bot-protection challenge scripts — financial data is hidden in them
+  const decoded = decodeChallenges(html);
+  const full = html + '\n' + decoded;
+
   const result = { totalAssets: 0, totalLiabilities: 0, movableAssets: 0, immovableAssets: 0 };
 
-  // Total assets from quick summary
-  const taM = html.match(/Assets:\s*<\/td>\s*<td[^>]*>\s*<b>Rs[&nbsp;\s]*([\d,]+)<\/b>/i);
+  // Total assets from quick summary (may be in decoded challenge content)
+  const taM = full.match(/Assets:\s*<\/td>\s*<td[^>]*>\s*<b>Rs[&nbsp;\s]*([\d,]+)<\/b>/i);
   if (taM) result.totalAssets = parseRupees(taM[1]);
 
   // Total liabilities from quick summary
-  const tlM = html.match(/Liabilities:\s*<\/td>\s*<td[^>]*>\s*<b>Rs[&nbsp;\s]*([\d,]+)<\/b>/i);
+  const tlM = full.match(/Liabilities:\s*<\/td>\s*<td[^>]*>\s*<b>Rs[&nbsp;\s]*([\d,]+)<\/b>/i);
   if (tlM) result.totalLiabilities = parseRupees(tlM[1]);
 
   // Movable assets — last purple total in #movable_assets table
   // Bound the section at the start of #immovable_assets to avoid cross-table bleed
-  const movIdx  = html.indexOf('id=movable_assets');
-  const imovIdx = html.indexOf('id=immovable_assets');
+  const movIdx  = full.indexOf('id=movable_assets');
+  const imovIdx = full.indexOf('id=immovable_assets');
   if (movIdx !== -1) {
     const movEnd     = imovIdx !== -1 ? imovIdx : movIdx + 15000;
-    const movSection = html.slice(movIdx, Math.min(movEnd, movIdx + 15000));
+    const movSection = full.slice(movIdx, Math.min(movEnd, movIdx + 15000));
     const purpleMatches = [...movSection.matchAll(/color:purple[^>]*><b>\s*Rs[&nbsp;\s]*([\d,]+)\s*<\/b>/gi)];
     if (purpleMatches.length > 0) {
       result.movableAssets = parseRupees(purpleMatches[purpleMatches.length - 1][1]);
@@ -93,10 +127,10 @@ function parseFinancials(html) {
 
   // Immovable assets — last purple total in #immovable_assets table
   // Bound the section at the start of #liabilities to avoid cross-table bleed
-  const liabIdx = html.indexOf('id=liabilities');
+  const liabIdx = full.indexOf('id=liabilities');
   if (imovIdx !== -1) {
     const imovEnd     = liabIdx !== -1 ? liabIdx : imovIdx + 15000;
-    const imovSection = html.slice(imovIdx, Math.min(imovEnd, imovIdx + 15000));
+    const imovSection = full.slice(imovIdx, Math.min(imovEnd, imovIdx + 15000));
     const purpleMatches = [...imovSection.matchAll(/color:purple[^>]*><b>\s*Rs[&nbsp;\s]*([\d,]+)\s*<\/b>/gi)];
     if (purpleMatches.length > 0) {
       result.immovableAssets = parseRupees(purpleMatches[purpleMatches.length - 1][1]);
