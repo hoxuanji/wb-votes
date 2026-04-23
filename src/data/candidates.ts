@@ -46,11 +46,13 @@ export const candidates: Candidate[] = [
     "gender": "Female",
     "education": "5th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 307500,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1364",
-    "occupation": "House Wife"
+    "occupation": "House Wife",
+    "movableAssets": 7500,
+    "immovableAssets": 300000
   },
   {
     "id": "wb26_1365",
@@ -94,11 +96,13 @@ export const candidates: Candidate[] = [
     "gender": "Female",
     "education": "10th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 2440000,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=646",
-    "occupation": "House Wife"
+    "occupation": "House Wife",
+    "movableAssets": 445000,
+    "immovableAssets": 2000000
   },
   {
     "id": "wb26_478",
@@ -206,11 +210,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Doctorate",
     "criminalCases": 2,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 8381791,
+    "totalLiabilities": 3600000,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=469",
-    "occupation": "Assistant Professor, Coochbehar Panchanan Barma University"
+    "occupation": "Assistant Professor, Coochbehar Panchanan Barma University",
+    "movableAssets": 6007791,
+    "immovableAssets": 2374000
   },
   {
     "id": "wb26_1444",
@@ -417,11 +423,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "12th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 3859792,
+    "totalLiabilities": 69000,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1468",
-    "occupation": "Farmer"
+    "occupation": "Farmer",
+    "movableAssets": 1409792,
+    "immovableAssets": 2550000
   },
   {
     "id": "wb26_643",
@@ -465,11 +473,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "12th Pass",
     "criminalCases": 1,
-    "totalAssets": 0,
+    "totalAssets": 25000,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=196",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "movableAssets": 25000
   },
   {
     "id": "wb26_229",
@@ -545,11 +554,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "12th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 867794,
+    "totalLiabilities": 41000,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1466",
-    "occupation": "Farmer"
+    "occupation": "Farmer",
+    "movableAssets": 67794,
+    "immovableAssets": 800000
   },
   {
     "id": "wb26_1458",
@@ -593,11 +604,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Graduate Professional",
     "criminalCases": 11,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 17952323,
+    "totalLiabilities": 796322,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=227",
-    "occupation": "Advocate"
+    "occupation": "Advocate",
+    "movableAssets": 11254596,
+    "immovableAssets": 6697723
   },
   {
     "id": "wb26_1454",
@@ -641,11 +654,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Graduate",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 158000,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1456",
-    "occupation": "Cultivation"
+    "occupation": "Cultivation",
+    "movableAssets": 158000
   },
   {
     "id": "wb26_642",
@@ -820,11 +834,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Post Graduate",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 16603295,
+    "totalLiabilities": 3008100,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=283",
-    "occupation": "Assistant Teacher (Gossairhat High School)"
+    "occupation": "Assistant Teacher (Gossairhat High School)",
+    "immovableAssets": 8950000
   },
   {
     "id": "wb26_58",
@@ -982,11 +997,13 @@ export const candidates: Candidate[] = [
     "gender": "Female",
     "education": "12th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 3470511,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=57",
-    "occupation": "House Wife"
+    "occupation": "House Wife",
+    "movableAssets": 270511,
+    "immovableAssets": 3200000
   },
   {
     "id": "wb26_1210",
@@ -1030,11 +1047,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "12th Pass",
     "criminalCases": 2,
-    "totalAssets": 0,
+    "totalAssets": 8488395,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=582",
-    "occupation": "Retired Person"
+    "occupation": "Retired Person",
+    "movableAssets": 488395,
+    "immovableAssets": 8000000
   },
   {
     "id": "wb26_1212",
@@ -1110,11 +1129,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "12th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 315000,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=935",
-    "occupation": "Cultivation"
+    "occupation": "Cultivation",
+    "movableAssets": 315000
   },
   {
     "id": "wb26_644",
@@ -1158,11 +1178,13 @@ export const candidates: Candidate[] = [
     "gender": "Female",
     "education": "Graduate",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 1250125,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=937",
-    "occupation": "House wife"
+    "occupation": "House wife",
+    "movableAssets": 50125,
+    "immovableAssets": 1200000
   },
   {
     "id": "wb26_936",
@@ -1238,11 +1260,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Graduate Professional",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 16395775,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=484",
-    "occupation": "Advocate & Rented Income"
+    "occupation": "Advocate & Rented Income",
+    "movableAssets": 8980783,
+    "immovableAssets": 7414992
   },
   {
     "id": "wb26_647",
@@ -1286,11 +1310,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "10th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 2259204,
+    "totalLiabilities": 1813587,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1450",
-    "occupation": "Retired"
+    "occupation": "Retired",
+    "movableAssets": 1376204,
+    "immovableAssets": 900000
   },
   {
     "id": "wb26_1451",
@@ -1366,11 +1392,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Others",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 2390000,
+    "totalLiabilities": 219284,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=481",
-    "occupation": "Cultivation"
+    "occupation": "Cultivation",
+    "immovableAssets": 800000
   },
   {
     "id": "wb26_266",
@@ -1673,11 +1700,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Post Graduate",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 5458166,
+    "totalLiabilities": 687322,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=403",
-    "occupation": "Para Teacher of Hasimara Hindi High School"
+    "occupation": "Para Teacher of Hasimara Hindi High School",
+    "movableAssets": 2958166,
+    "immovableAssets": 2500000
   },
   {
     "id": "wb26_107",
@@ -1721,11 +1750,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Others",
     "criminalCases": 1,
-    "totalAssets": 0,
+    "totalAssets": 1066246,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=404",
-    "occupation": "Self Employed (Samll Business)"
+    "occupation": "Self Employed (Samll Business)",
+    "movableAssets": 466246,
+    "immovableAssets": 600000
   },
   {
     "id": "wb26_1407",
@@ -1785,11 +1816,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Illiterate",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 520000,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=125",
-    "occupation": "Bi-Cycle Repairing Shop"
+    "occupation": "Bi-Cycle Repairing Shop",
+    "movableAssets": 220000,
+    "immovableAssets": 600000
   },
   {
     "id": "wb26_919",
@@ -1833,11 +1866,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "10th Pass",
     "criminalCases": 1,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 23887623,
+    "totalLiabilities": 7349458,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=918",
-    "occupation": "Business"
+    "occupation": "Business",
+    "movableAssets": 13781573,
+    "immovableAssets": 10100000
   },
   {
     "id": "wb26_124",
@@ -1929,11 +1964,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Post Graduate",
     "criminalCases": 7,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 13683978,
+    "totalLiabilities": 1689758,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=118",
-    "occupation": "Headmaster of Deogaon High School, Falakata"
+    "occupation": "Headmaster of Deogaon High School, Falakata",
+    "movableAssets": 8553429,
+    "immovableAssets": 4750000
   },
   {
     "id": "wb26_538",
@@ -1977,11 +2014,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "10th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 23410246,
+    "totalLiabilities": 1073414,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=250",
-    "occupation": "Agriculture & Business"
+    "occupation": "Agriculture & Business",
+    "movableAssets": 3010246,
+    "immovableAssets": 20400000
   },
   {
     "id": "wb26_539",
@@ -2057,11 +2096,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "12th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 54432,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=452",
-    "occupation": "Self Employed"
+    "occupation": "Self Employed",
+    "movableAssets": 54432
   },
   {
     "id": "wb26_450",
@@ -2105,11 +2145,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "10th Pass",
     "criminalCases": 1,
-    "totalAssets": 0,
+    "totalAssets": 1797088,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=154",
-    "occupation": "Self Employed"
+    "occupation": "Self Employed",
+    "movableAssets": 1447088,
+    "immovableAssets": 350000
   },
   {
     "id": "wb26_1124",
@@ -2185,11 +2227,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "8th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 165391,
+    "totalLiabilities": 90000,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=865",
-    "occupation": "Business"
+    "occupation": "Business",
+    "movableAssets": 165391
   },
   {
     "id": "wb26_868",
@@ -3260,11 +3303,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Graduate",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 282230,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=655",
-    "occupation": "Tea Garden Staff"
+    "occupation": "Tea Garden Staff",
+    "movableAssets": 282230
   },
   {
     "id": "wb26_98",
@@ -3467,11 +3511,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Graduate",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 17034574,
+    "totalLiabilities": 3729,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1184",
-    "occupation": "Retired Employee"
+    "occupation": "Retired Employee",
+    "movableAssets": 1969574,
+    "immovableAssets": 15000000
   },
   {
     "id": "wb26_1180",
@@ -3515,11 +3561,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Others",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 1981188,
+    "totalLiabilities": 237736,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=660",
-    "occupation": "Business / Employed"
+    "occupation": "Business / Employed",
+    "movableAssets": 981188,
+    "immovableAssets": 1000000
   },
   {
     "id": "wb26_1181",
@@ -3579,11 +3627,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "12th Pass",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 39600,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=524",
-    "occupation": "Self Employed"
+    "occupation": "Self Employed",
+    "movableAssets": 39600
   },
   {
     "id": "wb26_526",
@@ -3627,11 +3676,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "8th Pass",
     "criminalCases": 2,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 1284024,
+    "totalLiabilities": 77486,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=523",
-    "occupation": "Self Employed"
+    "occupation": "Self Employed",
+    "movableAssets": 1284024
   },
   {
     "id": "wb26_100",
@@ -3675,11 +3725,13 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Post Graduate",
     "criminalCases": 0,
-    "totalAssets": 0,
-    "totalLiabilities": 0,
+    "totalAssets": 26252327,
+    "totalLiabilities": 17148800,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1139",
-    "occupation": "Business"
+    "occupation": "Business",
+    "movableAssets": 10395000,
+    "immovableAssets": 16356400
   },
   {
     "id": "wb26_1136",
@@ -13866,11 +13918,12 @@ export const candidates: Candidate[] = [
     "gender": "Male",
     "education": "Post Graduate",
     "criminalCases": 0,
-    "totalAssets": 0,
+    "totalAssets": 1495000,
     "totalLiabilities": 0,
     "isIncumbent": false,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2763",
-    "occupation": "Business"
+    "occupation": "Business",
+    "movableAssets": 1495000
   },
   {
     "id": "wb26_2762",

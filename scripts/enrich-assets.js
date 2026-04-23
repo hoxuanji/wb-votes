@@ -17,7 +17,7 @@ function get(url, retries = 3) {
   return new Promise((resolve, reject) => {
     const attempt = (n) => {
       exec(
-        `curl -s -L --max-time 20 \
+        `curl -s -L --compressed --max-time 20 \
           -H "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8" \
           -H "Accept-Language: en-US,en;q=0.5" \
           -H "Accept-Encoding: gzip, deflate" \
@@ -79,9 +79,12 @@ function parseFinancials(html) {
   if (tlM) result.totalLiabilities = parseRupees(tlM[1]);
 
   // Movable assets — last purple total in #movable_assets table
-  const movIdx = html.indexOf('id=movable_assets');
+  // Bound the section at the start of #immovable_assets to avoid cross-table bleed
+  const movIdx  = html.indexOf('id=movable_assets');
+  const imovIdx = html.indexOf('id=immovable_assets');
   if (movIdx !== -1) {
-    const movSection = html.slice(movIdx, movIdx + 15000);
+    const movEnd     = imovIdx !== -1 ? imovIdx : movIdx + 15000;
+    const movSection = html.slice(movIdx, Math.min(movEnd, movIdx + 15000));
     const purpleMatches = [...movSection.matchAll(/color:purple[^>]*><b>\s*Rs[&nbsp;\s]*([\d,]+)\s*<\/b>/gi)];
     if (purpleMatches.length > 0) {
       result.movableAssets = parseRupees(purpleMatches[purpleMatches.length - 1][1]);
@@ -89,9 +92,11 @@ function parseFinancials(html) {
   }
 
   // Immovable assets — last purple total in #immovable_assets table
-  const imovIdx = html.indexOf('id=immovable_assets');
+  // Bound the section at the start of #liabilities to avoid cross-table bleed
+  const liabIdx = html.indexOf('id=liabilities');
   if (imovIdx !== -1) {
-    const imovSection = html.slice(imovIdx, imovIdx + 15000);
+    const imovEnd     = liabIdx !== -1 ? liabIdx : imovIdx + 15000;
+    const imovSection = html.slice(imovIdx, Math.min(imovEnd, imovIdx + 15000));
     const purpleMatches = [...imovSection.matchAll(/color:purple[^>]*><b>\s*Rs[&nbsp;\s]*([\d,]+)\s*<\/b>/gi)];
     if (purpleMatches.length > 0) {
       result.immovableAssets = parseRupees(purpleMatches[purpleMatches.length - 1][1]);
