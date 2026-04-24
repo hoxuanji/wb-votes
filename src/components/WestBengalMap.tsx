@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, AlertTriangle, Calendar, X, RotateCcw, Info } from 'lucide-react';
+import { Users, AlertTriangle, Calendar, X, RotateCcw } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { wbAcPaths, AC_MAP_WIDTH, AC_MAP_HEIGHT } from '@/data/wb-ac-paths';
@@ -50,31 +50,13 @@ constituencies.forEach(c => {
 const pathIdSet = new Set(wbAcPaths.map(p => p.id));
 const MISSING_PATH_IDS = new Set(constituencies.filter(c => !pathIdSet.has(c.id)).map(c => c.id));
 
-// Color by candidate count: low=light blue → high=deep indigo
-const candidateCounts = Object.fromEntries(
-  Object.entries(candidatesByConstituency).map(([id, cands]) => [id, cands.length])
-);
-const maxCandCount = Math.max(...Object.values(candidateCounts), 1);
-
-function heatColor(id: string): string {
-  const count = candidateCounts[id] ?? 0;
-  if (count === 0) return '#dde4ef'; // light periwinkle for 0-candidate constituencies
-  const t = count / maxCandCount; // 0..1
-  // Interpolate: low=#bfdbfe (blue-200) → mid=#3b82f6 (blue-500) → high=#1e1b4b (indigo-950)
-  if (t < 0.5) {
-    const s = t * 2;
-    const r = Math.round(191 + (59 - 191) * s);
-    const g = Math.round(219 + (130 - 219) * s);
-    const b = Math.round(254 + (246 - 254) * s);
-    return `rgb(${r},${g},${b})`;
-  } else {
-    const s = (t - 0.5) * 2;
-    const r = Math.round(59 + (30 - 59) * s);
-    const g = Math.round(130 + (27 - 130) * s);
-    const b = Math.round(246 + (75 - 246) * s);
-    return `rgb(${r},${g},${b})`;
-  }
-}
+// Phase-based base colors
+const PHASE1_FILL = '#3b82f6';   // blue-500
+const PHASE2_FILL = '#a78bfa';   // violet-400
+const PHASE1_HOVER = '#1d4ed8';  // blue-700
+const PHASE2_HOVER = '#6d28d9';  // violet-700
+const PHASE1_DIM = '#bfdbfe';    // blue-200
+const PHASE2_DIM = '#ddd6fe';    // violet-200
 
 // Smooth viewBox animation hook
 function useAnimatedViewBox(target: string) {
@@ -294,6 +276,8 @@ export function WestBengalMap() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  const mapRowRef = useRef<HTMLDivElement>(null);
+  const panelRef = useRef<HTMLDivElement>(null);
 
   const districtConstIds = useMemo(() => {
     if (!selectedDistrict) return null;
@@ -320,6 +304,13 @@ export function WestBengalMap() {
   const handleMouseLeave = useCallback(() => { setHoveredId(null); }, []);
   const handleClick = useCallback((id: string) => { setPanel(prev => prev === id ? null : id); }, []);
 
+  // On desktop, scroll the map row into view when panel opens so it's always visible
+  useEffect(() => {
+    if (panel !== null && mapRowRef.current && window.innerWidth >= 1024) {
+      mapRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [panel]);
+
   const handleDistrictSelect = (district: string) => {
     setSelectedDistrict(prev => prev === district ? null : district);
     setPanel(null);
@@ -331,10 +322,11 @@ export function WestBengalMap() {
   };
 
   const getPathFill = (id: string) => {
-    if (districtConstIds && !districtConstIds.has(id)) return '#cbd5e1';
-    if (panel === id) return '#1d4ed8';
-    if (hoveredId === id) return '#3b82f6';
-    return heatColor(id);
+    const isP1 = PHASE1_IDS.has(id);
+    if (districtConstIds && !districtConstIds.has(id)) return isP1 ? PHASE1_DIM : PHASE2_DIM;
+    if (panel === id) return isP1 ? PHASE1_HOVER : PHASE2_HOVER;
+    if (hoveredId === id) return isP1 ? PHASE1_HOVER : PHASE2_HOVER;
+    return isP1 ? PHASE1_FILL : PHASE2_FILL;
   };
 
   const isZoomedIn = selectedDistrict !== null;
@@ -369,9 +361,9 @@ export function WestBengalMap() {
         </div>
       </div>
 
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        {/* Map — takes full width when no panel, shares space when panel open */}
-        <div className={`w-full ${panel !== null ? 'lg:w-[52%] flex-shrink-0' : ''}`}>
+      <div ref={mapRowRef} className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {/* Map — 700px cap when no panel, 52% when panel open */}
+        <div className={`w-full ${panel !== null ? 'lg:w-[52%] flex-shrink-0' : 'lg:max-w-[700px]'}`}>
           <div className="relative rounded-2xl border border-gray-200 bg-slate-50 shadow-inner">
             <svg
               viewBox={viewBox}
@@ -405,15 +397,15 @@ export function WestBengalMap() {
               </div>
             )}
 
-            {/* Heatmap legend (bottom-left) */}
-            <div className="absolute bottom-3 left-3 flex flex-col gap-1 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Candidates</p>
+            {/* Phase legend (bottom-left) */}
+            <div className="absolute bottom-3 left-3 flex flex-col gap-1.5 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
               <div className="flex items-center gap-1.5">
-                <div className="h-2.5 w-16 rounded-full" style={{ background: 'linear-gradient(to right, #bfdbfe, #3b82f6, #1e1b4b)' }} />
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE1_FILL }} />
+                <span className="text-[9px] font-medium text-gray-600">Phase 1 · 23 Apr</span>
               </div>
-              <div className="flex justify-between text-[9px] text-gray-500">
-                <span>Fewer</span>
-                <span>More</span>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE2_FILL }} />
+                <span className="text-[9px] font-medium text-gray-600">Phase 2 · 29 Apr</span>
               </div>
             </div>
 
@@ -429,20 +421,19 @@ export function WestBengalMap() {
             )}
           </div>
 
-          {/* Missing-path notice */}
+          {/* Missing-path notice — only shown if data gap exists */}
           {MISSING_PATH_IDS.size > 0 && (
-            <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
-              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+            <div className="mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
               <p className="text-[10px] text-amber-700">
-                Map boundaries for {MISSING_PATH_IDS.size} constituencies in Birbhum &amp; Paschim Bardhaman are pending. Tap a district pill above to browse them.
+                Map boundaries for {MISSING_PATH_IDS.size} constituencies are pending.
               </p>
             </div>
           )}
         </div>
 
-        {/* Side panel — slides in without resizing the map */}
+        {/* Side panel */}
         {panel !== null && (
-          <div className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:flex-1" style={{ maxHeight: '640px' }}>
+          <div ref={panelRef} className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:flex-1" style={{ maxHeight: '640px' }}>
             <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
           </div>
         )}
@@ -463,24 +454,48 @@ export function WestBengalMap() {
             {(constituenciesByDistrict[selectedDistrict] ?? [])
               .sort((a, b) => a.assemblyNumber - b.assemblyNumber)
               .map(c => {
-                const candCount = (candidatesByConstituency[c.id] ?? []).length;
-                const hasBoundary = pathIdSet.has(c.id);
+                const cands = candidatesByConstituency[c.id] ?? [];
+                const isP1 = PHASE1_IDS.has(c.id);
+                // Top 5 parties by candidate count
+                const partyCounts: Record<string, number> = {};
+                cands.forEach(cd => { partyCounts[cd.partyId] = (partyCounts[cd.partyId] || 0) + 1; });
+                const topParties = Object.entries(partyCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
+                const crimCount = cands.filter(cd => cd.criminalCases > 0).length;
                 return (
                   <Link
                     key={c.id}
                     href={`/constituency/${c.id}`}
-                    className="rounded-xl border border-gray-200 bg-white p-3 transition-all hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm"
+                    className="group rounded-xl border border-gray-200 bg-white p-3 transition-all hover:border-blue-300 hover:shadow-md"
                   >
-                    <p className="text-xs font-semibold leading-tight text-gray-900">{c.name}</p>
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                    {/* Name + candidate count */}
+                    <div className="flex items-start justify-between gap-1">
+                      <p className="text-xs font-bold leading-tight text-gray-900 group-hover:text-blue-700">{c.name}</p>
+                      <span className="shrink-0 text-base font-extrabold leading-none" style={{ color: isP1 ? PHASE1_FILL : PHASE2_FILL }}>
+                        {cands.length}
+                      </span>
+                    </div>
+                    {/* Phase */}
+                    <p className="mt-0.5 text-[10px] text-gray-400">
+                      {isP1 ? 'Phase 1 · 23 Apr' : 'Phase 2 · 29 Apr'}
+                    </p>
+                    {/* Party color dots */}
+                    <div className="mt-2 flex items-center gap-1">
+                      {topParties.map(([pid]) => (
+                        <span
+                          key={pid}
+                          className="h-2 w-2 rounded-full ring-1 ring-white"
+                          style={{ backgroundColor: partyById[pid]?.color ?? '#94a3b8' }}
+                          title={partyById[pid]?.abbreviation ?? pid}
+                        />
+                      ))}
+                      <span className="flex-1" />
                       {c.reservation !== 'General' && (
-                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{c.reservation}</span>
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">{c.reservation}</span>
                       )}
-                      {candCount > 0 && (
-                        <span className="text-[10px] text-gray-400">{candCount} cands</span>
-                      )}
-                      {!hasBoundary && (
-                        <span className="text-[10px] text-amber-500">no map</span>
+                      {crimCount > 0 && (
+                        <span className="flex items-center gap-0.5 text-[9px] text-red-500">
+                          <AlertTriangle className="h-2.5 w-2.5" />{crimCount}
+                        </span>
                       )}
                     </div>
                   </Link>
