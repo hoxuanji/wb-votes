@@ -652,7 +652,7 @@ export function WestBengalMap() {
         </div>
       </div>
 
-      <div ref={mapRowRef} className="flex flex-col gap-4 lg:flex-row lg:items-start">
+      <div ref={mapRowRef} className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
         {/* Left: map type tabs + map SVG */}
         <div className="w-full lg:w-[52%] flex-shrink-0">
           {/* Map type selector */}
@@ -747,14 +747,14 @@ export function WestBengalMap() {
 
           {/* Mobile: constituency panel below map */}
           {panel !== null && (
-            <div className="mt-4 lg:hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ maxHeight: '560px' }}>
+            <div className="mt-4 lg:hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
               <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
             </div>
           )}
         </div>
 
         {/* Right: always-visible on desktop — constituency panel or insights */}
-        <div className="hidden lg:flex lg:flex-1 min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ maxHeight: '640px' }}>
+        <div className="hidden lg:flex lg:flex-1 min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
           {panel !== null ? (
             <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
           ) : (
