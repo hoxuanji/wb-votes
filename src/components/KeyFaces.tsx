@@ -228,7 +228,7 @@ export function KeyFaces() {
           </span>
         </div>
         <p className="mb-6 text-sm text-gray-500">
-          Real data from ECI affidavits — 4 of 12 spotlight angles, rotating every day
+          Real data from ECI affidavits — who stands out on the ballot?
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           {spotlights.map(({ candidate: c, icon, label, stat, statLabel, accent, bg, border }) => {

@@ -9,7 +9,7 @@ import { ElectionNews } from '@/components/ElectionNews';
 import { LastSearchedBanner } from '@/components/LastSearchedBanner';
 import { constituencies } from '@/data/constituencies';
 import { candidates } from '@/data/candidates';
-import { CandidatesWatch } from '@/components/CandidatesWatch';
+import { MoneyInPolitics } from '@/components/MoneyInPolitics';
 import { ClipboardList, ArrowRight, Search, BarChart2, Scale } from 'lucide-react';
 import Link from 'next/link';
 
@@ -143,9 +143,9 @@ export default function HomePage() {
         </div>
       </div>
 
-      {/* ── Candidates to Watch ──────────────────────────────────────────── */}
+      {/* ── Money in Politics ────────────────────────────────────────────── */}
       <div className="bg-gradient-to-b from-slate-50 to-white">
-        <CandidatesWatch />
+        <MoneyInPolitics />
       </div>
 
       {/* ── Party Strength ───────────────────────────────────────────────── */}
