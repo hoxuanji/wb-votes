@@ -3,7 +3,7 @@ import type { Party } from '@/types';
 
 export const parties: Party[] = [
   // Major national parties
-  { id: 'AITC',   name: 'All India Trinamool Congress',          nameBn: 'সর্বভারতীয় তৃণমূল কংগ্রেস',           abbreviation: 'TMC',     color: '#1B5E20', isNational: true,  symbolUrl: '/images/parties/aitc.svg' },
+  { id: 'AITC',   name: 'All India Trinamool Congress',          nameBn: 'সর্বভারতীয় তৃণমূল কংগ্রেস',           abbreviation: 'TMC',     color: '#1B5E20', isNational: true,  symbolUrl: '/images/parties/aitc.png' },
   { id: 'BJP',    name: 'Bharatiya Janata Party',                nameBn: 'ভারতীয় জনতা পার্টি',                   abbreviation: 'BJP',     color: '#E65100', isNational: true,  symbolUrl: '/images/parties/bjp.jpg'  },
   { id: 'INC',    name: 'Indian National Congress',              nameBn: 'ভারতীয় জাতীয় কংগ্রেস',                abbreviation: 'INC',     color: '#1565C0', isNational: true,  symbolUrl: '/images/parties/inc.jpg'  },
   { id: 'BSP',    name: 'Bahujan Samaj Party',                   nameBn: 'বহুজন সমাজ পার্টি',                     abbreviation: 'BSP',     color: '#1A237E', isNational: true,  symbolUrl: '/images/parties/bsp.jpg'  },
@@ -13,10 +13,10 @@ export const parties: Party[] = [
   { id: 'SUCI',   name: 'Socialist Unity Centre of India (Communist)', nameBn: 'সমাজতান্ত্রিক ঐক্য কেন্দ্র ভারত', abbreviation: 'SUCI(C)', color: '#880E4F', isNational: false, symbolUrl: '/images/parties/suci.svg' },
   { id: 'RSP',    name: 'Revolutionary Socialist Party',         nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি',          abbreviation: 'RSP',     color: '#C62828', isNational: false, symbolUrl: '/images/parties/rsp.jpg'  },
   { id: 'REVOLUTIONARY SOCIALIST PARTY', name: 'Revolutionary Socialist Party', nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি', abbreviation: 'RSP', color: '#C62828', isNational: false },
-  { id: 'ALL INDIA FORWARD BLOC', name: 'All India Forward Bloc', nameBn: 'সর্বভারতীয় ফরওয়ার্ড ব্লক',          abbreviation: 'AIFB',    color: '#D84315', isNational: false },
+  { id: 'ALL INDIA FORWARD BLOC', name: 'All India Forward Bloc', nameBn: 'সর্বভারতীয় ফরওয়ার্ড ব্লক',          abbreviation: 'AIFB',    color: '#D84315', isNational: false, symbolUrl: '/images/parties/aifb.png' },
 
   // WB regional parties
-  { id: 'ALL INDIA SECULAR FRONT', name: 'All India Secular Front', nameBn: 'সর্বভারতীয় সেকুলার ফ্রন্ট',        abbreviation: 'AISF',    color: '#4A148C', isNational: false },
+  { id: 'ALL INDIA SECULAR FRONT', name: 'All India Secular Front', nameBn: 'সর্বভারতীয় সেকুলার ফ্রন্ট',        abbreviation: 'AISF',    color: '#4A148C', isNational: false, symbolUrl: '/images/parties/aisf.png' },
   { id: 'AMRA BANGALEE',           name: 'Amra Bangalee',            nameBn: 'আমরা বাঙালি',                        abbreviation: 'AB',      color: '#006064', isNational: false },
   { id: 'AAM JANATA UNNAYAN PARTY',name: 'Aam Janata Unnayan Party', nameBn: 'আম জনতা উন্নয়ন পার্টি',             abbreviation: 'AJUP',    color: '#2E7D32', isNational: false },
   { id: 'KAMATAPUR PEOPLES PARTY (UNITED)', name: 'Kamatapur Peoples Party (United)', nameBn: 'কামতাপুর পিপলস পার্টি (ইউনাইটেড)', abbreviation: 'KPP',  color: '#795548', isNational: false },
@@ -25,13 +25,13 @@ export const parties: Party[] = [
   { id: 'GANA SURAKSHA PARTY',     name: 'Gana Suraksha Party',      nameBn: 'গণ সুরক্ষা পার্টি',                 abbreviation: 'GSP',     color: '#546E7A', isNational: false },
 
   // North Bengal / Gorkha parties
-  { id: 'AKHIL BHARATIYA GORKHA LEAGUE', name: 'Akhil Bharatiya Gorkha League', nameBn: 'অখিল ভারতীয় গোর্খা লিগ', abbreviation: 'ABGL',   color: '#4E342E', isNational: false },
-  { id: 'BHARATIYA GORKHA PRAJATANTRIK MORCHA', name: 'Bharatiya Gorkha Prajatantrik Morcha', nameBn: 'ভারতীয় গোর্খা প্রজাতান্ত্রিক মোর্চা', abbreviation: 'BGPM', color: '#3E2723', isNational: false },
+  { id: 'AKHIL BHARATIYA GORKHA LEAGUE', name: 'Akhil Bharatiya Gorkha League', nameBn: 'অখিল ভারতীয় গোর্খা লিগ', abbreviation: 'ABGL',   color: '#4E342E', isNational: false, symbolUrl: '/images/parties/abgl.png' },
+  { id: 'BHARATIYA GORKHA PRAJATANTRIK MORCHA', name: 'Bharatiya Gorkha Prajatantrik Morcha', nameBn: 'ভারতীয় গোর্খা প্রজাতান্ত্রিক মোর্চা', abbreviation: 'BGPM', color: '#3E2723', isNational: false, symbolUrl: '/images/parties/bgpm.png' },
 
   // Muslim parties
-  { id: 'ALL INDIA MAJLIS-E-ITTEHADUL MUSLIMEEN', name: 'All India Majlis-e-Ittehadul Muslimeen', nameBn: 'অল ইন্ডিয়া মজলিস-ই-ইত্তেহাদুল মুসলিমীন', abbreviation: 'AIMIM', color: '#01579B', isNational: false },
+  { id: 'ALL INDIA MAJLIS-E-ITTEHADUL MUSLIMEEN', name: 'All India Majlis-e-Ittehadul Muslimeen', nameBn: 'অল ইন্ডিয়া মজলিস-ই-ইত্তেহাদুল মুসলিমীন', abbreviation: 'AIMIM', color: '#01579B', isNational: false, symbolUrl: '/images/parties/aimim.png' },
   { id: 'ALL INDIA MAJLIS-E-INQUILAB-E-MILLAT', name: 'All India Majlis-e-Inquilab-e-Millat', nameBn: 'অল ইন্ডিয়া মজলিস-ই-ইনকিলাব-ই-মিল্লত', abbreviation: 'MAIM', color: '#0277BD', isNational: false },
-  { id: 'WELFARE PARTY OF INDIA',  name: 'Welfare Party of India',   nameBn: 'ওয়েলফেয়ার পার্টি অব ইন্ডিয়া',    abbreviation: 'WPI',     color: '#004D40', isNational: false },
+  { id: 'WELFARE PARTY OF INDIA',  name: 'Welfare Party of India',   nameBn: 'ওয়েলফেয়ার পার্টি অব ইন্ডিয়া',    abbreviation: 'WPI',     color: '#004D40', isNational: false, symbolUrl: '/images/parties/wpi.jpg'  },
   { id: 'RASHTRIYA SECULAR MAJLIS PARTY', name: 'Rashtriya Secular Majlis Party', nameBn: 'রাষ্ট্রীয় সেকুলার মজলিস পার্টি', abbreviation: 'RSMP',  color: '#006064', isNational: false },
 
   // Others
