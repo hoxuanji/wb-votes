@@ -1,5 +1,6 @@
 import { parties } from '@/data/parties';
 import { candidates } from '@/data/candidates';
+import { PartySymbol } from '@/components/ui/PartySymbol';
 
 const MAJOR_PARTY_IDS = ['AITC', 'BJP', 'INC', 'CPI(M)'];
 
@@ -20,6 +21,7 @@ export function PartyStrength() {
       fullName: partyMap[id]?.name ?? id,
       count,
       color: partyMap[id]?.color ?? '#64748b',
+      symbolUrl: partyMap[id]?.symbolUrl,
     }));
 
   const max = rows[0]?.count ?? 1;
@@ -31,7 +33,10 @@ export function PartyStrength() {
       <div className="space-y-3">
         {rows.map(r => (
           <div key={r.id} className="flex items-center gap-3">
-            <div className="w-16 shrink-0 text-right text-xs font-semibold text-gray-700">{r.name}</div>
+            <div className="w-20 shrink-0 flex items-center justify-end gap-1.5">
+              <PartySymbol party={{ abbreviation: r.name, color: r.color, symbolUrl: r.symbolUrl }} size={20} />
+              <span className="text-xs font-semibold text-gray-700">{r.name}</span>
+            </div>
             <div className="flex-1 overflow-hidden rounded-full bg-gray-100 h-5">
               <div
                 className="flex h-full items-center rounded-full px-2 transition-all duration-500"

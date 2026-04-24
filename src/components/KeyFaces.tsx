@@ -5,6 +5,7 @@ import { candidates } from '@/data/candidates';
 import { constituencies } from '@/data/constituencies';
 import { parties } from '@/data/parties';
 import { formatCurrency } from '@/lib/utils';
+import { PartySymbol } from '@/components/ui/PartySymbol';
 
 const partyMap = Object.fromEntries(parties.map(p => [p.id, p]));
 const constMap = Object.fromEntries(constituencies.map(c => [c.id, c]));
@@ -117,12 +118,10 @@ export function KeyFaces() {
                     <p className="truncate text-sm font-bold text-gray-900 group-hover:text-blue-700">
                       {c.name}
                     </p>
-                    <span
-                      className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
-                      style={{ backgroundColor: party?.color ?? '#64748b' }}
-                    >
-                      {party?.abbreviation ?? c.partyId}
-                    </span>
+                    <div className="mt-0.5 flex items-center gap-1">
+                      <PartySymbol party={{ abbreviation: party?.abbreviation ?? c.partyId, color: party?.color ?? '#64748b', symbolUrl: party?.symbolUrl }} size={16} />
+                      <span className="text-[10px] font-semibold text-gray-600">{party?.abbreviation ?? c.partyId}</span>
+                    </div>
                   </div>
                 </div>
 

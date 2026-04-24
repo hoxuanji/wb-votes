@@ -11,6 +11,7 @@ import { getConstituencyById } from '@/data/constituencies';
 import { getPartyById } from '@/data/parties';
 import { Badge } from '@/components/ui/Badge';
 import { CandidateNews } from '@/components/CandidateNews';
+import { PartySymbol } from '@/components/ui/PartySymbol';
 import { formatCurrency } from '@/lib/utils';
 import type { PageProps } from '@/types';
 
@@ -104,6 +105,7 @@ export default function CandidatePage({ params }: PageProps) {
                   className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-semibold text-white"
                   style={{ backgroundColor: party.color }}
                 >
+                  <PartySymbol party={party} size={16} />
                   {party.abbreviation} · {party.name}
                 </span>
               </div>
