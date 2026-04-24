@@ -652,26 +652,26 @@ export function WestBengalMap() {
         </div>
       </div>
 
-      <div ref={mapRowRef} className="flex flex-col gap-4 lg:flex-row lg:items-stretch">
-        {/* Left: map type tabs + map SVG */}
-        <div className="w-full lg:w-[52%] flex-shrink-0">
-          {/* Map type selector */}
-          <div className="mb-3 flex gap-1.5">
-            {MAP_MODES.map(mode => (
-              <button
-                key={mode.id}
-                onClick={() => setMapMode(mode.id)}
-                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
-                  mapMode === mode.id
-                    ? 'bg-gray-900 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {mode.label}
-              </button>
-            ))}
-          </div>
+      {/* Map type selector — full width, above both columns so tops align */}
+      <div className="mb-3 flex gap-1.5">
+        {MAP_MODES.map(mode => (
+          <button
+            key={mode.id}
+            onClick={() => setMapMode(mode.id)}
+            className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+              mapMode === mode.id
+                ? 'bg-gray-900 text-white'
+                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            }`}
+          >
+            {mode.label}
+          </button>
+        ))}
+      </div>
 
+      <div ref={mapRowRef} className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {/* Left: map SVG */}
+        <div className="w-full lg:w-[52%] flex-shrink-0">
           <div className="relative rounded-2xl border border-gray-200 bg-slate-50 shadow-inner">
             <svg viewBox={viewBox} className="w-full rounded-2xl" style={{ display: 'block' }}>
               {wbAcPaths.map(ac => {
@@ -744,17 +744,10 @@ export function WestBengalMap() {
               </p>
             </div>
           )}
-
-          {/* Mobile: constituency panel below map */}
-          {panel !== null && (
-            <div className="mt-4 lg:hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-              <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
-            </div>
-          )}
         </div>
 
-        {/* Right: always-visible on desktop — constituency panel or insights */}
-        <div className="hidden lg:flex lg:flex-1 min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        {/* Right: constituency panel or insights — visible on all screen sizes */}
+        <div className="flex lg:flex-1 min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ maxHeight: '640px' }}>
           {panel !== null ? (
             <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
           ) : (
