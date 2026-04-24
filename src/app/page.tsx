@@ -10,6 +10,7 @@ import { LastSearchedBanner } from '@/components/LastSearchedBanner';
 import { constituencies } from '@/data/constituencies';
 import { candidates } from '@/data/candidates';
 import { MoneyInPolitics } from '@/components/MoneyInPolitics';
+import { SectionNav } from '@/components/SectionNav';
 import { ClipboardList, ArrowRight, Search, BarChart2, Scale } from 'lucide-react';
 import Link from 'next/link';
 
@@ -89,6 +90,8 @@ export default function HomePage() {
 
       <LastSearchedBanner />
 
+      <SectionNav />
+
       {/* ── Quiz CTA ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden bg-gradient-to-r from-violet-600 via-blue-600 to-indigo-600 px-4 py-7">
         {/* Subtle grid texture */}
@@ -116,7 +119,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Key Faces ────────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-b from-slate-50 to-white">
+      <div id="spotlight" className="bg-gradient-to-b from-slate-50 to-white">
         <KeyFaces />
       </div>
 
@@ -124,7 +127,7 @@ export default function HomePage() {
       <VoteCountdown />
 
       {/* ── Map ──────────────────────────────────────────────────────────── */}
-      <section className="bg-white px-4 py-10">
+      <section id="map" className="bg-white px-4 py-10">
         <div className="mx-auto max-w-6xl">
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900">
@@ -137,19 +140,19 @@ export default function HomePage() {
       </section>
 
       {/* ── Hard-fought ──────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-b from-white to-slate-50">
+      <div id="hard-fought" className="bg-gradient-to-b from-white to-slate-50">
         <div className="border-t border-gray-100">
           <HardFought />
         </div>
       </div>
 
       {/* ── Money in Politics ────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-b from-slate-50 to-white">
+      <div id="money-power" className="bg-gradient-to-b from-slate-50 to-white">
         <MoneyInPolitics />
       </div>
 
       {/* ── Party Strength ───────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-b from-slate-50 to-white">
+      <div id="party-strength" className="bg-gradient-to-b from-slate-50 to-white">
         <div className="border-t border-gray-100">
           <PartyStrength />
         </div>
@@ -183,12 +186,12 @@ export default function HomePage() {
       </div>
 
       {/* ── Election News ─────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-b from-slate-50 to-white">
+      <div id="news" className="bg-gradient-to-b from-slate-50 to-white">
         <ElectionNews />
       </div>
 
       {/* ── Party Funding ─────────────────────────────────────────────────── */}
-      <div className="bg-gradient-to-b from-white to-slate-50">
+      <div id="party-funding" className="bg-gradient-to-b from-white to-slate-50">
         <PartyFunding />
       </div>
 

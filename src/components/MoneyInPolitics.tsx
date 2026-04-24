@@ -4,7 +4,7 @@ import { AlertTriangle, Info, CheckCircle, XCircle, MinusCircle } from 'lucide-r
 import { candidates } from '@/data/candidates';
 import { parties } from '@/data/parties';
 import { partyFundingData } from '@/data/party-funding';
-import { partyContext } from '@/data/party-context';
+import { partyContext, type PartyContextEntry } from '@/data/party-context';
 import { formatCurrency } from '@/lib/utils';
 
 const partyMap = Object.fromEntries(parties.map(p => [p.id, p]));
@@ -25,7 +25,7 @@ interface PartyProfile {
   wbPresence: string;
   distinctiveFact: string;
   distinctiveFactType: 'positive' | 'negative' | 'neutral';
-  notableIssues: Array<{ year: number; title: string; summary: string }>;
+  notableIssues: PartyContextEntry['notableIssues'];
   // national funding
   electoralBonds: number;
   directDonations: number;
@@ -170,6 +170,15 @@ export function MoneyInPolitics() {
                         <div>
                           <p className="text-xs font-semibold text-gray-800">{issue.title}</p>
                           <p className="text-[11px] leading-relaxed text-gray-500">{issue.summary}</p>
+                          {issue.leaders && issue.leaders.length > 0 && (
+                            <div className="mt-1 flex flex-wrap gap-1">
+                              {issue.leaders.map(name => (
+                                <span key={name} className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                                  {name}
+                                </span>
+                              ))}
+                            </div>
+                          )}
                         </div>
                       </div>
                     ))}

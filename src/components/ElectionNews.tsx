@@ -17,7 +17,15 @@ function timeAgo(dateStr: string): string {
   const diff = Math.floor((Date.now() - d.getTime()) / 1000);
   if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
   if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatDate(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
 }
 
 export function ElectionNews() {
@@ -83,12 +91,15 @@ export function ElectionNews() {
               <p className="flex-1 text-sm font-semibold text-gray-800 group-hover:text-blue-700 leading-snug line-clamp-3">
                 {a.title}
               </p>
-              <div className="mt-3 flex items-center justify-between text-[11px] text-gray-400">
-                <span className="font-medium text-gray-500 truncate max-w-[60%]">{a.source}</span>
-                <span className="flex items-center gap-1">
+              <div className="mt-3 flex items-center justify-between gap-2 text-[11px] text-gray-400">
+                <span className="font-medium text-gray-500 truncate">{a.source}</span>
+                <span className="flex shrink-0 items-center gap-1">
                   <Clock className="h-2.5 w-2.5" />
-                  {timeAgo(a.pubDate)}
-                  <ExternalLink className="ml-1 h-2.5 w-2.5 text-blue-300 group-hover:text-blue-500" />
+                  <span>{timeAgo(a.pubDate)}</span>
+                  {formatDate(a.pubDate) && (
+                    <span className="text-gray-300">· {formatDate(a.pubDate)}</span>
+                  )}
+                  <ExternalLink className="ml-0.5 h-2.5 w-2.5 text-blue-300 group-hover:text-blue-500" />
                 </span>
               </div>
             </a>
