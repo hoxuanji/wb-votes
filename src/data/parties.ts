@@ -10,14 +10,14 @@ export const parties: Party[] = [
 
   // Left front
   { id: 'CPI(M)', name: 'Communist Party of India (Marxist)',    nameBn: 'ভারতের কমিউনিস্ট পার্টি (মার্ক্সবাদী)', abbreviation: 'CPM',     color: '#B71C1C', isNational: false, symbolUrl: '/images/parties/cpim.jpg' },
-  { id: 'SUCI',   name: 'Socialist Unity Centre of India (Communist)', nameBn: 'সমাজতান্ত্রিক ঐক্য কেন্দ্র ভারত', abbreviation: 'SUCI(C)', color: '#880E4F', isNational: false, symbolUrl: '/images/parties/suci.svg' },
+  { id: 'SUCI',   name: 'Socialist Unity Centre of India (Communist)', nameBn: 'সমাজতান্ত্রিক ঐক্য কেন্দ্র ভারত', abbreviation: 'SUCI(C)', color: '#880E4F', isNational: false, symbolUrl: '/images/parties/suci.png' },
   { id: 'RSP',    name: 'Revolutionary Socialist Party',         nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি',          abbreviation: 'RSP',     color: '#C62828', isNational: false, symbolUrl: '/images/parties/rsp.jpg'  },
   { id: 'REVOLUTIONARY SOCIALIST PARTY', name: 'Revolutionary Socialist Party', nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি', abbreviation: 'RSP', color: '#C62828', isNational: false },
   { id: 'ALL INDIA FORWARD BLOC', name: 'All India Forward Bloc', nameBn: 'সর্বভারতীয় ফরওয়ার্ড ব্লক',          abbreviation: 'AIFB',    color: '#D84315', isNational: false, symbolUrl: '/images/parties/aifb.png' },
 
   // WB regional parties
   { id: 'ALL INDIA SECULAR FRONT', name: 'All India Secular Front', nameBn: 'সর্বভারতীয় সেকুলার ফ্রন্ট',        abbreviation: 'AISF',    color: '#4A148C', isNational: false, symbolUrl: '/images/parties/aisf.png' },
-  { id: 'AMRA BANGALEE',           name: 'Amra Bangalee',            nameBn: 'আমরা বাঙালি',                        abbreviation: 'AB',      color: '#006064', isNational: false },
+  { id: 'AMRA BANGALEE',           name: 'Amra Bangalee',            nameBn: 'আমরা বাঙালি',                        abbreviation: 'AB',      color: '#006064', isNational: false, symbolUrl: '/images/parties/ab.jpg'   },
   { id: 'AAM JANATA UNNAYAN PARTY',name: 'Aam Janata Unnayan Party', nameBn: 'আম জনতা উন্নয়ন পার্টি',             abbreviation: 'AJUP',    color: '#2E7D32', isNational: false },
   { id: 'KAMATAPUR PEOPLES PARTY (UNITED)', name: 'Kamatapur Peoples Party (United)', nameBn: 'কামতাপুর পিপলস পার্টি (ইউনাইটেড)', abbreviation: 'KPP',  color: '#795548', isNational: false },
   { id: 'KAMATAPUR PEOPLE',        name: 'Kamatapur People',         nameBn: 'কামতাপুর পিপল',                     abbreviation: 'KP',      color: '#795548', isNational: false },
@@ -32,10 +32,10 @@ export const parties: Party[] = [
   { id: 'ALL INDIA MAJLIS-E-ITTEHADUL MUSLIMEEN', name: 'All India Majlis-e-Ittehadul Muslimeen', nameBn: 'অল ইন্ডিয়া মজলিস-ই-ইত্তেহাদুল মুসলিমীন', abbreviation: 'AIMIM', color: '#01579B', isNational: false, symbolUrl: '/images/parties/aimim.png' },
   { id: 'ALL INDIA MAJLIS-E-INQUILAB-E-MILLAT', name: 'All India Majlis-e-Inquilab-e-Millat', nameBn: 'অল ইন্ডিয়া মজলিস-ই-ইনকিলাব-ই-মিল্লত', abbreviation: 'MAIM', color: '#0277BD', isNational: false },
   { id: 'WELFARE PARTY OF INDIA',  name: 'Welfare Party of India',   nameBn: 'ওয়েলফেয়ার পার্টি অব ইন্ডিয়া',    abbreviation: 'WPI',     color: '#004D40', isNational: false, symbolUrl: '/images/parties/wpi.jpg'  },
-  { id: 'RASHTRIYA SECULAR MAJLIS PARTY', name: 'Rashtriya Secular Majlis Party', nameBn: 'রাষ্ট্রীয় সেকুলার মজলিস পার্টি', abbreviation: 'RSMP',  color: '#006064', isNational: false },
+  { id: 'RASHTRIYA SECULAR MAJLIS PARTY', name: 'Rashtriya Secular Majlis Party', nameBn: 'রাষ্ট্রীয় সেকুলার মজলিস পার্টি', abbreviation: 'RSMP',  color: '#006064', isNational: false, symbolUrl: '/images/parties/rsmp.jpg' },
 
   // Others
-  { id: 'SWARAJ INDIA',            name: 'Swaraj India',             nameBn: 'স্বরাজ ইন্ডিয়া',                   abbreviation: 'SI',      color: '#558B2F', isNational: false },
+  { id: 'SWARAJ INDIA',            name: 'Swaraj India',             nameBn: 'স্বরাজ ইন্ডিয়া',                   abbreviation: 'SI',      color: '#558B2F', isNational: false, symbolUrl: '/images/parties/si.png'   },
   { id: 'MULNIBASI PARTY OF INDIA',name: 'Mulnibasi Party of India', nameBn: 'মূলনিবাসী পার্টি অফ ইন্ডিয়া',      abbreviation: 'MPI',     color: '#6D4C41', isNational: false },
   { id: 'PEOPLES PARTY OF INDIA (DEMOCRATIC)', name: 'Peoples Party of India (Democratic)', nameBn: 'পিপলস পার্টি অব ইন্ডিয়া (ডেমোক্রেটিক)', abbreviation: 'PPID', color: '#37474F', isNational: false },
   { id: 'BHARATIYA NYAY-ADHIKAR RAKSHA PARTY', name: 'Bharatiya Nyay-Adhikar Raksha Party', nameBn: 'ভারতীয় ন্যায়-অধিকার রক্ষা পার্টি', abbreviation: 'BNARP', color: '#4527A0', isNational: false },
