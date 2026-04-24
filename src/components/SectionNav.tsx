@@ -22,8 +22,8 @@ export function SectionNav() {
 
   return (
     <div className="sticky top-14 z-30 border-b border-gray-100 bg-white/95 backdrop-blur-sm shadow-sm">
-      <div className="mx-auto max-w-6xl px-4">
-        <div className="flex gap-1.5 overflow-x-auto scrollbar-none py-2.5">
+      <div className="overflow-x-auto scrollbar-none">
+        <div className="mx-auto flex w-max min-w-full items-center justify-center gap-1.5 px-4 py-2.5">
           {SECTIONS.map(({ id, label, Icon }) => (
             <button
               key={id}
