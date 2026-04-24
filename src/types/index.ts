@@ -20,6 +20,7 @@ export interface Party {
   abbreviation: string;
   color: string;
   isNational: boolean;
+  symbolUrl?: string;
 }
 
 export interface Candidate {
@@ -79,6 +80,7 @@ export interface PartyAlignmentResult {
   partyAbbr: string;
   score: number; // 0-100
   color: string;
+  symbolUrl?: string;
 }
 
 export interface QuizSession {

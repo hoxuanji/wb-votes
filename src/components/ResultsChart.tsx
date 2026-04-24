@@ -5,6 +5,7 @@ import { Share2, RefreshCw } from 'lucide-react';
 import Link from 'next/link';
 import type { PartyAlignmentResult } from '@/types';
 import { Button } from '@/components/ui/Button';
+import { PartySymbol } from '@/components/ui/PartySymbol';
 import { useLanguage } from '@/lib/language-context';
 
 interface ResultsChartProps {
@@ -71,7 +72,7 @@ export function ResultsChart({ results }: ResultsChartProps) {
         {sorted.map((r, i) => (
           <div key={r.partyId} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
             <span className="w-5 text-center text-sm font-bold text-gray-400">#{i + 1}</span>
-            <div className="h-3 w-3 rounded-full" style={{ backgroundColor: r.color }} />
+            <PartySymbol party={{ abbreviation: r.partyAbbr, color: r.color, symbolUrl: r.symbolUrl }} size={22} />
             <span className="flex-1 text-sm font-medium text-gray-800">{r.partyName}</span>
             <div className="flex items-center gap-2">
               <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-200">

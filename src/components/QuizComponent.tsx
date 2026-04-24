@@ -62,6 +62,7 @@ export function QuizComponent() {
             partyAbbr: party?.abbreviation ?? partyId,
             score,
             color: party?.color ?? '#666',
+            symbolUrl: party?.symbolUrl,
           };
         })
         .sort((a, b) => b.score - a.score);

@@ -3,15 +3,15 @@ import type { Party } from '@/types';
 
 export const parties: Party[] = [
   // Major national parties
-  { id: 'AITC',   name: 'All India Trinamool Congress',          nameBn: 'সর্বভারতীয় তৃণমূল কংগ্রেস',           abbreviation: 'TMC',     color: '#1B5E20', isNational: true  },
-  { id: 'BJP',    name: 'Bharatiya Janata Party',                nameBn: 'ভারতীয় জনতা পার্টি',                   abbreviation: 'BJP',     color: '#E65100', isNational: true  },
-  { id: 'INC',    name: 'Indian National Congress',              nameBn: 'ভারতীয় জাতীয় কংগ্রেস',                abbreviation: 'INC',     color: '#1565C0', isNational: true  },
-  { id: 'BSP',    name: 'Bahujan Samaj Party',                   nameBn: 'বহুজন সমাজ পার্টি',                     abbreviation: 'BSP',     color: '#1A237E', isNational: true  },
+  { id: 'AITC',   name: 'All India Trinamool Congress',          nameBn: 'সর্বভারতীয় তৃণমূল কংগ্রেস',           abbreviation: 'TMC',     color: '#1B5E20', isNational: true,  symbolUrl: '/images/parties/aitc.svg' },
+  { id: 'BJP',    name: 'Bharatiya Janata Party',                nameBn: 'ভারতীয় জনতা পার্টি',                   abbreviation: 'BJP',     color: '#E65100', isNational: true,  symbolUrl: '/images/parties/bjp.jpg'  },
+  { id: 'INC',    name: 'Indian National Congress',              nameBn: 'ভারতীয় জাতীয় কংগ্রেস',                abbreviation: 'INC',     color: '#1565C0', isNational: true,  symbolUrl: '/images/parties/inc.jpg'  },
+  { id: 'BSP',    name: 'Bahujan Samaj Party',                   nameBn: 'বহুজন সমাজ পার্টি',                     abbreviation: 'BSP',     color: '#1A237E', isNational: true,  symbolUrl: '/images/parties/bsp.jpg'  },
 
   // Left front
-  { id: 'CPI(M)', name: 'Communist Party of India (Marxist)',    nameBn: 'ভারতের কমিউনিস্ট পার্টি (মার্ক্সবাদী)', abbreviation: 'CPM',     color: '#B71C1C', isNational: false },
-  { id: 'SUCI',   name: 'Socialist Unity Centre of India (Communist)', nameBn: 'সমাজতান্ত্রিক ঐক্য কেন্দ্র ভারত', abbreviation: 'SUCI(C)', color: '#880E4F', isNational: false },
-  { id: 'RSP',    name: 'Revolutionary Socialist Party',         nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি',          abbreviation: 'RSP',     color: '#C62828', isNational: false },
+  { id: 'CPI(M)', name: 'Communist Party of India (Marxist)',    nameBn: 'ভারতের কমিউনিস্ট পার্টি (মার্ক্সবাদী)', abbreviation: 'CPM',     color: '#B71C1C', isNational: false, symbolUrl: '/images/parties/cpim.jpg' },
+  { id: 'SUCI',   name: 'Socialist Unity Centre of India (Communist)', nameBn: 'সমাজতান্ত্রিক ঐক্য কেন্দ্র ভারত', abbreviation: 'SUCI(C)', color: '#880E4F', isNational: false, symbolUrl: '/images/parties/suci.svg' },
+  { id: 'RSP',    name: 'Revolutionary Socialist Party',         nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি',          abbreviation: 'RSP',     color: '#C62828', isNational: false, symbolUrl: '/images/parties/rsp.jpg'  },
   { id: 'REVOLUTIONARY SOCIALIST PARTY', name: 'Revolutionary Socialist Party', nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি', abbreviation: 'RSP', color: '#C62828', isNational: false },
   { id: 'ALL INDIA FORWARD BLOC', name: 'All India Forward Bloc', nameBn: 'সর্বভারতীয় ফরওয়ার্ড ব্লক',          abbreviation: 'AIFB',    color: '#D84315', isNational: false },
 

@@ -6,6 +6,7 @@ import { AlertTriangle, BookOpen, Briefcase, TrendingUp } from 'lucide-react';
 import type { Candidate, Party } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 import { Badge } from '@/components/ui/Badge';
+import { PartySymbol } from '@/components/ui/PartySymbol';
 import { useLanguage } from '@/lib/language-context';
 
 interface CandidateCardProps {
@@ -79,10 +80,7 @@ export function CandidateCard({
               {t(candidate.name, candidate.nameBn ?? candidate.name)}
             </h3>
             <div className="mt-0.5 flex items-center gap-1.5">
-              <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
-                style={{ backgroundColor: party.color }}
-              />
+              <PartySymbol party={party} size={18} />
               <span className="text-xs font-medium text-gray-600">{party.abbreviation}</span>
               {candidate.isIncumbent && (
                 <Badge variant="neutral" className="text-[10px]">
