@@ -117,17 +117,17 @@ export default function HomePage() {
         <KeyFaces />
       </div>
 
+      {/* ── Phase 2 Countdown ────────────────────────────────────────────── */}
+      <VoteCountdown />
+
       {/* ── Map ──────────────────────────────────────────────────────────── */}
       <section className="bg-white px-4 py-10">
         <div className="mx-auto max-w-6xl">
           <div className="mb-6">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-bold text-gray-900">
-                Explore by Constituency
-                <span className="ml-2 text-base font-normal text-gray-400">/ মানচিত্রে দেখুন</span>
-              </h2>
-              <VoteCountdown />
-            </div>
+            <h2 className="text-xl font-bold text-gray-900">
+              Explore by Constituency
+              <span className="ml-2 text-base font-normal text-gray-400">/ মানচিত্রে দেখুন</span>
+            </h2>
           </div>
           <WestBengalMap />
         </div>
