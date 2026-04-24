@@ -38,13 +38,9 @@ export function PartyFunding() {
                   </div>
                   <div className="h-6 overflow-hidden rounded-full bg-gray-100">
                     <div
-                      className="flex h-full items-center rounded-full pl-2 transition-all duration-700"
+                      className="h-full rounded-full transition-all duration-700"
                       style={{ width: `${Math.max(6, pct)}%`, backgroundColor: p.color }}
-                    >
-                      <span className="text-[10px] font-bold text-white drop-shadow-sm truncate">
-                        {p.abbreviation}
-                      </span>
-                    </div>
+                    />
                   </div>
                 </div>
               );
