@@ -1,11 +1,12 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, AlertTriangle, Calendar, X } from 'lucide-react';
+import { Users, AlertTriangle, Calendar, X, RotateCcw, Info } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { wbAcPaths, AC_MAP_WIDTH, AC_MAP_HEIGHT } from '@/data/wb-ac-paths';
+import { wbDistrictPaths } from '@/data/wb-districts';
 import { constituencies } from '@/data/constituencies';
 import { candidates as allCandidates } from '@/data/candidates';
 import { parties } from '@/data/parties';
@@ -46,7 +47,11 @@ constituencies.forEach(c => {
   constituenciesByDistrict[c.district].push(c);
 });
 
-// Color by candidate count: low=light teal → high=deep indigo
+// IDs present in constituencies but missing from SVG paths (data gap)
+const pathIdSet = new Set(wbAcPaths.map(p => p.id));
+const MISSING_PATH_IDS = new Set(constituencies.filter(c => !pathIdSet.has(c.id)).map(c => c.id));
+
+// Color by candidate count: low=light blue → high=deep indigo
 const candidateCounts = Object.fromEntries(
   Object.entries(candidatesByConstituency).map(([id, cands]) => [id, cands.length])
 );
@@ -54,7 +59,7 @@ const maxCandCount = Math.max(...Object.values(candidateCounts), 1);
 
 function heatColor(id: string): string {
   const count = candidateCounts[id] ?? 0;
-  if (count === 0) return '#e2e8f0';
+  if (count === 0) return '#dde4ef'; // light periwinkle for 0-candidate constituencies
   const t = count / maxCandCount; // 0..1
   // Interpolate: low=#bfdbfe (blue-200) → mid=#3b82f6 (blue-500) → high=#1e1b4b (indigo-950)
   if (t < 0.5) {
@@ -70,6 +75,36 @@ function heatColor(id: string): string {
     const b = Math.round(246 + (75 - 246) * s);
     return `rgb(${r},${g},${b})`;
   }
+}
+
+// Smooth viewBox animation hook
+function useAnimatedViewBox(target: string) {
+  const currentRef = useRef([0, 0, AC_MAP_WIDTH, AC_MAP_HEIGHT]);
+  const [displayed, setDisplayed] = useState(target);
+  const rafRef = useRef<number>(0);
+
+  useEffect(() => {
+    const targetParts = target.split(' ').map(Number);
+
+    const step = () => {
+      const cur = currentRef.current;
+      const next = cur.map((c, i) => c + (targetParts[i] - c) * 0.18);
+      currentRef.current = next;
+      setDisplayed(next.map(v => v.toFixed(2)).join(' '));
+      if (cur.some((c, i) => Math.abs(c - targetParts[i]) > 0.4)) {
+        rafRef.current = requestAnimationFrame(step);
+      } else {
+        currentRef.current = targetParts;
+        setDisplayed(target);
+      }
+    };
+
+    cancelAnimationFrame(rafRef.current);
+    rafRef.current = requestAnimationFrame(step);
+    return () => cancelAnimationFrame(rafRef.current);
+  }, [target]);
+
+  return displayed;
 }
 
 // ── Mini candidate card ──────────────────────────────────────
@@ -266,15 +301,21 @@ export function WestBengalMap() {
     return new Set((constituenciesByDistrict[selectedDistrict] ?? []).map(c => c.id));
   }, [selectedDistrict]);
 
-  const viewBox = useMemo(() => {
+  const targetViewBox = useMemo(() => {
     if (!selectedDistrict || !districtConstIds) return `0 0 ${AC_MAP_WIDTH} ${AC_MAP_HEIGHT}`;
     const distPaths = wbAcPaths.filter(p => districtConstIds.has(p.id));
     if (distPaths.length === 0) return `0 0 ${AC_MAP_WIDTH} ${AC_MAP_HEIGHT}`;
     const xs = distPaths.map(p => p.centroid.x);
     const ys = distPaths.map(p => p.centroid.y);
-    const pad = 30;
-    return `${Math.min(...xs) - pad} ${Math.min(...ys) - pad} ${Math.max(...xs) - Math.min(...xs) + pad * 2} ${Math.max(...ys) - Math.min(...ys) + pad * 2}`;
+    const pad = 35;
+    const minX = Math.min(...xs) - pad;
+    const minY = Math.min(...ys) - pad;
+    const width = Math.max(...xs) - Math.min(...xs) + pad * 2;
+    const height = Math.max(...ys) - Math.min(...ys) + pad * 2;
+    return `${minX} ${minY} ${width} ${height}`;
   }, [selectedDistrict, districtConstIds]);
+
+  const viewBox = useAnimatedViewBox(targetViewBox);
 
   const handleMouseEnter = useCallback((id: string) => { setHoveredId(id); }, []);
   const handleMouseLeave = useCallback(() => { setHoveredId(null); }, []);
@@ -285,12 +326,19 @@ export function WestBengalMap() {
     setPanel(null);
   };
 
+  const handleReset = () => {
+    setSelectedDistrict(null);
+    setPanel(null);
+  };
+
   const getPathFill = (id: string) => {
     if (districtConstIds && !districtConstIds.has(id)) return '#cbd5e1';
     if (panel === id) return '#1d4ed8';
     if (hoveredId === id) return '#3b82f6';
     return heatColor(id);
   };
+
+  const isZoomedIn = selectedDistrict !== null;
 
   return (
     <div>
@@ -313,7 +361,7 @@ export function WestBengalMap() {
           ))}
           {selectedDistrict && (
             <button
-              onClick={() => { setSelectedDistrict(null); setPanel(null); }}
+              onClick={handleReset}
               className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-300"
             >
               ✕ Show all
@@ -323,14 +371,15 @@ export function WestBengalMap() {
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        {/* Map */}
-        <div className={`flex-shrink-0 ${panel !== null ? 'lg:w-[55%]' : 'w-full lg:max-w-lg lg:mx-auto'}`}>
+        {/* Map — fixed width so it never resizes when panel opens */}
+        <div className="flex-shrink-0 w-full lg:w-[480px]">
           <div className="relative rounded-2xl border border-gray-200 bg-slate-50 shadow-inner">
             <svg
               viewBox={viewBox}
               className="w-full rounded-2xl"
               style={{ display: 'block' }}
             >
+              {/* ── Constituency fills ── */}
               {wbAcPaths.map(ac => {
                 const dimmed = districtConstIds ? !districtConstIds.has(ac.id) : false;
                 return (
@@ -348,15 +397,30 @@ export function WestBengalMap() {
                   />
                 );
               })}
+
+              {/* ── District boundary overlay (non-interactive) ── */}
+              {wbDistrictPaths.map(dp => (
+                <path
+                  key={dp.name}
+                  d={dp.path}
+                  fill="none"
+                  stroke="#1e293b"
+                  strokeWidth={1.4}
+                  strokeOpacity={0.45}
+                  style={{ pointerEvents: 'none' }}
+                />
+              ))}
             </svg>
 
+            {/* Hover stats panel (top-right) */}
             {hoveredId && panel === null && (
               <div className="pointer-events-none absolute right-3 top-3 z-10 w-72 max-h-96 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
                 <HoverStatsPanel constituencyId={hoveredId} />
               </div>
             )}
 
-            <div className="absolute bottom-3 left-3 flex flex-col gap-1.5 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
+            {/* Heatmap legend (bottom-left) */}
+            <div className="absolute bottom-3 left-3 flex flex-col gap-1 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
               <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Candidates</p>
               <div className="flex items-center gap-1.5">
                 <div className="h-2.5 w-16 rounded-full" style={{ background: 'linear-gradient(to right, #bfdbfe, #3b82f6, #1e1b4b)' }} />
@@ -366,12 +430,33 @@ export function WestBengalMap() {
                 <span>More</span>
               </div>
             </div>
+
+            {/* Reset zoom button */}
+            {isZoomedIn && (
+              <button
+                onClick={handleReset}
+                className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-lg border border-gray-200 bg-white/90 px-2.5 py-1.5 text-[10px] font-medium text-gray-600 shadow-sm backdrop-blur-sm transition-colors hover:bg-gray-100"
+              >
+                <RotateCcw className="h-3 w-3" />
+                Reset zoom
+              </button>
+            )}
           </div>
+
+          {/* Missing-path notice */}
+          {MISSING_PATH_IDS.size > 0 && (
+            <div className="mt-2 flex items-start gap-1.5 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
+              <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-amber-500" />
+              <p className="text-[10px] text-amber-700">
+                Map boundaries for {MISSING_PATH_IDS.size} constituencies in Birbhum &amp; Paschim Bardhaman are pending. Tap a district pill above to browse them.
+              </p>
+            </div>
+          )}
         </div>
 
-        {/* Side panel */}
+        {/* Side panel — slides in without resizing the map */}
         {panel !== null && (
-          <div className="lg:flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all" style={{ maxHeight: '580px' }}>
+          <div className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:flex-1" style={{ maxHeight: '580px' }}>
             <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
           </div>
         )}
@@ -393,6 +478,7 @@ export function WestBengalMap() {
               .sort((a, b) => a.assemblyNumber - b.assemblyNumber)
               .map(c => {
                 const candCount = (candidatesByConstituency[c.id] ?? []).length;
+                const hasBoundary = pathIdSet.has(c.id);
                 return (
                   <Link
                     key={c.id}
@@ -406,6 +492,9 @@ export function WestBengalMap() {
                       )}
                       {candCount > 0 && (
                         <span className="text-[10px] text-gray-400">{candCount} cands</span>
+                      )}
+                      {!hasBoundary && (
+                        <span className="text-[10px] text-amber-500">no map</span>
                       )}
                     </div>
                   </Link>

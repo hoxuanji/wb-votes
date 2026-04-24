@@ -36,7 +36,7 @@ export function HardFought() {
 
   return (
     <section className="px-4 py-10">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-1 flex items-center gap-2">
           <Flame className="h-5 w-5 text-orange-500" />
           <h2 className="text-xl font-bold text-gray-900">Hard-Fought Constituencies</h2>
