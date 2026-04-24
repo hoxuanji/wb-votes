@@ -46,8 +46,30 @@ constituencies.forEach(c => {
   constituenciesByDistrict[c.district].push(c);
 });
 
-function phaseColor(id: string): string {
-  return PHASE1_IDS.has(id) ? '#2563eb' : '#94a3b8';
+// Color by candidate count: low=light teal → high=deep indigo
+const candidateCounts = Object.fromEntries(
+  Object.entries(candidatesByConstituency).map(([id, cands]) => [id, cands.length])
+);
+const maxCandCount = Math.max(...Object.values(candidateCounts), 1);
+
+function heatColor(id: string): string {
+  const count = candidateCounts[id] ?? 0;
+  if (count === 0) return '#e2e8f0';
+  const t = count / maxCandCount; // 0..1
+  // Interpolate: low=#bfdbfe (blue-200) → mid=#3b82f6 (blue-500) → high=#1e1b4b (indigo-950)
+  if (t < 0.5) {
+    const s = t * 2;
+    const r = Math.round(191 + (59 - 191) * s);
+    const g = Math.round(219 + (130 - 219) * s);
+    const b = Math.round(254 + (246 - 254) * s);
+    return `rgb(${r},${g},${b})`;
+  } else {
+    const s = (t - 0.5) * 2;
+    const r = Math.round(59 + (30 - 59) * s);
+    const g = Math.round(130 + (27 - 130) * s);
+    const b = Math.round(246 + (75 - 246) * s);
+    return `rgb(${r},${g},${b})`;
+  }
 }
 
 // ── Mini candidate card ──────────────────────────────────────
@@ -265,9 +287,9 @@ export function WestBengalMap() {
 
   const getPathFill = (id: string) => {
     if (districtConstIds && !districtConstIds.has(id)) return '#cbd5e1';
-    if (panel === id) return PHASE1_IDS.has(id) ? '#1d4ed8' : '#475569';
-    if (hoveredId === id) return PHASE1_IDS.has(id) ? '#3b82f6' : '#64748b';
-    return phaseColor(id);
+    if (panel === id) return '#1d4ed8';
+    if (hoveredId === id) return '#3b82f6';
+    return heatColor(id);
   };
 
   return (
@@ -334,14 +356,14 @@ export function WestBengalMap() {
               </div>
             )}
 
-            <div className="absolute bottom-3 left-3 flex flex-col gap-1 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
+            <div className="absolute bottom-3 left-3 flex flex-col gap-1.5 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-400">Candidates</p>
               <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-blue-600" />
-                <span className="text-[10px] font-medium text-gray-700">Phase 1 · 23 Apr (38)</span>
+                <div className="h-2.5 w-16 rounded-full" style={{ background: 'linear-gradient(to right, #bfdbfe, #3b82f6, #1e1b4b)' }} />
               </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" />
-                <span className="text-[10px] font-medium text-gray-500">Phase 2 · 29 Apr (256)</span>
+              <div className="flex justify-between text-[9px] text-gray-500">
+                <span>Fewer</span>
+                <span>More</span>
               </div>
             </div>
           </div>

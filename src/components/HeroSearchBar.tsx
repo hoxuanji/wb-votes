@@ -211,7 +211,7 @@ export function HeroSearchBar() {
 
   return (
     <div ref={containerRef} className="relative mx-auto w-full max-w-3xl" style={{ zIndex: 60 }}>
-      <div className="flex items-center gap-3 rounded-2xl border border-white/30 bg-white/15 px-5 py-4 backdrop-blur-sm transition-colors focus-within:border-white/60">
+      <div className="flex items-center gap-3 rounded-2xl border border-white/30 bg-white/15 px-5 py-4 backdrop-blur-sm outline-none">
         <Search className="h-5 w-5 shrink-0 text-white/70" />
         <input
           ref={inputRef}
@@ -220,7 +220,7 @@ export function HeroSearchBar() {
           onKeyDown={handleKeyDown}
           onFocus={() => setOpen(true)}
           placeholder="Search constituencies, candidates, or districts…"
-          className="flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/50"
+          className="flex-1 bg-transparent text-sm text-white outline-none ring-0 border-0 placeholder:text-white/50"
           autoComplete="off"
           aria-label="Search constituencies or candidates"
         />
