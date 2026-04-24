@@ -6,7 +6,6 @@ import { Users, AlertTriangle, Calendar, X, RotateCcw, Info } from 'lucide-react
 import Image from 'next/image';
 import Link from 'next/link';
 import { wbAcPaths, AC_MAP_WIDTH, AC_MAP_HEIGHT } from '@/data/wb-ac-paths';
-import { wbDistrictPaths } from '@/data/wb-districts';
 import { constituencies } from '@/data/constituencies';
 import { candidates as allCandidates } from '@/data/candidates';
 import { parties } from '@/data/parties';
@@ -371,8 +370,8 @@ export function WestBengalMap() {
       </div>
 
       <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        {/* Map — fixed width so it never resizes when panel opens */}
-        <div className="flex-shrink-0 w-full lg:w-[480px]">
+        {/* Map — takes full width when no panel, shares space when panel open */}
+        <div className={`w-full ${panel !== null ? 'lg:w-[52%] flex-shrink-0' : ''}`}>
           <div className="relative rounded-2xl border border-gray-200 bg-slate-50 shadow-inner">
             <svg
               viewBox={viewBox}
@@ -397,19 +396,6 @@ export function WestBengalMap() {
                   />
                 );
               })}
-
-              {/* ── District boundary overlay (non-interactive) ── */}
-              {wbDistrictPaths.map(dp => (
-                <path
-                  key={dp.name}
-                  d={dp.path}
-                  fill="none"
-                  stroke="#1e293b"
-                  strokeWidth={1.4}
-                  strokeOpacity={0.45}
-                  style={{ pointerEvents: 'none' }}
-                />
-              ))}
             </svg>
 
             {/* Hover stats panel (top-right) */}
@@ -456,7 +442,7 @@ export function WestBengalMap() {
 
         {/* Side panel — slides in without resizing the map */}
         {panel !== null && (
-          <div className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:flex-1" style={{ maxHeight: '580px' }}>
+          <div className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:flex-1" style={{ maxHeight: '640px' }}>
             <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
           </div>
         )}
