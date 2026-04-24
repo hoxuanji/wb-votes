@@ -13,13 +13,15 @@ import type { Constituency, Candidate, Party } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 
 // ── Types ────────────────────────────────────────────────────
-type MapMode = 'phase' | 'criminal' | 'women' | 'competition';
+type MapMode = 'phase' | 'criminal' | 'women' | 'competition' | 'wealth' | 'age';
 
 const MAP_MODES: { id: MapMode; label: string }[] = [
-  { id: 'phase',       label: 'Phase'       },
-  { id: 'criminal',    label: 'Criminal'    },
-  { id: 'women',       label: 'Women'       },
-  { id: 'competition', label: 'Competition' },
+  { id: 'women',       label: 'Women Candidates' },
+  { id: 'phase',       label: 'Phase'            },
+  { id: 'criminal',    label: 'Criminal'         },
+  { id: 'competition', label: 'Competition'      },
+  { id: 'wealth',      label: 'Wealth'           },
+  { id: 'age',         label: 'Avg Age'          },
 ];
 
 // ── Static data ──────────────────────────────────────────────
@@ -58,15 +60,19 @@ constituencies.forEach(c => {
 });
 
 // Pre-compute per-constituency stats
-interface ConstStat { crimRate: number; womenRate: number; candCount: number; }
+interface ConstStat { crimRate: number; womenRate: number; candCount: number; avgAssets: number; avgAge: number; }
 const constStats: Record<string, ConstStat> = {};
 constituencies.forEach(c => {
   const cands = candidatesByConstituency[c.id] ?? [];
   const total = cands.length;
+  const withAge = cands.filter(cd => (cd.age ?? 0) > 0);
+  const withAssets = cands.filter(cd => cd.totalAssets > 0);
   constStats[c.id] = {
     crimRate:   total > 0 ? cands.filter(cd => cd.criminalCases > 0).length / total : 0,
     womenRate:  total > 0 ? cands.filter(cd => cd.gender === 'Female').length / total : 0,
     candCount:  total,
+    avgAssets:  withAssets.length > 0 ? withAssets.reduce((s, cd) => s + cd.totalAssets, 0) / withAssets.length : 0,
+    avgAge:     withAge.length > 0 ? withAge.reduce((s, cd) => s + cd.age, 0) / withAge.length : 0,
   };
 });
 
@@ -474,6 +480,114 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
   const top5 = sorted.slice(0, 5);
   const bottom5 = [...sorted].reverse().slice(0, 5);
   const maxCount = top5[0] ? constStats[top5[0].id]?.candCount ?? 1 : 1;
+
+  if (mapMode === 'wealth') {
+    const withAssets = allConsts.filter(c => constStats[c.id]?.avgAssets > 0);
+    const avgA = withAssets.length ? withAssets.reduce((s, c) => s + constStats[c.id].avgAssets, 0) / withAssets.length : 0;
+    const maxA = withAssets.length ? Math.max(...withAssets.map(c => constStats[c.id].avgAssets)) : 1;
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-800">Candidate Wealth</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Avg declared assets per constituency</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="rounded-xl bg-green-50 border border-green-100 p-3 text-center">
+            <div className="text-lg font-bold text-green-700">{formatCurrency(avgA)}</div>
+            <div className="text-[11px] text-green-600">State avg per candidate</div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Wealthiest candidate pools</p>
+            <div className="space-y-1.5">
+              {top5.map(c => {
+                const a = constStats[c.id]?.avgAssets ?? 0;
+                return (
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-[10px] text-gray-400">{c.district}</p>
+                    </div>
+                    <div className="shrink-0 w-24">
+                      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-green-500" style={{ width: `${(a / maxA) * 100}%` }} />
+                      </div>
+                      <p className="text-right text-[10px] font-bold text-green-700 mt-0.5">{formatCurrency(a)}</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Least wealthy</p>
+            <div className="space-y-1.5">
+              {bottom5.map(c => {
+                const a = constStats[c.id]?.avgAssets ?? 0;
+                return (
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p></div>
+                    <p className="shrink-0 text-[10px] font-bold text-gray-500">{formatCurrency(a)}</p>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mapMode === 'age') {
+    const withAge = allConsts.filter(c => constStats[c.id]?.avgAge > 0);
+    const avgA = withAge.length ? withAge.reduce((s, c) => s + constStats[c.id].avgAge, 0) / withAge.length : 0;
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-800">Candidate Age</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Avg age of candidates per constituency</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
+            <div className="text-lg font-bold text-amber-700">{avgA.toFixed(1)} yrs</div>
+            <div className="text-[11px] text-amber-600">State avg candidate age</div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Oldest candidate pools</p>
+            <div className="space-y-1.5">
+              {top5.map(c => {
+                const a = constStats[c.id]?.avgAge ?? 0;
+                return (
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-[10px] text-gray-400">{c.district}</p>
+                    </div>
+                    <p className="shrink-0 text-[10px] font-bold text-amber-700">{a.toFixed(1)} yrs</p>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Youngest candidate pools</p>
+            <div className="space-y-1.5">
+              {bottom5.map(c => {
+                const a = constStats[c.id]?.avgAge ?? 0;
+                return (
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p></div>
+                    <p className="shrink-0 text-[10px] font-bold text-green-600">{a.toFixed(1)} yrs</p>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // competition (default fallthrough)
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-gray-100 px-4 py-3">
@@ -536,7 +650,7 @@ export function WestBengalMap() {
   const [hoveredId, setHoveredId]           = useState<string | null>(null);
   const [panel, setPanel]                   = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
-  const [mapMode, setMapMode]               = useState<MapMode>('phase');
+  const [mapMode, setMapMode] = useState<MapMode>('women');
   const mapRowRef = useRef<HTMLDivElement>(null);
 
   const districtConstIds = useMemo(() => {
@@ -560,6 +674,13 @@ export function WestBengalMap() {
   const computedFills = useMemo(() => {
     if (mapMode === 'phase') return null;
     const fills: Record<string, string> = {};
+
+    // For wealth/age we need global min/max for proper scaling
+    const allStats = Object.values(constStats).filter(s => s.candCount > 0);
+    const maxAssets = allStats.length ? Math.max(...allStats.map(s => s.avgAssets)) : 1;
+    const minAge = allStats.length ? Math.min(...allStats.filter(s => s.avgAge > 0).map(s => s.avgAge)) : 30;
+    const maxAge = allStats.length ? Math.max(...allStats.filter(s => s.avgAge > 0).map(s => s.avgAge)) : 70;
+
     for (const ac of wbAcPaths) {
       const stat = constStats[ac.id];
       if (!stat || stat.candCount === 0) { fills[ac.id] = '#e5e7eb'; continue; }
@@ -571,9 +692,15 @@ export function WestBengalMap() {
       } else if (mapMode === 'women') {
         t = stat.womenRate;
         c1 = [229, 231, 235]; c2 = [192, 38, 211];
-      } else {
+      } else if (mapMode === 'competition') {
         t = Math.min(1, (stat.candCount - 1) / 19);
         c1 = [191, 219, 254]; c2 = [29, 78, 216];
+      } else if (mapMode === 'wealth') {
+        t = maxAssets > 0 ? Math.min(1, stat.avgAssets / maxAssets) : 0;
+        c1 = [220, 252, 231]; c2 = [21, 128, 61]; // green-100 → green-700
+      } else { // age
+        t = maxAge > minAge ? Math.min(1, (stat.avgAge - minAge) / (maxAge - minAge)) : 0;
+        c1 = [254, 243, 199]; c2 = [180, 83, 9]; // amber-100 → amber-800
       }
       fills[ac.id] = lerpColor(c1, c2, t);
     }
@@ -614,14 +741,12 @@ export function WestBengalMap() {
   // Legend config per mode
   const legendConfig = useMemo(() => {
     switch (mapMode) {
-      case 'criminal':
-        return { type: 'gradient' as const, from: '#bbf7d0', to: '#ef4444', leftLabel: '0%', rightLabel: '100%', title: 'Criminal rate' };
-      case 'women':
-        return { type: 'gradient' as const, from: '#e5e7eb', to: '#c026d3', leftLabel: '0%', rightLabel: 'High', title: 'Women share' };
-      case 'competition':
-        return { type: 'gradient' as const, from: '#bfdbfe', to: '#1d4ed8', leftLabel: 'Few', rightLabel: 'Many', title: 'Candidates' };
-      default:
-        return { type: 'phase' as const };
+      case 'criminal':    return { type: 'gradient' as const, from: '#bbf7d0', to: '#ef4444', leftLabel: '0%',   rightLabel: '100%', title: 'Criminal rate'   };
+      case 'women':       return { type: 'gradient' as const, from: '#e5e7eb', to: '#c026d3', leftLabel: 'None', rightLabel: 'High',  title: 'Women share'    };
+      case 'competition': return { type: 'gradient' as const, from: '#bfdbfe', to: '#1d4ed8', leftLabel: 'Few',  rightLabel: 'Many',  title: 'Candidates'     };
+      case 'wealth':      return { type: 'gradient' as const, from: '#dcfce7', to: '#15803d', leftLabel: 'Low',  rightLabel: 'High',  title: 'Avg assets'     };
+      case 'age':         return { type: 'gradient' as const, from: '#fef3c7', to: '#b45309', leftLabel: 'Young',rightLabel: 'Senior',title: 'Avg candidate age' };
+      default:            return { type: 'phase' as const };
     }
   }, [mapMode]);
 
@@ -653,7 +778,9 @@ export function WestBengalMap() {
       </div>
 
       {/* Map type selector — full width, above both columns so tops align */}
-      <div className="mb-3 flex gap-1.5">
+      <div className="mb-3">
+        <p className="mb-1.5 text-xs font-semibold text-gray-400 uppercase tracking-wider">Explore the map by</p>
+        <div className="flex flex-wrap gap-1.5">
         {MAP_MODES.map(mode => (
           <button
             key={mode.id}
@@ -667,6 +794,7 @@ export function WestBengalMap() {
             {mode.label}
           </button>
         ))}
+        </div>
       </div>
 
       <div ref={mapRowRef} className="flex flex-col gap-4 lg:flex-row lg:items-start">

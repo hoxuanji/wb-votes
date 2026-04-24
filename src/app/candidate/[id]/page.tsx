@@ -10,7 +10,7 @@ import {
 import { getCandidateById, candidates } from '@/data/candidates';
 import { getConstituencyById } from '@/data/constituencies';
 import { getPartyById } from '@/data/parties';
-import { getPartyManifesto, policyDimensions } from '@/data/party-stances';
+import { getPartyManifestoOrDefault, policyDimensions } from '@/data/party-stances';
 import { Badge } from '@/components/ui/Badge';
 import { CandidateNews } from '@/components/CandidateNews';
 import { PartySymbol } from '@/components/ui/PartySymbol';
@@ -395,7 +395,7 @@ export default function CandidatePage({ params }: PageProps) {
 
           {/* Party stance section */}
           {(() => {
-            const manifesto = getPartyManifesto(candidate.partyId);
+            const manifesto = getPartyManifestoOrDefault(candidate.partyId);
             if (!manifesto) return null;
             return (
               <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
@@ -403,30 +403,33 @@ export default function CandidatePage({ params }: PageProps) {
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full" style={{ backgroundColor: party.color }} />
                     <h2 className="text-sm font-semibold text-gray-700">{party.abbreviation} — Policy Positions</h2>
+                    {manifesto.placeholder && (
+                      <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-600">Limited data</span>
+                    )}
                   </div>
                   <p className="mt-1 text-xs text-gray-400 leading-relaxed">{manifesto.summary}</p>
                 </div>
-                <div className="px-5 py-4 space-y-4">
+                <div className="px-5 py-4 space-y-5">
                   {policyDimensions.map(dim => {
                     const stance = manifesto.stances[dim.key];
                     if (!stance) return null;
                     const pct = ((stance.score + 2) / 4) * 100;
                     return (
                       <div key={dim.key}>
-                        <div className="flex items-center justify-between mb-1">
-                          <span className="text-xs font-semibold text-gray-600">{dim.label}</span>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <span className="w-24 shrink-0 text-[10px] text-gray-400 text-right leading-tight">{dim.leftLabel}</span>
-                          <div className="relative flex-1 h-2 rounded-full bg-gray-100">
+                        <span className="text-xs font-semibold text-gray-700">{dim.label}</span>
+                        <div className="mt-2 flex items-center gap-3">
+                          <span className="w-[88px] shrink-0 text-right text-[11px] font-medium text-gray-500 leading-tight">{dim.leftLabel}</span>
+                          <div className="relative flex-1 h-3 rounded-full border border-gray-200 bg-gray-50 shadow-inner">
                             <div
-                              className="absolute top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full border-2 border-white shadow"
-                              style={{ left: `calc(${pct}% - 7px)`, backgroundColor: party.color }}
+                              className="absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full border-2 border-white shadow-md"
+                              style={{ left: `calc(${pct}% - 8px)`, backgroundColor: manifesto.placeholder ? '#9ca3af' : party.color }}
                             />
                           </div>
-                          <span className="w-24 shrink-0 text-[10px] text-gray-400 leading-tight">{dim.rightLabel}</span>
+                          <span className="w-[88px] shrink-0 text-[11px] font-medium text-gray-500 leading-tight">{dim.rightLabel}</span>
                         </div>
-                        <p className="mt-1 text-[10px] text-gray-400 leading-relaxed pl-[112px]">{stance.note}</p>
+                        {!manifesto.placeholder && (
+                          <p className="mt-1.5 text-[10px] text-gray-400 leading-relaxed pl-[112px]">{stance.note}</p>
+                        )}
                       </div>
                     );
                   })}
