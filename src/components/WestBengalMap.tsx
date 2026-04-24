@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, AlertTriangle, Calendar, X, RotateCcw } from 'lucide-react';
+import { Users, AlertTriangle, Calendar, X, RotateCcw, BarChart2 } from 'lucide-react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { wbAcPaths, AC_MAP_WIDTH, AC_MAP_HEIGHT } from '@/data/wb-ac-paths';
@@ -12,6 +12,17 @@ import { parties } from '@/data/parties';
 import type { Constituency, Candidate, Party } from '@/types';
 import { formatCurrency } from '@/lib/utils';
 
+// ── Types ────────────────────────────────────────────────────
+type MapMode = 'phase' | 'criminal' | 'women' | 'competition';
+
+const MAP_MODES: { id: MapMode; label: string }[] = [
+  { id: 'phase',       label: 'Phase'       },
+  { id: 'criminal',    label: 'Criminal'    },
+  { id: 'women',       label: 'Women'       },
+  { id: 'competition', label: 'Competition' },
+];
+
+// ── Static data ──────────────────────────────────────────────
 const PHASE1_IDS = new Set([
   'c0001','c0002','c0003','c0004','c0005','c0006','c0007','c0008','c0009',
   'c0010','c0011','c0012','c0014','c0017','c0019','c0021','c0022','c0025',
@@ -46,40 +57,58 @@ constituencies.forEach(c => {
   constituenciesByDistrict[c.district].push(c);
 });
 
-// IDs present in constituencies but missing from SVG paths (data gap)
+// Pre-compute per-constituency stats
+interface ConstStat { crimRate: number; womenRate: number; candCount: number; }
+const constStats: Record<string, ConstStat> = {};
+constituencies.forEach(c => {
+  const cands = candidatesByConstituency[c.id] ?? [];
+  const total = cands.length;
+  constStats[c.id] = {
+    crimRate:   total > 0 ? cands.filter(cd => cd.criminalCases > 0).length / total : 0,
+    womenRate:  total > 0 ? cands.filter(cd => cd.gender === 'Female').length / total : 0,
+    candCount:  total,
+  };
+});
+
 const pathIdSet = new Set(wbAcPaths.map(p => p.id));
 const MISSING_PATH_IDS = new Set(constituencies.filter(c => !pathIdSet.has(c.id)).map(c => c.id));
 
-// Phase-based base colors
-const PHASE1_FILL = '#3b82f6';   // blue-500
-const PHASE2_FILL = '#a78bfa';   // violet-400
-const PHASE1_HOVER = '#1d4ed8';  // blue-700
-const PHASE2_HOVER = '#6d28d9';  // violet-700
-const PHASE1_DIM = '#bfdbfe';    // blue-200
-const PHASE2_DIM = '#ddd6fe';    // violet-200
+// ── Phase colors ─────────────────────────────────────────────
+const PHASE1_FILL  = '#3b82f6';
+const PHASE2_FILL  = '#a78bfa';
+const PHASE1_HOVER = '#1d4ed8';
+const PHASE2_HOVER = '#6d28d9';
+const PHASE1_DIM   = '#bfdbfe';
+const PHASE2_DIM   = '#ddd6fe';
 
-// Smooth viewBox animation hook
+// ── Color interpolation ───────────────────────────────────────
+function lerpColor(c1: [number,number,number], c2: [number,number,number], t: number): string {
+  const r = Math.round(c1[0] + (c2[0] - c1[0]) * t);
+  const g = Math.round(c1[1] + (c2[1] - c1[1]) * t);
+  const b = Math.round(c1[2] + (c2[2] - c1[2]) * t);
+  return `rgb(${r},${g},${b})`;
+}
+
+// ── Animated viewBox ──────────────────────────────────────────
 function useAnimatedViewBox(target: string) {
   const currentRef = useRef([0, 0, AC_MAP_WIDTH, AC_MAP_HEIGHT]);
   const [displayed, setDisplayed] = useState(target);
   const rafRef = useRef<number>(0);
 
   useEffect(() => {
-    const targetParts = target.split(' ').map(Number);
-
+    const tp = target.split(' ').map(Number);
     const step = () => {
       const cur = currentRef.current;
-      const next = cur.map((c, i) => c + (targetParts[i] - c) * 0.18);
+      const next = cur.map((c, i) => c + (tp[i] - c) * 0.18);
       currentRef.current = next;
       setDisplayed(next.map(v => v.toFixed(2)).join(' '));
-      if (cur.some((c, i) => Math.abs(c - targetParts[i]) > 0.4)) {
+      if (cur.some((c, i) => Math.abs(c - tp[i]) > 0.4)) {
         rafRef.current = requestAnimationFrame(step);
       } else {
-        currentRef.current = targetParts;
+        currentRef.current = tp;
         setDisplayed(target);
       }
     };
-
     cancelAnimationFrame(rafRef.current);
     rafRef.current = requestAnimationFrame(step);
     return () => cancelAnimationFrame(rafRef.current);
@@ -271,13 +300,244 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
   );
 }
 
+// ── Insights Panel ────────────────────────────────────────────
+function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; selectedDistrict: string | null }) {
+  const allConsts = selectedDistrict ? (constituenciesByDistrict[selectedDistrict] ?? []) : constituencies;
+
+  const sorted = useMemo(() => {
+    const withStats = allConsts.filter(c => constStats[c.id]?.candCount > 0);
+    switch (mapMode) {
+      case 'criminal':
+        return [...withStats].sort((a, b) => (constStats[b.id]?.crimRate ?? 0) - (constStats[a.id]?.crimRate ?? 0));
+      case 'women':
+        return [...withStats].sort((a, b) => (constStats[b.id]?.womenRate ?? 0) - (constStats[a.id]?.womenRate ?? 0));
+      case 'competition':
+        return [...withStats].sort((a, b) => (constStats[b.id]?.candCount ?? 0) - (constStats[a.id]?.candCount ?? 0));
+      default:
+        return allConsts;
+    }
+  }, [mapMode, allConsts]);
+
+  if (mapMode === 'phase') {
+    const p1count = allConsts.filter(c => PHASE1_IDS.has(c.id)).length;
+    const p2count = allConsts.length - p1count;
+    const totalCands = allConsts.reduce((s, c) => s + (constStats[c.id]?.candCount ?? 0), 0);
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-800">Voting Schedule</h3>
+          <p className="text-xs text-gray-400 mt-0.5">{selectedDistrict ?? 'West Bengal'} · {allConsts.length} constituencies</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 text-center">
+              <div className="text-2xl font-extrabold text-blue-600">{p1count}</div>
+              <div className="text-[11px] font-semibold text-blue-700 mt-0.5">Phase 1</div>
+              <div className="text-[10px] text-blue-400">23 Apr 2026</div>
+              <div className="mt-1.5 text-[10px] font-medium text-green-600 bg-green-50 rounded-full px-2 py-0.5">Completed</div>
+            </div>
+            <div className="rounded-xl bg-violet-50 border border-violet-100 p-3 text-center">
+              <div className="text-2xl font-extrabold text-violet-600">{p2count}</div>
+              <div className="text-[11px] font-semibold text-violet-700 mt-0.5">Phase 2</div>
+              <div className="text-[10px] text-violet-400">29 Apr 2026</div>
+              <div className="mt-1.5 text-[10px] font-medium text-violet-600 bg-violet-50 rounded-full px-2 py-0.5 border border-violet-200">Upcoming</div>
+            </div>
+          </div>
+          <div className="rounded-xl bg-gray-50 p-3 text-center">
+            <div className="text-xl font-bold text-gray-800">{totalCands.toLocaleString()}</div>
+            <div className="text-[11px] text-gray-500">Total candidates</div>
+          </div>
+          <div className="rounded-xl border border-gray-100 p-3 text-center">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Click any constituency on the map to preview candidates, or select a district above to zoom in.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mapMode === 'criminal') {
+    const avgCrim = allConsts.length ? allConsts.reduce((s, c) => s + (constStats[c.id]?.crimRate ?? 0), 0) / allConsts.filter(c => constStats[c.id]?.candCount > 0).length : 0;
+    const top5 = sorted.slice(0, 5);
+    const bottom5 = [...sorted].reverse().slice(0, 5);
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-800">Criminal Backgrounds</h3>
+          <p className="text-xs text-gray-400 mt-0.5">% of candidates with pending cases</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="flex items-center gap-3 rounded-xl bg-red-50 border border-red-100 p-3">
+            <AlertTriangle className="h-6 w-6 shrink-0 text-red-400" />
+            <div>
+              <div className="text-lg font-bold text-red-600">{(avgCrim * 100).toFixed(0)}%</div>
+              <div className="text-[11px] text-red-500">Avg criminal rate per seat</div>
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Highest criminal rate</p>
+            <div className="space-y-1.5">
+              {top5.map(c => {
+                const rate = constStats[c.id]?.crimRate ?? 0;
+                return (
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-[10px] text-gray-400">{c.district}</p>
+                    </div>
+                    <div className="shrink-0 w-24">
+                      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-red-400" style={{ width: `${rate * 100}%` }} />
+                      </div>
+                      <p className="text-right text-[10px] font-bold text-red-500 mt-0.5">{(rate * 100).toFixed(0)}%</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Cleanest seats</p>
+            <div className="space-y-1.5">
+              {bottom5.map(c => {
+                const rate = constStats[c.id]?.crimRate ?? 0;
+                return (
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-[10px] text-gray-400">{c.district}</p>
+                    </div>
+                    <p className="shrink-0 text-[10px] font-bold text-green-600">{(rate * 100).toFixed(0)}%</p>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (mapMode === 'women') {
+    const womenConsts = allConsts.filter(c => constStats[c.id]?.candCount > 0);
+    const avgWomen = womenConsts.length ? womenConsts.reduce((s, c) => s + (constStats[c.id]?.womenRate ?? 0), 0) / womenConsts.length : 0;
+    const totalWomen = allCandidates.filter(c => c.gender === 'Female').length;
+    const top5 = sorted.slice(0, 5);
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-gray-100 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-800">Women Representation</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Share of women candidates per seat</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-xl bg-fuchsia-50 border border-fuchsia-100 p-3 text-center">
+              <div className="text-xl font-bold text-fuchsia-600">{totalWomen}</div>
+              <div className="text-[11px] text-fuchsia-500">Women candidates</div>
+            </div>
+            <div className="rounded-xl bg-gray-50 p-3 text-center">
+              <div className="text-xl font-bold text-gray-700">{(avgWomen * 100).toFixed(1)}%</div>
+              <div className="text-[11px] text-gray-500">Avg per seat</div>
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Highest women representation</p>
+            <div className="space-y-1.5">
+              {top5.map(c => {
+                const rate = constStats[c.id]?.womenRate ?? 0;
+                const wCount = Math.round(rate * (constStats[c.id]?.candCount ?? 0));
+                return (
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-[10px] text-gray-400">{wCount} of {constStats[c.id]?.candCount} candidates</p>
+                    </div>
+                    <div className="shrink-0 w-24">
+                      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                        <div className="h-full rounded-full bg-fuchsia-400" style={{ width: `${rate * 100}%` }} />
+                      </div>
+                      <p className="text-right text-[10px] font-bold text-fuchsia-600 mt-0.5">{(rate * 100).toFixed(0)}%</p>
+                    </div>
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // competition
+  const avgCands = allConsts.length ? allConsts.reduce((s, c) => s + (constStats[c.id]?.candCount ?? 0), 0) / allConsts.filter(c => constStats[c.id]?.candCount > 0).length : 0;
+  const top5 = sorted.slice(0, 5);
+  const bottom5 = [...sorted].reverse().slice(0, 5);
+  const maxCount = top5[0] ? constStats[top5[0].id]?.candCount ?? 1 : 1;
+  return (
+    <div className="flex h-full flex-col">
+      <div className="border-b border-gray-100 px-4 py-3">
+        <h3 className="text-sm font-bold text-gray-800">Electoral Competition</h3>
+        <p className="text-xs text-gray-400 mt-0.5">Number of candidates per constituency</p>
+      </div>
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex items-center gap-3 rounded-xl bg-blue-50 border border-blue-100 p-3">
+          <BarChart2 className="h-6 w-6 shrink-0 text-blue-400" />
+          <div>
+            <div className="text-lg font-bold text-blue-600">{avgCands.toFixed(1)}</div>
+            <div className="text-[11px] text-blue-500">Avg candidates per seat</div>
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Most contested seats</p>
+          <div className="space-y-1.5">
+            {top5.map(c => {
+              const cnt = constStats[c.id]?.candCount ?? 0;
+              return (
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                    <p className="text-[10px] text-gray-400">{c.district}</p>
+                  </div>
+                  <div className="shrink-0 w-24">
+                    <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-full rounded-full bg-blue-400" style={{ width: `${(cnt / maxCount) * 100}%` }} />
+                    </div>
+                    <p className="text-right text-[10px] font-bold text-blue-600 mt-0.5">{cnt} cands</p>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+        <div>
+          <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Least contested</p>
+          <div className="space-y-1.5">
+            {bottom5.map(c => {
+              const cnt = constStats[c.id]?.candCount ?? 0;
+              return (
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                  </div>
+                  <p className="shrink-0 text-[10px] font-bold text-gray-500">{cnt} cands</p>
+                </Link>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ── Main Map Component ───────────────────────────────────────
 export function WestBengalMap() {
-  const [hoveredId, setHoveredId] = useState<string | null>(null);
-  const [panel, setPanel] = useState<string | null>(null);
+  const [hoveredId, setHoveredId]           = useState<string | null>(null);
+  const [panel, setPanel]                   = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
+  const [mapMode, setMapMode]               = useState<MapMode>('phase');
   const mapRowRef = useRef<HTMLDivElement>(null);
-  const panelRef = useRef<HTMLDivElement>(null);
 
   const districtConstIds = useMemo(() => {
     if (!selectedDistrict) return null;
@@ -291,20 +551,39 @@ export function WestBengalMap() {
     const xs = distPaths.map(p => p.centroid.x);
     const ys = distPaths.map(p => p.centroid.y);
     const pad = 35;
-    const minX = Math.min(...xs) - pad;
-    const minY = Math.min(...ys) - pad;
-    const width = Math.max(...xs) - Math.min(...xs) + pad * 2;
-    const height = Math.max(...ys) - Math.min(...ys) + pad * 2;
-    return `${minX} ${minY} ${width} ${height}`;
+    return `${Math.min(...xs) - pad} ${Math.min(...ys) - pad} ${Math.max(...xs) - Math.min(...xs) + pad * 2} ${Math.max(...ys) - Math.min(...ys) + pad * 2}`;
   }, [selectedDistrict, districtConstIds]);
 
   const viewBox = useAnimatedViewBox(targetViewBox);
 
-  const handleMouseEnter = useCallback((id: string) => { setHoveredId(id); }, []);
-  const handleMouseLeave = useCallback(() => { setHoveredId(null); }, []);
-  const handleClick = useCallback((id: string) => { setPanel(prev => prev === id ? null : id); }, []);
+  // Pre-compute fills for data-driven modes
+  const computedFills = useMemo(() => {
+    if (mapMode === 'phase') return null;
+    const fills: Record<string, string> = {};
+    for (const ac of wbAcPaths) {
+      const stat = constStats[ac.id];
+      if (!stat || stat.candCount === 0) { fills[ac.id] = '#e5e7eb'; continue; }
+      let t: number;
+      let c1: [number,number,number], c2: [number,number,number];
+      if (mapMode === 'criminal') {
+        t = stat.crimRate;
+        c1 = [187, 247, 208]; c2 = [239, 68, 68];
+      } else if (mapMode === 'women') {
+        t = stat.womenRate;
+        c1 = [229, 231, 235]; c2 = [192, 38, 211];
+      } else {
+        t = Math.min(1, (stat.candCount - 1) / 19);
+        c1 = [191, 219, 254]; c2 = [29, 78, 216];
+      }
+      fills[ac.id] = lerpColor(c1, c2, t);
+    }
+    return fills;
+  }, [mapMode]);
 
-  // On desktop, scroll the map row into view when panel opens so it's always visible
+  const handleMouseEnter = useCallback((id: string) => setHoveredId(id), []);
+  const handleMouseLeave = useCallback(() => setHoveredId(null), []);
+  const handleClick      = useCallback((id: string) => setPanel(prev => prev === id ? null : id), []);
+
   useEffect(() => {
     if (panel !== null && mapRowRef.current && window.innerWidth >= 1024) {
       mapRowRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -316,20 +595,35 @@ export function WestBengalMap() {
     setPanel(null);
   };
 
-  const handleReset = () => {
-    setSelectedDistrict(null);
-    setPanel(null);
-  };
+  const handleReset = () => { setSelectedDistrict(null); setPanel(null); };
 
   const getPathFill = (id: string) => {
-    const isP1 = PHASE1_IDS.has(id);
-    if (districtConstIds && !districtConstIds.has(id)) return isP1 ? PHASE1_DIM : PHASE2_DIM;
-    if (panel === id) return isP1 ? PHASE1_HOVER : PHASE2_HOVER;
-    if (hoveredId === id) return isP1 ? PHASE1_HOVER : PHASE2_HOVER;
-    return isP1 ? PHASE1_FILL : PHASE2_FILL;
+    const isDimmed = districtConstIds !== null && !districtConstIds.has(id);
+
+    if (mapMode === 'phase') {
+      const isP1 = PHASE1_IDS.has(id);
+      if (isDimmed)               return isP1 ? PHASE1_DIM   : PHASE2_DIM;
+      if (panel === id || hoveredId === id) return isP1 ? PHASE1_HOVER : PHASE2_HOVER;
+      return isP1 ? PHASE1_FILL : PHASE2_FILL;
+    }
+
+    const fill = computedFills?.[id] ?? '#e5e7eb';
+    return isDimmed ? '#f3f4f6' : fill;
   };
 
-  const isZoomedIn = selectedDistrict !== null;
+  // Legend config per mode
+  const legendConfig = useMemo(() => {
+    switch (mapMode) {
+      case 'criminal':
+        return { type: 'gradient' as const, from: '#bbf7d0', to: '#ef4444', leftLabel: '0%', rightLabel: '100%', title: 'Criminal rate' };
+      case 'women':
+        return { type: 'gradient' as const, from: '#e5e7eb', to: '#c026d3', leftLabel: '0%', rightLabel: 'High', title: 'Women share' };
+      case 'competition':
+        return { type: 'gradient' as const, from: '#bfdbfe', to: '#1d4ed8', leftLabel: 'Few', rightLabel: 'Many', title: 'Candidates' };
+      default:
+        return { type: 'phase' as const };
+    }
+  }, [mapMode]);
 
   return (
     <div>
@@ -351,10 +645,7 @@ export function WestBengalMap() {
             </button>
           ))}
           {selectedDistrict && (
-            <button
-              onClick={handleReset}
-              className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-300"
-            >
+            <button onClick={handleReset} className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-300">
               ✕ Show all
             </button>
           )}
@@ -362,15 +653,27 @@ export function WestBengalMap() {
       </div>
 
       <div ref={mapRowRef} className="flex flex-col gap-4 lg:flex-row lg:items-start">
-        {/* Map — 700px cap when no panel, 52% when panel open */}
-        <div className={`w-full ${panel !== null ? 'lg:w-[52%] flex-shrink-0' : 'lg:max-w-[700px]'}`}>
+        {/* Left: map type tabs + map SVG */}
+        <div className="w-full lg:w-[52%] flex-shrink-0">
+          {/* Map type selector */}
+          <div className="mb-3 flex gap-1.5">
+            {MAP_MODES.map(mode => (
+              <button
+                key={mode.id}
+                onClick={() => setMapMode(mode.id)}
+                className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
+                  mapMode === mode.id
+                    ? 'bg-gray-900 text-white'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                {mode.label}
+              </button>
+            ))}
+          </div>
+
           <div className="relative rounded-2xl border border-gray-200 bg-slate-50 shadow-inner">
-            <svg
-              viewBox={viewBox}
-              className="w-full rounded-2xl"
-              style={{ display: 'block' }}
-            >
-              {/* ── Constituency fills ── */}
+            <svg viewBox={viewBox} className="w-full rounded-2xl" style={{ display: 'block' }}>
               {wbAcPaths.map(ac => {
                 const dimmed = districtConstIds ? !districtConstIds.has(ac.id) : false;
                 return (
@@ -378,9 +681,9 @@ export function WestBengalMap() {
                     key={ac.id}
                     d={ac.path}
                     fill={getPathFill(ac.id)}
-                    fillOpacity={dimmed ? 0.2 : 1}
-                    stroke={panel === ac.id ? '#93c5fd' : '#ffffff'}
-                    strokeWidth={panel === ac.id ? 1 : 0.4}
+                    fillOpacity={dimmed ? 0.25 : 1}
+                    stroke={panel === ac.id ? '#1d4ed8' : hoveredId === ac.id ? '#374151' : '#ffffff'}
+                    strokeWidth={panel === ac.id ? 1.5 : hoveredId === ac.id ? 1 : 0.4}
                     style={{ cursor: 'pointer', transition: 'fill 0.12s ease, fill-opacity 0.25s ease' }}
                     onClick={() => handleClick(ac.id)}
                     onMouseEnter={() => handleMouseEnter(ac.id)}
@@ -390,27 +693,40 @@ export function WestBengalMap() {
               })}
             </svg>
 
-            {/* Hover stats panel (top-right) */}
+            {/* Hover stats panel */}
             {hoveredId && panel === null && (
-              <div className="pointer-events-none absolute right-3 top-3 z-10 w-72 max-h-96 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+              <div className="pointer-events-none absolute right-3 top-3 z-10 w-64 max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
                 <HoverStatsPanel constituencyId={hoveredId} />
               </div>
             )}
 
-            {/* Phase legend (bottom-left) */}
-            <div className="absolute bottom-3 left-3 flex flex-col gap-1.5 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE1_FILL }} />
-                <span className="text-[9px] font-medium text-gray-600">Phase 1 · 23 Apr</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE2_FILL }} />
-                <span className="text-[9px] font-medium text-gray-600">Phase 2 · 29 Apr</span>
-              </div>
+            {/* Legend */}
+            <div className="absolute bottom-3 left-3 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
+              {legendConfig.type === 'phase' ? (
+                <div className="flex flex-col gap-1.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE1_FILL }} />
+                    <span className="text-[9px] font-medium text-gray-600">Phase 1 · 23 Apr</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE2_FILL }} />
+                    <span className="text-[9px] font-medium text-gray-600">Phase 2 · 29 Apr</span>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold text-gray-500">{legendConfig.title}</p>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[8px] text-gray-400">{legendConfig.leftLabel}</span>
+                    <div className="h-2 w-20 rounded-full" style={{ background: `linear-gradient(to right, ${legendConfig.from}, ${legendConfig.to})` }} />
+                    <span className="text-[8px] text-gray-400">{legendConfig.rightLabel}</span>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Reset zoom button */}
-            {isZoomedIn && (
+            {/* Reset zoom */}
+            {selectedDistrict && (
               <button
                 onClick={handleReset}
                 className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-lg border border-gray-200 bg-white/90 px-2.5 py-1.5 text-[10px] font-medium text-gray-600 shadow-sm backdrop-blur-sm transition-colors hover:bg-gray-100"
@@ -421,7 +737,6 @@ export function WestBengalMap() {
             )}
           </div>
 
-          {/* Missing-path notice — only shown if data gap exists */}
           {MISSING_PATH_IDS.size > 0 && (
             <div className="mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
               <p className="text-[10px] text-amber-700">
@@ -429,20 +744,29 @@ export function WestBengalMap() {
               </p>
             </div>
           )}
+
+          {/* Mobile: constituency panel below map */}
+          {panel !== null && (
+            <div className="mt-4 lg:hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ maxHeight: '560px' }}>
+              <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
+            </div>
+          )}
         </div>
 
-        {/* Side panel */}
-        {panel !== null && (
-          <div ref={panelRef} className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm lg:flex-1" style={{ maxHeight: '640px' }}>
+        {/* Right: always-visible on desktop — constituency panel or insights */}
+        <div className="hidden lg:flex lg:flex-1 min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ maxHeight: '640px' }}>
+          {panel !== null ? (
             <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
-          </div>
-        )}
+          ) : (
+            <InsightsPanel mapMode={mapMode} selectedDistrict={selectedDistrict} />
+          )}
+        </div>
       </div>
 
       {/* District constituency grid */}
       {selectedDistrict && (
         <div className="mt-6">
-          <div className="mb-3 flex items-center justify-between">
+          <div className="mb-3">
             <h3 className="text-sm font-bold text-gray-800">
               {selectedDistrict}
               <span className="ml-2 text-xs font-normal text-gray-400">
@@ -456,7 +780,6 @@ export function WestBengalMap() {
               .map(c => {
                 const cands = candidatesByConstituency[c.id] ?? [];
                 const isP1 = PHASE1_IDS.has(c.id);
-                // Top 5 parties by candidate count
                 const partyCounts: Record<string, number> = {};
                 cands.forEach(cd => { partyCounts[cd.partyId] = (partyCounts[cd.partyId] || 0) + 1; });
                 const topParties = Object.entries(partyCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
@@ -467,18 +790,15 @@ export function WestBengalMap() {
                     href={`/constituency/${c.id}`}
                     className="group rounded-xl border border-gray-200 bg-white p-3 transition-all hover:border-blue-300 hover:shadow-md"
                   >
-                    {/* Name + candidate count */}
                     <div className="flex items-start justify-between gap-1">
                       <p className="text-xs font-bold leading-tight text-gray-900 group-hover:text-blue-700">{c.name}</p>
                       <span className="shrink-0 text-base font-extrabold leading-none" style={{ color: isP1 ? PHASE1_FILL : PHASE2_FILL }}>
                         {cands.length}
                       </span>
                     </div>
-                    {/* Phase */}
                     <p className="mt-0.5 text-[10px] text-gray-400">
                       {isP1 ? 'Phase 1 · 23 Apr' : 'Phase 2 · 29 Apr'}
                     </p>
-                    {/* Party color dots */}
                     <div className="mt-2 flex items-center gap-1">
                       {topParties.map(([pid]) => (
                         <span

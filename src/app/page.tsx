@@ -21,6 +21,11 @@ const WestBengalMap = dynamic(
   )}
 );
 
+const VoteCountdown = dynamic(
+  () => import('@/components/VoteCountdown').then(m => ({ default: m.VoteCountdown })),
+  { ssr: false }
+);
+
 export const metadata: Metadata = {
   title: 'WB Votes — West Bengal Election 2026',
   description: 'Search all 294 constituencies and 2707+ candidates for the West Bengal Assembly Election 2026.',
@@ -116,13 +121,13 @@ export default function HomePage() {
       <section className="bg-white px-4 py-10">
         <div className="mx-auto max-w-6xl">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-gray-900">
-              Explore by Constituency
-              <span className="ml-2 text-base font-normal text-gray-400">/ মানচিত্রে দেখুন</span>
-            </h2>
-            <p className="mt-1 text-sm text-gray-500">
-              Tap to preview · Tap again to open full candidate list · Blue = Phase 1 (23 Apr)
-            </p>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-bold text-gray-900">
+                Explore by Constituency
+                <span className="ml-2 text-base font-normal text-gray-400">/ মানচিত্রে দেখুন</span>
+              </h2>
+              <VoteCountdown />
+            </div>
           </div>
           <WestBengalMap />
         </div>

@@ -10,6 +10,7 @@ import {
 import { getCandidateById, candidates } from '@/data/candidates';
 import { getConstituencyById } from '@/data/constituencies';
 import { getPartyById } from '@/data/parties';
+import { getPartyManifesto, policyDimensions } from '@/data/party-stances';
 import { Badge } from '@/components/ui/Badge';
 import { CandidateNews } from '@/components/CandidateNews';
 import { PartySymbol } from '@/components/ui/PartySymbol';
@@ -391,6 +392,51 @@ export default function CandidatePage({ params }: PageProps) {
             ⚠ All information on this page is sourced from self-declared ECI affidavits and publicly available datasets.
             WB Votes does not verify or endorse any individual claim.
           </p>
+
+          {/* Party stance section */}
+          {(() => {
+            const manifesto = getPartyManifesto(candidate.partyId);
+            if (!manifesto) return null;
+            return (
+              <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+                <div className="border-b border-gray-100 px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <span className="h-3 w-3 rounded-full" style={{ backgroundColor: party.color }} />
+                    <h2 className="text-sm font-semibold text-gray-700">{party.abbreviation} — Policy Positions</h2>
+                  </div>
+                  <p className="mt-1 text-xs text-gray-400 leading-relaxed">{manifesto.summary}</p>
+                </div>
+                <div className="px-5 py-4 space-y-4">
+                  {policyDimensions.map(dim => {
+                    const stance = manifesto.stances[dim.key];
+                    if (!stance) return null;
+                    const pct = ((stance.score + 2) / 4) * 100;
+                    return (
+                      <div key={dim.key}>
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-xs font-semibold text-gray-600">{dim.label}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="w-24 shrink-0 text-[10px] text-gray-400 text-right leading-tight">{dim.leftLabel}</span>
+                          <div className="relative flex-1 h-2 rounded-full bg-gray-100">
+                            <div
+                              className="absolute top-1/2 -translate-y-1/2 h-3.5 w-3.5 rounded-full border-2 border-white shadow"
+                              style={{ left: `calc(${pct}% - 7px)`, backgroundColor: party.color }}
+                            />
+                          </div>
+                          <span className="w-24 shrink-0 text-[10px] text-gray-400 leading-tight">{dim.rightLabel}</span>
+                        </div>
+                        <p className="mt-1 text-[10px] text-gray-400 leading-relaxed pl-[112px]">{stance.note}</p>
+                      </div>
+                    );
+                  })}
+                </div>
+                <div className="border-t border-gray-50 px-5 py-2.5">
+                  <p className="text-[10px] text-gray-400">Party positions are editorial assessments based on official manifestos and governance history. They do not represent the individual candidate&apos;s views.</p>
+                </div>
+              </section>
+            );
+          })()}
 
           <CandidateNews name={candidate.name} />
         </div>
