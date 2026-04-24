@@ -78,8 +78,9 @@ function buildSpotlightPool(): SpotlightEntry[] {
     .filter(c => c.partyId === 'IND' && c.totalAssets > 0)
     .sort((a, b) => b.totalAssets - a.totalAssets)[0];
 
+  // Most contested seat — pick from non-major-party candidates (so it differs from hotSeat above)
   const mostContested = [...candidates]
-    .filter(c => MAJOR_PARTIES.includes(c.partyId))
+    .filter(c => !MAJOR_PARTIES.includes(c.partyId))
     .sort((a, b) => (countByConst[b.constituencyId] ?? 0) - (countByConst[a.constituencyId] ?? 0))[0];
 
   const EDUCATION_RANK: Record<string, number> = {
@@ -211,7 +212,8 @@ function buildSpotlightPool(): SpotlightEntry[] {
       bg: 'bg-green-50',
       border: 'border-green-200',
     },
-  ].filter(s => s.candidate != null);
+  ].filter(s => s.candidate != null)
+   .filter((entry, idx, arr) => arr.findIndex(e => e.candidate?.id === entry.candidate?.id) === idx);
 }
 
 export function KeyFaces() {
