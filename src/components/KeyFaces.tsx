@@ -120,7 +120,12 @@ export function KeyFaces() {
                     </p>
                     <div className="mt-0.5 flex items-center gap-1">
                       <PartySymbol party={{ abbreviation: party?.abbreviation ?? c.partyId, color: party?.color ?? '#64748b', symbolUrl: party?.symbolUrl }} size={16} />
-                      <span className="text-[10px] font-semibold text-gray-600">{party?.abbreviation ?? c.partyId}</span>
+                      <span
+                        className="inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold text-white"
+                        style={{ backgroundColor: party?.color ?? '#64748b' }}
+                      >
+                        {party?.abbreviation ?? c.partyId}
+                      </span>
                     </div>
                   </div>
                 </div>
