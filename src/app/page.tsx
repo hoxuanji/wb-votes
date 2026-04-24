@@ -1,5 +1,5 @@
 import type { Metadata } from 'next';
-import dynamic from 'next/dynamic';
+import nextDynamic from 'next/dynamic';
 import { HeroSearchBar } from '@/components/HeroSearchBar';
 import { KeyFaces } from '@/components/KeyFaces';
 import { HardFought } from '@/components/HardFought';
@@ -9,10 +9,13 @@ import { ElectionNews } from '@/components/ElectionNews';
 import { LastSearchedBanner } from '@/components/LastSearchedBanner';
 import { constituencies } from '@/data/constituencies';
 import { candidates } from '@/data/candidates';
-import { ClipboardList, AlertTriangle, Users, MapPin, ArrowRight, Search, BarChart2, Scale } from 'lucide-react';
+import { CandidatesWatch } from '@/components/CandidatesWatch';
+import { ClipboardList, ArrowRight, Search, BarChart2, Scale } from 'lucide-react';
 import Link from 'next/link';
 
-const WestBengalMap = dynamic(
+export const dynamic = 'force-dynamic';
+
+const WestBengalMap = nextDynamic(
   () => import('@/components/WestBengalMap').then(m => ({ default: m.WestBengalMap })),
   { ssr: false, loading: () => (
     <div className="flex h-96 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50">
@@ -21,7 +24,7 @@ const WestBengalMap = dynamic(
   )}
 );
 
-const VoteCountdown = dynamic(
+const VoteCountdown = nextDynamic(
   () => import('@/components/VoteCountdown').then(m => ({ default: m.VoteCountdown })),
   { ssr: false }
 );
@@ -138,6 +141,11 @@ export default function HomePage() {
         <div className="border-t border-gray-100">
           <HardFought />
         </div>
+      </div>
+
+      {/* ── Candidates to Watch ──────────────────────────────────────────── */}
+      <div className="bg-gradient-to-b from-slate-50 to-white">
+        <CandidatesWatch />
       </div>
 
       {/* ── Party Strength ───────────────────────────────────────────────── */}

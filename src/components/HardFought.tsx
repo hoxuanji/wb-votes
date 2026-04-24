@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { Flame, Users } from 'lucide-react';
+import { Flame, Users, RefreshCw } from 'lucide-react';
 import { candidates } from '@/data/candidates';
 import { constituencies } from '@/data/constituencies';
 import { parties } from '@/data/parties';
@@ -12,6 +12,19 @@ const PARTY_COLORS: Record<string, string> = {
 const partyMap = Object.fromEntries(parties.map(p => [p.id, p]));
 const constMap = Object.fromEntries(constituencies.map(c => [c.id, c]));
 
+function getDayIndex() { return Math.floor(Date.now() / 86400000); }
+
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const a = [...arr];
+  let s = seed | 0;
+  for (let i = a.length - 1; i > 0; i--) {
+    s = (Math.imul(s, 1664525) + 1013904223) | 0;
+    const j = ((s >>> 1) % (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
 function computeHardFought() {
   const byConst: Record<string, typeof candidates> = {};
   for (const c of candidates) {
@@ -19,7 +32,7 @@ function computeHardFought() {
     byConst[c.constituencyId].push(c);
   }
 
-  return Object.entries(byConst)
+  const top24 = Object.entries(byConst)
     .map(([id, cs]) => {
       const partySet = new Set(cs.map(c => c.partyId));
       const majorPresent = MAJOR_PARTIES.filter(p => partySet.has(p));
@@ -28,7 +41,9 @@ function computeHardFought() {
       return { id, total: cs.length, majorPresent, score, withCriminal };
     })
     .sort((a, b) => b.score - a.score)
-    .slice(0, 6);
+    .slice(0, 24);
+
+  return seededShuffle(top24, getDayIndex()).slice(0, 6);
 }
 
 export function HardFought() {
@@ -37,12 +52,15 @@ export function HardFought() {
   return (
     <section className="px-4 py-10">
       <div className="mx-auto max-w-6xl">
-        <div className="mb-1 flex items-center gap-2">
+        <div className="mb-1 flex items-center gap-2 flex-wrap">
           <Flame className="h-5 w-5 text-orange-500" />
           <h2 className="text-xl font-bold text-gray-900">Hard-Fought Constituencies</h2>
+          <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-[10px] font-semibold text-orange-600">
+            <RefreshCw className="h-2.5 w-2.5" /> Today&apos;s picks
+          </span>
         </div>
         <p className="mb-6 text-sm text-gray-500">
-          Seats where all four major parties — TMC, BJP, CPM, INC — are all contesting
+          Seats where all four major parties — TMC, BJP, CPM, INC — are all contesting · Showing 6 of 24 top seats, changes daily
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {hotSeats.map(({ id, total, majorPresent, withCriminal }) => {
