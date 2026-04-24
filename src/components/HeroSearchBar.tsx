@@ -148,6 +148,19 @@ export function HeroSearchBar() {
   const inputRef = useRef<HTMLInputElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
+  // ⌘K / Ctrl+K focuses the search bar
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        inputRef.current?.focus();
+        setOpen(true);
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, []);
+
   const results = useMemo(() => {
     const q = query.trim();
     if (q.length < 1) return [];
@@ -197,8 +210,8 @@ export function HeroSearchBar() {
   const dropdownVisible = showIdle || showResults || showEmpty;
 
   return (
-    <div ref={containerRef} className="relative mx-auto w-full max-w-2xl" style={{ zIndex: 60 }}>
-      <div className="flex items-center gap-3 rounded-2xl border border-white/30 bg-white/15 px-5 py-4 backdrop-blur-sm transition-all focus-within:border-white/60 focus-within:bg-white/20">
+    <div ref={containerRef} className="relative mx-auto w-full max-w-3xl" style={{ zIndex: 60 }}>
+      <div className="flex items-center gap-3 rounded-2xl border border-white/30 bg-white/15 px-5 py-4 backdrop-blur-sm transition-colors focus-within:border-white/60">
         <Search className="h-5 w-5 shrink-0 text-white/70" />
         <input
           ref={inputRef}
@@ -211,7 +224,7 @@ export function HeroSearchBar() {
           autoComplete="off"
           aria-label="Search constituencies or candidates"
         />
-        {query && (
+        {query ? (
           <button
             onClick={() => { setQuery(''); inputRef.current?.focus(); }}
             className="text-white/60 hover:text-white transition-colors"
@@ -219,6 +232,10 @@ export function HeroSearchBar() {
           >
             <X className="h-4 w-4" />
           </button>
+        ) : (
+          <kbd className="hidden sm:inline-flex items-center gap-1 rounded border border-white/20 px-1.5 py-0.5 text-[11px] font-medium text-white/35 select-none">
+            ⌘K
+          </kbd>
         )}
       </div>
 

@@ -181,7 +181,7 @@ export default function ConstituencyPage({ params }: PageProps) {
 
       {/* Candidate grid */}
       <h2 className="mb-4 text-base font-bold text-gray-900">All Candidates</h2>
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {candidatesWithParty.map(({ candidate, party }) => (
           <CandidateCard
             key={candidate.id}

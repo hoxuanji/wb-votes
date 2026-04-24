@@ -77,7 +77,7 @@ export function KeyFaces() {
 
   return (
     <section className="bg-gray-50 px-4 py-10">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <h2 className="mb-1 text-xl font-bold text-gray-900">Spotlight: Notable Candidates</h2>
         <p className="mb-6 text-sm text-gray-500">
           Real data from ECI affidavits — who stands out on the ballot?

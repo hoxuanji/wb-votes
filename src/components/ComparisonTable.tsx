@@ -114,7 +114,7 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
             {candidates.map((c) => {
               const p = getParty(c, parties);
               return (
-                <th key={c.id} className="px-4 py-3 text-center">
+                <th key={c.id} className="min-w-[140px] px-4 py-3 text-center">
                   <div className="flex flex-col items-center gap-1">
                     <div className="relative h-10 w-10 overflow-hidden rounded-full border-2" style={{ borderColor: p.color }}>
                       {c.photoUrl ? (

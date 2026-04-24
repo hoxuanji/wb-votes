@@ -1,9 +1,10 @@
 'use client';
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { Users, AlertTriangle, Calendar, X } from 'lucide-react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { wbAcPaths, AC_MAP_WIDTH, AC_MAP_HEIGHT } from '@/data/wb-ac-paths';
 import { constituencies } from '@/data/constituencies';
 import { candidates as allCandidates } from '@/data/candidates';
@@ -19,6 +20,14 @@ const PHASE1_IDS = new Set([
   'c0057','c0059',
 ]);
 
+const DISTRICTS = [
+  'Alipurduar','Bankura','Birbhum','Cooch Behar','Dakshin Dinajpur',
+  'Darjeeling','Hooghly','Howrah','Jalpaiguri','Jhargram','Kalimpong',
+  'Kolkata','Malda','Murshidabad','Nadia','North 24 Parganas',
+  'Paschim Bardhaman','Paschim Medinipur','Purba Bardhaman','Purba Medinipur',
+  'Purulia','South 24 Parganas','Uttar Dinajpur',
+];
+
 const constituencyById: Record<string, Constituency> = {};
 constituencies.forEach(c => { constituencyById[c.id] = c; });
 
@@ -31,11 +40,17 @@ allCandidates.forEach(c => {
   candidatesByConstituency[c.constituencyId].push(c);
 });
 
+const constituenciesByDistrict: Record<string, Constituency[]> = {};
+constituencies.forEach(c => {
+  if (!constituenciesByDistrict[c.district]) constituenciesByDistrict[c.district] = [];
+  constituenciesByDistrict[c.district].push(c);
+});
+
 function phaseColor(id: string): string {
   return PHASE1_IDS.has(id) ? '#2563eb' : '#94a3b8';
 }
 
-// ── Mini candidate card (used in click panel) ────────────────
+// ── Mini candidate card ──────────────────────────────────────
 function MiniCandidateCard({ candidate }: { candidate: Candidate }) {
   const party = partyById[candidate.partyId];
   const photoUrl = candidate.photoUrl
@@ -73,30 +88,21 @@ function MiniCandidateCard({ candidate }: { candidate: Candidate }) {
   );
 }
 
-// ── Hover Stats Panel (shows on hover, no click required) ────
+// ── Hover Stats Panel ────────────────────────────────────────
 function HoverStatsPanel({ constituencyId }: { constituencyId: string }) {
   const c = constituencyById[constituencyId];
   const cands = candidatesByConstituency[constituencyId] ?? [];
   const isPhase1 = PHASE1_IDS.has(constituencyId);
-
   if (!c) return null;
 
   const partyCounts: Record<string, number> = {};
-  cands.forEach(cand => {
-    partyCounts[cand.partyId] = (partyCounts[cand.partyId] || 0) + 1;
-  });
-  const topParties = Object.entries(partyCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 5);
-
+  cands.forEach(cand => { partyCounts[cand.partyId] = (partyCounts[cand.partyId] || 0) + 1; });
+  const topParties = Object.entries(partyCounts).sort((a, b) => b[1] - a[1]).slice(0, 5);
   const withCriminal = cands.filter(c => c.criminalCases > 0).length;
-  const avgAssets = cands.length
-    ? Math.round(cands.reduce((s, c) => s + c.totalAssets, 0) / cands.length)
-    : 0;
+  const avgAssets = cands.length ? Math.round(cands.reduce((s, c) => s + c.totalAssets, 0) / cands.length) : 0;
 
   return (
     <div className="p-4">
-      {/* Header */}
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
           <h3 className="text-sm font-bold text-gray-900">{c.name}</h3>
@@ -104,21 +110,15 @@ function HoverStatsPanel({ constituencyId }: { constituencyId: string }) {
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1">
           {c.reservation !== 'General' && (
-            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">
-              {c.reservation}
-            </span>
+            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">{c.reservation}</span>
           )}
-          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-            isPhase1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-          }`}>
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${isPhase1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
             {isPhase1 ? 'Phase 1 · 23 Apr' : 'Phase 2 · 29 Apr'}
           </span>
         </div>
       </div>
-
       {cands.length > 0 ? (
         <>
-          {/* Quick stats */}
           <div className="mb-4 grid grid-cols-3 gap-2">
             <div className="rounded-xl bg-gray-50 p-2 text-center">
               <p className="text-base font-bold text-gray-900">{cands.length}</p>
@@ -133,30 +133,18 @@ function HoverStatsPanel({ constituencyId }: { constituencyId: string }) {
               <p className="text-[10px] text-gray-500">Avg Assets</p>
             </div>
           </div>
-
-          {/* Party breakdown */}
           <div>
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
-              Party Breakdown
-            </p>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Party Breakdown</p>
             <div className="space-y-1.5">
               {topParties.map(([partyId, count]) => {
                 const party = partyById[partyId];
                 const pct = Math.round((count / cands.length) * 100);
                 return (
                   <div key={partyId} className="flex items-center gap-2">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: party?.color ?? '#ccc' }}
-                    />
-                    <span className="w-12 shrink-0 truncate text-xs text-gray-600">
-                      {party?.abbreviation ?? partyId}
-                    </span>
+                    <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: party?.color ?? '#ccc' }} />
+                    <span className="w-12 shrink-0 truncate text-xs text-gray-600">{party?.abbreviation ?? partyId}</span>
                     <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
-                      <div
-                        className="h-full rounded-full transition-all duration-300"
-                        style={{ width: `${pct}%`, backgroundColor: party?.color ?? '#ccc' }}
-                      />
+                      <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: party?.color ?? '#ccc' }} />
                     </div>
                     <span className="w-4 shrink-0 text-right text-[10px] text-gray-500">{count}</span>
                   </div>
@@ -164,29 +152,24 @@ function HoverStatsPanel({ constituencyId }: { constituencyId: string }) {
               })}
             </div>
           </div>
-
           <p className="mt-4 text-center text-[10px] text-gray-400">Click to view all candidates →</p>
         </>
       ) : (
         <div className="flex flex-col items-center py-6 text-center">
           <Calendar className="mb-2 h-8 w-8 text-gray-200" />
           <p className="text-sm font-medium text-gray-400">Data coming soon</p>
-          <p className="mt-0.5 text-xs text-gray-300">
-            {isPhase1 ? 'Phase 1 · 23 Apr 2026' : 'Phase 2 · 29 Apr 2026'}
-          </p>
         </div>
       )}
     </div>
   );
 }
 
-// ── Click Panel (full candidate list) ───────────────────────
+// ── Click Panel ──────────────────────────────────────────────
 function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string; onClose: () => void }) {
   const router = useRouter();
   const c = constituencyById[constituencyId];
   const cands = candidatesByConstituency[constituencyId] ?? [];
   const isPhase1 = PHASE1_IDS.has(constituencyId);
-
   if (!c) return null;
 
   return (
@@ -196,13 +179,9 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
           <div className="flex flex-wrap items-center gap-2">
             <h3 className="text-sm font-bold text-gray-900">{c.name}</h3>
             {c.reservation !== 'General' && (
-              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">
-                {c.reservation}
-              </span>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">{c.reservation}</span>
             )}
-            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${
-              isPhase1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'
-            }`}>
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${isPhase1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
               {isPhase1 ? 'Phase 1 · 23 Apr' : 'Phase 2 · 29 Apr'}
             </span>
           </div>
@@ -212,7 +191,6 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
           <X className="h-4 w-4 text-gray-400" />
         </button>
       </div>
-
       <div className="flex-1 overflow-y-auto p-3">
         {cands.length > 0 ? (
           <>
@@ -220,28 +198,18 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
               <span className="flex items-center gap-1 text-xs font-semibold text-gray-600">
                 <Users className="h-3.5 w-3.5" /> {cands.length} Candidates
               </span>
-              <button
-                onClick={() => router.push(`/constituency/${constituencyId}`)}
-                className="text-xs font-semibold text-blue-600 hover:text-blue-800"
-              >
+              <button onClick={() => router.push(`/constituency/${constituencyId}`)} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
                 View All →
               </button>
             </div>
             <div className="space-y-1.5">
               {cands.slice(0, 6).map(cand => (
-                <button
-                  key={cand.id}
-                  onClick={() => router.push(`/candidate/${cand.id}`)}
-                  className="w-full text-left"
-                >
+                <button key={cand.id} onClick={() => router.push(`/candidate/${cand.id}`)} className="w-full text-left">
                   <MiniCandidateCard candidate={cand} />
                 </button>
               ))}
               {cands.length > 6 && (
-                <button
-                  onClick={() => router.push(`/constituency/${constituencyId}`)}
-                  className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50"
-                >
+                <button onClick={() => router.push(`/constituency/${constituencyId}`)} className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50">
                   +{cands.length - 6} more candidates
                 </button>
               )}
@@ -250,20 +218,13 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
         ) : (
           <div className="flex flex-col items-center justify-center py-8 text-center">
             <Calendar className="mb-2 h-8 w-8 text-gray-300" />
-            <p className="text-sm font-medium text-gray-500">
-              {isPhase1 ? 'Phase 1 · 23 April 2026' : 'Phase 2 · 29 April 2026'}
-            </p>
-            <p className="mt-1 text-xs text-gray-400">Candidate data not yet available</p>
+            <p className="text-sm font-medium text-gray-500">{isPhase1 ? 'Phase 1 · 23 April 2026' : 'Phase 2 · 29 April 2026'}</p>
           </div>
         )}
       </div>
-
       {cands.length > 0 && (
         <div className="border-t border-gray-100 px-4 py-2">
-          <button
-            onClick={() => router.push(`/constituency/${constituencyId}`)}
-            className="w-full rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700"
-          >
+          <button onClick={() => router.push(`/constituency/${constituencyId}`)} className="w-full rounded-lg bg-blue-600 py-2 text-xs font-semibold text-white transition-colors hover:bg-blue-700">
             Full Constituency Page →
           </button>
         </div>
@@ -276,114 +237,163 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
 export function WestBengalMap() {
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [panel, setPanel] = useState<string | null>(null);
-  const [search, setSearch] = useState('');
+  const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
 
-  const handleMouseEnter = useCallback((id: string) => {
-    setHoveredId(id);
-  }, []);
+  const districtConstIds = useMemo(() => {
+    if (!selectedDistrict) return null;
+    return new Set((constituenciesByDistrict[selectedDistrict] ?? []).map(c => c.id));
+  }, [selectedDistrict]);
 
-  const handleMouseLeave = useCallback(() => {
-    setHoveredId(null);
-  }, []);
+  const viewBox = useMemo(() => {
+    if (!selectedDistrict || !districtConstIds) return `0 0 ${AC_MAP_WIDTH} ${AC_MAP_HEIGHT}`;
+    const distPaths = wbAcPaths.filter(p => districtConstIds.has(p.id));
+    if (distPaths.length === 0) return `0 0 ${AC_MAP_WIDTH} ${AC_MAP_HEIGHT}`;
+    const xs = distPaths.map(p => p.centroid.x);
+    const ys = distPaths.map(p => p.centroid.y);
+    const pad = 30;
+    return `${Math.min(...xs) - pad} ${Math.min(...ys) - pad} ${Math.max(...xs) - Math.min(...xs) + pad * 2} ${Math.max(...ys) - Math.min(...ys) + pad * 2}`;
+  }, [selectedDistrict, districtConstIds]);
 
-  const handleClick = useCallback((id: string) => {
-    setPanel(prev => (prev === id ? null : id));
-  }, []);
+  const handleMouseEnter = useCallback((id: string) => { setHoveredId(id); }, []);
+  const handleMouseLeave = useCallback(() => { setHoveredId(null); }, []);
+  const handleClick = useCallback((id: string) => { setPanel(prev => prev === id ? null : id); }, []);
 
-  const searchLower = search.toLowerCase();
-  const matchedIds = search.length > 1
-    ? new Set(
-        constituencies
-          .filter(c =>
-            c.name.toLowerCase().includes(searchLower) ||
-            c.district.toLowerCase().includes(searchLower)
-          )
-          .map(c => c.id)
-      )
-    : null;
+  const handleDistrictSelect = (district: string) => {
+    setSelectedDistrict(prev => prev === district ? null : district);
+    setPanel(null);
+  };
 
   const getPathFill = (id: string) => {
-    const isSelected = panel === id;
-    const isHovered = hoveredId === id;
-    const isHighlighted = matchedIds ? matchedIds.has(id) : null;
-    const isPhase1 = PHASE1_IDS.has(id);
-
-    if (isSelected) return isPhase1 ? '#1d4ed8' : '#475569';
-    if (isHighlighted === false) return '#e2e8f0';
-    if (isHovered) return isPhase1 ? '#3b82f6' : '#64748b';
+    if (districtConstIds && !districtConstIds.has(id)) return '#cbd5e1';
+    if (panel === id) return PHASE1_IDS.has(id) ? '#1d4ed8' : '#475569';
+    if (hoveredId === id) return PHASE1_IDS.has(id) ? '#3b82f6' : '#64748b';
     return phaseColor(id);
   };
 
   return (
-    <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
-      {/* Map column — only shrinks when a panel is explicitly clicked open */}
-      <div className={`flex-shrink-0 ${panel !== null ? 'lg:w-[55%]' : 'w-full lg:max-w-lg lg:mx-auto'}`}>
-        {/* Search bar */}
-        <div className="relative mb-3">
-          <input
-            type="text"
-            placeholder="Filter constituencies…"
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-            className="w-full rounded-xl border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm transition-shadow focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
-          />
-          <svg className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-          </svg>
-        </div>
-
-        <div className="relative rounded-2xl border border-gray-200 bg-slate-50 shadow-inner">
-          <svg
-            viewBox={`0 0 ${AC_MAP_WIDTH} ${AC_MAP_HEIGHT}`}
-            className="w-full rounded-2xl"
-            style={{ display: 'block' }}
-          >
-            {wbAcPaths.map(ac => (
-              <path
-                key={ac.id}
-                d={ac.path}
-                fill={getPathFill(ac.id)}
-                stroke={panel === ac.id ? '#93c5fd' : '#ffffff'}
-                strokeWidth={panel === ac.id ? 1 : 0.4}
-                style={{ cursor: 'pointer', transition: 'fill 0.12s ease' }}
-                onClick={() => handleClick(ac.id)}
-                onMouseEnter={() => handleMouseEnter(ac.id)}
-                onMouseLeave={handleMouseLeave}
-              />
-            ))}
-          </svg>
-
-          {/* Floating hover panel — absolute overlay, only when hovering without a click-panel open */}
-          {hoveredId && panel === null && (
-            <div className="pointer-events-none absolute right-3 top-3 z-10 w-72 max-h-96 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
-              <HoverStatsPanel constituencyId={hoveredId} />
-            </div>
+    <div>
+      {/* District selector pills */}
+      <div className="mb-4">
+        <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-gray-400">Browse by district</p>
+        <div className="flex flex-wrap gap-1.5">
+          {DISTRICTS.map(d => (
+            <button
+              key={d}
+              onClick={() => handleDistrictSelect(d)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 ${
+                selectedDistrict === d
+                  ? 'bg-blue-600 text-white shadow-sm'
+                  : 'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700'
+              }`}
+            >
+              {d}
+            </button>
+          ))}
+          {selectedDistrict && (
+            <button
+              onClick={() => { setSelectedDistrict(null); setPanel(null); }}
+              className="rounded-full bg-gray-200 px-3 py-1 text-xs font-medium text-gray-500 hover:bg-gray-300"
+            >
+              ✕ Show all
+            </button>
           )}
-
-          {/* Legend */}
-          <div className="absolute bottom-3 left-3 flex flex-col gap-1 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-blue-600" />
-              <span className="text-[10px] font-medium text-gray-700">Phase 1 · 23 Apr (38)</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" />
-              <span className="text-[10px] font-medium text-gray-500">Phase 2 · 29 Apr (256)</span>
-            </div>
-          </div>
         </div>
       </div>
 
-      {/* Side panel — only opens when constituency is clicked */}
-      {panel !== null && (
-        <div
-          className="lg:flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all"
-          style={{ maxHeight: '580px' }}
-        >
-          <ConstituencyPanel
-            constituencyId={panel}
-            onClose={() => setPanel(null)}
-          />
+      <div className="flex flex-col gap-4 lg:flex-row lg:items-start">
+        {/* Map */}
+        <div className={`flex-shrink-0 ${panel !== null ? 'lg:w-[55%]' : 'w-full lg:max-w-lg lg:mx-auto'}`}>
+          <div className="relative rounded-2xl border border-gray-200 bg-slate-50 shadow-inner">
+            <svg
+              viewBox={viewBox}
+              className="w-full rounded-2xl"
+              style={{ display: 'block' }}
+            >
+              {wbAcPaths.map(ac => {
+                const dimmed = districtConstIds ? !districtConstIds.has(ac.id) : false;
+                return (
+                  <path
+                    key={ac.id}
+                    d={ac.path}
+                    fill={getPathFill(ac.id)}
+                    fillOpacity={dimmed ? 0.2 : 1}
+                    stroke={panel === ac.id ? '#93c5fd' : '#ffffff'}
+                    strokeWidth={panel === ac.id ? 1 : 0.4}
+                    style={{ cursor: 'pointer', transition: 'fill 0.12s ease, fill-opacity 0.25s ease' }}
+                    onClick={() => handleClick(ac.id)}
+                    onMouseEnter={() => handleMouseEnter(ac.id)}
+                    onMouseLeave={handleMouseLeave}
+                  />
+                );
+              })}
+            </svg>
+
+            {hoveredId && panel === null && (
+              <div className="pointer-events-none absolute right-3 top-3 z-10 w-72 max-h-96 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+                <HoverStatsPanel constituencyId={hoveredId} />
+              </div>
+            )}
+
+            <div className="absolute bottom-3 left-3 flex flex-col gap-1 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-blue-600" />
+                <span className="text-[10px] font-medium text-gray-700">Phase 1 · 23 Apr (38)</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-slate-400" />
+                <span className="text-[10px] font-medium text-gray-500">Phase 2 · 29 Apr (256)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Side panel */}
+        {panel !== null && (
+          <div className="lg:flex-1 overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm transition-all" style={{ maxHeight: '580px' }}>
+            <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
+          </div>
+        )}
+      </div>
+
+      {/* District constituency grid */}
+      {selectedDistrict && (
+        <div className="mt-6">
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-gray-800">
+              {selectedDistrict}
+              <span className="ml-2 text-xs font-normal text-gray-400">
+                {constituenciesByDistrict[selectedDistrict]?.length ?? 0} constituencies
+              </span>
+            </h3>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+            {(constituenciesByDistrict[selectedDistrict] ?? [])
+              .sort((a, b) => a.assemblyNumber - b.assemblyNumber)
+              .map(c => {
+                const candCount = (candidatesByConstituency[c.id] ?? []).length;
+                const isPhase1 = PHASE1_IDS.has(c.id);
+                return (
+                  <Link
+                    key={c.id}
+                    href={`/constituency/${c.id}`}
+                    className="rounded-xl border border-gray-200 bg-white p-3 transition-all hover:border-blue-300 hover:bg-blue-50 hover:shadow-sm"
+                  >
+                    <p className="text-xs font-semibold leading-tight text-gray-900">{c.name}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1">
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${isPhase1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+                        {isPhase1 ? 'Ph1' : 'Ph2'}
+                      </span>
+                      {c.reservation !== 'General' && (
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{c.reservation}</span>
+                      )}
+                      {candCount > 0 && (
+                        <span className="text-[10px] text-gray-400">{candCount} cands</span>
+                      )}
+                    </div>
+                  </Link>
+                );
+              })}
+          </div>
         </div>
       )}
     </div>

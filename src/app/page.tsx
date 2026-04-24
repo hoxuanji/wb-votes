@@ -88,7 +88,7 @@ export default function HomePage() {
           className="pointer-events-none absolute inset-0 opacity-10"
           style={{ backgroundImage: 'radial-gradient(circle, white 1px, transparent 1px)', backgroundSize: '24px 24px' }}
         />
-        <div className="relative mx-auto max-w-5xl flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
+        <div className="relative mx-auto max-w-6xl flex flex-col items-center gap-4 text-center sm:flex-row sm:text-left">
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-white/15 backdrop-blur-sm">
             <ClipboardList className="h-6 w-6 text-white" />
           </div>
@@ -114,7 +114,7 @@ export default function HomePage() {
 
       {/* ── Map ──────────────────────────────────────────────────────────── */}
       <section className="bg-white px-4 py-10">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-6xl">
           <div className="mb-6">
             <h2 className="text-xl font-bold text-gray-900">
               Explore by Constituency
@@ -144,7 +144,7 @@ export default function HomePage() {
 
       {/* ── Browse All CTA ───────────────────────────────────────────────── */}
       <div className="border-t border-gray-100 px-4 py-8">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-6xl">
           {/* Gradient border wrapper */}
           <div className="rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 p-[1.5px] shadow-lg shadow-blue-100">
             <div className="flex flex-col items-center gap-4 rounded-2xl bg-white px-6 py-6 text-center sm:flex-row sm:justify-between sm:text-left">
@@ -181,7 +181,7 @@ export default function HomePage() {
 
       {/* ── About WB Votes ────────────────────────────────────────────────── */}
       <section className="border-t border-gray-100 bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4 py-14">
-        <div className="mx-auto max-w-5xl">
+        <div className="mx-auto max-w-6xl">
           <div className="mb-8 text-center">
             <span className="mb-3 inline-block rounded-full border border-blue-200 bg-blue-50 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-blue-600">
               About WB Votes

@@ -13,7 +13,7 @@ export function PartyFunding() {
 
   return (
     <section className="bg-white px-4 py-10 border-t border-gray-100">
-      <div className="mx-auto max-w-5xl">
+      <div className="mx-auto max-w-6xl">
         <div className="mb-1 flex items-center gap-2">
           <h2 className="text-xl font-bold text-gray-900">Party Declared Contributions</h2>
         </div>

@@ -10,8 +10,6 @@ import { parties, getPartyById } from '@/data/parties';
 import { ComparisonTable } from '@/components/ComparisonTable';
 import { useLanguage } from '@/lib/language-context';
 
-const MAX_COMPARE = 4;
-
 function ComparePageInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -19,7 +17,7 @@ function ComparePageInner() {
 
   const initialIds = useMemo(() => {
     const raw = searchParams.get('ids') ?? '';
-    return raw ? raw.split(',').filter(Boolean).slice(0, MAX_COMPARE) : [];
+    return raw ? raw.split(',').filter(Boolean) : [];
   }, [searchParams]);
 
   const [selectedIds, setSelectedIds] = useState<string[]>(initialIds);
@@ -45,9 +43,7 @@ function ComparePageInner() {
   );
 
   const addCandidate = (id: string) => {
-    if (selectedIds.length < MAX_COMPARE) {
-      setSelectedIds((prev) => [...prev, id]);
-    }
+    setSelectedIds((prev) => [...prev, id]);
     setPickerOpen(false);
   };
 
@@ -66,19 +62,17 @@ function ComparePageInner() {
             {t('Compare Candidates', 'প্রার্থী তুলনা করুন')}
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            {t(`${selectedCandidates.length} of ${MAX_COMPARE} selected`, `${MAX_COMPARE}টির মধ্যে ${selectedCandidates.length}টি নির্বাচিত`)}
+            {t(`${selectedCandidates.length} candidate${selectedCandidates.length !== 1 ? 's' : ''} selected`, `${selectedCandidates.length}টি প্রার্থী নির্বাচিত`)}
           </p>
         </div>
 
-        {selectedIds.length < MAX_COMPARE && (
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="h-4 w-4" />
-            {t('Add Candidate', 'প্রার্থী যোগ করুন')}
-          </button>
-        )}
+        <button
+          onClick={() => setPickerOpen(true)}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="h-4 w-4" />
+          {t('Add Candidate', 'প্রার্থী যোগ করুন')}
+        </button>
       </div>
 
       {/* Selected chips */}
