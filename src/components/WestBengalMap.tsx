@@ -319,6 +319,11 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
         return [...withStats].sort((a, b) => (constStats[b.id]?.womenRate ?? 0) - (constStats[a.id]?.womenRate ?? 0));
       case 'competition':
         return [...withStats].sort((a, b) => (constStats[b.id]?.candCount ?? 0) - (constStats[a.id]?.candCount ?? 0));
+      case 'wealth':
+        return [...withStats].sort((a, b) => (constStats[b.id]?.avgAssets ?? 0) - (constStats[a.id]?.avgAssets ?? 0));
+      case 'age':
+        return [...withStats].filter(c => (constStats[c.id]?.avgAge ?? 0) > 0)
+          .sort((a, b) => (constStats[b.id]?.avgAge ?? 0) - (constStats[a.id]?.avgAge ?? 0));
       default:
         return allConsts;
     }
