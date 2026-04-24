@@ -393,7 +393,6 @@ export function WestBengalMap() {
               .sort((a, b) => a.assemblyNumber - b.assemblyNumber)
               .map(c => {
                 const candCount = (candidatesByConstituency[c.id] ?? []).length;
-                const isPhase1 = PHASE1_IDS.has(c.id);
                 return (
                   <Link
                     key={c.id}
@@ -402,9 +401,6 @@ export function WestBengalMap() {
                   >
                     <p className="text-xs font-semibold leading-tight text-gray-900">{c.name}</p>
                     <div className="mt-1.5 flex flex-wrap items-center gap-1">
-                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${isPhase1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
-                        {isPhase1 ? 'Ph1' : 'Ph2'}
-                      </span>
                       {c.reservation !== 'General' && (
                         <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700">{c.reservation}</span>
                       )}
