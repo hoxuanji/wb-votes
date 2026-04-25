@@ -12,12 +12,12 @@ export function PartyFunding() {
   const maxVal = sorted[0]?.totalContributions ?? 1;
 
   return (
-    <section className="bg-white px-4 py-10 border-t border-gray-100">
+    <section className="border-t border-white/10 px-4 py-10">
       <div className="mx-auto max-w-6xl">
         <div className="mb-1 flex items-center gap-2">
-          <h2 className="text-xl font-bold text-gray-900">Party Declared Contributions</h2>
+          <h2 className="text-xl font-bold text-white">Party Declared Contributions</h2>
         </div>
-        <p className="mb-6 text-sm text-gray-500">
+        <p className="mb-6 text-sm text-gray-400">
           Based on ECI Annual Audit Reports (2022-23). National totals — not WB-specific.
         </p>
 
@@ -30,13 +30,13 @@ export function PartyFunding() {
               return (
                 <div key={p.partyId}>
                   <div className="mb-1 flex items-center justify-between text-sm">
-                    <span className="font-semibold text-gray-700">{p.abbreviation}</span>
-                    <span className="text-gray-500">
+                    <span className="font-semibold text-gray-300">{p.abbreviation}</span>
+                    <span className="text-gray-400">
                       {formatCr(p.totalContributions)}
-                      <span className="ml-2 text-[11px] text-gray-400">({share}%)</span>
+                      <span className="ml-2 text-[11px] text-gray-500">({share}%)</span>
                     </span>
                   </div>
-                  <div className="h-6 overflow-hidden rounded-full bg-gray-100">
+                  <div className="h-6 overflow-hidden rounded-full bg-white/10">
                     <div
                       className="h-full rounded-full transition-all duration-700"
                       style={{ width: `${Math.max(6, pct)}%`, backgroundColor: p.color }}
@@ -54,7 +54,7 @@ export function PartyFunding() {
               {sorted.map(p => (
                 <div key={p.partyId} className="flex items-center gap-1.5">
                   <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: p.color }} />
-                  <span className="text-xs text-gray-600">{p.abbreviation}</span>
+                  <span className="text-xs text-gray-400">{p.abbreviation}</span>
                 </div>
               ))}
             </div>
@@ -62,9 +62,9 @@ export function PartyFunding() {
         </div>
 
         {/* Disclaimer */}
-        <div className="mt-6 flex gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3">
-          <Info className="h-4 w-4 shrink-0 text-amber-500 mt-0.5" />
-          <p className="text-xs text-amber-700">{fundingDisclaimer}</p>
+        <div className="mt-6 flex gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+          <Info className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+          <p className="text-xs text-amber-300">{fundingDisclaimer}</p>
         </div>
       </div>
     </section>
@@ -110,10 +110,10 @@ function DonutChart({ data, total }: { data: typeof partyFundingData; total: num
   return (
     <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
       {slices.map(s => (
-        <path key={s.partyId} d={describeArc(s.start, s.sweep)} fill={s.color} stroke="white" strokeWidth="2" />
+        <path key={s.partyId} d={describeArc(s.start, s.sweep)} fill={s.color} stroke="#0f172a" strokeWidth="2" />
       ))}
-      <text x={cx} y={cy - 6} textAnchor="middle" className="text-xs" fontSize="11" fill="#374151" fontWeight="600">Total</text>
-      <text x={cx} y={cy + 10} textAnchor="middle" fontSize="10" fill="#6b7280">₹{total} Cr</text>
+      <text x={cx} y={cy - 6} textAnchor="middle" className="text-xs" fontSize="11" fill="#d1d5db" fontWeight="600">Total</text>
+      <text x={cx} y={cy + 10} textAnchor="middle" fontSize="10" fill="#9ca3af">₹{total} Cr</text>
     </svg>
   );
 }

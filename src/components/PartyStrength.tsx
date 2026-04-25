@@ -28,16 +28,16 @@ export function PartyStrength() {
 
   return (
     <section className="mx-auto max-w-6xl px-4 py-10">
-      <h2 className="mb-1 text-xl font-bold text-gray-900">Party Candidate Strength</h2>
-      <p className="mb-6 text-sm text-gray-500">Number of candidates fielded per party — Phase 1 data</p>
+      <h2 className="mb-1 text-xl font-bold text-white">Party Candidate Strength</h2>
+      <p className="mb-6 text-sm text-gray-400">Number of candidates fielded per party — Phase 1 data</p>
       <div className="space-y-3">
         {rows.map(r => (
           <div key={r.id} className="flex items-center gap-3">
             <div className="w-20 shrink-0 flex items-center justify-end gap-1.5">
               <PartySymbol party={{ abbreviation: r.name, color: r.color, symbolUrl: r.symbolUrl }} size={20} />
-              <span className="text-xs font-semibold text-gray-700">{r.name}</span>
+              <span className="text-xs font-semibold text-gray-300">{r.name}</span>
             </div>
-            <div className="flex-1 overflow-hidden rounded-full bg-gray-100 h-5">
+            <div className="flex-1 overflow-hidden rounded-full bg-white/10 h-5">
               <div
                 className="flex h-full items-center rounded-full px-2 transition-all duration-500"
                 style={{
@@ -48,7 +48,7 @@ export function PartyStrength() {
                 <span className="text-[10px] font-bold text-white drop-shadow">{r.count}</span>
               </div>
             </div>
-            <div className="w-32 shrink-0 text-xs text-gray-400 truncate hidden sm:block">{r.fullName}</div>
+            <div className="w-32 shrink-0 text-xs text-gray-500 truncate hidden sm:block">{r.fullName}</div>
           </div>
         ))}
       </div>

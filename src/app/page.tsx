@@ -19,8 +19,8 @@ export const dynamic = 'force-dynamic';
 const WestBengalMap = nextDynamic(
   () => import('@/components/WestBengalMap').then(m => ({ default: m.WestBengalMap })),
   { ssr: false, loading: () => (
-    <div className="flex h-96 items-center justify-center rounded-2xl border border-gray-200 bg-gray-50">
-      <p className="text-sm text-gray-400">Loading map…</p>
+    <div className="flex h-96 items-center justify-center rounded-2xl border border-white/10 bg-white/5">
+      <p className="text-sm text-gray-500">Loading map…</p>
     </div>
   )}
 );
@@ -40,7 +40,7 @@ export default function HomePage() {
   const womenCount = candidates.filter(c => c.gender === 'Female').length;
 
   return (
-    <div className="bg-white">
+    <div className="bg-slate-950">
 
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
       <section className="relative overflow-visible bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 px-4 pb-14 pt-14 text-white">
@@ -119,7 +119,7 @@ export default function HomePage() {
       </section>
 
       {/* ── Key Faces ────────────────────────────────────────────────────── */}
-      <div id="spotlight" className="bg-gradient-to-b from-slate-50 to-white">
+      <div id="spotlight">
         <KeyFaces />
       </div>
 
@@ -127,12 +127,12 @@ export default function HomePage() {
       <VoteCountdown />
 
       {/* ── Map ──────────────────────────────────────────────────────────── */}
-      <section id="map" className="bg-white px-4 py-10">
+      <section id="map" className="border-t border-white/10 px-4 py-10">
         <div className="mx-auto max-w-6xl">
           <div className="mb-6">
-            <h2 className="text-xl font-bold text-gray-900">
+            <h2 className="text-xl font-bold text-white">
               Explore by Constituency
-              <span className="ml-2 text-base font-normal text-gray-400">/ মানচিত্রে দেখুন</span>
+              <span className="ml-2 text-base font-normal text-gray-500">/ মানচিত্রে দেখুন</span>
             </h2>
           </div>
           <WestBengalMap />
@@ -140,43 +140,43 @@ export default function HomePage() {
       </section>
 
       {/* ── Hard-fought ──────────────────────────────────────────────────── */}
-      <div id="hard-fought" className="bg-gradient-to-b from-white to-slate-50">
-        <div className="border-t border-gray-100">
+      <div id="hard-fought">
+        <div className="border-t border-white/10">
           <HardFought />
         </div>
       </div>
 
       {/* ── Money in Politics ────────────────────────────────────────────── */}
-      <div id="money-power" className="bg-gradient-to-b from-slate-50 to-white">
+      <div id="money-power">
         <MoneyInPolitics />
       </div>
 
       {/* ── Party Strength ───────────────────────────────────────────────── */}
-      <div id="party-strength" className="bg-gradient-to-b from-slate-50 to-white">
-        <div className="border-t border-gray-100">
+      <div id="party-strength">
+        <div className="border-t border-white/10">
           <PartyStrength />
         </div>
       </div>
 
       {/* ── Browse All CTA ───────────────────────────────────────────────── */}
-      <div className="border-t border-gray-100 px-4 py-8">
+      <div className="border-t border-white/10 px-4 py-8">
         <div className="mx-auto max-w-6xl">
           {/* Gradient border wrapper */}
-          <div className="rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 p-[1.5px] shadow-lg shadow-blue-100">
-            <div className="flex flex-col items-center gap-4 rounded-2xl bg-white px-6 py-6 text-center sm:flex-row sm:justify-between sm:text-left">
+          <div className="rounded-2xl bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 p-[1.5px] shadow-lg shadow-blue-900/30">
+            <div className="flex flex-col items-center gap-4 rounded-2xl bg-slate-900 px-6 py-6 text-center sm:flex-row sm:justify-between sm:text-left">
               <div>
-                <h3 className="text-lg font-bold text-gray-900">
+                <h3 className="text-lg font-bold text-white">
                   Browse All{' '}
-                  <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+                  <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
                     {candidates.length.toLocaleString()}
                   </span>{' '}
                   Candidates
                 </h3>
-                <p className="mt-0.5 text-sm text-gray-500">Filter by party, district, sort by assets or criminal cases</p>
+                <p className="mt-0.5 text-sm text-gray-400">Filter by party, district, sort by assets or criminal cases</p>
               </div>
               <Link
                 href="/candidates"
-                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-200 transition-all hover:shadow-blue-300 active:scale-95"
+                className="inline-flex shrink-0 items-center gap-2 rounded-xl bg-gradient-to-r from-blue-600 to-indigo-600 px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-blue-900/50 transition-all hover:shadow-blue-800/50 active:scale-95"
               >
                 View All Candidates <ArrowRight className="h-4 w-4" />
               </Link>
@@ -186,69 +186,69 @@ export default function HomePage() {
       </div>
 
       {/* ── Election News ─────────────────────────────────────────────────── */}
-      <div id="news" className="bg-gradient-to-b from-slate-50 to-white">
+      <div id="news">
         <ElectionNews />
       </div>
 
       {/* ── Party Funding ─────────────────────────────────────────────────── */}
-      <div id="party-funding" className="bg-gradient-to-b from-white to-slate-50">
+      <div id="party-funding">
         <PartyFunding />
       </div>
 
       {/* ── About WB Votes ────────────────────────────────────────────────── */}
-      <section className="border-t border-gray-100 bg-gradient-to-br from-slate-50 via-white to-blue-50 px-4 py-14">
+      <section className="border-t border-white/10 px-4 py-14">
         <div className="mx-auto max-w-6xl">
           <div className="mb-8 text-center">
-            <span className="mb-3 inline-block rounded-full border border-blue-200 bg-blue-50 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-blue-600">
+            <span className="mb-3 inline-block rounded-full border border-blue-500/30 bg-blue-500/10 px-4 py-1 text-xs font-semibold uppercase tracking-wider text-blue-400">
               About WB Votes
             </span>
-            <h2 className="text-2xl font-extrabold text-gray-900 sm:text-3xl">
+            <h2 className="text-2xl font-extrabold text-white sm:text-3xl">
               Independent.{' '}
-              <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
                 Non-partisan.
               </span>{' '}
               Built for voters.
             </h2>
-            <p className="mt-2 text-sm text-gray-500">
+            <p className="mt-2 text-sm text-gray-400">
               All data sourced directly from ECI affidavits. No ads. No agenda. No spin.
             </p>
           </div>
 
           <div className="grid gap-5 sm:grid-cols-3">
             {/* Card 1 */}
-            <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-[1.5px] shadow-md shadow-blue-100">
-              <div className="flex h-full flex-col rounded-2xl bg-white p-5">
+            <div className="rounded-2xl bg-gradient-to-br from-blue-500 to-indigo-600 p-[1.5px] shadow-md shadow-blue-900/30">
+              <div className="flex h-full flex-col rounded-2xl bg-slate-900 p-5">
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 shadow-sm">
                   <Search className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="mb-2 text-sm font-bold text-gray-900">Search any candidate or area</h3>
-                <p className="text-xs leading-relaxed text-gray-500">
+                <h3 className="mb-2 text-sm font-bold text-gray-100">Search any candidate or area</h3>
+                <p className="text-xs leading-relaxed text-gray-400">
                   Find all 2707+ candidates across 294 constituencies. Search by name, party, or district — even with Bengali spellings.
                 </p>
               </div>
             </div>
 
             {/* Card 2 */}
-            <div className="rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 p-[1.5px] shadow-md shadow-emerald-100">
-              <div className="flex h-full flex-col rounded-2xl bg-white p-5">
+            <div className="rounded-2xl bg-gradient-to-br from-emerald-400 to-teal-600 p-[1.5px] shadow-md shadow-emerald-900/20">
+              <div className="flex h-full flex-col rounded-2xl bg-slate-900 p-5">
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm">
                   <BarChart2 className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="mb-2 text-sm font-bold text-gray-900">See the real picture</h3>
-                <p className="text-xs leading-relaxed text-gray-500">
+                <h3 className="mb-2 text-sm font-bold text-gray-100">See the real picture</h3>
+                <p className="text-xs leading-relaxed text-gray-400">
                   Declared assets, criminal cases, education, and occupation — drawn directly from affidavits filed with the Election Commission.
                 </p>
               </div>
             </div>
 
             {/* Card 3 */}
-            <div className="rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 p-[1.5px] shadow-md shadow-violet-100">
-              <div className="flex h-full flex-col rounded-2xl bg-white p-5">
+            <div className="rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 p-[1.5px] shadow-md shadow-violet-900/20">
+              <div className="flex h-full flex-col rounded-2xl bg-slate-900 p-5">
                 <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 shadow-sm">
                   <Scale className="h-5 w-5 text-white" />
                 </div>
-                <h3 className="mb-2 text-sm font-bold text-gray-900">Compare &amp; decide</h3>
-                <p className="text-xs leading-relaxed text-gray-500">
+                <h3 className="mb-2 text-sm font-bold text-gray-100">Compare &amp; decide</h3>
+                <p className="text-xs leading-relaxed text-gray-400">
                   Compare candidates side by side, see your constituency's full picture, and take the policy quiz to find your alignment.
                 </p>
               </div>

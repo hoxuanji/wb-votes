@@ -79,30 +79,30 @@ const maxBonds = Math.max(...profiles.map(p => p.electoralBonds), 1);
 
 export function MoneyInPolitics() {
   return (
-    <section className="border-t border-gray-100 px-4 py-10">
+    <section className="border-t border-white/10 px-4 py-10">
       <div className="mx-auto max-w-6xl">
 
         {/* Header */}
         <div className="mb-1 flex items-center gap-2">
-          <AlertTriangle className="h-5 w-5 text-amber-500" />
-          <h2 className="text-xl font-bold text-gray-900">Party Track Records: Funding &amp; Accountability</h2>
+          <AlertTriangle className="h-5 w-5 text-amber-400" />
+          <h2 className="text-xl font-bold text-white">Party Track Records: Funding &amp; Accountability</h2>
         </div>
-        <p className="mb-8 text-sm text-gray-500">
+        <p className="mb-8 text-sm text-gray-400">
           National electoral bonds data (Supreme Court-disclosed, 2018–2024) · ECI audit reports · ADR candidate analysis · WB 2026 affidavits
         </p>
 
         {/* ── Party Profile Cards ───────────────────────────────── */}
         <div className="grid gap-5 sm:grid-cols-2">
           {profiles.map(p => (
-            <div key={p.id} className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+            <div key={p.id} className="overflow-hidden rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm shadow-lg shadow-black/20">
               {/* Party header */}
-              <div className="flex items-center gap-3 px-5 py-4" style={{ backgroundColor: p.color + '18', borderBottom: `2px solid ${p.color}30` }}>
-                <div className="h-10 w-10 rounded-full border-2 border-white shadow-sm flex items-center justify-center font-extrabold text-sm text-white" style={{ backgroundColor: p.color }}>
+              <div className="flex items-center gap-3 px-5 py-4" style={{ backgroundColor: p.color + '30', borderBottom: `2px solid ${p.color}50` }}>
+                <div className="h-10 w-10 rounded-full border-2 border-white/20 shadow-sm flex items-center justify-center font-extrabold text-sm text-white" style={{ backgroundColor: p.color }}>
                   {p.abbreviation.slice(0, 3)}
                 </div>
                 <div>
-                  <p className="font-bold text-gray-900">{p.fullName}</p>
-                  <p className="text-[11px] text-gray-500">{p.wbPresence}</p>
+                  <p className="font-bold text-white">{p.fullName}</p>
+                  <p className="text-[11px] text-gray-400">{p.wbPresence}</p>
                 </div>
               </div>
 
@@ -110,48 +110,48 @@ export function MoneyInPolitics() {
 
                 {/* Distinctive Fact */}
                 <div className={`flex gap-2 rounded-xl p-3 ${
-                  p.distinctiveFactType === 'positive' ? 'bg-green-50 border border-green-100' :
-                  p.distinctiveFactType === 'negative' ? 'bg-red-50 border border-red-100' :
-                  'bg-gray-50 border border-gray-100'
+                  p.distinctiveFactType === 'positive' ? 'bg-green-500/10 border border-green-500/20' :
+                  p.distinctiveFactType === 'negative' ? 'bg-red-500/10 border border-red-500/20' :
+                  'bg-white/5 border border-white/10'
                 }`}>
                   {p.distinctiveFactType === 'positive'
-                    ? <CheckCircle className="h-4 w-4 shrink-0 text-green-500 mt-0.5" />
+                    ? <CheckCircle className="h-4 w-4 shrink-0 text-green-400 mt-0.5" />
                     : p.distinctiveFactType === 'negative'
                     ? <XCircle className="h-4 w-4 shrink-0 text-red-400 mt-0.5" />
-                    : <MinusCircle className="h-4 w-4 shrink-0 text-gray-400 mt-0.5" />
+                    : <MinusCircle className="h-4 w-4 shrink-0 text-gray-500 mt-0.5" />
                   }
-                  <p className="text-xs leading-relaxed text-gray-700">{p.distinctiveFact}</p>
+                  <p className="text-xs leading-relaxed text-gray-300">{p.distinctiveFact}</p>
                 </div>
 
                 {/* Stats row */}
                 <div className="grid grid-cols-3 gap-2">
-                  <div className="rounded-xl bg-gray-50 p-3 text-center">
-                    <p className="text-base font-extrabold text-gray-900">{formatCr(p.electoralBonds)}</p>
-                    <p className="mt-0.5 text-[10px] text-gray-500">Electoral Bonds</p>
-                    <p className="text-[9px] text-gray-400">national 2018–24</p>
+                  <div className="rounded-xl bg-white/5 p-3 text-center">
+                    <p className="text-base font-extrabold text-gray-200">{formatCr(p.electoralBonds)}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">Electoral Bonds</p>
+                    <p className="text-[9px] text-gray-500">national 2018–24</p>
                   </div>
-                  <div className="rounded-xl bg-gray-50 p-3 text-center">
-                    <p className="text-base font-extrabold" style={{ color: p.caseRate > 30 ? '#dc2626' : '#374151' }}>
+                  <div className="rounded-xl bg-white/5 p-3 text-center">
+                    <p className="text-base font-extrabold" style={{ color: p.caseRate > 30 ? '#f87171' : '#d1d5db' }}>
                       {p.caseRate.toFixed(0)}%
                     </p>
-                    <p className="mt-0.5 text-[10px] text-gray-500">With Cases</p>
-                    <p className="text-[9px] text-gray-400">WB 2026 candidates</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">With Cases</p>
+                    <p className="text-[9px] text-gray-500">WB 2026 candidates</p>
                   </div>
-                  <div className="rounded-xl bg-gray-50 p-3 text-center">
-                    <p className="text-base font-extrabold text-emerald-700">{formatCurrency(p.avgAssets)}</p>
-                    <p className="mt-0.5 text-[10px] text-gray-500">Avg Assets</p>
-                    <p className="text-[9px] text-gray-400">WB 2026 declared</p>
+                  <div className="rounded-xl bg-white/5 p-3 text-center">
+                    <p className="text-base font-extrabold text-emerald-400">{formatCurrency(p.avgAssets)}</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">Avg Assets</p>
+                    <p className="text-[9px] text-gray-500">WB 2026 declared</p>
                   </div>
                 </div>
 
                 {/* Electoral bonds bar */}
                 {p.electoralBonds > 0 && (
                   <div>
-                    <div className="mb-1 flex justify-between text-[10px] text-gray-400">
+                    <div className="mb-1 flex justify-between text-[10px] text-gray-500">
                       <span>Share of disclosed electoral bonds</span>
                       <span style={{ color: p.color }}>{formatCr(p.electoralBonds)}</span>
                     </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-gray-100">
+                    <div className="h-2 overflow-hidden rounded-full bg-white/10">
                       <div
                         className="h-full rounded-full"
                         style={{ width: `${(p.electoralBonds / maxBonds) * 100}%`, backgroundColor: p.color }}
@@ -162,18 +162,18 @@ export function MoneyInPolitics() {
 
                 {/* Notable Issues */}
                 <div>
-                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-400">Notable Issues (Public Record)</p>
+                  <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-gray-500">Notable Issues (Public Record)</p>
                   <div className="space-y-2">
                     {p.notableIssues.map(issue => (
                       <div key={issue.title} className="flex gap-2">
-                        <span className="mt-0.5 shrink-0 rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-bold text-gray-500">{issue.year}</span>
+                        <span className="mt-0.5 shrink-0 rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-bold text-gray-400">{issue.year}</span>
                         <div>
-                          <p className="text-xs font-semibold text-gray-800">{issue.title}</p>
-                          <p className="text-[11px] leading-relaxed text-gray-500">{issue.summary}</p>
+                          <p className="text-xs font-semibold text-gray-200">{issue.title}</p>
+                          <p className="text-[11px] leading-relaxed text-gray-400">{issue.summary}</p>
                           {issue.leaders && issue.leaders.length > 0 && (
                             <div className="mt-1 flex flex-wrap gap-1">
                               {issue.leaders.map(name => (
-                                <span key={name} className="rounded-full border border-gray-200 bg-gray-50 px-2 py-0.5 text-[10px] font-medium text-gray-500">
+                                <span key={name} className="rounded-full border border-white/15 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-gray-400">
                                   {name}
                                 </span>
                               ))}
@@ -191,38 +191,38 @@ export function MoneyInPolitics() {
         </div>
 
         {/* ── CPI(M) bonds note ────────────────────────────────── */}
-        <div className="mt-4 flex gap-2 rounded-xl border border-green-200 bg-green-50 p-3">
-          <CheckCircle className="h-4 w-4 shrink-0 text-green-500 mt-0.5" />
-          <p className="text-xs text-green-800">
+        <div className="mt-4 flex gap-2 rounded-xl border border-green-500/30 bg-green-500/10 p-3">
+          <CheckCircle className="h-4 w-4 shrink-0 text-green-400 mt-0.5" />
+          <p className="text-xs text-green-300">
             <strong>Why does CPI(M) show ₹0 electoral bonds?</strong> This is correct and intentional — CPI(M) officially opposed the electoral bond scheme and accepted zero anonymous corporate funding. This stands in contrast to BJP (₹6,061 Cr), TMC (₹1,610 Cr), and INC (₹1,123 Cr).
           </p>
         </div>
 
         {/* ── Rich & Criminal candidates ───────────────────────── */}
-        <div className="mt-6 rounded-2xl border border-gray-200 bg-white p-5">
+        <div className="mt-6 rounded-2xl border border-white/10 bg-white/5 backdrop-blur-sm p-5">
           <div className="mb-4 flex flex-wrap items-center gap-2">
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-            <p className="text-sm font-bold text-gray-900">Wealthiest WB 2026 Candidates with Pending Criminal Cases</p>
-            <span className="ml-auto text-[11px] text-gray-400">Major parties · Sorted by declared assets</span>
+            <AlertTriangle className="h-4 w-4 text-red-400" />
+            <p className="text-sm font-bold text-white">Wealthiest WB 2026 Candidates with Pending Criminal Cases</p>
+            <span className="ml-auto text-[11px] text-gray-500">Major parties · Sorted by declared assets</span>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b border-gray-100 text-[11px] font-semibold uppercase tracking-wider text-gray-400">
+                <tr className="border-b border-white/10 text-[11px] font-semibold uppercase tracking-wider text-gray-500">
                   <th className="pb-2 text-left">Candidate</th>
                   <th className="pb-2 text-left">Party</th>
                   <th className="pb-2 text-right">Declared Assets</th>
                   <th className="pb-2 text-right">Pending Cases</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50">
+              <tbody className="divide-y divide-white/5">
                 {richAndCriminal.map(c => {
                   const party = partyMap[c.partyId];
                   return (
-                    <tr key={c.id} className="group hover:bg-gray-50">
+                    <tr key={c.id} className="group hover:bg-white/5">
                       <td className="py-2.5 pr-4">
                         <Link href={`/candidate/${c.id}`} className="flex items-center gap-2.5">
-                          <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-gray-200">
+                          <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-full border border-white/15">
                             {c.photoUrl ? (
                               <Image src={c.photoUrl} alt={c.name} fill className="object-cover" sizes="32px" />
                             ) : (
@@ -231,7 +231,7 @@ export function MoneyInPolitics() {
                               </div>
                             )}
                           </div>
-                          <span className="font-medium text-gray-900 group-hover:text-blue-700">{c.name}</span>
+                          <span className="font-medium text-gray-200 group-hover:text-blue-300">{c.name}</span>
                         </Link>
                       </td>
                       <td className="py-2.5 pr-4">
@@ -239,11 +239,11 @@ export function MoneyInPolitics() {
                           {party?.abbreviation ?? c.partyId}
                         </span>
                       </td>
-                      <td className="py-2.5 pr-4 text-right font-semibold text-emerald-700">
+                      <td className="py-2.5 pr-4 text-right font-semibold text-emerald-400">
                         {formatCurrency(c.totalAssets)}
                       </td>
                       <td className="py-2.5 text-right">
-                        <span className="inline-flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-bold text-red-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-red-500/20 px-2 py-0.5 text-[11px] font-bold text-red-400">
                           <AlertTriangle className="h-2.5 w-2.5" /> {c.criminalCases}
                         </span>
                       </td>
@@ -253,9 +253,9 @@ export function MoneyInPolitics() {
               </tbody>
             </table>
           </div>
-          <div className="mt-3 flex gap-1.5 rounded-lg border border-gray-100 bg-gray-50 p-2">
-            <Info className="h-3.5 w-3.5 shrink-0 text-gray-400 mt-0.5" />
-            <p className="text-[10px] italic text-gray-400">
+          <div className="mt-3 flex gap-1.5 rounded-lg border border-white/10 bg-white/5 p-2">
+            <Info className="h-3.5 w-3.5 shrink-0 text-gray-500 mt-0.5" />
+            <p className="text-[10px] italic text-gray-500">
               All data from self-declared ECI affidavits. &apos;Pending cases&apos; are not convictions. Electoral bond data from SBI disclosure ordered by the Supreme Court (Feb 2024).
             </p>
           </div>

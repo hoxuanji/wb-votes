@@ -53,13 +53,13 @@ export function HardFought() {
     <section className="px-4 py-10">
       <div className="mx-auto max-w-6xl">
         <div className="mb-1 flex items-center gap-2 flex-wrap">
-          <Flame className="h-5 w-5 text-orange-500" />
-          <h2 className="text-xl font-bold text-gray-900">Hard-Fought Constituencies</h2>
-          <span className="inline-flex items-center gap-1 rounded-full border border-orange-200 bg-orange-50 px-2.5 py-0.5 text-[10px] font-semibold text-orange-600">
+          <Flame className="h-5 w-5 text-orange-400" />
+          <h2 className="text-xl font-bold text-white">Hard-Fought Constituencies</h2>
+          <span className="inline-flex items-center gap-1 rounded-full border border-orange-500/30 bg-orange-500/15 px-2.5 py-0.5 text-[10px] font-semibold text-orange-300">
             <RefreshCw className="h-2.5 w-2.5" /> Today&apos;s picks
           </span>
         </div>
-        <p className="mb-6 text-sm text-gray-500">
+        <p className="mb-6 text-sm text-gray-400">
           Seats where all four major parties — TMC, BJP, CPM, INC — are all contesting · Showing 6 of 24 top seats, changes daily
         </p>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -70,15 +70,15 @@ export function HardFought() {
               <Link
                 key={id}
                 href={`/constituency/${id}`}
-                className="group rounded-xl border border-orange-100 bg-orange-50 p-4 transition-all hover:border-orange-300 hover:shadow-md"
+                className="group rounded-xl border border-orange-500/25 bg-orange-500/10 p-4 backdrop-blur-sm transition-all hover:border-orange-500/40 hover:shadow-lg hover:shadow-black/30"
               >
                 <div className="mb-2 flex items-start justify-between gap-2">
                   <div>
-                    <h3 className="font-bold text-gray-900 group-hover:text-blue-700">{c.name}</h3>
-                    <p className="text-xs text-gray-500">{c.district} · #{c.assemblyNumber}</p>
+                    <h3 className="font-bold text-white group-hover:text-blue-300">{c.name}</h3>
+                    <p className="text-xs text-gray-400">{c.district} · #{c.assemblyNumber}</p>
                   </div>
                   {c.reservation !== 'General' && (
-                    <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">
+                    <span className="shrink-0 rounded bg-amber-500/20 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300">
                       {c.reservation}
                     </span>
                   )}
@@ -96,19 +96,19 @@ export function HardFought() {
                     </span>
                   ))}
                   {majorPresent.length === 4 && (
-                    <span className="rounded-full bg-orange-200 px-2 py-0.5 text-[10px] font-bold text-orange-800">
+                    <span className="rounded-full bg-orange-500/20 px-2 py-0.5 text-[10px] font-bold text-orange-300">
                       All 4 majors
                     </span>
                   )}
                 </div>
 
                 {/* Stats */}
-                <div className="flex items-center gap-4 text-xs text-gray-500">
+                <div className="flex items-center gap-4 text-xs text-gray-400">
                   <span className="flex items-center gap-1">
                     <Users className="h-3 w-3" /> {total} candidates
                   </span>
                   {withCriminal > 0 && (
-                    <span className="text-red-500">{withCriminal} with cases</span>
+                    <span className="text-red-400">{withCriminal} with cases</span>
                   )}
                 </div>
               </Link>

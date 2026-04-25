@@ -21,14 +21,14 @@ export function SectionNav() {
   }
 
   return (
-    <div className="sticky top-14 z-30 border-b border-gray-100 bg-white/95 backdrop-blur-sm shadow-sm">
+    <div className="sticky top-14 z-30 border-b border-white/10 bg-slate-950/90 backdrop-blur-sm shadow-lg shadow-black/20">
       <div className="overflow-x-auto scrollbar-none">
         <div className="mx-auto flex w-max min-w-full items-center justify-center gap-1.5 px-4 py-2.5">
           {SECTIONS.map(({ id, label, Icon }) => (
             <button
               key={id}
               onClick={() => scrollTo(id)}
-              className="flex shrink-0 items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-medium text-gray-600 transition-all hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 active:scale-95"
+              className="flex shrink-0 items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-medium text-gray-400 transition-all hover:border-blue-500/40 hover:bg-blue-500/15 hover:text-blue-300 active:scale-95"
             >
               <Icon className="h-3 w-3" />
               {label}

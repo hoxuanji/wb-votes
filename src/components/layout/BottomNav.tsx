@@ -21,7 +21,7 @@ export function BottomNav() {
 
   return (
     <nav
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white/95 backdrop-blur-md md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-white/10 bg-slate-950/95 backdrop-blur-md md:hidden"
       style={{ paddingBottom: 'env(safe-area-inset-bottom)' }}
       aria-label="Main navigation"
     >
@@ -36,19 +36,19 @@ export function BottomNav() {
                 flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold
                 transition-all duration-150 active:scale-95 select-none
                 ${active
-                  ? 'text-blue-600'
-                  : 'text-gray-400 active:text-gray-700'
+                  ? 'text-blue-400'
+                  : 'text-gray-500 active:text-gray-300'
                 }
               `}
               aria-current={active ? 'page' : undefined}
             >
               <div className={`
                 flex h-7 w-12 items-center justify-center rounded-full transition-all duration-150
-                ${active ? 'bg-blue-50' : 'active:bg-gray-100'}
+                ${active ? 'bg-blue-400/20' : 'active:bg-white/10'}
               `}>
                 <Icon className={`h-5 w-5 transition-transform duration-150 ${active ? 'scale-110' : ''}`} />
               </div>
-              <span className={`leading-none ${active ? 'text-blue-600' : 'text-gray-400'}`}>
+              <span className={`leading-none ${active ? 'text-blue-400' : 'text-gray-500'}`}>
                 {label}
               </span>
             </Link>

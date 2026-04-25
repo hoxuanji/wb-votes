@@ -35,8 +35,8 @@ export function VoteCountdown() {
 
   if (state === 'done') {
     return (
-      <div className="border-t border-gray-100 bg-gray-50 px-4 py-5">
-        <div className="mx-auto max-w-6xl text-center text-sm font-medium text-gray-400">
+      <div className="border-t border-white/10 bg-white/5 px-4 py-5">
+        <div className="mx-auto max-w-6xl text-center text-sm font-medium text-gray-500">
           Phase 2 voting has concluded · 29 Apr 2026
         </div>
       </div>
@@ -45,24 +45,24 @@ export function VoteCountdown() {
 
   if (state === 'live') {
     return (
-      <div className="border-t border-green-100 bg-green-50 px-4 py-4">
+      <div className="border-t border-green-500/20 bg-green-500/10 px-4 py-4">
         <div className="mx-auto flex max-w-6xl items-center justify-center gap-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-green-500 animate-pulse" />
-          <span className="text-sm font-semibold text-green-700">Phase 2 voting is in progress · 29 April 2026 · Polls close at 6 PM</span>
+          <span className="h-2.5 w-2.5 rounded-full bg-green-400 animate-pulse" />
+          <span className="text-sm font-semibold text-green-300">Phase 2 voting is in progress · 29 April 2026 · Polls close at 6 PM</span>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="border-t border-violet-100 bg-gradient-to-r from-violet-50 via-indigo-50 to-blue-50 px-4 py-6">
+    <div className="border-t border-violet-500/20 bg-gradient-to-r from-violet-900/30 via-indigo-900/20 to-blue-900/20 px-4 py-6">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-center sm:justify-between">
           {/* Left: label */}
           <div>
             <p className="text-xs font-semibold uppercase tracking-widest text-violet-400">Upcoming</p>
-            <h3 className="mt-0.5 text-lg font-bold text-violet-900">Phase 2 Voting Opens</h3>
-            <p className="text-sm text-violet-600">29 April 2026 · 7:00 AM · 256 constituencies</p>
+            <h3 className="mt-0.5 text-lg font-bold text-violet-100">Phase 2 Voting Opens</h3>
+            <p className="text-sm text-violet-300">29 April 2026 · 7:00 AM · 256 constituencies</p>
           </div>
 
           {/* Right: countdown blocks */}
@@ -74,10 +74,10 @@ export function VoteCountdown() {
               { value: s,    label: 'Seconds' },
             ].map(({ value, label }, i) => (
               <div key={label} className="flex items-end gap-2">
-                {i > 0 && <span className="mb-3 text-xl font-bold text-violet-300">:</span>}
+                {i > 0 && <span className="mb-3 text-xl font-bold text-violet-400">:</span>}
                 <div className="flex flex-col items-center">
-                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white shadow-sm border border-violet-100">
-                    <span className="font-mono text-2xl font-extrabold text-violet-800">{pad(value)}</span>
+                  <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10 border border-white/15">
+                    <span className="font-mono text-2xl font-extrabold text-violet-100">{pad(value)}</span>
                   </div>
                   <span className="mt-1 text-[10px] font-semibold uppercase tracking-wider text-violet-400">{label}</span>
                 </div>

@@ -14,12 +14,12 @@ export function LastSearchedBanner() {
   const [latest, ...others] = recent;
 
   return (
-    <div className="bg-white border-b border-gray-100 px-4 py-3">
+    <div className="border-b border-white/10 bg-slate-900/50 px-4 py-3">
       <div className="mx-auto max-w-3xl flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         {/* Continue where you left off */}
         <div className="flex items-center gap-3 min-w-0">
-          <Clock className="h-4 w-4 shrink-0 text-blue-500" />
-          <span className="text-xs text-gray-500 shrink-0">Continue where you left off →</span>
+          <Clock className="h-4 w-4 shrink-0 text-blue-400" />
+          <span className="text-xs text-gray-400 shrink-0">Continue where you left off →</span>
           <Link
             href={`/constituency/${latest.id}`}
             className="inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-3 py-1 text-xs font-semibold text-white hover:bg-blue-700 transition-colors truncate"
@@ -35,14 +35,14 @@ export function LastSearchedBanner() {
             <Link
               key={r.id}
               href={`/constituency/${r.id}`}
-              className="inline-flex items-center gap-1 rounded-full border border-gray-200 px-2.5 py-1 text-[11px] font-medium text-gray-600 hover:border-blue-300 hover:text-blue-700 transition-colors"
+              className="inline-flex items-center gap-1 rounded-full border border-white/15 px-2.5 py-1 text-[11px] font-medium text-gray-400 hover:border-blue-500/40 hover:text-blue-300 transition-colors"
             >
               {r.name}
             </Link>
           ))}
           <button
             onClick={() => { clearRecent(); setDismissed(true); }}
-            className="ml-1 text-gray-300 hover:text-gray-500 transition-colors"
+            className="ml-1 text-gray-600 hover:text-gray-300 transition-colors"
             aria-label="Clear history"
           >
             <X className="h-3.5 w-3.5" />

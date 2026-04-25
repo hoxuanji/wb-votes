@@ -9,12 +9,12 @@ export function Header() {
   const { lang, setLang, t } = useLanguage();
 
   return (
-    <header className="sticky top-0 z-40 border-b border-gray-200/80 bg-white/95 backdrop-blur-md">
+    <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center justify-between px-4 h-14">
         {/* Logo */}
         <Link
           href="/"
-          className="flex items-center gap-2 font-bold text-gray-900 active:opacity-70 transition-opacity"
+          className="flex items-center gap-2 font-bold text-white active:opacity-70 transition-opacity"
           aria-label="WB Votes — Home"
         >
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600 shadow-sm">
@@ -37,7 +37,7 @@ export function Header() {
             <Link
               key={href}
               href={href}
-              className="rounded-lg px-3 py-2 text-sm font-medium text-gray-600 transition-colors duration-150 hover:bg-gray-100 hover:text-gray-900 active:bg-gray-200"
+              className="rounded-lg px-3 py-2 text-sm font-medium text-gray-400 transition-colors duration-150 hover:bg-white/10 hover:text-white active:bg-white/15"
             >
               {label}
             </Link>
@@ -48,7 +48,7 @@ export function Header() {
         <div className="flex items-center gap-2">
           <button
             onClick={() => setLang(lang === 'en' ? 'bn' : 'en')}
-            className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs font-semibold text-gray-700 transition-all duration-150 hover:bg-gray-100 active:scale-95 active:bg-gray-200 min-h-[36px]"
+            className="rounded-lg border border-white/15 bg-white/5 px-3 py-1.5 text-xs font-semibold text-gray-300 transition-all duration-150 hover:bg-white/10 active:scale-95 active:bg-white/15 min-h-[36px]"
             aria-label="Toggle language"
           >
             {lang === 'en' ? 'বাংলা' : 'EN'}
