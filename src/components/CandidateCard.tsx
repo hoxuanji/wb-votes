@@ -33,13 +33,13 @@ export function CandidateCard({
 
   return (
     <div
-      className={`group relative rounded-xl border bg-white shadow-sm transition-all duration-150 active:scale-[0.985] ${
-        selected ? 'border-blue-500 ring-2 ring-blue-200' : 'border-gray-200 hover:shadow-md active:shadow-sm'
+      className={`group relative rounded-xl border bg-white/5 shadow-sm transition-all duration-150 active:scale-[0.985] ${
+        selected ? 'border-blue-500 ring-2 ring-blue-500/20' : 'border-white/10 hover:border-blue-500/30 hover:shadow-md active:shadow-sm'
       }`}
     >
       {/* Compare checkbox */}
       {showCompareCheckbox && (
-        <label className="absolute right-3 top-3 flex cursor-pointer items-center gap-1.5 rounded-lg bg-white/90 px-2 py-1 text-xs font-medium shadow-sm border border-gray-200">
+        <label className="absolute right-3 top-3 flex cursor-pointer items-center gap-1.5 rounded-lg bg-slate-800/90 px-2 py-1 text-xs font-medium shadow-sm border border-white/15">
           <input
             type="checkbox"
             checked={selected ?? false}
@@ -76,12 +76,12 @@ export function CandidateCard({
           </div>
 
           <div className="min-w-0">
-            <h3 className="truncate text-sm font-semibold text-gray-900">
+            <h3 className="truncate text-sm font-semibold text-gray-100">
               {t(candidate.name, candidate.nameBn ?? candidate.name)}
             </h3>
             <div className="mt-0.5 flex items-center gap-1.5">
               <PartySymbol party={party} size={18} />
-              <span className="text-xs font-medium text-gray-600">{party.abbreviation}</span>
+              <span className="text-xs font-medium text-gray-400">{party.abbreviation}</span>
               {candidate.isIncumbent && (
                 <Badge variant="neutral" className="text-[10px]">
                   {t('Incumbent', 'বর্তমান বিধায়ক')}
@@ -93,21 +93,21 @@ export function CandidateCard({
 
         {/* Stats grid */}
         <div className="grid grid-cols-2 gap-2 text-xs">
-          <div className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-2">
-            <BookOpen className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span className="truncate text-gray-600" title={candidate.education}>
+          <div className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-2">
+            <BookOpen className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+            <span className="truncate text-gray-400" title={candidate.education}>
               {t(candidate.education, candidate.educationBn ?? candidate.education)}
             </span>
           </div>
 
           <div className={`flex items-center gap-1.5 rounded-lg px-2.5 py-2 ${
-            candidate.criminalCases === 0 ? 'bg-green-50' : candidate.criminalCases <= 2 ? 'bg-amber-50' : 'bg-red-50'
+            candidate.criminalCases === 0 ? 'bg-green-500/10' : candidate.criminalCases <= 2 ? 'bg-amber-500/10' : 'bg-red-500/10'
           }`}>
             <AlertTriangle className={`h-3.5 w-3.5 shrink-0 ${
-              candidate.criminalCases === 0 ? 'text-green-500' : candidate.criminalCases <= 2 ? 'text-amber-500' : 'text-red-500'
+              candidate.criminalCases === 0 ? 'text-green-400' : candidate.criminalCases <= 2 ? 'text-amber-400' : 'text-red-400'
             }`} />
             <span className={
-              candidate.criminalCases === 0 ? 'text-green-700' : candidate.criminalCases <= 2 ? 'text-amber-700' : 'text-red-700'
+              candidate.criminalCases === 0 ? 'text-green-300' : candidate.criminalCases <= 2 ? 'text-amber-300' : 'text-red-300'
             }>
               {candidate.criminalCases === 0
                 ? t('No cases', 'কোনো মামলা নেই')
@@ -115,16 +115,16 @@ export function CandidateCard({
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-2">
-            <TrendingUp className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span className="text-gray-600">
-              {candidate.totalAssets > 0 ? formatCurrency(candidate.totalAssets) : <span className="text-gray-400 italic">Not declared</span>}
+          <div className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-2">
+            <TrendingUp className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+            <span className="text-gray-400">
+              {candidate.totalAssets > 0 ? formatCurrency(candidate.totalAssets) : <span className="text-gray-500 italic">Not declared</span>}
             </span>
           </div>
 
-          <div className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-2.5 py-2">
-            <Briefcase className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-            <span className="truncate text-gray-600">
+          <div className="flex items-center gap-1.5 rounded-lg bg-white/5 px-2.5 py-2">
+            <Briefcase className="h-3.5 w-3.5 shrink-0 text-gray-500" />
+            <span className="truncate text-gray-400">
               {t(candidate.occupation ?? '—', candidate.occupationBn ?? candidate.occupation ?? '—')}
             </span>
           </div>
@@ -133,7 +133,7 @@ export function CandidateCard({
         {/* View profile link */}
         <Link
           href={`/candidate/${candidate.id}`}
-          className="mt-3 flex w-full items-center justify-center rounded-lg border border-gray-200 py-2.5 text-xs font-medium text-gray-700 transition-all duration-150 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 active:bg-blue-100 active:border-blue-400 min-h-[40px]"
+          className="mt-3 flex w-full items-center justify-center rounded-lg border border-white/10 py-2.5 text-xs font-medium text-gray-400 transition-all duration-150 hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-blue-300 active:bg-blue-500/20 min-h-[40px]"
         >
           {t('View Full Profile →', 'সম্পূর্ণ প্রোফাইল দেখুন →')}
         </Link>

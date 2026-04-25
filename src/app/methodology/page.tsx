@@ -58,21 +58,21 @@ const sections = [
 ];
 
 const colorMap: Record<string, string> = {
-  blue: 'bg-blue-50 border-blue-200 text-blue-600',
-  green: 'bg-green-50 border-green-200 text-green-600',
-  purple: 'bg-purple-50 border-purple-200 text-purple-600',
-  red: 'bg-red-50 border-red-200 text-red-600',
+  blue: 'bg-blue-500/10 border-blue-500/25 text-blue-400',
+  green: 'bg-green-500/10 border-green-500/25 text-green-400',
+  purple: 'bg-purple-500/10 border-purple-500/25 text-purple-400',
+  red: 'bg-red-500/10 border-red-500/25 text-red-400',
 };
 
 export default function MethodologyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/" className="mb-6 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+      <Link href="/" className="mb-6 inline-flex items-center gap-1 text-sm text-blue-400 hover:underline">
         <ArrowLeft className="h-4 w-4" /> Home
       </Link>
 
-      <h1 className="mb-2 text-3xl font-extrabold text-gray-900">Methodology & Data Sources</h1>
-      <p className="mb-10 text-base text-gray-500">
+      <h1 className="mb-2 text-3xl font-extrabold text-white">Methodology &amp; Data Sources</h1>
+      <p className="mb-10 text-base text-gray-400">
         Full transparency on how WB Votes collects, processes, and presents election data. We are non-partisan,
         non-commercial, and not affiliated with any political party or the Election Commission of India.
       </p>
@@ -80,26 +80,25 @@ export default function MethodologyPage() {
       <div className="space-y-8">
         {sections.map(section => {
           const Icon = section.icon;
-          const colorClass = colorMap[section.color] ?? colorMap.blue;
           return (
-            <div key={section.title} className="rounded-xl border border-gray-200 bg-white overflow-hidden shadow-sm">
-              <div className={`flex items-center gap-3 border-b px-5 py-4 ${colorClass.replace('text-', 'border-').split(' ')[1]}`}>
-                <div className={`flex h-9 w-9 items-center justify-center rounded-lg border ${colorClass}`}>
+            <div key={section.title} className="rounded-xl border border-white/10 bg-white/5 overflow-hidden shadow-sm">
+              <div className={`flex items-center gap-3 border-b px-5 py-4 ${colorMap[section.color]?.split(' ').find(c => c.startsWith('border-'))}`}>
+                <div className={`flex h-9 w-9 items-center justify-center rounded-lg border ${colorMap[section.color]}`}>
                   <Icon className="h-4 w-4" />
                 </div>
-                <h2 className="text-base font-bold text-gray-900">{section.title}</h2>
+                <h2 className="text-base font-bold text-white">{section.title}</h2>
               </div>
-              <div className="divide-y divide-gray-50">
+              <div className="divide-y divide-white/5">
                 {section.items.map(item => (
                   <div key={item.label} className="px-5 py-3">
-                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-0.5">{item.label}</p>
+                    <p className="text-xs font-semibold uppercase tracking-wider text-gray-500 mb-0.5">{item.label}</p>
                     {item.link ? (
                       <a href={item.link} target="_blank" rel="noopener noreferrer"
-                         className="text-sm text-blue-600 hover:underline">
+                         className="text-sm text-blue-400 hover:underline">
                         {item.value} ↗
                       </a>
                     ) : (
-                      <p className="text-sm text-gray-700">{item.value}</p>
+                      <p className="text-sm text-gray-300">{item.value}</p>
                     )}
                   </div>
                 ))}
@@ -109,9 +108,9 @@ export default function MethodologyPage() {
         })}
       </div>
 
-      <div className="mt-10 rounded-xl border border-amber-200 bg-amber-50 p-5">
-        <p className="text-sm font-semibold text-amber-800 mb-1">Official Disclaimer</p>
-        <p className="text-sm text-amber-700">
+      <div className="mt-10 rounded-xl border border-amber-500/30 bg-amber-500/10 p-5">
+        <p className="text-sm font-semibold text-amber-300 mb-1">Official Disclaimer</p>
+        <p className="text-sm text-amber-400/80">
           This platform presents publicly available data for informational purposes only. It does not endorse,
           recommend, or oppose any candidate, political party, or ideology. All data is sourced from official
           public records. Voters are encouraged to read original affidavits and conduct their own research

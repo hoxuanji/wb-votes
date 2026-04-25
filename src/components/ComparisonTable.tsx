@@ -30,7 +30,7 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
 
   if (candidates.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-gray-300 py-12 text-center text-sm text-gray-500">
+      <div className="rounded-xl border border-dashed border-white/15 py-12 text-center text-sm text-gray-500">
         {t('Select candidates to compare.', 'তুলনা করতে প্রার্থী বেছে নিন।')}
       </div>
     );
@@ -65,7 +65,7 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
     {
       label: 'Criminal Cases', labelBn: 'ফৌজদারি মামলা', key: 'criminalCases', highlight: 'lower_better',
       render: (c) => (
-        <span className={c.criminalCases === 0 ? 'text-green-600 font-medium' : c.criminalCases <= 2 ? 'text-amber-600 font-medium' : 'text-red-600 font-bold'}>
+        <span className={c.criminalCases === 0 ? 'text-green-400 font-medium' : c.criminalCases <= 2 ? 'text-amber-400 font-medium' : 'text-red-400 font-bold'}>
           {c.criminalCases === 0 ? t('None', 'শূন্য') : c.criminalCases}
         </span>
       ),
@@ -83,7 +83,7 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
       render: (c) => {
         const net = c.totalAssets - c.totalLiabilities;
         return (
-          <span className={net >= 0 ? 'text-green-600' : 'text-red-600'}>
+          <span className={net >= 0 ? 'text-green-400' : 'text-red-400'}>
             {formatCurrency(Math.abs(net))}
           </span>
         );
@@ -92,7 +92,7 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
     {
       label: 'Incumbent', labelBn: 'বর্তমান বিধায়ক', key: 'isIncumbent', highlight: 'none',
       render: (c) => c.isIncumbent
-        ? <span className="text-blue-600 font-medium">{t(`Yes (${c.incumbentYears ?? '?'}y)`, `হ্যাঁ (${c.incumbentYears ?? '?'} বছর)`)}</span>
+        ? <span className="text-blue-400 font-medium">{t(`Yes (${c.incumbentYears ?? '?'}y)`, `হ্যাঁ (${c.incumbentYears ?? '?'} বছর)`)}</span>
         : <span className="text-gray-500">{t('No', 'না')}</span>,
     },
   ];
@@ -104,10 +104,10 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
   const minLiability = Math.min(...liabilityValues);
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm">
+    <div className="overflow-x-auto rounded-xl border border-white/10 bg-white/5 shadow-sm">
       <table className="w-full min-w-[640px]">
         <thead>
-          <tr className="border-b border-gray-200 bg-gray-50">
+          <tr className="border-b border-white/10 bg-white/5">
             <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">
               {t('Criteria', 'মানদণ্ড')}
             </th>
@@ -125,8 +125,8 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
                         </div>
                       )}
                     </div>
-                    <span className="text-xs font-semibold text-gray-900">{t(c.name, c.nameBn ?? c.name)}</span>
-                    <span className="text-[10px] text-gray-500">{p.abbreviation}</span>
+                    <span className="text-xs font-semibold text-gray-100">{t(c.name, c.nameBn ?? c.name)}</span>
+                    <span className="text-[10px] text-gray-400">{p.abbreviation}</span>
                   </div>
                 </th>
               );
@@ -135,8 +135,8 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
         </thead>
         <tbody>
           {rows.map((row, idx) => (
-            <tr key={row.key} className={idx % 2 === 0 ? 'bg-white' : 'bg-gray-50/50'}>
-              <td className="px-4 py-3 text-xs font-medium text-gray-600">
+            <tr key={row.key} className={idx % 2 === 0 ? 'bg-transparent' : 'bg-white/5'}>
+              <td className="px-4 py-3 text-xs font-medium text-gray-400">
                 {t(row.label, row.labelBn)}
               </td>
               {candidates.map((c) => {
@@ -148,7 +148,7 @@ export function ComparisonTable({ candidates, parties }: ComparisonTableProps) {
                 return (
                   <td
                     key={c.id}
-                    className={`px-4 py-3 text-center text-sm ${isBest && row.highlight === 'lower_better' ? 'bg-green-50' : ''}`}
+                    className={`px-4 py-3 text-center text-sm ${isBest && row.highlight === 'lower_better' ? 'bg-green-500/10' : ''}`}
                   >
                     {row.render(c, p)}
                   </td>

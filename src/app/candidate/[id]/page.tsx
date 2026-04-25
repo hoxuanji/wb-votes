@@ -94,18 +94,18 @@ export default function CandidatePage({ params }: PageProps) {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(personSchema) }} />
     <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Breadcrumb */}
-      <div className="mb-4 flex items-center gap-1 text-sm text-gray-500">
-        <Link href="/" className="text-blue-600 hover:underline">Home</Link>
+      <div className="mb-4 flex items-center gap-1 text-sm text-gray-400">
+        <Link href="/" className="text-blue-400 hover:underline">Home</Link>
         <span>/</span>
         {constituency && (
           <>
-            <Link href={`/constituency/${constituency.id}`} className="text-blue-600 hover:underline">
+            <Link href={`/constituency/${constituency.id}`} className="text-blue-400 hover:underline">
               {constituency.name}
             </Link>
             <span>/</span>
           </>
         )}
-        <span className="text-gray-700">{candidate.name}</span>
+        <span className="text-gray-300">{candidate.name}</span>
       </div>
 
       <div className="grid gap-6 lg:grid-cols-3">
@@ -113,10 +113,10 @@ export default function CandidatePage({ params }: PageProps) {
         <div className="lg:col-span-1">
           <div className="sticky top-20 space-y-4">
             {/* Profile card */}
-            <div className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
+            <div className="rounded-xl border border-white/10 bg-white/5 shadow-sm overflow-hidden">
               <div className="h-2 w-full" style={{ backgroundColor: party.color }} />
               <div className="p-5">
-                <div className="mx-auto mb-4 relative h-28 w-28 overflow-hidden rounded-full border-4 border-gray-100 shadow">
+                <div className="mx-auto mb-4 relative h-28 w-28 overflow-hidden rounded-full border-4 border-white/15 shadow">
                   {candidate.photoUrl ? (
                     <Image src={candidate.photoUrl} alt={candidate.name} fill className="object-cover" sizes="112px" />
                   ) : (
@@ -126,9 +126,9 @@ export default function CandidatePage({ params }: PageProps) {
                   )}
                 </div>
 
-                <h1 className="text-center text-lg font-bold text-gray-900">{candidate.name}</h1>
+                <h1 className="text-center text-lg font-bold text-white">{candidate.name}</h1>
                 {candidate.nameBn && (
-                  <p className="text-center text-sm text-gray-500">{candidate.nameBn}</p>
+                  <p className="text-center text-sm text-gray-400">{candidate.nameBn}</p>
                 )}
 
                 <div className="mt-3 flex justify-center">
@@ -145,9 +145,9 @@ export default function CandidatePage({ params }: PageProps) {
                 )}
 
                 {constituency && (
-                  <div className="mt-3 flex items-center justify-center gap-1 text-xs text-gray-500">
+                  <div className="mt-3 flex items-center justify-center gap-1 text-xs text-gray-400">
                     <MapPin className="h-3.5 w-3.5" />
-                    <Link href={`/constituency/${constituency.id}`} className="hover:text-blue-600 hover:underline">
+                    <Link href={`/constituency/${constituency.id}`} className="hover:text-blue-400 hover:underline">
                       {constituency.name}, {constituency.district}
                     </Link>
                   </div>
@@ -155,10 +155,10 @@ export default function CandidatePage({ params }: PageProps) {
 
                 {/* Quick facts chips */}
                 <div className="mt-4 flex flex-wrap justify-center gap-1.5">
-                  <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">{candidate.age} yrs</span>
-                  <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-medium text-blue-700">{candidate.education}</span>
+                  <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-gray-300">{candidate.age} yrs</span>
+                  <span className="rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] font-medium text-blue-300">{candidate.education}</span>
                   {candidate.occupation && (
-                    <span className="rounded-full bg-gray-100 px-2.5 py-1 text-[11px] font-medium text-gray-600">{candidate.occupation}</span>
+                    <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-medium text-gray-300">{candidate.occupation}</span>
                   )}
                 </div>
 
@@ -166,7 +166,7 @@ export default function CandidatePage({ params }: PageProps) {
                   {constituency && (
                     <Link
                       href={`/compare?ids=${getCandidatesByConstituencyForLink(candidate.constituencyId)}`}
-                      className="flex items-center justify-center gap-2 rounded-lg border border-gray-200 py-2 text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                      className="flex items-center justify-center gap-2 rounded-lg border border-white/10 py-2 text-xs font-medium text-gray-400 hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-blue-300 transition-colors"
                     >
                       <GitCompare className="h-3.5 w-3.5" /> Compare with others
                     </Link>
@@ -176,7 +176,7 @@ export default function CandidatePage({ params }: PageProps) {
                       href={candidate.affidavitUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="flex items-center justify-center gap-2 rounded-lg bg-gray-50 border border-gray-200 py-2 text-xs font-medium text-gray-700 hover:bg-gray-100 transition-colors"
+                      className="flex items-center justify-center gap-2 rounded-lg bg-white/5 border border-white/10 py-2 text-xs font-medium text-gray-400 hover:bg-white/10 transition-colors"
                     >
                       <ExternalLink className="h-3.5 w-3.5" /> View Affidavit (ECI)
                     </a>
@@ -186,30 +186,30 @@ export default function CandidatePage({ params }: PageProps) {
             </div>
 
             {/* Constituency context card */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+            <div className="rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm">
               <div className="flex items-center gap-2 mb-3">
-                <Users className="h-4 w-4 text-gray-400" />
-                <span className="text-xs font-semibold text-gray-600 uppercase tracking-wide">In {constituency?.name ?? 'Constituency'}</span>
+                <Users className="h-4 w-4 text-gray-500" />
+                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wide">In {constituency?.name ?? 'Constituency'}</span>
               </div>
               <div className="space-y-2 text-xs">
                 {wealthRankInConst != null && (
                   <div className="flex items-center justify-between">
                     <span className="text-gray-500">Wealth rank</span>
-                    <span className="font-semibold text-gray-900">#{wealthRankInConst} of {constCandidates.length}</span>
+                    <span className="font-semibold text-gray-200">#{wealthRankInConst} of {constCandidates.length}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">Avg criminal cases</span>
-                  <span className={`font-semibold ${constAvgCriminal > 1 ? 'text-amber-700' : 'text-gray-900'}`}>{constAvgCriminal}</span>
+                  <span className={`font-semibold ${constAvgCriminal > 1 ? 'text-amber-400' : 'text-gray-200'}`}>{constAvgCriminal}</span>
                 </div>
                 <div className="flex items-center justify-between">
                   <span className="text-gray-500">Total candidates</span>
-                  <span className="font-semibold text-gray-900">{constCandidates.length}</span>
+                  <span className="font-semibold text-gray-200">{constCandidates.length}</span>
                 </div>
                 {statePercentile != null && (
-                  <div className="flex items-center justify-between border-t border-gray-100 pt-2 mt-2">
+                  <div className="flex items-center justify-between border-t border-white/5 pt-2 mt-2">
                     <span className="text-gray-500">State wealth rank</span>
-                    <span className="font-semibold text-blue-700">Top {100 - statePercentile}%</span>
+                    <span className="font-semibold text-blue-400">Top {100 - statePercentile}%</span>
                   </div>
                 )}
               </div>
@@ -221,30 +221,30 @@ export default function CandidatePage({ params }: PageProps) {
         <div className="lg:col-span-2 space-y-5">
 
           {/* Criminal cases */}
-          <section className="rounded-xl border bg-white shadow-sm overflow-hidden" style={{
-            borderColor: candidate.criminalCases > 2 ? '#fca5a5' : candidate.criminalCases > 0 ? '#fde68a' : '#bbf7d0',
+          <section className="rounded-xl border bg-white/5 shadow-sm overflow-hidden" style={{
+            borderColor: candidate.criminalCases > 2 ? '#f87171' : candidate.criminalCases > 0 ? '#fbbf24' : '#4ade80',
           }}>
             <div className="px-5 py-3 border-b flex items-center justify-between" style={{
-              backgroundColor: candidate.criminalCases > 2 ? '#fef2f2' : candidate.criminalCases > 0 ? '#fffbeb' : '#f0fdf4',
-              borderColor: candidate.criminalCases > 2 ? '#fca5a5' : candidate.criminalCases > 0 ? '#fde68a' : '#bbf7d0',
+              backgroundColor: candidate.criminalCases > 2 ? 'rgba(239,68,68,0.1)' : candidate.criminalCases > 0 ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.1)',
+              borderColor: candidate.criminalCases > 2 ? '#f87171' : candidate.criminalCases > 0 ? '#fbbf24' : '#4ade80',
             }}>
               <div className="flex items-center gap-2">
-                <AlertTriangle className={`h-4 w-4 ${candidate.criminalCases > 2 ? 'text-red-500' : candidate.criminalCases > 0 ? 'text-amber-500' : 'text-green-500'}`} />
-                <h2 className="text-sm font-semibold" style={{ color: candidate.criminalCases > 2 ? '#991b1b' : candidate.criminalCases > 0 ? '#92400e' : '#166534' }}>
+                <AlertTriangle className={`h-4 w-4 ${candidate.criminalCases > 2 ? 'text-red-400' : candidate.criminalCases > 0 ? 'text-amber-400' : 'text-green-400'}`} />
+                <h2 className="text-sm font-semibold" style={{ color: candidate.criminalCases > 2 ? '#f87171' : candidate.criminalCases > 0 ? '#fbbf24' : '#4ade80' }}>
                   Criminal Cases
                 </h2>
               </div>
-              <span className="text-xs text-gray-400">Constituency avg: {constAvgCriminal}</span>
+              <span className="text-xs text-gray-500">Constituency avg: {constAvgCriminal}</span>
             </div>
             <div className="px-5 py-4">
               {candidate.criminalCases === 0 ? (
                 <div className="flex items-center gap-2">
-                  <Award className="h-5 w-5 text-green-500" />
-                  <p className="text-sm font-medium text-green-700">No pending criminal cases declared in affidavit.</p>
+                  <Award className="h-5 w-5 text-green-400" />
+                  <p className="text-sm font-medium text-green-300">No pending criminal cases declared in affidavit.</p>
                 </div>
               ) : (
                 <>
-                  <p className="text-sm font-semibold" style={{ color: candidate.criminalCases > 2 ? '#b91c1c' : '#b45309' }}>
+                  <p className="text-sm font-semibold" style={{ color: candidate.criminalCases > 2 ? '#f87171' : '#fbbf24' }}>
                     {candidate.criminalCases} pending case{candidate.criminalCases > 1 ? 's' : ''}
                   </p>
                   {ipcSections.length > 0 && (
@@ -252,38 +252,38 @@ export default function CandidatePage({ params }: PageProps) {
                       <p className="mb-2 text-xs font-medium text-gray-500">IPC / Act Sections declared:</p>
                       <div className="flex flex-wrap gap-1.5">
                         {ipcSections.map((s, i) => (
-                          <span key={i} className="rounded-full border border-red-200 bg-red-50 px-2.5 py-0.5 text-[11px] font-medium text-red-700">
+                          <span key={i} className="rounded-full border border-red-500/30 bg-red-500/10 px-2.5 py-0.5 text-[11px] font-medium text-red-400">
                             {s}
                           </span>
                         ))}
                       </div>
                     </div>
                   )}
-                  <p className="mt-3 text-xs text-gray-400">Source: Self-declared in ECI affidavit. Cases are presumed pending until court verdict.</p>
+                  <p className="mt-3 text-xs text-gray-500">Source: Self-declared in ECI affidavit. Cases are presumed pending until court verdict.</p>
                 </>
               )}
             </div>
           </section>
 
           {/* Assets & Liabilities */}
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-5 py-3 flex items-center justify-between">
+          <section className="rounded-xl border border-white/10 bg-white/5 shadow-sm">
+            <div className="border-b border-white/5 px-5 py-3 flex items-center justify-between">
               <div>
-                <h2 className="text-sm font-semibold text-gray-700">Assets &amp; Liabilities</h2>
-                <p className="text-xs text-gray-400">Self-declared in ECI affidavit</p>
+                <h2 className="text-sm font-semibold text-gray-300">Assets &amp; Liabilities</h2>
+                <p className="text-xs text-gray-500">Self-declared in ECI affidavit</p>
               </div>
               {statePercentile != null && (
-                <span className="rounded-full bg-blue-50 px-2.5 py-1 text-[11px] font-semibold text-blue-700">
+                <span className="rounded-full bg-blue-500/15 px-2.5 py-1 text-[11px] font-semibold text-blue-300">
                   Wealthier than {statePercentile}% of candidates
                 </span>
               )}
             </div>
             <div className="px-5 py-4">
               {candidate.totalAssets === 0 && candidate.totalLiabilities === 0 ? (
-                <div className="rounded-lg border border-dashed border-gray-200 bg-gray-50 py-6 text-center">
-                  <p className="text-sm text-gray-400">Asset data not declared or not yet available</p>
+                <div className="rounded-lg border border-dashed border-white/10 bg-white/5 py-6 text-center">
+                  <p className="text-sm text-gray-500">Asset data not declared or not yet available</p>
                   {candidate.affidavitUrl && (
-                    <a href={candidate.affidavitUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-blue-500 hover:underline">
+                    <a href={candidate.affidavitUrl} target="_blank" rel="noopener noreferrer" className="mt-1 inline-block text-xs text-blue-400 hover:underline">
                       View original affidavit →
                     </a>
                   )}
@@ -291,44 +291,43 @@ export default function CandidatePage({ params }: PageProps) {
               ) : (
                 <>
                   <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-4">
-                    <div className="rounded-lg bg-green-50 p-3 text-center">
+                    <div className="rounded-lg bg-green-500/10 p-3 text-center">
                       <p className="text-[11px] text-gray-500 mb-1">Total Assets</p>
-                      <p className="text-sm font-bold text-green-700">{formatCurrency(candidate.totalAssets)}</p>
+                      <p className="text-sm font-bold text-green-400">{formatCurrency(candidate.totalAssets)}</p>
                     </div>
                     {candidate.movableAssets != null && candidate.movableAssets > 0 && (
-                      <div className="rounded-lg bg-blue-50 p-3 text-center">
+                      <div className="rounded-lg bg-blue-500/10 p-3 text-center">
                         <p className="text-[11px] text-gray-500 mb-1">Movable</p>
-                        <p className="text-sm font-bold text-blue-700">{formatCurrency(candidate.movableAssets)}</p>
+                        <p className="text-sm font-bold text-blue-400">{formatCurrency(candidate.movableAssets)}</p>
                       </div>
                     )}
                     {candidate.immovableAssets != null && candidate.immovableAssets > 0 && (
-                      <div className="rounded-lg bg-purple-50 p-3 text-center">
+                      <div className="rounded-lg bg-purple-500/10 p-3 text-center">
                         <p className="text-[11px] text-gray-500 mb-1">Immovable</p>
-                        <p className="text-sm font-bold text-purple-700">{formatCurrency(candidate.immovableAssets)}</p>
+                        <p className="text-sm font-bold text-purple-400">{formatCurrency(candidate.immovableAssets)}</p>
                       </div>
                     )}
-                    <div className="rounded-lg bg-red-50 p-3 text-center">
+                    <div className="rounded-lg bg-red-500/10 p-3 text-center">
                       <p className="text-[11px] text-gray-500 mb-1">Liabilities</p>
-                      <p className="text-sm font-bold text-red-600">{candidate.totalLiabilities > 0 ? formatCurrency(candidate.totalLiabilities) : 'None'}</p>
+                      <p className="text-sm font-bold text-red-400">{candidate.totalLiabilities > 0 ? formatCurrency(candidate.totalLiabilities) : 'None'}</p>
                     </div>
                   </div>
 
-                  {/* Wealth comparison bars */}
                   {candidate.totalAssets > 0 && (
-                    <div className="rounded-lg border border-gray-100 bg-gray-50 p-4">
-                      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">Wealth comparison</p>
+                    <div className="rounded-lg border border-white/5 bg-white/5 p-4">
+                      <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-500">Wealth comparison</p>
                       <div className="space-y-3">
                         {[
                           { label: 'This candidate', value: candidate.totalAssets, color: party.color },
                           { label: 'Constituency median', value: constMedianAssets, color: '#94a3b8' },
-                          { label: 'State median', value: stateMedianAssets, color: '#cbd5e1' },
+                          { label: 'State median', value: stateMedianAssets, color: '#475569' },
                         ].map(({ label, value, color }) => (
                           <div key={label}>
                             <div className="mb-1 flex items-center justify-between text-xs">
-                              <span className="text-gray-600">{label}</span>
-                              <span className="font-semibold text-gray-800">{formatCurrency(value)}</span>
+                              <span className="text-gray-400">{label}</span>
+                              <span className="font-semibold text-gray-200">{formatCurrency(value)}</span>
                             </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
                               <div className="h-full rounded-full transition-all" style={{ width: `${Math.max(2, assetBarPct(value))}%`, backgroundColor: color }} />
                             </div>
                           </div>
@@ -337,9 +336,9 @@ export default function CandidatePage({ params }: PageProps) {
                     </div>
                   )}
 
-                  <div className="mt-4 flex items-center justify-between rounded-lg border border-gray-200 bg-white px-4 py-3">
-                    <span className="text-sm font-medium text-gray-700">Net Assets</span>
-                    <span className={`text-sm font-bold ${netAssets >= 0 ? 'text-green-700' : 'text-red-700'}`}>
+                  <div className="mt-4 flex items-center justify-between rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+                    <span className="text-sm font-medium text-gray-400">Net Assets</span>
+                    <span className={`text-sm font-bold ${netAssets >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {netAssets >= 0 ? '+' : '-'}{formatCurrency(Math.abs(netAssets))}
                     </span>
                   </div>
@@ -349,41 +348,41 @@ export default function CandidatePage({ params }: PageProps) {
           </section>
 
           {/* Personal information */}
-          <section className="rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-100 px-5 py-3">
-              <h2 className="text-sm font-semibold text-gray-700">Background</h2>
+          <section className="rounded-xl border border-white/10 bg-white/5 shadow-sm">
+            <div className="border-b border-white/5 px-5 py-3">
+              <h2 className="text-sm font-semibold text-gray-300">Background</h2>
             </div>
-            <div className="divide-y divide-gray-100">
+            <div className="divide-y divide-white/5">
               <div className="flex items-center gap-3 px-5 py-3">
                 <GraduationCap className="h-4 w-4 shrink-0 text-blue-400" />
                 <span className="text-xs text-gray-500 w-28 shrink-0">Education</span>
-                <span className="text-sm font-medium text-gray-900">{candidate.education}</span>
+                <span className="text-sm font-medium text-gray-200">{candidate.education}</span>
               </div>
               {candidate.occupation && (
                 <div className="flex items-center gap-3 px-5 py-3">
                   <Briefcase className="h-4 w-4 shrink-0 text-indigo-400" />
                   <span className="text-xs text-gray-500 w-28 shrink-0">Occupation</span>
-                  <span className="text-sm font-medium text-gray-900">{candidate.occupation}</span>
+                  <span className="text-sm font-medium text-gray-200">{candidate.occupation}</span>
                 </div>
               )}
               {candidate.spouseProfession && (
                 <div className="flex items-center gap-3 px-5 py-3">
-                  <Briefcase className="h-4 w-4 shrink-0 text-gray-400" />
+                  <Briefcase className="h-4 w-4 shrink-0 text-gray-500" />
                   <span className="text-xs text-gray-500 w-28 shrink-0">Spouse Occupation</span>
-                  <span className="text-sm font-medium text-gray-900">{candidate.spouseProfession}</span>
+                  <span className="text-sm font-medium text-gray-200">{candidate.spouseProfession}</span>
                 </div>
               )}
               <div className="flex items-center gap-3 px-5 py-3">
-                <Scale className="h-4 w-4 shrink-0 text-gray-400" />
+                <Scale className="h-4 w-4 shrink-0 text-gray-500" />
                 <span className="text-xs text-gray-500 w-28 shrink-0">Incumbent</span>
-                <span className="text-sm font-medium text-gray-900">
+                <span className="text-sm font-medium text-gray-200">
                   {candidate.isIncumbent ? `Yes — ${candidate.incumbentYears ?? '?'} years in office` : 'No'}
                 </span>
               </div>
               <div className="flex items-center gap-3 px-5 py-3">
-                <BarChart2 className="h-4 w-4 shrink-0 text-gray-400" />
+                <BarChart2 className="h-4 w-4 shrink-0 text-gray-500" />
                 <span className="text-xs text-gray-500 w-28 shrink-0">Age</span>
-                <span className="text-sm font-medium text-gray-900">{candidate.age} years</span>
+                <span className="text-sm font-medium text-gray-200">{candidate.age} years</span>
               </div>
             </div>
           </section>
@@ -398,16 +397,16 @@ export default function CandidatePage({ params }: PageProps) {
             const manifesto = getPartyManifestoOrDefault(candidate.partyId);
             if (!manifesto) return null;
             return (
-              <section className="rounded-xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <div className="border-b border-gray-100 px-5 py-3">
+              <section className="rounded-xl border border-white/10 bg-white/5 shadow-sm overflow-hidden">
+                <div className="border-b border-white/5 px-5 py-3">
                   <div className="flex items-center gap-2">
                     <span className="h-3 w-3 rounded-full" style={{ backgroundColor: party.color }} />
-                    <h2 className="text-sm font-semibold text-gray-700">{party.abbreviation} — Policy Positions</h2>
+                    <h2 className="text-sm font-semibold text-gray-300">{party.abbreviation} — Policy Positions</h2>
                     {manifesto.placeholder && (
-                      <span className="rounded-full bg-amber-50 border border-amber-200 px-2 py-0.5 text-[10px] font-medium text-amber-600">Limited data</span>
+                      <span className="rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-medium text-amber-400">Limited data</span>
                     )}
                   </div>
-                  <p className="mt-1 text-xs text-gray-400 leading-relaxed">{manifesto.summary}</p>
+                  <p className="mt-1 text-xs text-gray-500 leading-relaxed">{manifesto.summary}</p>
                 </div>
                 <div className="px-5 py-4 space-y-5">
                   {policyDimensions.map(dim => {
@@ -416,26 +415,26 @@ export default function CandidatePage({ params }: PageProps) {
                     const pct = ((stance.score + 2) / 4) * 100;
                     return (
                       <div key={dim.key}>
-                        <span className="text-xs font-semibold text-gray-700">{dim.label}</span>
+                        <span className="text-xs font-semibold text-gray-300">{dim.label}</span>
                         <div className="mt-2 flex items-center gap-3">
                           <span className="w-[88px] shrink-0 text-right text-[11px] font-medium text-gray-500 leading-tight">{dim.leftLabel}</span>
-                          <div className="relative flex-1 h-3 rounded-full border border-gray-200 bg-gray-50 shadow-inner">
+                          <div className="relative flex-1 h-3 rounded-full border border-white/10 bg-white/5 shadow-inner">
                             <div
-                              className="absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full border-2 border-white shadow-md"
-                              style={{ left: `calc(${pct}% - 8px)`, backgroundColor: manifesto.placeholder ? '#9ca3af' : party.color }}
+                              className="absolute top-1/2 -translate-y-1/2 h-4 w-4 rounded-full border-2 border-slate-950 shadow-md"
+                              style={{ left: `calc(${pct}% - 8px)`, backgroundColor: manifesto.placeholder ? '#475569' : party.color }}
                             />
                           </div>
                           <span className="w-[88px] shrink-0 text-[11px] font-medium text-gray-500 leading-tight">{dim.rightLabel}</span>
                         </div>
                         {!manifesto.placeholder && (
-                          <p className="mt-1.5 text-[10px] text-gray-400 leading-relaxed pl-[112px]">{stance.note}</p>
+                          <p className="mt-1.5 text-[10px] text-gray-500 leading-relaxed pl-[112px]">{stance.note}</p>
                         )}
                       </div>
                     );
                   })}
                 </div>
-                <div className="border-t border-gray-50 px-5 py-2.5">
-                  <p className="text-[10px] text-gray-400">Party positions are editorial assessments based on official manifestos and governance history. They do not represent the individual candidate&apos;s views.</p>
+                <div className="border-t border-white/5 px-5 py-2.5">
+                  <p className="text-[10px] text-gray-500">Party positions are editorial assessments based on official manifestos and governance history. They do not represent the individual candidate&apos;s views.</p>
                 </div>
               </section>
             );

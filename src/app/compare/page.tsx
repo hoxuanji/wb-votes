@@ -51,17 +51,17 @@ function ComparePageInner() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
-      <Link href="/" className="mb-4 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+      <Link href="/" className="mb-4 inline-flex items-center gap-1 text-sm text-blue-400 hover:underline">
         <ArrowLeft className="h-4 w-4" /> Home
       </Link>
 
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-            <GitCompare className="h-5 w-5 text-blue-600" />
+          <h1 className="text-xl font-bold text-white flex items-center gap-2">
+            <GitCompare className="h-5 w-5 text-blue-400" />
             {t('Compare Candidates', 'প্রার্থী তুলনা করুন')}
           </h1>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <p className="text-sm text-gray-400 mt-0.5">
             {t(`${selectedCandidates.length} candidate${selectedCandidates.length !== 1 ? 's' : ''} selected`, `${selectedCandidates.length}টি প্রার্থী নির্বাচিত`)}
           </p>
         </div>
@@ -81,11 +81,11 @@ function ComparePageInner() {
           {selectedCandidates.map((c) => {
             const p = getPartyById(c.partyId);
             return (
-              <div key={c.id} className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-1.5 text-xs shadow-sm">
+              <div key={c.id} className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1.5 text-xs shadow-sm">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: p?.color ?? '#666' }} />
-                <span className="font-medium text-gray-800">{c.name}</span>
-                <span className="text-gray-400">({p?.abbreviation})</span>
-                <button onClick={() => removeCandidate(c.id)} className="ml-1 text-gray-400 hover:text-red-500">
+                <span className="font-medium text-gray-200">{c.name}</span>
+                <span className="text-gray-500">({p?.abbreviation})</span>
+                <button onClick={() => removeCandidate(c.id)} className="ml-1 text-gray-500 hover:text-red-400">
                   <X className="h-3.5 w-3.5" />
                 </button>
               </div>
@@ -99,19 +99,19 @@ function ComparePageInner() {
 
       {/* Picker modal */}
       {pickerOpen && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-4" onClick={() => setPickerOpen(false)}>
-          <div className="w-full max-w-md rounded-t-2xl sm:rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between border-b border-gray-200 px-5 py-4">
-              <h2 className="text-sm font-semibold text-gray-900">
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/60 px-4" onClick={() => setPickerOpen(false)}>
+          <div className="w-full max-w-md rounded-t-2xl sm:rounded-2xl bg-slate-900 border border-white/10 shadow-xl" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+              <h2 className="text-sm font-semibold text-white">
                 {t('Add a Candidate', 'প্রার্থী যোগ করুন')}
               </h2>
-              <button onClick={() => setPickerOpen(false)} className="rounded-lg p-1 text-gray-500 hover:bg-gray-100">
+              <button onClick={() => setPickerOpen(false)} className="rounded-lg p-1 text-gray-400 hover:bg-white/10">
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="px-5 py-3">
               <select
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none mb-3"
+                className="w-full rounded-lg border border-white/15 bg-slate-800 px-3 py-2 text-sm text-gray-200 focus:border-blue-500/50 focus:outline-none mb-3"
                 value={pickerConstituency}
                 onChange={(e) => setPickerConstituency(e.target.value)}
               >
@@ -132,11 +132,11 @@ function ComparePageInner() {
                       <button
                         key={c.id}
                         onClick={() => addCandidate(c.id)}
-                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-blue-50 transition-colors"
+                        className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm hover:bg-blue-500/15 transition-colors"
                       >
                         <span className="h-3 w-3 rounded-full shrink-0" style={{ backgroundColor: p?.color ?? '#666' }} />
                         <div className="min-w-0">
-                          <p className="font-medium text-gray-900">{c.name}</p>
+                          <p className="font-medium text-gray-200">{c.name}</p>
                           <p className="text-xs text-gray-500">{p?.abbreviation} · {con?.name}</p>
                         </div>
                       </button>

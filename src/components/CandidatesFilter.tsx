@@ -88,16 +88,16 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
   return (
     <div>
       {/* Filter bar */}
-      <div className="sticky top-[57px] z-30 border-b border-gray-200 bg-white/95 px-4 py-3 backdrop-blur-sm shadow-sm">
+      <div className="sticky top-[57px] z-30 border-b border-white/10 bg-slate-950/95 px-4 py-3 backdrop-blur-sm shadow-sm">
         <div className="mx-auto max-w-5xl flex flex-wrap gap-2">
           {/* Search */}
           <div className="relative flex-1 min-w-[180px]">
-            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
             <input
               value={query}
               onChange={e => { setQuery(e.target.value); setPage(1); }}
               placeholder="Search by name or constituency…"
-              className="w-full rounded-lg border border-gray-200 bg-white py-2 pl-9 pr-3 text-sm focus:border-blue-400 focus:outline-none"
+              className="w-full rounded-lg border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500/50 focus:outline-none"
             />
           </div>
 
@@ -105,7 +105,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
           <select
             value={partyFilter}
             onChange={e => { setPartyFilter(e.target.value); resetPage(); }}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-400 focus:outline-none"
+            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 focus:border-blue-500/50 focus:outline-none"
           >
             <option value="">All Parties</option>
             {majorParties.map(p => (
@@ -117,7 +117,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
           <select
             value={districtFilter}
             onChange={e => { setDistrictFilter(e.target.value); resetPage(); }}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-400 focus:outline-none"
+            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 focus:border-blue-500/50 focus:outline-none"
           >
             <option value="">All Districts</option>
             {districts.map(d => (
@@ -129,7 +129,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
           <select
             value={sortBy}
             onChange={e => { setSortBy(e.target.value); setPage(1); }}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-700 focus:border-blue-400 focus:outline-none"
+            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 focus:border-blue-500/50 focus:outline-none"
           >
             {SORT_OPTIONS.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>
@@ -141,8 +141,8 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
             onClick={() => { setCasesOnly(!casesOnly); resetPage(); }}
             className={`flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
               casesOnly
-                ? 'border-red-300 bg-red-50 text-red-700'
-                : 'border-gray-200 bg-white text-gray-600 hover:bg-gray-50'
+                ? 'border-red-500/40 bg-red-500/15 text-red-400'
+                : 'border-white/10 bg-white/5 text-gray-400 hover:bg-white/10'
             }`}
           >
             <AlertTriangle className="h-3.5 w-3.5" />
@@ -153,8 +153,8 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
 
       {/* Results count */}
       <div className="mx-auto max-w-5xl px-4 py-3">
-        <p className="text-sm text-gray-500">
-          Showing <span className="font-semibold text-gray-900">{filtered.length.toLocaleString()}</span> candidates
+        <p className="text-sm text-gray-400">
+          Showing <span className="font-semibold text-gray-200">{filtered.length.toLocaleString()}</span> candidates
           {partyFilter || districtFilter || casesOnly || query ? ' (filtered)' : ''}
         </p>
       </div>
@@ -162,7 +162,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
       {/* Grid */}
       <div className="mx-auto max-w-5xl px-4 pb-6">
         {paginated.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center text-gray-400">
+          <div className="rounded-xl border border-dashed border-white/10 py-16 text-center text-gray-500">
             No candidates match your filters
           </div>
         ) : (
@@ -176,7 +176,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
                 <Link
                   key={c.id}
                   href={`/candidate/${c.id}`}
-                  className="group flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-3 transition-all hover:border-blue-200 hover:shadow-sm"
+                  className="group flex items-start gap-3 rounded-xl border border-white/10 bg-white/5 p-3 transition-all hover:border-blue-500/30 hover:bg-blue-500/5"
                 >
                   {/* Photo */}
                   <div
@@ -197,7 +197,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-gray-900 group-hover:text-blue-700">
+                    <p className="truncate text-sm font-semibold text-gray-200 group-hover:text-blue-300">
                       {c.name}
                     </p>
                     <p className="truncate text-xs text-gray-400">{constName}</p>
@@ -232,17 +232,17 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
             <button
               onClick={() => setPage(p => Math.max(1, p - 1))}
               disabled={page === 1}
-              className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              className="rounded-lg border border-white/10 p-2 text-gray-400 hover:bg-white/10 disabled:opacity-40"
             >
               <ChevronLeft className="h-4 w-4" />
             </button>
-            <span className="text-sm text-gray-600">
+            <span className="text-sm text-gray-400">
               Page {page} of {totalPages}
             </span>
             <button
               onClick={() => setPage(p => Math.min(totalPages, p + 1))}
               disabled={page === totalPages}
-              className="rounded-lg border border-gray-200 p-2 text-gray-600 hover:bg-gray-50 disabled:opacity-40"
+              className="rounded-lg border border-white/10 p-2 text-gray-400 hover:bg-white/10 disabled:opacity-40"
             >
               <ChevronRight className="h-4 w-4" />
             </button>

@@ -41,10 +41,10 @@ function ConstituencyCandidates({
 
   if (rankedCandidates.length === 0) {
     return (
-      <div className="mt-8 rounded-xl border border-dashed border-gray-200 p-8 text-center">
-        <MapPin className="mx-auto mb-3 h-8 w-8 text-gray-300" />
-        <p className="text-sm font-medium text-gray-500">{constituency.name}</p>
-        <p className="mt-1 text-xs text-gray-400">Candidate data not yet available for this constituency.</p>
+      <div className="mt-8 rounded-xl border border-dashed border-white/15 p-8 text-center">
+        <MapPin className="mx-auto mb-3 h-8 w-8 text-gray-500" />
+        <p className="text-sm font-medium text-gray-400">{constituency.name}</p>
+        <p className="mt-1 text-xs text-gray-500">Candidate data not yet available for this constituency.</p>
       </div>
     );
   }
@@ -52,15 +52,15 @@ function ConstituencyCandidates({
   return (
     <div className="mt-8">
       <div className="mb-4 flex items-center gap-2">
-        <MapPin className="h-5 w-5 text-blue-600" />
-        <h2 className="text-base font-bold text-gray-900">
+        <MapPin className="h-5 w-5 text-blue-400" />
+        <h2 className="text-base font-bold text-white">
           Candidates in {constituency.name}
-          <span className="ml-1.5 text-sm font-normal text-gray-500">{constituency.district}</span>
+          <span className="ml-1.5 text-sm font-normal text-gray-400">{constituency.district}</span>
         </h2>
       </div>
 
       {/* Methodology note */}
-      <div className="mb-4 rounded-lg bg-blue-50 border border-blue-100 px-4 py-3 text-xs text-blue-800">
+      <div className="mb-4 rounded-lg bg-blue-500/10 border border-blue-500/25 px-4 py-3 text-xs text-blue-300">
         <strong>How scores are calculated:</strong> Final score = party policy alignment (60%) + candidate profile (40%).
         Profile score is based on criminal record, education level, and data completeness.
       </div>
@@ -71,7 +71,7 @@ function ConstituencyCandidates({
         className="mb-5"
       />
 
-      <p className="mb-3 text-xs text-gray-500">
+      <p className="mb-3 text-xs text-gray-400">
         Ranked by combined score — candidates from the same party may differ based on their individual profiles.
       </p>
 
@@ -90,7 +90,7 @@ function ConstituencyCandidates({
         })}
       </div>
 
-      <p className="mt-3 text-center text-xs text-gray-400">
+      <p className="mt-3 text-center text-xs text-gray-500">
         Party alignment is based on stated positions — not individual candidates&apos; views.
         Profile score reflects self-declared ECI affidavit data.
       </p>
@@ -116,9 +116,9 @@ function ResultsInner() {
   if (!results || results.length === 0) {
     return (
       <div className="mx-auto max-w-md px-4 py-16 text-center">
-        <AlertCircle className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-        <h1 className="text-lg font-bold text-gray-700">No results found</h1>
-        <p className="mt-1 text-sm text-gray-500">Please take the quiz first to see your results.</p>
+        <AlertCircle className="mx-auto mb-3 h-10 w-10 text-gray-500" />
+        <h1 className="text-lg font-bold text-white">No results found</h1>
+        <p className="mt-1 text-sm text-gray-400">Please take the quiz first to see your results.</p>
         <Link
           href="/quiz"
           className="mt-4 inline-block rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
@@ -132,11 +132,11 @@ function ResultsInner() {
   return (
     <div className="mx-auto max-w-2xl px-4 py-10">
       <div className="mb-6 text-center">
-        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-100">
-          <BarChart2 className="h-6 w-6 text-blue-600" />
+        <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-blue-500/20">
+          <BarChart2 className="h-6 w-6 text-blue-400" />
         </div>
-        <h1 className="text-2xl font-extrabold text-gray-900">Your Policy Alignment</h1>
-        <p className="mt-1 text-sm text-gray-500">
+        <h1 className="text-2xl font-extrabold text-white">Your Policy Alignment</h1>
+        <p className="mt-1 text-sm text-gray-400">
           Based on your quiz answers. Scores reflect alignment with publicly stated party positions.
         </p>
       </div>
@@ -147,7 +147,7 @@ function ResultsInner() {
         <ConstituencyCandidates constituencyId={constituencyId} results={results} />
       )}
 
-      <div className="mt-8 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-xs text-amber-800">
+      <div className="mt-8 rounded-xl border border-amber-500/30 bg-amber-500/10 px-5 py-4 text-xs text-amber-300">
         <strong>Important:</strong> These results show policy preference alignment only — they are not a voting recommendation.
         Alignment scores are approximations based on publicly stated party positions, not actual governance records.
         Please research thoroughly before voting.

@@ -24,16 +24,16 @@ export default function CandidatesPage() {
 
   return (
     <div>
-      <div className="border-b border-gray-200 bg-white px-4 py-4">
+      <div className="border-b border-white/10 bg-slate-900 px-4 py-4">
         <div className="mx-auto max-w-5xl">
-          <Link href="/" className="mb-2 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+          <Link href="/" className="mb-2 inline-flex items-center gap-1 text-sm text-blue-400 hover:underline">
             <ArrowLeft className="h-4 w-4" /> Home
           </Link>
-          <h1 className="text-2xl font-extrabold text-gray-900">
+          <h1 className="text-2xl font-extrabold text-white">
             All Candidates
             <span className="ml-2 text-base font-normal text-gray-400">{candidates.length.toLocaleString()} from Phase 1</span>
           </h1>
-          <p className="mt-0.5 text-sm text-gray-500">
+          <p className="mt-0.5 text-sm text-gray-400">
             Filter by party, district, or sort by assets and criminal cases
           </p>
         </div>

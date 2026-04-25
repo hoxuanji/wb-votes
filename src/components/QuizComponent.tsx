@@ -83,28 +83,28 @@ export function QuizComponent() {
     const selected = constituencyId ? constituencies.find(c => c.id === constituencyId) : null;
     return (
       <div className="mx-auto max-w-2xl">
-        <div className="mb-4 rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-800">
+        <div className="mb-4 rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
           <strong>Step 1 of 2:</strong> Select your constituency to see matching candidates after the quiz.
-          <span className="ml-1 text-blue-600">You can skip this.</span>
+          <span className="ml-1 text-blue-400">You can skip this.</span>
         </div>
 
-        <div className="mb-4 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-base font-semibold text-gray-900">
+        <div className="mb-4 rounded-xl border border-white/10 bg-white/5 p-4 shadow-sm">
+          <h2 className="mb-3 text-base font-semibold text-gray-100">
             {t('Which constituency are you voting in?', 'আপনি কোন নির্বাচনী এলাকায় ভোট দেবেন?')}
           </h2>
 
           {selected ? (
-            <div className="mb-3 flex items-center justify-between rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <div className="mb-3 flex items-center justify-between rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 py-3">
               <div className="flex items-center gap-2">
-                <MapPin className="h-4 w-4 text-blue-600" />
+                <MapPin className="h-4 w-4 text-blue-400" />
                 <div>
-                  <p className="text-sm font-semibold text-blue-900">{selected.name}</p>
-                  <p className="text-xs text-blue-600">{selected.district}</p>
+                  <p className="text-sm font-semibold text-blue-200">{selected.name}</p>
+                  <p className="text-xs text-blue-400">{selected.district}</p>
                 </div>
               </div>
               <button
                 onClick={() => setConstituencyId(null)}
-                className="rounded-lg p-1 hover:bg-blue-100"
+                className="rounded-lg p-1 hover:bg-blue-500/20"
               >
                 <X className="h-4 w-4 text-blue-400" />
               </button>
@@ -112,28 +112,28 @@ export function QuizComponent() {
           ) : (
             <>
               <div className="relative mb-3">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-500" />
                 <input
                   type="text"
                   placeholder={t('Search constituency or district…', 'নির্বাচনী এলাকা বা জেলা খুঁজুন…')}
                   value={constSearch}
                   onChange={e => setConstSearch(e.target.value)}
-                  className="w-full rounded-xl border border-gray-200 py-2 pl-9 pr-3 text-sm focus:border-blue-400 focus:outline-none focus:ring-2 focus:ring-blue-100"
+                  className="w-full rounded-xl border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500/50 focus:outline-none"
                 />
               </div>
-              <div className="max-h-52 overflow-y-auto rounded-xl border border-gray-100">
+              <div className="max-h-52 overflow-y-auto rounded-xl border border-white/10">
                 {filteredConsts.map(c => (
                   <button
                     key={c.id}
                     onClick={() => { setConstituencyId(c.id); setConstSearch(''); }}
-                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-blue-50"
+                    className="flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors hover:bg-blue-500/10"
                   >
-                    <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                    <MapPin className="h-3.5 w-3.5 shrink-0 text-gray-500" />
                     <div>
-                      <p className="text-sm font-medium text-gray-900">
+                      <p className="text-sm font-medium text-gray-200">
                         {c.name}
                         {c.reservation !== 'General' && (
-                          <span className="ml-2 rounded-full bg-purple-100 px-1.5 py-0.5 text-[10px] text-purple-700">
+                          <span className="ml-2 rounded-full bg-purple-500/15 px-1.5 py-0.5 text-[10px] text-purple-300">
                             {c.reservation}
                           </span>
                         )}
@@ -143,7 +143,7 @@ export function QuizComponent() {
                   </button>
                 ))}
                 {filteredConsts.length === 0 && (
-                  <p className="px-4 py-6 text-center text-sm text-gray-400">No constituencies found</p>
+                  <p className="px-4 py-6 text-center text-sm text-gray-500">No constituencies found</p>
                 )}
               </div>
             </>
@@ -153,7 +153,7 @@ export function QuizComponent() {
         <div className="flex items-center justify-between">
           <button
             onClick={() => { setConstituencyId(null); setStep(0); }}
-            className="text-sm text-gray-400 underline-offset-2 hover:text-gray-600 hover:underline"
+            className="text-sm text-gray-500 underline-offset-2 hover:text-gray-300 hover:underline"
           >
             {t('Skip this step', 'এই ধাপ বাদ দিন')}
           </button>
@@ -181,7 +181,7 @@ export function QuizComponent() {
       {constituencyId && (() => {
         const c = constituencies.find(x => x.id === constituencyId);
         return c ? (
-          <div className="mb-4 flex items-center gap-2 rounded-xl border border-green-100 bg-green-50 px-3 py-2 text-xs text-green-700">
+          <div className="mb-4 flex items-center gap-2 rounded-xl border border-green-500/25 bg-green-500/10 px-3 py-2 text-xs text-green-300">
             <MapPin className="h-3.5 w-3.5 shrink-0" />
             <span>Showing results for <strong>{c.name}</strong></span>
           </div>
@@ -190,11 +190,11 @@ export function QuizComponent() {
 
       {/* Progress */}
       <div className="mb-6">
-        <div className="mb-2 flex items-center justify-between text-sm text-gray-600">
+        <div className="mb-2 flex items-center justify-between text-sm text-gray-400">
           <span>{t(`Question ${step + 1} of ${total}`, `প্রশ্ন ${step + 1} / ${total}`)}</span>
-          <span className="font-medium text-blue-600">{Math.round(progress)}%</span>
+          <span className="font-medium text-blue-400">{Math.round(progress)}%</span>
         </div>
-        <div className="h-2 w-full overflow-hidden rounded-full bg-gray-200">
+        <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
           <div
             className="h-full rounded-full bg-blue-600 transition-all duration-500"
             style={{ width: `${progress}%` }}
@@ -204,14 +204,14 @@ export function QuizComponent() {
 
       {/* Category badge */}
       <div className="mb-3">
-        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-medium text-blue-700">
+        <span className="rounded-full bg-blue-500/15 px-3 py-1 text-xs font-medium text-blue-300">
           {t(question.category, question.categoryBn)}
         </span>
       </div>
 
       {/* Question */}
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
-        <h2 className="text-base font-semibold text-gray-900 sm:text-lg">
+      <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-6 shadow-sm">
+        <h2 className="text-base font-semibold text-gray-100 sm:text-lg">
           {t(question.question, question.questionBn)}
         </h2>
       </div>
@@ -226,16 +226,16 @@ export function QuizComponent() {
               onClick={() => handleSelect(option.id)}
               className={`flex w-full items-center gap-3 rounded-xl border p-4 text-left transition-all ${
                 isSelected
-                  ? 'border-blue-500 bg-blue-50 ring-2 ring-blue-200'
-                  : 'border-gray-200 bg-white hover:border-blue-300 hover:bg-blue-50/50'
+                  ? 'border-blue-500 bg-blue-500/15 ring-2 ring-blue-500/20'
+                  : 'border-white/10 bg-white/5 hover:border-blue-500/40 hover:bg-blue-500/10'
               }`}
             >
               <div className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${
-                isSelected ? 'border-blue-500 bg-blue-500' : 'border-gray-300'
+                isSelected ? 'border-blue-500 bg-blue-500' : 'border-white/20'
               }`}>
                 {isSelected && <CheckCircle2 className="h-4 w-4 text-white" />}
               </div>
-              <span className="text-sm text-gray-800">
+              <span className="text-sm text-gray-200">
                 {t(option.text, option.textBn)}
               </span>
             </button>
@@ -256,9 +256,9 @@ export function QuizComponent() {
               key={q.id}
               onClick={() => setStep(i)}
               className={`h-2 w-2 rounded-full transition-colors ${
-                i === step ? 'bg-blue-600'
-                : answers.find(a => a.questionId === q.id) ? 'bg-blue-300'
-                : 'bg-gray-200'
+                i === step ? 'bg-blue-500'
+                : answers.find(a => a.questionId === q.id) ? 'bg-blue-400/50'
+                : 'bg-white/20'
               }`}
               aria-label={`Question ${i + 1}`}
             />

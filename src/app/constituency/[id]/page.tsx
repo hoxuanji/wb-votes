@@ -88,13 +88,13 @@ export default function ConstituencyPage({ params }: PageProps) {
   if (rawCandidates.length === 0) {
     return (
       <div className="mx-auto max-w-4xl px-4 py-12">
-        <Link href="/" className="mb-6 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+        <Link href="/" className="mb-6 inline-flex items-center gap-1 text-sm text-blue-400 hover:underline">
           <ArrowLeft className="h-4 w-4" /> Back to all constituencies
         </Link>
-        <div className="rounded-xl border border-dashed border-gray-300 py-16 text-center">
-          <Users className="mx-auto mb-3 h-10 w-10 text-gray-300" />
-          <p className="text-gray-500">No candidate data available yet for {constituency.name}.</p>
-          <p className="mt-1 text-sm text-gray-400">
+        <div className="rounded-xl border border-dashed border-white/15 py-16 text-center">
+          <Users className="mx-auto mb-3 h-10 w-10 text-gray-500" />
+          <p className="text-gray-400">No candidate data available yet for {constituency.name}.</p>
+          <p className="mt-1 text-sm text-gray-500">
             Real data from ECI affidavits will be loaded here.
           </p>
         </div>
@@ -117,18 +117,18 @@ export default function ConstituencyPage({ params }: PageProps) {
       <ConstituencyTracker id={constituency.id} name={constituency.name} district={constituency.district} />
     <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Breadcrumb */}
-      <Link href="/" className="mb-4 inline-flex items-center gap-1 text-sm text-blue-600 hover:underline">
+      <Link href="/" className="mb-4 inline-flex items-center gap-1 text-sm text-blue-400 hover:underline">
         <ArrowLeft className="h-4 w-4" /> All Constituencies
       </Link>
 
       {/* Header */}
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h1 className="text-2xl font-extrabold text-gray-900">
+          <h1 className="text-2xl font-extrabold text-white">
             {constituency.name}
-            <span className="ml-2 text-base font-semibold text-gray-500">{constituency.nameBn}</span>
+            <span className="ml-2 text-base font-semibold text-gray-400">{constituency.nameBn}</span>
           </h1>
-          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-500">
+          <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-400">
             <span className="inline-flex items-center gap-1">
               <MapPin className="h-3.5 w-3.5" /> {constituency.district}
             </span>
@@ -137,7 +137,7 @@ export default function ConstituencyPage({ params }: PageProps) {
             {constituency.reservation !== 'General' && (
               <>
                 <span>·</span>
-                <span className="rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                <span className="rounded-full bg-purple-500/15 px-2 py-0.5 text-xs font-medium text-purple-300">
                   Reserved: {constituency.reservation}
                 </span>
               </>
@@ -147,7 +147,7 @@ export default function ConstituencyPage({ params }: PageProps) {
 
         <Link
           href={compareUrl}
-          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+          className="inline-flex shrink-0 items-center gap-2 rounded-xl border border-blue-500/30 bg-blue-500/10 px-4 py-2 text-sm font-medium text-blue-300 hover:bg-blue-500/20 transition-colors"
         >
           <GitCompare className="h-4 w-4" />
           Compare All {rawCandidates.length} Candidates
@@ -156,17 +156,17 @@ export default function ConstituencyPage({ params }: PageProps) {
 
       {/* Stat bar */}
       <div className="mb-6 grid grid-cols-3 gap-3">
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center shadow-sm">
-          <p className="text-xl font-bold text-gray-900">{rawCandidates.length}</p>
-          <p className="text-xs text-gray-500">Candidates</p>
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center shadow-sm">
+          <p className="text-xl font-bold text-white">{rawCandidates.length}</p>
+          <p className="text-xs text-gray-400">Candidates</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center shadow-sm">
-          <p className="text-xl font-bold text-red-600">{rawCandidates.filter((c) => c.criminalCases > 0).length}</p>
-          <p className="text-xs text-gray-500">With Cases</p>
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center shadow-sm">
+          <p className="text-xl font-bold text-red-400">{rawCandidates.filter((c) => c.criminalCases > 0).length}</p>
+          <p className="text-xs text-gray-400">With Cases</p>
         </div>
-        <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 text-center shadow-sm">
-          <p className="text-xl font-bold text-blue-600">{rawCandidates.filter((c) => c.isIncumbent).length}</p>
-          <p className="text-xs text-gray-500">Incumbent</p>
+        <div className="rounded-xl border border-white/10 bg-white/5 px-4 py-3 text-center shadow-sm">
+          <p className="text-xl font-bold text-blue-400">{rawCandidates.filter((c) => c.isIncumbent).length}</p>
+          <p className="text-xs text-gray-400">Incumbent</p>
         </div>
       </div>
 
@@ -180,7 +180,7 @@ export default function ConstituencyPage({ params }: PageProps) {
       <FunFactsPanel candidates={rawCandidates} className="mb-8" />
 
       {/* Candidate grid */}
-      <h2 className="mb-4 text-base font-bold text-gray-900">All Candidates</h2>
+      <h2 className="mb-4 text-base font-bold text-white">All Candidates</h2>
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {candidatesWithParty.map(({ candidate, party }) => (
           <CandidateCard

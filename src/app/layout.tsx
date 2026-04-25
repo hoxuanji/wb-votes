@@ -45,7 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="font-sans antialiased bg-gray-50 text-gray-900">
+      <body className="font-sans antialiased bg-slate-950 text-gray-100">
         <LanguageProvider>
           <Disclaimer />
           <Header />
