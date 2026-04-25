@@ -131,7 +131,7 @@ function MiniCandidateCard({ candidate }: { candidate: Candidate }) {
     : null;
 
   return (
-    <div className="flex items-center gap-2.5 rounded-lg border border-gray-100 bg-white p-2.5 hover:border-blue-200 hover:bg-blue-50 transition-colors">
+    <div className="flex items-center gap-2.5 rounded-lg border border-white/10 bg-white/5 p-2.5 hover:border-blue-500/25 hover:bg-blue-500/10 transition-colors">
       <div className="relative h-9 w-9 shrink-0 overflow-hidden rounded-full" style={{ borderColor: (party?.color ?? '#ccc') + '66', borderWidth: 2, borderStyle: 'solid' }}>
         {photoUrl ? (
           <Image src={photoUrl} alt={candidate.name} fill className="object-cover" sizes="36px" />
@@ -142,12 +142,12 @@ function MiniCandidateCard({ candidate }: { candidate: Candidate }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <p className="truncate text-xs font-semibold text-gray-900">{candidate.name}</p>
+        <p className="truncate text-xs font-semibold text-white">{candidate.name}</p>
         <div className="flex items-center gap-1.5 mt-0.5">
           <span className="inline-block h-2 w-2 rounded-full" style={{ backgroundColor: party?.color ?? '#64748b' }} />
           <span className="text-[10px] text-gray-500">{party?.abbreviation ?? candidate.partyId}</span>
           {candidate.criminalCases > 0 && (
-            <span className="flex items-center gap-0.5 text-[10px] text-red-600">
+            <span className="flex items-center gap-0.5 text-[10px] text-red-400">
               <AlertTriangle className="h-2.5 w-2.5" />
               {candidate.criminalCases}
             </span>
@@ -178,14 +178,14 @@ function HoverStatsPanel({ constituencyId }: { constituencyId: string }) {
     <div className="p-4">
       <div className="mb-3 flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <h3 className="text-sm font-bold text-gray-900">{c.name}</h3>
+          <h3 className="text-sm font-bold text-white">{c.name}</h3>
           <p className="text-xs text-gray-500">{c.district} · #{c.assemblyNumber}</p>
         </div>
         <div className="flex shrink-0 flex-wrap justify-end gap-1">
           {c.reservation !== 'General' && (
-            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">{c.reservation}</span>
+            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-400">{c.reservation}</span>
           )}
-          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${isPhase1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+          <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${isPhase1 ? 'bg-blue-100 text-blue-300' : 'bg-white/10 text-gray-500'}`}>
             {isPhase1 ? 'Phase 1 · 23 Apr' : 'Phase 2 · 29 Apr'}
           </span>
         </div>
@@ -193,16 +193,16 @@ function HoverStatsPanel({ constituencyId }: { constituencyId: string }) {
       {cands.length > 0 ? (
         <>
           <div className="mb-4 grid grid-cols-3 gap-2">
-            <div className="rounded-xl bg-gray-50 p-2 text-center">
-              <p className="text-base font-bold text-gray-900">{cands.length}</p>
+            <div className="rounded-xl bg-white/5 p-2 text-center">
+              <p className="text-base font-bold text-white">{cands.length}</p>
               <p className="text-[10px] text-gray-500">Candidates</p>
             </div>
             <div className="rounded-xl bg-red-50 p-2 text-center">
-              <p className="text-base font-bold text-red-600">{withCriminal}</p>
+              <p className="text-base font-bold text-red-400">{withCriminal}</p>
               <p className="text-[10px] text-gray-500">With Cases</p>
             </div>
             <div className="rounded-xl bg-blue-50 p-2 text-center">
-              <p className="text-sm font-bold text-blue-600 leading-tight break-all">{formatCurrency(avgAssets)}</p>
+              <p className="text-sm font-bold text-blue-400 leading-tight break-all">{formatCurrency(avgAssets)}</p>
               <p className="text-[10px] text-gray-500">Avg Assets</p>
             </div>
           </div>
@@ -215,8 +215,8 @@ function HoverStatsPanel({ constituencyId }: { constituencyId: string }) {
                 return (
                   <div key={partyId} className="flex items-center gap-2">
                     <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: party?.color ?? '#ccc' }} />
-                    <span className="w-12 shrink-0 truncate text-xs text-gray-600">{party?.abbreviation ?? partyId}</span>
-                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+                    <span className="w-12 shrink-0 truncate text-xs text-gray-300">{party?.abbreviation ?? partyId}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
                       <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: party?.color ?? '#ccc' }} />
                     </div>
                     <span className="w-4 shrink-0 text-right text-[10px] text-gray-500">{count}</span>
@@ -247,20 +247,20 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
 
   return (
     <div className="flex h-full flex-col">
-      <div className="flex items-start justify-between gap-2 border-b border-gray-100 px-4 py-3">
+      <div className="flex items-start justify-between gap-2 border-b border-white/10 px-4 py-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-sm font-bold text-gray-900">{c.name}</h3>
+            <h3 className="text-sm font-bold text-white">{c.name}</h3>
             {c.reservation !== 'General' && (
-              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-700">{c.reservation}</span>
+              <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-amber-100 text-amber-400">{c.reservation}</span>
             )}
-            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${isPhase1 ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-500'}`}>
+            <span className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${isPhase1 ? 'bg-blue-100 text-blue-300' : 'bg-white/10 text-gray-500'}`}>
               {isPhase1 ? 'Phase 1 · 23 Apr' : 'Phase 2 · 29 Apr'}
             </span>
           </div>
           <p className="mt-0.5 text-xs text-gray-400">{c.district} · #{c.assemblyNumber}</p>
         </div>
-        <button onClick={onClose} className="shrink-0 rounded-lg p-1 transition-colors hover:bg-gray-100">
+        <button onClick={onClose} className="shrink-0 rounded-lg p-1 transition-colors hover:bg-white/10">
           <X className="h-4 w-4 text-gray-400" />
         </button>
       </div>
@@ -268,10 +268,10 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
         {cands.length > 0 ? (
           <>
             <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-1 text-xs font-semibold text-gray-600">
+              <span className="flex items-center gap-1 text-xs font-semibold text-gray-300">
                 <Users className="h-3.5 w-3.5" /> {cands.length} Candidates
               </span>
-              <button onClick={() => router.push(`/constituency/${constituencyId}`)} className="text-xs font-semibold text-blue-600 hover:text-blue-800">
+              <button onClick={() => router.push(`/constituency/${constituencyId}`)} className="text-xs font-semibold text-blue-400 hover:text-blue-800">
                 View All →
               </button>
             </div>
@@ -282,7 +282,7 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
                 </button>
               ))}
               {cands.length > 6 && (
-                <button onClick={() => router.push(`/constituency/${constituencyId}`)} className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-xs font-medium text-blue-600 transition-colors hover:bg-blue-50">
+                <button onClick={() => router.push(`/constituency/${constituencyId}`)} className="w-full rounded-lg border border-dashed border-blue-300 py-2 text-xs font-medium text-blue-400 transition-colors hover:bg-blue-50">
                   +{cands.length - 6} more candidates
                 </button>
               )}
@@ -335,27 +335,27 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
     const totalCands = allConsts.reduce((s, c) => s + (constStats[c.id]?.candCount ?? 0), 0);
     return (
       <div className="flex h-full flex-col">
-        <div className="border-b border-gray-100 px-4 py-3">
-          <h3 className="text-sm font-bold text-gray-800">Voting Schedule</h3>
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">Voting Schedule</h3>
           <p className="text-xs text-gray-400 mt-0.5">{selectedDistrict ?? 'West Bengal'} · {allConsts.length} constituencies</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-blue-50 border border-blue-100 p-3 text-center">
-              <div className="text-2xl font-extrabold text-blue-600">{p1count}</div>
-              <div className="text-[11px] font-semibold text-blue-700 mt-0.5">Phase 1</div>
+            <div className="rounded-xl bg-blue-500/10 border border-blue-500/25 p-3 text-center">
+              <div className="text-2xl font-extrabold text-blue-400">{p1count}</div>
+              <div className="text-[11px] font-semibold text-blue-300 mt-0.5">Phase 1</div>
               <div className="text-[10px] text-blue-400">23 Apr 2026</div>
-              <div className="mt-1.5 text-[10px] font-medium text-green-600 bg-green-50 rounded-full px-2 py-0.5">Completed</div>
+              <div className="mt-1.5 text-[10px] font-medium text-green-300 bg-green-50 rounded-full px-2 py-0.5">Completed</div>
             </div>
-            <div className="rounded-xl bg-violet-50 border border-violet-100 p-3 text-center">
-              <div className="text-2xl font-extrabold text-violet-600">{p2count}</div>
-              <div className="text-[11px] font-semibold text-violet-700 mt-0.5">Phase 2</div>
+            <div className="rounded-xl bg-violet-500/10 border border-violet-500/25 p-3 text-center">
+              <div className="text-2xl font-extrabold text-violet-400">{p2count}</div>
+              <div className="text-[11px] font-semibold text-violet-300 mt-0.5">Phase 2</div>
               <div className="text-[10px] text-violet-400">29 Apr 2026</div>
-              <div className="mt-1.5 text-[10px] font-medium text-violet-600 bg-violet-50 rounded-full px-2 py-0.5 border border-violet-200">Upcoming</div>
+              <div className="mt-1.5 text-[10px] font-medium text-violet-400 bg-violet-50 rounded-full px-2 py-0.5 border border-violet-200">Upcoming</div>
             </div>
           </div>
-          <div className="rounded-xl bg-gray-50 p-3 text-center">
-            <div className="text-xl font-bold text-gray-800">{totalCands.toLocaleString()}</div>
+          <div className="rounded-xl bg-white/5 p-3 text-center">
+            <div className="text-xl font-bold text-gray-200">{totalCands.toLocaleString()}</div>
             <div className="text-[11px] text-gray-500">Total candidates</div>
           </div>
           <div className="rounded-xl border border-gray-100 p-3 text-center">
@@ -374,16 +374,16 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
     const bottom5 = [...sorted].reverse().slice(0, 5);
     return (
       <div className="flex h-full flex-col">
-        <div className="border-b border-gray-100 px-4 py-3">
-          <h3 className="text-sm font-bold text-gray-800">Criminal Backgrounds</h3>
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">Criminal Backgrounds</h3>
           <p className="text-xs text-gray-400 mt-0.5">% of candidates with pending cases</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="flex items-center gap-3 rounded-xl bg-red-50 border border-red-100 p-3">
+          <div className="flex items-center gap-3 rounded-xl bg-red-500/10 border border-red-500/25 p-3">
             <AlertTriangle className="h-6 w-6 shrink-0 text-red-400" />
             <div>
-              <div className="text-lg font-bold text-red-600">{(avgCrim * 100).toFixed(0)}%</div>
-              <div className="text-[11px] text-red-500">Avg criminal rate per seat</div>
+              <div className="text-lg font-bold text-red-400">{(avgCrim * 100).toFixed(0)}%</div>
+              <div className="text-[11px] text-red-400">Avg criminal rate per seat</div>
             </div>
           </div>
           <div>
@@ -392,16 +392,16 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
               {top5.map(c => {
                 const rate = constStats[c.id]?.crimRate ?? 0;
                 return (
-                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
                       <p className="text-[10px] text-gray-400">{c.district}</p>
                     </div>
                     <div className="shrink-0 w-24">
-                      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                         <div className="h-full rounded-full bg-red-400" style={{ width: `${rate * 100}%` }} />
                       </div>
-                      <p className="text-right text-[10px] font-bold text-red-500 mt-0.5">{(rate * 100).toFixed(0)}%</p>
+                      <p className="text-right text-[10px] font-bold text-red-400 mt-0.5">{(rate * 100).toFixed(0)}%</p>
                     </div>
                   </Link>
                 );
@@ -414,12 +414,12 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
               {bottom5.map(c => {
                 const rate = constStats[c.id]?.crimRate ?? 0;
                 return (
-                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
                       <p className="text-[10px] text-gray-400">{c.district}</p>
                     </div>
-                    <p className="shrink-0 text-[10px] font-bold text-green-600">{(rate * 100).toFixed(0)}%</p>
+                    <p className="shrink-0 text-[10px] font-bold text-green-300">{(rate * 100).toFixed(0)}%</p>
                   </Link>
                 );
               })}
@@ -437,18 +437,18 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
     const top5 = sorted.slice(0, 5);
     return (
       <div className="flex h-full flex-col">
-        <div className="border-b border-gray-100 px-4 py-3">
-          <h3 className="text-sm font-bold text-gray-800">Women Representation</h3>
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">Women Representation</h3>
           <p className="text-xs text-gray-400 mt-0.5">Share of women candidates per seat</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-xl bg-fuchsia-50 border border-fuchsia-100 p-3 text-center">
-              <div className="text-xl font-bold text-fuchsia-600">{totalWomen}</div>
-              <div className="text-[11px] text-fuchsia-500">Women candidates</div>
+            <div className="rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/25 p-3 text-center">
+              <div className="text-xl font-bold text-fuchsia-300">{totalWomen}</div>
+              <div className="text-[11px] text-fuchsia-400">Women candidates</div>
             </div>
-            <div className="rounded-xl bg-gray-50 p-3 text-center">
-              <div className="text-xl font-bold text-gray-700">{(avgWomen * 100).toFixed(1)}%</div>
+            <div className="rounded-xl bg-white/5 p-3 text-center">
+              <div className="text-xl font-bold text-gray-200">{(avgWomen * 100).toFixed(1)}%</div>
               <div className="text-[11px] text-gray-500">Avg per seat</div>
             </div>
           </div>
@@ -459,16 +459,16 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
                 const rate = constStats[c.id]?.womenRate ?? 0;
                 const wCount = Math.round(rate * (constStats[c.id]?.candCount ?? 0));
                 return (
-                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
                       <p className="text-[10px] text-gray-400">{wCount} of {constStats[c.id]?.candCount} candidates</p>
                     </div>
                     <div className="shrink-0 w-24">
-                      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                         <div className="h-full rounded-full bg-fuchsia-400" style={{ width: `${rate * 100}%` }} />
                       </div>
-                      <p className="text-right text-[10px] font-bold text-fuchsia-600 mt-0.5">{(rate * 100).toFixed(0)}%</p>
+                      <p className="text-right text-[10px] font-bold text-fuchsia-300 mt-0.5">{(rate * 100).toFixed(0)}%</p>
                     </div>
                   </Link>
                 );
@@ -492,14 +492,14 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
     const maxA = withAssets.length ? Math.max(...withAssets.map(c => constStats[c.id].avgAssets)) : 1;
     return (
       <div className="flex h-full flex-col">
-        <div className="border-b border-gray-100 px-4 py-3">
-          <h3 className="text-sm font-bold text-gray-800">Candidate Wealth</h3>
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">Candidate Wealth</h3>
           <p className="text-xs text-gray-400 mt-0.5">Avg declared assets per constituency</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="rounded-xl bg-green-50 border border-green-100 p-3 text-center">
-            <div className="text-lg font-bold text-green-700">{formatCurrency(avgA)}</div>
-            <div className="text-[11px] text-green-600">State avg per candidate</div>
+          <div className="rounded-xl bg-green-500/10 border border-green-500/25 p-3 text-center">
+            <div className="text-lg font-bold text-green-400">{formatCurrency(avgA)}</div>
+            <div className="text-[11px] text-green-300">State avg per candidate</div>
           </div>
           <div>
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Wealthiest candidate pools</p>
@@ -507,16 +507,16 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
               {top5.map(c => {
                 const a = constStats[c.id]?.avgAssets ?? 0;
                 return (
-                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
                       <p className="text-[10px] text-gray-400">{c.district}</p>
                     </div>
                     <div className="shrink-0 w-24">
-                      <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                      <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                         <div className="h-full rounded-full bg-green-500" style={{ width: `${(a / maxA) * 100}%` }} />
                       </div>
-                      <p className="text-right text-[10px] font-bold text-green-700 mt-0.5">{formatCurrency(a)}</p>
+                      <p className="text-right text-[10px] font-bold text-green-400 mt-0.5">{formatCurrency(a)}</p>
                     </div>
                   </Link>
                 );
@@ -529,8 +529,8 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
               {bottom5.map(c => {
                 const a = constStats[c.id]?.avgAssets ?? 0;
                 return (
-                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p></div>
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
+                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p></div>
                     <p className="shrink-0 text-[10px] font-bold text-gray-500">{formatCurrency(a)}</p>
                   </Link>
                 );
@@ -547,14 +547,14 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
     const avgA = withAge.length ? withAge.reduce((s, c) => s + constStats[c.id].avgAge, 0) / withAge.length : 0;
     return (
       <div className="flex h-full flex-col">
-        <div className="border-b border-gray-100 px-4 py-3">
-          <h3 className="text-sm font-bold text-gray-800">Candidate Age</h3>
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">Candidate Age</h3>
           <p className="text-xs text-gray-400 mt-0.5">Avg age of candidates per constituency</p>
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          <div className="rounded-xl bg-amber-50 border border-amber-100 p-3 text-center">
-            <div className="text-lg font-bold text-amber-700">{avgA.toFixed(1)} yrs</div>
-            <div className="text-[11px] text-amber-600">State avg candidate age</div>
+          <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-center">
+            <div className="text-lg font-bold text-amber-400">{avgA.toFixed(1)} yrs</div>
+            <div className="text-[11px] text-amber-300">State avg candidate age</div>
           </div>
           <div>
             <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Oldest candidate pools</p>
@@ -562,12 +562,12 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
               {top5.map(c => {
                 const a = constStats[c.id]?.avgAge ?? 0;
                 return (
-                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                      <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
                       <p className="text-[10px] text-gray-400">{c.district}</p>
                     </div>
-                    <p className="shrink-0 text-[10px] font-bold text-amber-700">{a.toFixed(1)} yrs</p>
+                    <p className="shrink-0 text-[10px] font-bold text-amber-400">{a.toFixed(1)} yrs</p>
                   </Link>
                 );
               })}
@@ -579,9 +579,9 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
               {bottom5.map(c => {
                 const a = constStats[c.id]?.avgAge ?? 0;
                 return (
-                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
-                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p></div>
-                    <p className="shrink-0 text-[10px] font-bold text-green-600">{a.toFixed(1)} yrs</p>
+                  <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
+                    <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p></div>
+                    <p className="shrink-0 text-[10px] font-bold text-green-300">{a.toFixed(1)} yrs</p>
                   </Link>
                 );
               })}
@@ -595,15 +595,15 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
   // competition (default fallthrough)
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-gray-100 px-4 py-3">
-        <h3 className="text-sm font-bold text-gray-800">Electoral Competition</h3>
+      <div className="border-b border-white/10 px-4 py-3">
+        <h3 className="text-sm font-bold text-gray-200">Electoral Competition</h3>
         <p className="text-xs text-gray-400 mt-0.5">Number of candidates per constituency</p>
       </div>
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        <div className="flex items-center gap-3 rounded-xl bg-blue-50 border border-blue-100 p-3">
+        <div className="flex items-center gap-3 rounded-xl bg-blue-500/10 border border-blue-500/25 p-3">
           <BarChart2 className="h-6 w-6 shrink-0 text-blue-400" />
           <div>
-            <div className="text-lg font-bold text-blue-600">{avgCands.toFixed(1)}</div>
+            <div className="text-lg font-bold text-blue-400">{avgCands.toFixed(1)}</div>
             <div className="text-[11px] text-blue-500">Avg candidates per seat</div>
           </div>
         </div>
@@ -613,16 +613,16 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
             {top5.map(c => {
               const cnt = constStats[c.id]?.candCount ?? 0;
               return (
-                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                    <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
                     <p className="text-[10px] text-gray-400">{c.district}</p>
                   </div>
                   <div className="shrink-0 w-24">
-                    <div className="h-1.5 w-full rounded-full bg-gray-100 overflow-hidden">
+                    <div className="h-1.5 w-full rounded-full bg-white/10 overflow-hidden">
                       <div className="h-full rounded-full bg-blue-400" style={{ width: `${(cnt / maxCount) * 100}%` }} />
                     </div>
-                    <p className="text-right text-[10px] font-bold text-blue-600 mt-0.5">{cnt} cands</p>
+                    <p className="text-right text-[10px] font-bold text-blue-400 mt-0.5">{cnt} cands</p>
                   </div>
                 </Link>
               );
@@ -635,9 +635,9 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
             {bottom5.map(c => {
               const cnt = constStats[c.id]?.candCount ?? 0;
               return (
-                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-gray-50 transition-colors">
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
                   <div className="flex-1 min-w-0">
-                    <p className="text-xs font-semibold text-gray-800 truncate">{c.name}</p>
+                    <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
                   </div>
                   <p className="shrink-0 text-[10px] font-bold text-gray-500">{cnt} cands</p>
                 </Link>
@@ -768,7 +768,7 @@ export function WestBengalMap() {
               className={`rounded-full px-3 py-1 text-xs font-medium transition-all duration-150 ${
                 selectedDistrict === d
                   ? 'bg-blue-600 text-white shadow-sm'
-                  : 'bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700'
+                  : 'bg-white/10 text-gray-300 hover:bg-blue-500/15 hover:text-blue-300'
               }`}
             >
               {d}
@@ -792,8 +792,8 @@ export function WestBengalMap() {
             onClick={() => setMapMode(mode.id)}
             className={`rounded-lg px-3 py-1.5 text-xs font-medium transition-colors ${
               mapMode === mode.id
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                ? 'bg-white/20 text-white'
+                : 'bg-white/10 text-gray-300 hover:bg-white/15'
             }`}
           >
             {mode.label}
@@ -839,11 +839,11 @@ export function WestBengalMap() {
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE1_FILL }} />
-                    <span className="text-[9px] font-medium text-gray-600">Phase 1 · 23 Apr</span>
+                    <span className="text-[9px] font-medium text-gray-300">Phase 1 · 23 Apr</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE2_FILL }} />
-                    <span className="text-[9px] font-medium text-gray-600">Phase 2 · 29 Apr</span>
+                    <span className="text-[9px] font-medium text-gray-300">Phase 2 · 29 Apr</span>
                   </div>
                 </div>
               ) : (
@@ -872,7 +872,7 @@ export function WestBengalMap() {
 
           {MISSING_PATH_IDS.size > 0 && (
             <div className="mt-2 rounded-lg border border-amber-100 bg-amber-50 px-3 py-2">
-              <p className="text-[10px] text-amber-700">
+              <p className="text-[10px] text-amber-400">
                 Map boundaries for {MISSING_PATH_IDS.size} constituencies are pending.
               </p>
             </div>
@@ -893,7 +893,7 @@ export function WestBengalMap() {
       {selectedDistrict && (
         <div className="mt-6">
           <div className="mb-3">
-            <h3 className="text-sm font-bold text-gray-800">
+            <h3 className="text-sm font-bold text-gray-200">
               {selectedDistrict}
               <span className="ml-2 text-xs font-normal text-gray-400">
                 {constituenciesByDistrict[selectedDistrict]?.length ?? 0} constituencies
@@ -914,10 +914,10 @@ export function WestBengalMap() {
                   <Link
                     key={c.id}
                     href={`/constituency/${c.id}`}
-                    className="group rounded-xl border border-gray-200 bg-white p-3 transition-all hover:border-blue-300 hover:shadow-md"
+                    className="group rounded-xl border border-white/10 bg-white/5 p-3 transition-all hover:border-blue-500/30 hover:shadow-md"
                   >
                     <div className="flex items-start justify-between gap-1">
-                      <p className="text-xs font-bold leading-tight text-gray-900 group-hover:text-blue-700">{c.name}</p>
+                      <p className="text-xs font-bold leading-tight text-white group-hover:text-blue-300">{c.name}</p>
                       <span className="shrink-0 text-base font-extrabold leading-none" style={{ color: isP1 ? PHASE1_FILL : PHASE2_FILL }}>
                         {cands.length}
                       </span>
@@ -936,10 +936,10 @@ export function WestBengalMap() {
                       ))}
                       <span className="flex-1" />
                       {c.reservation !== 'General' && (
-                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-700">{c.reservation}</span>
+                        <span className="rounded-full bg-amber-100 px-1.5 py-0.5 text-[9px] font-semibold text-amber-400">{c.reservation}</span>
                       )}
                       {crimCount > 0 && (
-                        <span className="flex items-center gap-0.5 text-[9px] text-red-500">
+                        <span className="flex items-center gap-0.5 text-[9px] text-red-400">
                           <AlertTriangle className="h-2.5 w-2.5" />{crimCount}
                         </span>
                       )}

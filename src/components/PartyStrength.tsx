@@ -35,7 +35,7 @@ export function PartyStrength() {
           <div key={r.id} className="flex items-center gap-3">
             <div className="w-28 shrink-0 flex items-center justify-end gap-1.5">
               <PartySymbol party={{ abbreviation: r.name, color: r.color, symbolUrl: r.symbolUrl }} size={20} />
-              <span className="text-xs font-semibold text-gray-300 truncate">{r.name}</span>
+              <span className="w-14 text-right text-xs font-semibold text-gray-300 truncate">{r.name}</span>
             </div>
             <div className="flex-1 overflow-hidden rounded-full bg-white/10 h-5">
               <div
