@@ -1,6 +1,5 @@
-// AUTO-GENERATED — myneta.info/WestBengal2026 — 2026-04-22
-// 294 constituencies for West Bengal 2026 Assembly Election
-// Re-run: node scripts/scraper/myneta-direct.js to refresh
+// AUTO-GENERATED — myneta.info/WestBengal2026 — 2026-04-25
+// Built by: node scripts/build-data.js
 import type { Constituency } from '@/types';
 
 export const constituencies: Constituency[] = [

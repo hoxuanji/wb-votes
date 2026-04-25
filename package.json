@@ -10,6 +10,8 @@
     "type-check": "tsc --noEmit",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
+    "data:build": "node scripts/build-data.js",
+    "data:scrape": "node scripts/scraper/myneta-direct.js",
     "scrape": "node scripts/scraper/myneta-2026.js",
     "scrape:2026": "node scripts/scraper/myneta-2026.js",
     "scrape:enrich": "node scripts/scraper/myneta-full.js --enrich-only",

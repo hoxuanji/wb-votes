@@ -112,7 +112,17 @@ function parseDetailPage(html) {
     if (raw && raw !== 'NIL' && raw !== '-') occupation = raw;
   }
 
-  return { photo, gender, occupation };
+  // Party from detail page is authoritative — listing page can be stale/wrong
+  let partyId = null;
+  const partyM = html.match(/Party\s*:?\s*<\/[^>]+>(?:&nbsp;|\s)*([^<]{2,60})/i)
+    || html.match(/>Party<[^>]*>(?:&nbsp;|\s)*<[^>]*>(?:&nbsp;|\s)*([^<]{2,60})/i)
+    || html.match(/Party[^<]{0,20}<b>([^<]{2,60})<\/b>/i);
+  if (partyM) {
+    const rawParty = partyM[1].replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim();
+    if (rawParty && rawParty !== 'N/A' && rawParty !== '-') partyId = mapPartyId(rawParty);
+  }
+
+  return { photo, gender, occupation, partyId };
 }
 
 function parsePage(html, cId) {
@@ -204,10 +214,11 @@ async function fetchPhotos(candidates, label) {
     await sleep(DELAY_MS);
     try {
       const html = await get(`/WestBengal2026/candidate.php?candidate_id=${cand._myneta_id}`);
-      const { photo, gender, occupation } = parseDetailPage(html);
+      const { photo, gender, occupation, partyId } = parseDetailPage(html);
       cand.photoUrl   = photo;
       cand.gender     = gender;
       if (occupation) cand.occupation = occupation;
+      if (partyId) cand.partyId = partyId;
     } catch {
       cand.photoUrl = null;
     }
@@ -316,67 +327,21 @@ async function main() {
   }
   console.log(`  Real photos: ${withPhoto}, fallback avatars: ${withFallback}`);
 
-  const today = new Date().toISOString().slice(0, 10);
+  // Save raw JSON cache — build-data.js reads these to regenerate TS files
+  const RAW_DIR = path.resolve(OUT_DIR, 'raw');
+  fs.mkdirSync(RAW_DIR, { recursive: true });
+  fs.writeFileSync(path.join(RAW_DIR, 'candidates.json'),     JSON.stringify(allCandidates, null, 2),     'utf8');
+  fs.writeFileSync(path.join(RAW_DIR, 'constituencies.json'), JSON.stringify(allConstituencies, null, 2), 'utf8');
+  console.log(`\n  Saved raw JSON to src/data/raw/`);
 
-  const constTs = `// AUTO-GENERATED — myneta.info/WestBengal2026 — ${today}
-// 294 constituencies for West Bengal 2026 Assembly Election
-// Re-run: node scripts/scraper/myneta-direct.js to refresh
-import type { Constituency } from '@/types';
-
-export const constituencies: Constituency[] = ${JSON.stringify(allConstituencies, null, 2)};
-
-export function getConstituencyById(id: string): Constituency | undefined {
-  return constituencies.find((c) => c.id === id);
-}
-
-export function getConstituenciesByDistrict(): Record<string, Constituency[]> {
-  return constituencies.reduce<Record<string, Constituency[]>>((acc, c) => {
-    if (!acc[c.district]) acc[c.district] = [];
-    acc[c.district].push(c);
-    return acc;
-  }, {});
-}
-`;
-
-  const candTs = `// AUTO-GENERATED — myneta.info/WestBengal2026 — ${today}
-// Source: Association for Democratic Reforms (ADR) / ECI affidavits
-// Re-run: node scripts/scraper/myneta-direct.js to refresh
-import type { Candidate } from '@/types';
-
-export const candidates: Candidate[] = ${JSON.stringify(allCandidates, null, 2)};
-
-export function getCandidatesByConstituency(constituencyId: string): Candidate[] {
-  return candidates.filter((c) => c.constituencyId === constituencyId);
-}
-
-export function getCandidateById(id: string): Candidate | undefined {
-  return candidates.find((c) => c.id === id);
-}
-
-export function getCandidatesByIds(ids: string[]): Candidate[] {
-  return ids.map((id) => candidates.find((c) => c.id === id)).filter(Boolean) as Candidate[];
-}
-
-export function formatAssets(amount: number): string {
-  if (amount >= 10_000_000) return \`₹\${(amount / 10_000_000).toFixed(2)} Cr\`;
-  if (amount >= 100_000)    return \`₹\${(amount / 100_000).toFixed(2)} L\`;
-  if (amount >= 1_000)      return \`₹\${(amount / 1_000).toFixed(1)}K\`;
-  return \`₹\${amount}\`;
-}
-`;
-
-  fs.writeFileSync(path.join(OUT_DIR, 'constituencies.ts'), constTs, 'utf8');
-  fs.writeFileSync(path.join(OUT_DIR, 'candidates.ts'), candTs, 'utf8');
-
-  console.log('\n✅  Complete');
-  console.log(`   Constituencies : ${allConstituencies.length}`);
-  console.log(`   Candidates     : ${allCandidates.length}`);
-  console.log(`   Real photos    : ${withPhoto}`);
   if (failed.length) {
-    console.log(`   ⚠  Failed (${failed.length}): ${failed.map(f => f.name).join(', ')}`);
+    console.log(`  ⚠  Failed (${failed.length}): ${failed.map(f => f.name).join(', ')}`);
   }
-  console.log('\n   → src/data/constituencies.ts');
-  console.log('   → src/data/candidates.ts');
+
+  // Delegate TS generation + enrichments to build-data.js
+  console.log('\nRunning build-data.js...');
+  const { main: buildMain } = require('../build-data.js');
+  await buildMain();
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1); });

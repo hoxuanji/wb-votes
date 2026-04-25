@@ -1,0 +1,8 @@
+{
+  "_comment": "Manual corrections applied after scraping. Entries here override scraped data. Survives re-runs.",
+  "wb26_2536": {
+    "partyId": "BJP",
+    "isIncumbent": true,
+    "_note": "Sitting BJP MLA from Khanakul; scraped listing page incorrectly showed IND"
+  }
+}

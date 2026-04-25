@@ -1,6 +1,5 @@
-// AUTO-GENERATED — myneta.info/WestBengal2026 — 2026-04-23
-// Source: Association for Democratic Reforms (ADR) / ECI affidavits
-// Re-run: node scripts/scraper/myneta-direct.js to refresh
+// AUTO-GENERATED — myneta.info/WestBengal2026 — 2026-04-25
+// Built by: node scripts/build-data.js
 import type { Candidate } from '@/types';
 
 export const candidates: Candidate[] = [
@@ -64,9 +63,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 43650807,
     "totalLiabilities": 2909249,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=480",
-    "occupation": "Pensioner"
+    "occupation": "Pensioner",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_646",
@@ -592,9 +592,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 2791017,
     "totalLiabilities": 77357,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1469",
-    "occupation": "Farmer"
+    "occupation": "Farmer",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1470",
@@ -1497,9 +1498,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 12,
     "totalAssets": 10757668,
     "totalLiabilities": 117806,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=170",
-    "occupation": "Social Work And farming"
+    "occupation": "Social Work And farming",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_266",
@@ -1626,9 +1628,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 5706289,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=153",
-    "occupation": "Assistant Teacher of Tufanganj Vivekananda Vidyalaya and Member of Legislative A"
+    "occupation": "Assistant Teacher of Tufanganj Vivekananda Vidyalaya and Member of Legislative A",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_436",
@@ -1804,9 +1807,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 6,
     "totalAssets": 2771281,
     "totalLiabilities": 700000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=107",
-    "occupation": "Member of Legislative Assembly - 11 Kalchini & Private Tutor"
+    "occupation": "Member of Legislative Assembly - 11 Kalchini & Private Tutor",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_403",
@@ -1970,9 +1974,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 12,
     "totalAssets": 8098777,
     "totalLiabilities": 141223,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=202",
-    "occupation": "Advocate"
+    "occupation": "Advocate",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_203",
@@ -2085,11 +2090,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 7,
     "totalAssets": 13683978,
     "totalLiabilities": 1689758,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=118",
     "occupation": "Headmaster of Deogaon High School, Falakata",
     "movableAssets": 8553429,
-    "immovableAssets": 4750000
+    "immovableAssets": 4750000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_143",
@@ -3278,9 +3284,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 6,
     "totalAssets": 10526160,
     "totalLiabilities": 954500,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=142",
-    "occupation": "Retired School Teacher"
+    "occupation": "Retired School Teacher",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_197",
@@ -3536,9 +3543,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 3458429,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=654",
-    "occupation": "Retired Tea Garden Employee"
+    "occupation": "Retired Tea Garden Employee",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_655",
@@ -3618,9 +3626,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 5304684,
     "totalLiabilities": 1009972,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=369",
-    "occupation": "Retired Person & MLA"
+    "occupation": "Retired Person & MLA",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_370",
@@ -3750,9 +3759,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 120323027,
     "totalLiabilities": 48517579,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=105",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_408",
@@ -4096,9 +4106,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 19099547,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=470",
-    "occupation": "Teacher"
+    "occupation": "Teacher",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_471",
@@ -4419,11 +4430,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 14957782,
     "totalLiabilities": 579313,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=334",
     "occupation": "Agriculture",
     "movableAssets": 1557781,
-    "immovableAssets": 13400000
+    "immovableAssets": 13400000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_335",
@@ -4550,9 +4562,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 22733331,
     "totalLiabilities": 1600000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=195",
-    "occupation": "Self Employed"
+    "occupation": "Self Employed",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_833",
@@ -4897,9 +4910,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 31464095,
     "totalLiabilities": 9167678,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=260",
-    "occupation": "Teaching"
+    "occupation": "Teaching",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_261",
@@ -5044,9 +5058,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 5227528,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=190",
-    "occupation": "Farmer"
+    "occupation": "Farmer",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_509",
@@ -5338,10 +5353,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 31175672,
     "totalLiabilities": 5546731,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=417",
     "occupation": "Business",
-    "movableAssets": 11705797
+    "movableAssets": 11705797,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1471",
@@ -5566,11 +5582,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 43196475,
     "totalLiabilities": 14116650,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=384",
     "occupation": "Business",
     "movableAssets": 3366473,
-    "immovableAssets": 39830000
+    "immovableAssets": 39830000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1053",
@@ -5996,9 +6013,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 202478722,
     "totalLiabilities": 26064546,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=321",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_322",
@@ -6221,9 +6239,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 51565457,
     "totalLiabilities": 7613811,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=389",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1072",
@@ -6420,9 +6439,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 2356869,
     "totalLiabilities": 338041,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=441",
-    "occupation": "Social work and Business"
+    "occupation": "Social work and Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_442",
@@ -6701,11 +6721,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 37192523,
     "totalLiabilities": 63750,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=378",
     "occupation": "Advocate and Minister in West Bengal Government",
     "movableAssets": 25492520,
-    "immovableAssets": 11700000
+    "immovableAssets": 11700000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_379",
@@ -6880,9 +6901,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 9322868,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=434",
-    "occupation": "Social Worker, Retired Service Person, Farmer and Member of Legislative Assembly"
+    "occupation": "Social Worker, Retired Service Person, Farmer and Member of Legislative Assembly",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_435",
@@ -7239,9 +7261,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 8669715,
     "totalLiabilities": 2515620,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=270",
-    "occupation": "Assistant Teacher High School of Lalit Mohan Adarsha Uccha Vidyalaya (L.M.A.U.V"
+    "occupation": "Assistant Teacher High School of Lalit Mohan Adarsha Uccha Vidyalaya (L.M.A.U.V",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_271",
@@ -7436,9 +7459,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 8567312,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=265",
-    "occupation": "Agriculture"
+    "occupation": "Agriculture",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_982",
@@ -7565,11 +7589,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 5,
     "totalAssets": 18355412,
     "totalLiabilities": 995000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=257",
     "occupation": "Social Work & Business",
     "movableAssets": 16855412,
-    "immovableAssets": 200000
+    "immovableAssets": 200000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1032",
@@ -7796,9 +7821,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 46831990,
     "totalLiabilities": 43224019,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=461",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_486",
@@ -8569,9 +8595,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 58283056,
     "totalLiabilities": 1049505,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=458",
-    "occupation": "Social Worker, Honorarium as Member of Legislative Assembly"
+    "occupation": "Social Worker, Honorarium as Member of Legislative Assembly",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_889",
@@ -8733,9 +8760,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 5693710,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=301",
-    "occupation": "Social Worker & Pensioner from WBLA & West Bengal Board of Primary Education"
+    "occupation": "Social Worker & Pensioner from WBLA & West Bengal Board of Primary Education",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_603",
@@ -9518,11 +9546,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 31413799,
     "totalLiabilities": 7379561,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=740",
     "occupation": "Business",
     "movableAssets": 8113799,
-    "immovableAssets": 23300000
+    "immovableAssets": 23300000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_741",
@@ -10060,9 +10089,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 97027270,
     "totalLiabilities": 38646804,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=565",
-    "occupation": "Business, Agriculture, MLA."
+    "occupation": "Business, Agriculture, MLA.",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_675",
@@ -10255,9 +10285,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 1335218154,
     "totalLiabilities": 84646884,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=888",
-    "occupation": "Business & Social Worker"
+    "occupation": "Business & Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_327",
@@ -10369,9 +10400,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 29066365,
     "totalLiabilities": 616017,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=637",
-    "occupation": "Social worker, Advocate"
+    "occupation": "Social worker, Advocate",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1250",
@@ -10879,9 +10911,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 97544195,
     "totalLiabilities": 1948337,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=303",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_606",
@@ -11208,9 +11241,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 17258150,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1087",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1088",
@@ -11240,9 +11274,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 4,
     "totalAssets": 8470197,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=94",
-    "occupation": "Business & Politician"
+    "occupation": "Business & Politician",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_363",
@@ -11634,9 +11669,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 10584519,
     "totalLiabilities": 1543378,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1169",
-    "occupation": "Assistant Teacher under WB Primary School Council"
+    "occupation": "Assistant Teacher under WB Primary School Council",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_135",
@@ -11830,9 +11866,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 46978596,
     "totalLiabilities": 3473546,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=410",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1513",
@@ -12486,9 +12523,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 6,
     "totalAssets": 13827050,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=207",
-    "occupation": "Social Worker & Business"
+    "occupation": "Social Worker & Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_208",
@@ -12680,9 +12718,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 21224652,
     "totalLiabilities": 38630,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=377",
-    "occupation": "Politician (Member of Legislative Assembly), Social Worker and Business"
+    "occupation": "Politician (Member of Legislative Assembly), Social Worker and Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_963",
@@ -12974,11 +13013,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 47291628,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1296",
     "occupation": "Business and Politics",
     "movableAssets": 10111125,
-    "immovableAssets": 37180500
+    "immovableAssets": 37180500,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_71",
@@ -13831,9 +13871,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 2831500,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2266",
-    "occupation": "Social Worker MLA"
+    "occupation": "Social Worker MLA",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2267",
@@ -14259,9 +14300,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 283814,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2493",
-    "occupation": "Retired State Government Employee, former MLA"
+    "occupation": "Retired State Government Employee, former MLA",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2494",
@@ -14439,9 +14481,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 59692723,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2095",
-    "occupation": "Social worker and Agriculture income"
+    "occupation": "Social worker and Agriculture income",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2096",
@@ -15162,9 +15205,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 4,
     "totalAssets": 7309824,
     "totalLiabilities": 890000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1995",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1996",
@@ -15443,9 +15487,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 18182627,
     "totalLiabilities": 3265000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2758",
-    "occupation": "Pensioner"
+    "occupation": "Pensioner",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2759",
@@ -15865,10 +15910,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 6,
     "totalAssets": 25676976,
     "totalLiabilities": 4227968,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1930",
     "occupation": "Folk Singer(Kabigan)",
-    "immovableAssets": 13200000
+    "immovableAssets": 13200000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1931",
@@ -16129,9 +16175,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 40381819,
     "totalLiabilities": 1000000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2621",
-    "occupation": "Politician & Business"
+    "occupation": "Politician & Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2622",
@@ -16339,9 +16386,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 17,
     "totalAssets": 38795771,
     "totalLiabilities": 13718407,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2612",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2613",
@@ -16600,10 +16648,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 7250656,
     "totalLiabilities": 1421685,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1916",
     "occupation": "Social Work, Religious Activities",
-    "movableAssets": 7250656
+    "movableAssets": 7250656,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1917",
@@ -16667,9 +16716,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 39397424,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2296",
-    "occupation": "Social Worker & Ex-Member of Legislative Assembly"
+    "occupation": "Social Worker & Ex-Member of Legislative Assembly",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2297",
@@ -16766,9 +16816,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 5286543,
     "totalLiabilities": 115000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2510",
-    "occupation": "Cultivation & M.L.A. Salary and Stipend"
+    "occupation": "Cultivation & M.L.A. Salary and Stipend",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2511",
@@ -17223,11 +17274,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 30401833,
     "totalLiabilities": 3091587,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2787",
     "occupation": "Lawyer",
     "movableAssets": 23301831,
-    "immovableAssets": 7100000
+    "immovableAssets": 7100000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2788",
@@ -17469,10 +17521,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 53809140,
     "totalLiabilities": 8322995,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1596",
     "occupation": "Honorarium & Business",
-    "immovableAssets": 24310608
+    "immovableAssets": 24310608,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1597",
@@ -17766,9 +17819,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 148301217,
     "totalLiabilities": 2027356,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2149",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2150",
@@ -18074,9 +18128,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 53506,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1786",
-    "occupation": "Service"
+    "occupation": "Service",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1787",
@@ -18269,10 +18324,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 10,
     "totalAssets": 347240611,
     "totalLiabilities": 403742829,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2075",
     "occupation": "Member of Legislative Assembly (Social Worker)",
-    "immovableAssets": 33651671
+    "immovableAssets": 33651671,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2076",
@@ -18660,10 +18716,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 239088044,
     "totalLiabilities": 38338840,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1961",
     "occupation": "Film Director, Member of West Bengal Legislative Assembly",
-    "immovableAssets": 86500000
+    "immovableAssets": 86500000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1962",
@@ -19167,9 +19224,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 12648239,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2934",
-    "occupation": "Social Activist"
+    "occupation": "Social Activist",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2935",
@@ -19446,9 +19504,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 6,
     "totalAssets": 35251312,
     "totalLiabilities": 2499837,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1668",
-    "occupation": "Social Work & Politician"
+    "occupation": "Social Work & Politician",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1669",
@@ -19984,9 +20043,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 44275863,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1738",
-    "occupation": "Politics and Social Work"
+    "occupation": "Politics and Social Work",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1739",
@@ -20066,10 +20126,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 80636990,
     "totalLiabilities": 32853606,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2725",
     "occupation": "Business, Social Worker and Politician Holding The Post of Miniter In Charge Fir",
-    "immovableAssets": 56035961
+    "immovableAssets": 56035961,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2726",
@@ -20279,9 +20340,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 30935156,
     "totalLiabilities": 5394979,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1721",
-    "occupation": "Performing As A Music Artist, Director In Sangitam Musical House Private Limite"
+    "occupation": "Performing As A Music Artist, Director In Sangitam Musical House Private Limite",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1722",
@@ -20443,11 +20505,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 5789171,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2973",
     "occupation": "Social Worker",
     "movableAssets": 3289171,
-    "immovableAssets": 2500000
+    "immovableAssets": 2500000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2974",
@@ -20904,9 +20967,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 23758335,
     "totalLiabilities": 1968000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2189",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2190",
@@ -22133,9 +22197,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 105229491,
     "totalLiabilities": 27049954,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1532",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2197",
@@ -22247,9 +22312,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 14407504,
     "totalLiabilities": 1602450,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2203",
-    "occupation": "Pensioner"
+    "occupation": "Pensioner",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2204",
@@ -22426,9 +22492,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 5750920,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2429",
-    "occupation": "Retired Teacher & Social Worker"
+    "occupation": "Retired Teacher & Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2430",
@@ -22590,9 +22657,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 7608388,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1645",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1646",
@@ -22688,11 +22756,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 9170189,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2391",
     "occupation": "Retired Teacher and Social Worker",
     "movableAssets": 2570188,
-    "immovableAssets": 11700000
+    "immovableAssets": 11700000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2392",
@@ -23169,9 +23238,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 4149459,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2849",
-    "occupation": "Agriculture"
+    "occupation": "Agriculture",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2850",
@@ -23366,9 +23436,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 13142462,
     "totalLiabilities": 2258845,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2644",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2645",
@@ -23495,9 +23566,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 9,
     "totalAssets": 10395662,
     "totalLiabilities": 3458906,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2878",
-    "occupation": "Business & Politican"
+    "occupation": "Business & Politican",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2879",
@@ -23788,11 +23860,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 37149363,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2654",
     "occupation": "Consultancy (Legal)",
     "movableAssets": 34167957,
-    "immovableAssets": 3360000
+    "immovableAssets": 3360000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2655",
@@ -24693,9 +24766,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 104900,
     "totalLiabilities": 182771,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1831",
-    "occupation": "Para Teacher"
+    "occupation": "Para Teacher",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1832",
@@ -25429,9 +25503,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 4696469,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1972",
-    "occupation": "Lawyer(Advocate) and Social Worker"
+    "occupation": "Lawyer(Advocate) and Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1973",
@@ -25495,9 +25570,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 17455505,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2685",
-    "occupation": "Retired School Teacher, Member Of Assembly, Chairman Of Standing Committee Power"
+    "occupation": "Retired School Teacher, Member Of Assembly, Chairman Of Standing Committee Power",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2686",
@@ -25741,9 +25817,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 16,
     "totalAssets": 5569232,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2707",
-    "occupation": "Cultivation & Social Worker"
+    "occupation": "Cultivation & Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2708",
@@ -25986,9 +26063,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 395353826,
     "totalLiabilities": 437240035,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2956",
-    "occupation": "Social Worker & Business"
+    "occupation": "Social Worker & Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2957",
@@ -26315,9 +26393,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 31518175,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1811",
-    "occupation": "Practicing Chartered Accountant"
+    "occupation": "Practicing Chartered Accountant",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1812",
@@ -26463,9 +26542,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 20843771,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1883",
-    "occupation": "Social and Political Work"
+    "occupation": "Social and Political Work",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1884",
@@ -27117,9 +27197,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 225753159,
     "totalLiabilities": 13679175,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2567",
-    "occupation": "Business, Social Worker & Politician"
+    "occupation": "Business, Social Worker & Politician",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2568",
@@ -27477,9 +27558,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 79318908,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2398",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2399",
@@ -27803,9 +27885,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 104870326,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2914",
-    "occupation": "Social Worker (M.L.A)"
+    "occupation": "Social Worker (M.L.A)",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2915",
@@ -28635,9 +28718,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 77376584,
     "totalLiabilities": 6801765,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2343",
-    "occupation": "Medical Practitioner"
+    "occupation": "Medical Practitioner",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2344",
@@ -29126,9 +29210,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 48122377,
     "totalLiabilities": 8636453,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2041",
-    "occupation": "Social Worker & Business"
+    "occupation": "Social Worker & Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2042",
@@ -30087,9 +30172,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 48496085,
     "totalLiabilities": 2282974,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1554",
-    "occupation": "Advocate"
+    "occupation": "Advocate",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1555",
@@ -30364,9 +30450,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 264416942,
     "totalLiabilities": 7009495,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2808",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2809",
@@ -30496,9 +30583,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 5519701,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2379",
-    "occupation": "School Teacher & Member of West Bengal Legislative Assembly"
+    "occupation": "School Teacher & Member of West Bengal Legislative Assembly",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2380",
@@ -30659,9 +30747,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 29320031,
     "totalLiabilities": 284541,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2452",
-    "occupation": "Business & Social Worker and Ex-member of Minority Development Board, West Benga"
+    "occupation": "Business & Social Worker and Ex-member of Minority Development Board, West Benga",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2453",
@@ -31066,9 +31155,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 236597,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2121",
-    "occupation": "Farmer"
+    "occupation": "Farmer",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2122",
@@ -31145,9 +31235,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 29091929,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2172",
-    "occupation": "Retired Teacher, Social Worker & MLA"
+    "occupation": "Retired Teacher, Social Worker & MLA",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2173",
@@ -31424,9 +31515,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 86836465,
     "totalLiabilities": 4966980,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2161",
-    "occupation": "Business, Member West Bengal Legislative Assemble"
+    "occupation": "Business, Member West Bengal Legislative Assemble",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2162",
@@ -31880,9 +31972,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 45181156,
     "totalLiabilities": 1783930,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1607",
-    "occupation": "Business and Member of W.B. Legislative Assembly"
+    "occupation": "Business and Member of W.B. Legislative Assembly",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1608",
@@ -31962,10 +32055,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 4720532,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1573",
     "occupation": "School Teacher, Member of West Bengal Legislative Assembly",
-    "immovableAssets": 1200000
+    "immovableAssets": 1200000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1574",
@@ -32533,9 +32627,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 24188353,
     "totalLiabilities": 897039,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1958",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1959",
@@ -32616,9 +32711,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 121000158,
     "totalLiabilities": 30014738,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1536",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1537",
@@ -32730,10 +32826,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 107984586,
     "totalLiabilities": 45631654,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2895",
     "occupation": "Professional Singer",
-    "immovableAssets": 68397774
+    "immovableAssets": 68397774,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2896",
@@ -33478,9 +33575,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 121000158,
     "totalLiabilities": 30014738,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2747",
-    "occupation": "Business and Doctor"
+    "occupation": "Business and Doctor",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2748",
@@ -33741,9 +33839,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 20635016,
     "totalLiabilities": 1372483,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1950",
-    "occupation": "Member of Legislative Assembly & Social Worker"
+    "occupation": "Member of Legislative Assembly & Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2905",
@@ -33805,9 +33904,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 13174320,
     "totalLiabilities": 1200000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2908",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2909",
@@ -34018,9 +34118,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 18264339,
     "totalLiabilities": 832576,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1624",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1625",
@@ -34217,9 +34318,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 4,
     "totalAssets": 56474412,
     "totalLiabilities": 2950000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1860",
-    "occupation": "Cultivation, Business and Member of West Bengal Legislative Assembly"
+    "occupation": "Cultivation, Business and Member of West Bengal Legislative Assembly",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1861",
@@ -34265,9 +34367,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 3677344,
     "totalLiabilities": 271271,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2418",
-    "occupation": "Politician and Social Worker"
+    "occupation": "Politician and Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2419",
@@ -34603,7 +34706,7 @@ export const candidates: Candidate[] = [
   {
     "id": "wb26_2536",
     "name": "SUSANTA GHOSH",
-    "partyId": "IND",
+    "partyId": "BJP",
     "constituencyId": "c0211",
     "photoUrl": "https://myneta.info/images_candidate/WestBengal2026/d7c1e362b673350bcdfb1b457ce6fbf9e1a7d6cc.jpg",
     "age": 37,
@@ -34611,10 +34714,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 7265988,
     "totalLiabilities": 194800,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2536",
     "occupation": "Social worker, Politician and Businessman",
-    "immovableAssets": 3200000
+    "immovableAssets": 3200000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2537",
@@ -35251,9 +35355,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 6,
     "totalAssets": 59662319,
     "totalLiabilities": 5651583,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1740",
-    "occupation": "Vision Coach of Bengal Cricket (Cricket Association of Bengal), MLa of West Beng"
+    "occupation": "Vision Coach of Bengal Cricket (Cricket Association of Bengal), MLa of West Beng",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_53",
@@ -35350,9 +35455,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 2932686,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1316",
-    "occupation": "Social Worker as MLA"
+    "occupation": "Social Worker as MLA",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1317",
@@ -35447,11 +35553,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 19287897,
     "totalLiabilities": 1293833,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=454",
     "occupation": "Social Worker & Business",
     "movableAssets": 8889897,
-    "immovableAssets": 10398000
+    "immovableAssets": 10398000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1174",
@@ -35583,9 +35690,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 8262965,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=372",
-    "occupation": "Social worker"
+    "occupation": "Social worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_978",
@@ -35663,9 +35771,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 29,
     "totalAssets": 8587600,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=7",
-    "occupation": "Politician and Business"
+    "occupation": "Politician and Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_62",
@@ -36371,10 +36480,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 54882163,
     "totalLiabilities": 2268167,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=413",
     "occupation": "Business",
-    "immovableAssets": 23400000
+    "immovableAssets": 23400000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1185",
@@ -36520,9 +36630,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 11105358,
     "totalLiabilities": 332786,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=411",
-    "occupation": "Pesnion Salary"
+    "occupation": "Pesnion Salary",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_412",
@@ -36701,9 +36812,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 9985709,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=620",
-    "occupation": "Social Work, Member of Legislative Assembly"
+    "occupation": "Social Work, Member of Legislative Assembly",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_621",
@@ -36849,11 +36961,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 17124348,
     "totalLiabilities": 2845041,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1005",
     "occupation": "Teacher ship",
     "movableAssets": 10174346,
-    "immovableAssets": 7000000
+    "immovableAssets": 7000000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1006",
@@ -37312,9 +37425,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 149573216,
     "totalLiabilities": 14395891,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=295",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_598",
@@ -37655,9 +37769,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 14831886,
     "totalLiabilities": 192360,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=1254",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1255",
@@ -37770,9 +37885,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 17,
     "totalAssets": 57702870,
     "totalLiabilities": 601901,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=427",
-    "occupation": "Business & Social Work"
+    "occupation": "Business & Social Work",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1094",
@@ -38180,9 +38296,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 7,
     "totalAssets": 2600817,
     "totalLiabilities": 1001808,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=258",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_259",
@@ -38409,11 +38526,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 47095254,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=426",
     "occupation": "Social Worker",
     "movableAssets": 15141504,
-    "immovableAssets": 31813750
+    "immovableAssets": 31813750,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1089",
@@ -38526,9 +38644,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 24711051,
     "totalLiabilities": 2173000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=255",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1026",
@@ -38639,11 +38758,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 12149314,
     "totalLiabilities": 2332207,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=291",
     "occupation": "Marginal Farmer, Ex- Member of Legislative Assembly",
     "movableAssets": 2611814,
-    "immovableAssets": 9537500
+    "immovableAssets": 9537500,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_592",
@@ -38901,11 +39021,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 12845629,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=59",
     "occupation": "Assistant Teacher, H.S. School",
     "movableAssets": 6655628,
-    "immovableAssets": 6195000
+    "immovableAssets": 6195000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1420",
@@ -39623,11 +39744,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 12091481,
     "totalLiabilities": 1245819,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=761",
     "occupation": "Teacher",
     "movableAssets": 5621439,
-    "immovableAssets": 6450000
+    "immovableAssets": 6450000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_762",
@@ -39965,10 +40087,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 4120748,
     "totalLiabilities": 632096,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=732",
     "occupation": "Business and Social Work",
-    "movableAssets": 4120747
+    "movableAssets": 4120747,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_733",
@@ -40180,11 +40303,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 113479650,
     "totalLiabilities": 1455284,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=88",
     "occupation": "Social Worker",
     "movableAssets": 15530432,
-    "immovableAssets": 100000000
+    "immovableAssets": 100000000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_330",
@@ -40687,9 +40811,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 3988000,
     "totalLiabilities": 504949,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=340",
-    "occupation": "Assistant Teacher of Poradih Primary School"
+    "occupation": "Assistant Teacher of Poradih Primary School",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1269",
@@ -40966,11 +41091,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 2,
     "totalAssets": 1026880,
     "totalLiabilities": 250000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=289",
     "occupation": "House Wife",
     "movableAssets": 929938,
-    "immovableAssets": 100000
+    "immovableAssets": 100000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_290",
@@ -41082,9 +41208,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 9734602,
     "totalLiabilities": 1300000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=194",
-    "occupation": "Government Sponsored Teacher"
+    "occupation": "Government Sponsored Teacher",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_516",
@@ -41197,9 +41324,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 1831808,
     "totalLiabilities": 200000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=179",
-    "occupation": "Business and Politician"
+    "occupation": "Business and Politician",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_180",
@@ -41949,9 +42077,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 5,
     "totalAssets": 18685801,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=344",
-    "occupation": "Politicial & Farmer"
+    "occupation": "Politicial & Farmer",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_345",
@@ -42064,9 +42193,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 54864983,
     "totalLiabilities": 16800500,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=186",
-    "occupation": "Business"
+    "occupation": "Business",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_225",
@@ -42179,9 +42309,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 9120000,
     "totalLiabilities": 2500000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=421",
-    "occupation": "Teacher of Jagatpur Sammilani High School (Governemtn Aided School)"
+    "occupation": "Teacher of Jagatpur Sammilani High School (Governemtn Aided School)",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_422",
@@ -42293,9 +42424,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 1049835,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=385",
-    "occupation": "Private Tutor, Sitting Member of West Bengal Legislative Assembly"
+    "occupation": "Private Tutor, Sitting Member of West Bengal Legislative Assembly",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_910",
@@ -42409,10 +42541,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 1479500,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=280",
     "occupation": "Cultivator",
-    "movableAssets": 1479500
+    "movableAssets": 1479500,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_281",
@@ -42588,11 +42721,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 3167719,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2545",
     "occupation": "Member of Legislative Assembly & Social Worker",
     "movableAssets": 1847719,
-    "immovableAssets": 1440000
+    "immovableAssets": 1440000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2546",
@@ -42655,9 +42789,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 9,
     "totalAssets": 33371335,
     "totalLiabilities": 961607,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2816",
-    "occupation": "Business & Social Worker"
+    "occupation": "Business & Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2817",
@@ -43422,9 +43557,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 3,
     "totalAssets": 8613889,
     "totalLiabilities": 455668,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2825",
-    "occupation": "Primary School Teacher"
+    "occupation": "Primary School Teacher",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2826",
@@ -43734,9 +43870,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 13442435,
     "totalLiabilities": 164000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2247",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2248",
@@ -44161,9 +44298,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 10668397,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2235",
-    "occupation": "Advocate"
+    "occupation": "Advocate",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2236",
@@ -44437,10 +44575,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 40861299,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2052",
     "occupation": "Business",
-    "immovableAssets": 34700000
+    "immovableAssets": 34700000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2053",
@@ -44565,9 +44704,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 28947928,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=2225",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_2226",
@@ -44711,9 +44851,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 6,
     "totalAssets": 57227687,
     "totalLiabilities": 3107392,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=162",
-    "occupation": "Ex-Employee of ECL, Out -Going MLA, 275 A.C./AT Present Politician & Social Wor"
+    "occupation": "Ex-Employee of ECL, Out -Going MLA, 275 A.C./AT Present Politician & Social Wor",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_342",
@@ -44890,9 +45031,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 191367612,
     "totalLiabilities": 2474409,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=244",
-    "occupation": "Retired From Service"
+    "occupation": "Retired From Service",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_533",
@@ -45020,11 +45162,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 12,
     "totalAssets": 24415439,
     "totalLiabilities": 3268904,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=241",
     "occupation": "Business",
     "movableAssets": 11615438,
-    "immovableAssets": 12800000
+    "immovableAssets": 12800000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_242",
@@ -45396,10 +45539,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 3878669,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=394",
     "occupation": "Retired from, Eastern Coalfield Ltd",
-    "movableAssets": 3878669
+    "movableAssets": 3878669,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1427",
@@ -45494,9 +45638,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 23,
     "totalAssets": 38566327,
     "totalLiabilities": 12011270,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=121",
-    "occupation": "Member of the Legislative Assembly from Asansol Dakshin Assembly Constituency, W"
+    "occupation": "Member of the Legislative Assembly from Asansol Dakshin Assembly Constituency, W",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_122",
@@ -45675,9 +45820,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 47256378,
     "totalLiabilities": 11303986,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=173",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_920",
@@ -45838,9 +45984,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 25579769,
     "totalLiabilities": 2740000,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=151",
-    "occupation": "Medical Practitioner"
+    "occupation": "Medical Practitioner",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_152",
@@ -45968,11 +46115,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 87020477,
     "totalLiabilities": 7758440,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=181",
     "occupation": "MLA & Social Worker",
     "movableAssets": 39885176,
-    "immovableAssets": 47135000
+    "immovableAssets": 47135000,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_497",
@@ -46067,9 +46215,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 5,
     "totalAssets": 2293804,
     "totalLiabilities": 244460,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=240",
-    "occupation": "Politician"
+    "occupation": "Politician",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_877",
@@ -46375,10 +46524,11 @@ export const candidates: Candidate[] = [
     "criminalCases": 1,
     "totalAssets": 64861255,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=187",
     "occupation": "Cultivation & Social Worker",
-    "movableAssets": 31181287
+    "movableAssets": 31181287,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_188",
@@ -46522,9 +46672,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 12720369,
     "totalLiabilities": 2990187,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=352",
-    "occupation": "Assistant Teacher"
+    "occupation": "Assistant Teacher",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_353",
@@ -46637,9 +46788,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 14583131,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=443",
-    "occupation": "Agriculture"
+    "occupation": "Agriculture",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_444",
@@ -46816,9 +46968,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 19379139,
     "totalLiabilities": 284742,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=293",
-    "occupation": "Teacher"
+    "occupation": "Teacher",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_294",
@@ -46947,9 +47100,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 16240537,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=474",
-    "occupation": "Social Worker"
+    "occupation": "Social Worker",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_475",
@@ -47130,11 +47284,12 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 24723407,
     "totalLiabilities": 0,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=310",
     "occupation": "Retired Associate Professor",
     "movableAssets": 18739656,
-    "immovableAssets": 5983750
+    "immovableAssets": 5983750,
+    "incumbentYears": 5
   },
   {
     "id": "wb26_615",
@@ -47687,9 +47842,10 @@ export const candidates: Candidate[] = [
     "criminalCases": 0,
     "totalAssets": 88707097,
     "totalLiabilities": 703525,
-    "isIncumbent": false,
+    "isIncumbent": true,
     "affidavitUrl": "https://myneta.info/WestBengal2026/candidate.php?candidate_id=362",
-    "occupation": "Self Employed on Medical Profession"
+    "occupation": "Self Employed on Medical Profession",
+    "incumbentYears": 5
   },
   {
     "id": "wb26_1340",

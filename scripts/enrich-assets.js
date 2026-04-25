@@ -12,6 +12,7 @@ const vm   = require('vm');
 
 const DELAY_MS    = 800;
 const CONCURRENCY = 2;
+const RAW_JSON    = path.resolve(__dirname, '../src/data/raw/candidates.json');
 const CANDIDATES_FILE = path.resolve(__dirname, '../src/data/candidates.ts');
 
 function get(url, retries = 3) {
@@ -147,11 +148,20 @@ function getCandidateId(affidavitUrl) {
 }
 
 async function main() {
-  const src = fs.readFileSync(CANDIDATES_FILE, 'utf8');
-  const arrMatch = src.match(/export const candidates: Candidate\[\] = (\[[\s\S]*?\]);[\s\n]*\n/);
-  if (!arrMatch) { console.error('Cannot parse candidates array'); process.exit(1); }
-
-  const candidates = JSON.parse(arrMatch[1]);
+  // Read from raw JSON cache if available, else fall back to parsing candidates.ts
+  let candidates, useRawJson;
+  if (fs.existsSync(RAW_JSON)) {
+    candidates = JSON.parse(fs.readFileSync(RAW_JSON, 'utf8'));
+    useRawJson = true;
+    console.log('Reading from src/data/raw/candidates.json');
+  } else {
+    const src = fs.readFileSync(CANDIDATES_FILE, 'utf8');
+    const arrMatch = src.match(/export const candidates: Candidate\[\] = (\[[\s\S]*?\]);[\s\n]*\n/);
+    if (!arrMatch) { console.error('Cannot parse candidates array'); process.exit(1); }
+    candidates = JSON.parse(arrMatch[1]);
+    useRawJson = false;
+    console.log('Reading from src/data/candidates.ts (no raw cache)');
+  }
 
   // Find candidates with zero assets AND zero liabilities
   const targets = candidates.filter(c => c.totalAssets === 0 && c.totalLiabilities === 0 && c.affidavitUrl);
@@ -191,17 +201,24 @@ async function main() {
   await pool(tasks, CONCURRENCY);
   console.log('\n');
 
-  // Rebuild the candidates.ts file
-  const today = new Date().toISOString().slice(0, 10);
-  const updatedSrc = src.replace(
-    /\/\/ AUTO-GENERATED[^\n]*/,
-    `// AUTO-GENERATED — myneta.info/WestBengal2026 — ${today}`
-  ).replace(
-    /export const candidates: Candidate\[\] = \[[\s\S]*?\];([\s\n]*\n)/,
-    `export const candidates: Candidate[] = ${JSON.stringify(candidates, null, 2)};$1`
-  );
-
-  fs.writeFileSync(CANDIDATES_FILE, updatedSrc, 'utf8');
+  // Write enriched data back to raw JSON (or candidates.ts if no raw cache)
+  if (useRawJson) {
+    fs.writeFileSync(RAW_JSON, JSON.stringify(candidates, null, 2), 'utf8');
+    // Regenerate TS via build-data.js
+    const { main: buildMain } = require('./build-data.js');
+    await buildMain();
+  } else {
+    const src = fs.readFileSync(CANDIDATES_FILE, 'utf8');
+    const today = new Date().toISOString().slice(0, 10);
+    const updatedSrc = src.replace(
+      /\/\/ AUTO-GENERATED[^\n]*/,
+      `// AUTO-GENERATED — myneta.info/WestBengal2026 — ${today}`
+    ).replace(
+      /export const candidates: Candidate\[\] = \[[\s\S]*?\];([\s\n]*\n)/,
+      `export const candidates: Candidate[] = ${JSON.stringify(candidates, null, 2)};$1`
+    );
+    fs.writeFileSync(CANDIDATES_FILE, updatedSrc, 'utf8');
+  }
 
   console.log(`✅ Done`);
   console.log(`   Enriched   : ${enriched} candidates now have asset data`);
