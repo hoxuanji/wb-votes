@@ -805,7 +805,7 @@ export function WestBengalMap() {
       <div ref={mapRowRef} className="flex flex-col gap-4 lg:flex-row lg:items-start">
         {/* Left: map SVG */}
         <div className="w-full lg:w-[52%] flex-shrink-0">
-          <div className="relative rounded-2xl border border-gray-200 bg-slate-50 shadow-inner">
+          <div className="relative rounded-2xl border border-white/10 bg-slate-900 shadow-inner">
             <svg viewBox={viewBox} className="w-full rounded-2xl" style={{ display: 'block' }}>
               {wbAcPaths.map(ac => {
                 const dimmed = districtConstIds ? !districtConstIds.has(ac.id) : false;
@@ -828,13 +828,13 @@ export function WestBengalMap() {
 
             {/* Hover stats panel */}
             {hoveredId && panel === null && (
-              <div className="pointer-events-none absolute right-3 top-3 z-10 w-64 max-h-80 overflow-y-auto rounded-xl border border-gray-200 bg-white shadow-lg">
+              <div className="pointer-events-none absolute right-3 top-3 z-10 w-64 max-h-80 overflow-y-auto rounded-xl border border-white/10 bg-slate-900 shadow-xl shadow-black/40">
                 <HoverStatsPanel constituencyId={hoveredId} />
               </div>
             )}
 
             {/* Legend */}
-            <div className="absolute bottom-3 left-3 rounded-xl border border-gray-200 bg-white/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
+            <div className="absolute bottom-3 left-3 rounded-xl border border-white/15 bg-slate-950/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
               {legendConfig.type === 'phase' ? (
                 <div className="flex flex-col gap-1.5">
                   <div className="flex items-center gap-1.5">
@@ -862,7 +862,7 @@ export function WestBengalMap() {
             {selectedDistrict && (
               <button
                 onClick={handleReset}
-                className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-lg border border-gray-200 bg-white/90 px-2.5 py-1.5 text-[10px] font-medium text-gray-600 shadow-sm backdrop-blur-sm transition-colors hover:bg-gray-100"
+                className="absolute top-3 left-3 z-10 flex items-center gap-1 rounded-lg border border-white/15 bg-slate-950/90 px-2.5 py-1.5 text-[10px] font-medium text-gray-400 shadow-sm backdrop-blur-sm transition-colors hover:bg-white/10"
               >
                 <RotateCcw className="h-3 w-3" />
                 Reset zoom
@@ -880,7 +880,7 @@ export function WestBengalMap() {
         </div>
 
         {/* Right: constituency panel or insights — visible on all screen sizes */}
-        <div className="flex lg:flex-1 min-w-0 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm" style={{ maxHeight: '640px' }}>
+        <div className="flex lg:flex-1 min-w-0 flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-sm" style={{ maxHeight: '640px' }}>
           {panel !== null ? (
             <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
           ) : (
