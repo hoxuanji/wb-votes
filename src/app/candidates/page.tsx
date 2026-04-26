@@ -31,8 +31,13 @@ export default function CandidatesPage() {
           </Link>
           <h1 className="text-2xl font-extrabold text-white">
             All Candidates
-            <span className="ml-2 text-base font-normal text-gray-400">{candidates.length.toLocaleString()} from Phase 1</span>
           </h1>
+          <div className="mt-1 flex flex-wrap items-center gap-2">
+            <span className="text-sm text-gray-400">{candidates.length.toLocaleString()} candidates</span>
+            <span className="rounded-full border border-amber-500/40 bg-amber-500/15 px-2.5 py-0.5 text-xs font-semibold text-amber-300">
+              Phase 1 data only · Phase 2 candidates coming soon
+            </span>
+          </div>
           <p className="mt-0.5 text-sm text-gray-400">
             Filter by party, district, or sort by assets and criminal cases
           </p>

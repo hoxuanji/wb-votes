@@ -43,7 +43,7 @@ function ComparePageInner() {
   );
 
   const addCandidate = (id: string) => {
-    setSelectedIds((prev) => [...prev, id]);
+    setSelectedIds((prev) => prev.length >= 6 ? prev : [...prev, id]);
     setPickerOpen(false);
   };
 
@@ -68,10 +68,11 @@ function ComparePageInner() {
 
         <button
           onClick={() => setPickerOpen(true)}
-          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors"
+          disabled={selectedIds.length >= 6}
+          className="inline-flex items-center gap-2 rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Plus className="h-4 w-4" />
-          {t('Add Candidate', 'প্রার্থী যোগ করুন')}
+          {selectedIds.length >= 6 ? t('Max 6 candidates', 'সর্বোচ্চ ৬ জন') : t('Add Candidate', 'প্রার্থী যোগ করুন')}
         </button>
       </div>
 

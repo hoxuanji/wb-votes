@@ -12,7 +12,6 @@ export const parties: Party[] = [
   { id: 'CPI(M)', name: 'Communist Party of India (Marxist)',    nameBn: 'ভারতের কমিউনিস্ট পার্টি (মার্ক্সবাদী)', abbreviation: 'CPM',     color: '#B71C1C', isNational: false, symbolUrl: '/images/parties/cpim.jpg' },
   { id: 'SUCI',   name: 'Socialist Unity Centre of India (Communist)', nameBn: 'সমাজতান্ত্রিক ঐক্য কেন্দ্র ভারত', abbreviation: 'SUCI(C)', color: '#880E4F', isNational: false, symbolUrl: '/images/parties/suci.png' },
   { id: 'RSP',    name: 'Revolutionary Socialist Party',         nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি',          abbreviation: 'RSP',     color: '#C62828', isNational: false, symbolUrl: '/images/parties/rsp.jpg'  },
-  { id: 'REVOLUTIONARY SOCIALIST PARTY', name: 'Revolutionary Socialist Party', nameBn: 'বিপ্লবী সমাজতান্ত্রিক পার্টি', abbreviation: 'RSP', color: '#C62828', isNational: false },
   { id: 'ALL INDIA FORWARD BLOC', name: 'All India Forward Bloc', nameBn: 'সর্বভারতীয় ফরওয়ার্ড ব্লক',          abbreviation: 'AIFB',    color: '#D84315', isNational: false, symbolUrl: '/images/parties/aifb.png' },
 
   // WB regional parties

@@ -111,7 +111,7 @@ export function CandidateCard({
             }>
               {candidate.criminalCases === 0
                 ? t('No cases', 'কোনো মামলা নেই')
-                : `${candidate.criminalCases} ${t('case(s)', 'মামলা')}`}
+                : `${candidate.criminalCases} ${t(candidate.criminalCases === 1 ? 'case' : 'cases', 'মামলা')}`}
             </span>
           </div>
 

@@ -8,10 +8,10 @@ export function Disclaimer() {
   if (dismissed) return null;
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200 px-4 py-2.5">
+    <div className="bg-amber-950/80 border-b border-amber-500/30 px-4 py-2.5">
       <div className="mx-auto flex max-w-7xl items-start justify-between gap-3">
-        <div className="flex items-start gap-2 text-xs text-amber-800 sm:text-sm">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+        <div className="flex items-start gap-2 text-xs text-amber-200 sm:text-sm">
+          <Info className="mt-0.5 h-4 w-4 shrink-0 text-amber-400" />
           <p>
             <strong>Disclaimer:</strong> This is an independent informational tool. Not affiliated with
             the Election Commission of India or any political party. All data is sourced from publicly
@@ -20,7 +20,7 @@ export function Disclaimer() {
         </div>
         <button
           onClick={() => setDismissed(true)}
-          className="shrink-0 rounded p-1 text-amber-600 hover:bg-amber-100"
+          className="shrink-0 rounded p-1 text-amber-400 hover:bg-amber-500/20"
           aria-label="Dismiss disclaimer"
         >
           <X className="h-4 w-4" />

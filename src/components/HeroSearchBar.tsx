@@ -240,14 +240,14 @@ export function HeroSearchBar() {
       </div>
 
       {dropdownVisible && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-2xl">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 overflow-hidden rounded-xl border border-white/15 bg-slate-900 shadow-2xl">
 
           {/* Idle state: recently searched + popular */}
           {showIdle && (
             <div className="p-3 space-y-3">
               {recent.length > 0 && (
                 <div>
-                  <p className="mb-2 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                  <p className="mb-2 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                     <Clock className="h-3 w-3" /> Recently searched
                   </p>
                   <div className="flex flex-wrap gap-1.5">
@@ -255,18 +255,18 @@ export function HeroSearchBar() {
                       <button
                         key={r.id}
                         onMouseDown={() => handleSelect({ type: 'constituency', id: r.id, name: r.name })}
-                        className="inline-flex items-center gap-1.5 rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-xs font-medium text-gray-700 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-gray-300 hover:border-blue-500/40 hover:bg-blue-500/10 hover:text-blue-300 transition-colors"
                       >
-                        <MapPin className="h-3 w-3 text-gray-400" />
+                        <MapPin className="h-3 w-3 text-gray-500" />
                         {r.name}
-                        <span className="text-gray-400">{r.district}</span>
+                        <span className="text-gray-500">{r.district}</span>
                       </button>
                     ))}
                   </div>
                 </div>
               )}
               <div>
-                <p className="mb-2 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-400">
+                <p className="mb-2 flex items-center gap-1.5 px-1 text-[10px] font-semibold uppercase tracking-wider text-gray-500">
                   <TrendingUp className="h-3 w-3" /> Most contested constituencies
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -274,11 +274,11 @@ export function HeroSearchBar() {
                     <button
                       key={c.id}
                       onMouseDown={() => handleSelect({ type: 'constituency', id: c.id, name: c.name })}
-                      className="inline-flex items-center gap-1 rounded-full border border-blue-100 bg-blue-50 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors"
+                      className="inline-flex items-center gap-1 rounded-full border border-blue-500/25 bg-blue-500/10 px-3 py-1 text-xs font-medium text-blue-300 hover:bg-blue-500/20 transition-colors"
                     >
                       {c.name}
-                      <span className="text-blue-400">·</span>
-                      <span className="text-blue-500 text-[10px]">{candidateCountByConst[c.id]}c</span>
+                      <span className="text-blue-500">·</span>
+                      <span className="text-blue-400 text-[10px]">{candidateCountByConst[c.id]}c</span>
                     </button>
                   ))}
                 </div>
@@ -295,7 +295,7 @@ export function HeroSearchBar() {
                     onMouseDown={() => handleSelect(r)}
                     onMouseEnter={() => setSelectedIdx(i)}
                     className={`flex w-full items-center gap-3 px-4 py-2.5 text-left transition-colors ${
-                      i === selectedIdx ? 'bg-blue-50' : 'hover:bg-gray-50'
+                      i === selectedIdx ? 'bg-blue-500/15' : 'hover:bg-white/5'
                     }`}
                   >
                     <div
@@ -307,11 +307,11 @@ export function HeroSearchBar() {
                         : <User className="h-4 w-4" />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-semibold text-gray-900">{r.name}</p>
-                      <p className="text-xs text-gray-500">{r.sub}</p>
+                      <p className="truncate text-sm font-semibold text-gray-100">{r.name}</p>
+                      <p className="text-xs text-gray-400">{r.sub}</p>
                     </div>
                     <span className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                      r.type === 'constituency' ? 'bg-blue-100 text-blue-700' : 'bg-gray-100 text-gray-600'
+                      r.type === 'constituency' ? 'bg-blue-500/15 text-blue-300' : 'bg-white/10 text-gray-400'
                     }`}>
                       {r.type === 'constituency' ? 'Area' : 'Candidate'}
                     </span>
@@ -324,9 +324,9 @@ export function HeroSearchBar() {
           {/* Empty state */}
           {showEmpty && (
             <div className="px-4 py-8 text-center">
-              <Search className="mx-auto mb-2 h-8 w-8 text-gray-200" />
-              <p className="text-sm font-medium text-gray-500">No results for &ldquo;{query}&rdquo;</p>
-              <p className="mt-1 text-xs text-gray-400">Try searching your area, candidate name, or district</p>
+              <Search className="mx-auto mb-2 h-8 w-8 text-gray-600" />
+              <p className="text-sm font-medium text-gray-400">No results for &ldquo;{query}&rdquo;</p>
+              <p className="mt-1 text-xs text-gray-500">Try searching your area, candidate name, or district</p>
             </div>
           )}
         </div>

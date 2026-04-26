@@ -83,7 +83,11 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
 
   function resetPage() { setPage(1); }
 
-  const majorParties = parties.filter(p => ['AITC', 'BJP', 'CPI(M)', 'INC', 'SUCI', 'IND'].includes(p.id));
+  const MAJOR_IDS = ['AITC', 'BJP', 'CPI(M)', 'INC', 'SUCI', 'IND'];
+  const majorParties = parties.filter(p => MAJOR_IDS.includes(p.id));
+  const otherParties = parties
+    .filter(p => !MAJOR_IDS.includes(p.id))
+    .sort((a, b) => a.name.localeCompare(b.name));
 
   return (
     <div>
@@ -108,9 +112,16 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
             className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 focus:border-blue-500/50 focus:outline-none"
           >
             <option value="">All Parties</option>
-            {majorParties.map(p => (
-              <option key={p.id} value={p.id}>{p.abbreviation}</option>
-            ))}
+            <optgroup label="Major Parties">
+              {majorParties.map(p => (
+                <option key={p.id} value={p.id}>{p.abbreviation} — {p.name}</option>
+              ))}
+            </optgroup>
+            <optgroup label="Other Parties">
+              {otherParties.map(p => (
+                <option key={p.id} value={p.id}>{p.abbreviation} — {p.name}</option>
+              ))}
+            </optgroup>
           </select>
 
           {/* District filter */}
@@ -163,7 +174,13 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
       <div className="mx-auto max-w-5xl px-4 pb-6">
         {paginated.length === 0 ? (
           <div className="rounded-xl border border-dashed border-white/10 py-16 text-center text-gray-500">
-            No candidates match your filters
+            <p>No candidates match your filters.</p>
+            <button
+              onClick={() => { setQuery(''); setPartyFilter(''); setDistrictFilter(''); setCasesOnly(false); setPage(1); }}
+              className="mt-3 text-sm text-blue-400 hover:underline"
+            >
+              Clear all filters
+            </button>
           </div>
         ) : (
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -46,17 +46,17 @@ export function ResultsChart({ results }: ResultsChartProps) {
       </div>
 
       {/* Bar chart */}
-      <div className="mb-6 rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-        <h3 className="mb-4 text-sm font-semibold text-gray-700">
+      <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4">
+        <h3 className="mb-4 text-sm font-semibold text-gray-300">
           {t('Alignment by Party (%)', 'দল অনুযায়ী সামঞ্জস্য (%)')}
         </h3>
         <ResponsiveContainer width="100%" height={260}>
           <BarChart data={sorted} layout="vertical" margin={{ left: 16, right: 24 }}>
-            <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11 }} />
-            <YAxis type="category" dataKey="partyAbbr" tick={{ fontSize: 12 }} width={48} />
+            <XAxis type="number" domain={[0, 100]} tickFormatter={(v) => `${v}%`} tick={{ fontSize: 11, fill: '#9ca3af' }} />
+            <YAxis type="category" dataKey="partyAbbr" tick={{ fontSize: 12, fill: '#9ca3af' }} width={48} />
             <Tooltip
               formatter={(value: number) => [`${value}%`, t('Alignment', 'সামঞ্জস্য')]}
-              contentStyle={{ fontSize: 12 }}
+              contentStyle={{ fontSize: 12, backgroundColor: '#1e293b', border: '1px solid rgba(255,255,255,0.1)', borderRadius: 8, color: '#e2e8f0' }}
             />
             <Bar dataKey="score" radius={[0, 4, 4, 0]}>
               {sorted.map((entry) => (
@@ -70,15 +70,15 @@ export function ResultsChart({ results }: ResultsChartProps) {
       {/* Ranked list */}
       <div className="mb-6 space-y-2">
         {sorted.map((r, i) => (
-          <div key={r.partyId} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-4 py-3">
-            <span className="w-5 text-center text-sm font-bold text-gray-400">#{i + 1}</span>
+          <div key={r.partyId} className="flex items-center gap-3 rounded-lg border border-white/10 bg-white/5 px-4 py-3">
+            <span className="w-5 text-center text-sm font-bold text-gray-500">#{i + 1}</span>
             <PartySymbol party={{ abbreviation: r.partyAbbr, color: r.color, symbolUrl: r.symbolUrl }} size={22} />
-            <span className="flex-1 text-sm font-medium text-gray-800">{r.partyName}</span>
+            <span className="flex-1 text-sm font-medium text-gray-200">{r.partyName}</span>
             <div className="flex items-center gap-2">
-              <div className="h-2 w-24 overflow-hidden rounded-full bg-gray-200">
+              <div className="h-2 w-24 overflow-hidden rounded-full bg-white/10">
                 <div className="h-full rounded-full" style={{ width: `${r.score}%`, backgroundColor: r.color }} />
               </div>
-              <span className="w-10 text-right text-sm font-semibold text-gray-700">{r.score}%</span>
+              <span className="w-10 text-right text-sm font-semibold text-gray-200">{r.score}%</span>
             </div>
           </div>
         ))}

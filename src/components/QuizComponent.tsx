@@ -84,7 +84,7 @@ export function QuizComponent() {
     return (
       <div className="mx-auto max-w-2xl">
         <div className="mb-4 rounded-xl border border-blue-500/25 bg-blue-500/10 px-4 py-3 text-sm text-blue-300">
-          <strong>Step 1 of 2:</strong> Select your constituency to see matching candidates after the quiz.
+          <strong>Optional first step:</strong> Select your constituency to see matching candidates after the quiz.
           <span className="ml-1 text-blue-400">You can skip this.</span>
         </div>
 
