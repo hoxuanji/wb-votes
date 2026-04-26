@@ -66,15 +66,19 @@ export function VoteCountdown() {
           </div>
 
           {/* Right: countdown blocks */}
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-1">
             {[
               { value: d,    label: 'Days'    },
               { value: h,    label: 'Hours'   },
               { value: m,    label: 'Minutes' },
               { value: s,    label: 'Seconds' },
             ].map(({ value, label }, i) => (
-              <div key={label} className="flex items-end gap-2">
-                {i > 0 && <span className="mb-3 text-xl font-bold text-violet-400">:</span>}
+              <div key={label} className="flex items-end gap-1">
+                {i > 0 && (
+                  <div className="mb-5 flex h-14 w-5 shrink-0 items-center justify-center">
+                    <span className="text-xl font-bold text-violet-400">:</span>
+                  </div>
+                )}
                 <div className="flex flex-col items-center">
                   <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-white/10 border border-white/15">
                     <span className="font-mono text-2xl font-extrabold text-violet-100">{pad(value)}</span>
