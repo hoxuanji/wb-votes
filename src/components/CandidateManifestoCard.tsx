@@ -14,13 +14,13 @@ interface CandidateManifestoCardProps {
 }
 
 function ScoreColor(score: number): string {
-  if (score >= 75) return 'text-green-600';
+  if (score >= 75) return 'text-emerald-600';
   if (score >= 50) return 'text-amber-600';
   return 'text-red-600';
 }
 
 function ScoreBg(score: number): string {
-  if (score >= 75) return 'bg-green-50 border-green-200';
+  if (score >= 75) return 'bg-emerald-50 border-emerald-200';
   if (score >= 50) return 'bg-amber-50 border-amber-200';
   return 'bg-red-50 border-red-200';
 }
@@ -114,7 +114,7 @@ export function CandidateManifestoCard({ candidate, party, breakdown, rank }: Ca
             </p>
           ))}
           {breakdown.bonusReasons.map((r, i) => (
-            <p key={i} className="flex items-start gap-1.5 text-green-700">
+            <p key={i} className="flex items-start gap-1.5 text-emerald-700">
               <span className="mt-px shrink-0">▲</span>
               <span>{r}</span>
             </p>
