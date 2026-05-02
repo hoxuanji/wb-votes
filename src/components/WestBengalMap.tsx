@@ -9,20 +9,34 @@ import { wbAcPaths, AC_MAP_WIDTH, AC_MAP_HEIGHT } from '@/data/wb-ac-paths';
 import { constituencies } from '@/data/constituencies';
 import { candidates as allCandidates } from '@/data/candidates';
 import { parties } from '@/data/parties';
+import { historicalResults } from '@/data/historical-results';
+import { demographics } from '@/data/demographics';
 import type { Constituency, Candidate, Party } from '@/types';
+import type { StateLiveSummary } from '@/lib/live-store';
 import { formatCurrency } from '@/lib/utils';
+import { getClientElectionPhase } from '@/lib/election-phase';
 
 // ── Types ────────────────────────────────────────────────────
-type MapMode = 'phase' | 'criminal' | 'women' | 'competition' | 'wealth' | 'age';
+type MapMode = 'phase' | 'criminal' | 'women' | 'competition' | 'wealth' | 'age' | 'incumbent2021' | 'turnout2021' | 'literacy' | 'swing' | 'liveLeader';
 
-const MAP_MODES: { id: MapMode; label: string }[] = [
-  { id: 'women',       label: 'Women Candidates' },
-  { id: 'phase',       label: 'Phase'            },
-  { id: 'criminal',    label: 'Criminal'         },
-  { id: 'competition', label: 'Competition'      },
-  { id: 'wealth',      label: 'Wealth'           },
-  { id: 'age',         label: 'Avg Age'          },
+const BASE_MAP_MODES: { id: MapMode; label: string }[] = [
+  { id: 'women',         label: 'Women Candidates' },
+  { id: 'phase',         label: 'Phase'            },
+  { id: 'criminal',      label: 'Criminal'         },
+  { id: 'competition',   label: 'Competition'      },
+  { id: 'wealth',        label: 'Wealth'           },
+  { id: 'age',           label: 'Avg Age'          },
+  { id: 'incumbent2021', label: '2021 Winner'      },
+  { id: 'turnout2021',   label: '2021 Turnout'     },
+  { id: 'literacy',      label: 'Literacy'         },
+  { id: 'swing',         label: 'Swing History'    },
 ];
+
+// liveLeader mode only makes sense during live/post — surfaced conditionally.
+function getMapModes(phase: ReturnType<typeof getClientElectionPhase>): { id: MapMode; label: string }[] {
+  if (phase === 'pre') return BASE_MAP_MODES;
+  return [{ id: 'liveLeader' as MapMode, label: 'Live Leader' }, ...BASE_MAP_MODES];
+}
 
 // ── Static data ──────────────────────────────────────────────
 const PHASE1_IDS = new Set([
@@ -78,6 +92,26 @@ constituencies.forEach(c => {
 
 const pathIdSet = new Set(wbAcPaths.map(p => p.id));
 const MISSING_PATH_IDS = new Set(constituencies.filter(c => !pathIdSet.has(c.id)).map(c => c.id));
+
+// Historical-results lookups: winner-party per year per AC
+const winner2021ById: Record<string, { partyId: string; partyAbbr: string; turnoutPct: number; name: string }> = {};
+const winnersByYearByAc: Record<string, Record<number, string>> = {};
+for (const r of historicalResults) {
+  if (r.year === 2021) {
+    winner2021ById[r.constituencyId] = {
+      partyId:   r.winner.partyId,
+      partyAbbr: r.winner.partyAbbr,
+      turnoutPct: r.turnoutPct,
+      name:      r.winner.name,
+    };
+  }
+  if (!winnersByYearByAc[r.constituencyId]) winnersByYearByAc[r.constituencyId] = {};
+  winnersByYearByAc[r.constituencyId][r.year] = r.winner.partyId;
+}
+
+// Demographics lookup: literacy per AC (via district)
+const demographicsById: Record<string, (typeof demographics)[number]> = {};
+for (const d of demographics) demographicsById[d.constituencyId] = d;
 
 // ── Phase colors ─────────────────────────────────────────────
 const PHASE1_FILL  = '#3b82f6';
@@ -307,7 +341,7 @@ function ConstituencyPanel({ constituencyId, onClose }: { constituencyId: string
 }
 
 // ── Insights Panel ────────────────────────────────────────────
-function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; selectedDistrict: string | null }) {
+function InsightsPanel({ mapMode, selectedDistrict, liveSummary, liveStatus }: { mapMode: MapMode; selectedDistrict: string | null; liveSummary?: StateLiveSummary | null; liveStatus?: 'idle' | 'loading' | 'ok' | 'no-data' | 'error' }) {
   const allConsts = selectedDistrict ? (constituenciesByDistrict[selectedDistrict] ?? []) : constituencies;
 
   const sorted = useMemo(() => {
@@ -328,6 +362,78 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
         return allConsts;
     }
   }, [mapMode, allConsts]);
+
+  if (mapMode === 'liveLeader') {
+    const parties2026 = liveSummary
+      ? Object.entries(liveSummary.leadingByParty).sort((a, b) => b[1] - a[1])
+      : [];
+    const tightest = liveSummary?.tightestMargins?.slice(0, 5) ?? [];
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">Live leader by AC</h3>
+          <p className="text-xs text-gray-400 mt-0.5">
+            {liveStatus === 'ok' && liveSummary
+              ? `${liveSummary.declared}/${liveSummary.totalACs} declared · polls every 30s`
+              : liveStatus === 'loading' ? 'Fetching live data…'
+              : liveStatus === 'no-data' ? 'Counting hasn\'t started yet'
+              : liveStatus === 'error' ? 'Connection issue — retrying'
+              : 'Waiting for live data'}
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          {parties2026.length > 0 && (
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Party lead summary</p>
+              <div className="space-y-1.5">
+                {parties2026.map(([partyId, count]) => {
+                  const party = partyById[partyId];
+                  const totalACs = liveSummary?.totalACs ?? 294;
+                  const pct = Math.round((count / totalACs) * 100);
+                  return (
+                    <div key={partyId} className="flex items-center gap-2">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: party?.color ?? '#64748b' }} />
+                      <span className="w-12 shrink-0 truncate text-xs text-gray-300">{party?.abbreviation ?? partyId}</span>
+                      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                        <div className="h-full rounded-full transition-all duration-300" style={{ width: `${pct}%`, backgroundColor: party?.color ?? '#64748b' }} />
+                      </div>
+                      <span className="w-8 shrink-0 text-right text-[10px] font-bold text-gray-400">{count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {tightest.length > 0 && (
+            <div>
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Tightest contests</p>
+              <div className="space-y-1.5">
+                {tightest.map(m => {
+                  const c = constituencyById[m.acId];
+                  const party = m.leaderPartyId ? partyById[m.leaderPartyId] : null;
+                  return (
+                    <Link key={m.acId} href={`/constituency/${m.acId}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
+                      <span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: party?.color ?? '#64748b' }} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-semibold text-gray-200 truncate">{c?.name ?? m.acId}</p>
+                        <p className="text-[10px] text-gray-400">{c?.district ?? ''} · {party?.abbreviation ?? '—'} leading</p>
+                      </div>
+                      <p className="shrink-0 text-[10px] font-bold text-amber-300">{m.marginVotes.toLocaleString()} votes</p>
+                    </Link>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+          {liveStatus === 'no-data' && (
+            <div className="rounded-xl border border-dashed border-white/10 p-4 text-center">
+              <p className="text-xs text-gray-400">No live data yet. The dashboard goes live once the ECI scraper starts publishing results.</p>
+            </div>
+          )}
+        </div>
+      </div>
+    );
+  }
 
   if (mapMode === 'phase') {
     const p1count = allConsts.filter(c => PHASE1_IDS.has(c.id)).length;
@@ -592,6 +698,212 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
     );
   }
 
+  // ── 2021 Winner (incumbent party) ────────────────────────────
+  if (mapMode === 'incumbent2021') {
+    const seatsByParty = new Map<string, number>();
+    const missing: string[] = [];
+    for (const c of allConsts) {
+      const w = winner2021ById[c.id];
+      if (!w) { missing.push(c.id); continue; }
+      seatsByParty.set(w.partyId, (seatsByParty.get(w.partyId) ?? 0) + 1);
+    }
+    const ranked = Array.from(seatsByParty.entries()).sort((a, b) => b[1] - a[1]);
+    const total = allConsts.length - missing.length;
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">2021 Winners</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Party that won each seat in the 2021 Assembly</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="rounded-xl bg-white/5 p-3 text-center">
+            <div className="text-2xl font-extrabold text-white">{total}</div>
+            <div className="text-[11px] text-gray-500">{selectedDistrict ?? 'Seats in West Bengal'}</div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Seats by party</p>
+            <div className="space-y-1.5">
+              {ranked.map(([pid, n]) => {
+                const p = partyById[pid];
+                const pct = total > 0 ? (n / total) * 100 : 0;
+                return (
+                  <div key={pid} className="flex items-center gap-2">
+                    <span className="w-14 shrink-0 truncate text-xs font-semibold text-gray-300">{p?.abbreviation ?? pid}</span>
+                    <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-white/10">
+                      <div className="h-full rounded-full transition-all" style={{ width: `${pct}%`, backgroundColor: p?.color ?? '#64748b' }} />
+                    </div>
+                    <span className="w-10 shrink-0 text-right text-[10px] font-bold text-white">{n}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+          {missing.length > 0 && (
+            <p className="text-[11px] text-gray-500">{missing.length} seat(s) missing 2021 data</p>
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  // ── 2021 Turnout ─────────────────────────────────────────────
+  if (mapMode === 'turnout2021') {
+    const withTurnout = allConsts
+      .map(c => ({ c, t: winner2021ById[c.id]?.turnoutPct ?? 0 }))
+      .filter(x => x.t > 0);
+    const avg = withTurnout.length ? withTurnout.reduce((s, x) => s + x.t, 0) / withTurnout.length : 0;
+    const top5 = [...withTurnout].sort((a, b) => b.t - a.t).slice(0, 5);
+    const bottom5 = [...withTurnout].sort((a, b) => a.t - b.t).slice(0, 5);
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">2021 Voter Turnout</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Share of electors who voted in 2021</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="rounded-xl bg-blue-500/10 border border-blue-500/25 p-3 text-center">
+            <div className="text-lg font-bold text-blue-300">{avg.toFixed(1)}%</div>
+            <div className="text-[11px] text-blue-400">{selectedDistrict ?? 'State'} avg turnout</div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Highest turnout</p>
+            <div className="space-y-1.5">
+              {top5.map(({ c, t }) => (
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
+                    <p className="text-[10px] text-gray-400">{c.district}</p>
+                  </div>
+                  <p className="shrink-0 text-[10px] font-bold text-blue-300">{t.toFixed(1)}%</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Lowest turnout</p>
+            <div className="space-y-1.5">
+              {bottom5.map(({ c, t }) => (
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
+                  <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p></div>
+                  <p className="shrink-0 text-[10px] font-bold text-amber-400">{t.toFixed(1)}%</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Literacy ─────────────────────────────────────────────────
+  if (mapMode === 'literacy') {
+    const withLit = allConsts
+      .map(c => ({ c, lit: demographicsById[c.id]?.literacyRate }))
+      .filter((x): x is { c: Constituency; lit: number } => typeof x.lit === 'number');
+    const avg = withLit.length ? withLit.reduce((s, x) => s + x.lit, 0) / withLit.length : 0;
+    const top5 = [...withLit].sort((a, b) => b.lit - a.lit).slice(0, 5);
+    const bottom5 = [...withLit].sort((a, b) => a.lit - b.lit).slice(0, 5);
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">Literacy Rate</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Census 2011 district-level literacy</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/25 p-3 text-center">
+            <div className="text-lg font-bold text-emerald-300">{avg.toFixed(1)}%</div>
+            <div className="text-[11px] text-emerald-400">{selectedDistrict ?? 'State'} avg literacy</div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Most literate districts</p>
+            <div className="space-y-1.5">
+              {top5.map(({ c, lit }) => (
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
+                    <p className="text-[10px] text-gray-400">{c.district}</p>
+                  </div>
+                  <p className="shrink-0 text-[10px] font-bold text-emerald-300">{lit.toFixed(1)}%</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Lowest literacy</p>
+            <div className="space-y-1.5">
+              {bottom5.map(({ c, lit }) => (
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
+                  <div className="flex-1 min-w-0"><p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p></div>
+                  <p className="shrink-0 text-[10px] font-bold text-amber-400">{lit.toFixed(1)}%</p>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-500">Figures are district-level; AC-level pending ECI voter-roll ingestion.</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── Swing history ────────────────────────────────────────────
+  if (mapMode === 'swing') {
+    const counts = { 1: 0, 2: 0, 3: 0 } as Record<number, number>;
+    const withSwing: { c: Constituency; distinct: number; years: number }[] = [];
+    for (const c of allConsts) {
+      const by = winnersByYearByAc[c.id] ?? {};
+      const years = Object.keys(by).length;
+      if (years === 0) continue;
+      const distinct = new Set(Object.values(by)).size;
+      counts[distinct] = (counts[distinct] ?? 0) + 1;
+      withSwing.push({ c, distinct, years });
+    }
+    const mostSwing = withSwing.filter(x => x.distinct >= 2).sort((a, b) => b.distinct - a.distinct).slice(0, 8);
+    return (
+      <div className="flex h-full flex-col">
+        <div className="border-b border-white/10 px-4 py-3">
+          <h3 className="text-sm font-bold text-gray-200">Swing History</h3>
+          <p className="text-xs text-gray-400 mt-0.5">Distinct winning parties across tracked elections</p>
+        </div>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+          <div className="grid grid-cols-3 gap-2">
+            <div className="rounded-xl bg-slate-700/30 border border-slate-500/25 p-3 text-center">
+              <div className="text-xl font-bold text-slate-200">{counts[1] ?? 0}</div>
+              <div className="text-[10px] text-slate-400">Safe (1 party)</div>
+            </div>
+            <div className="rounded-xl bg-amber-500/10 border border-amber-500/25 p-3 text-center">
+              <div className="text-xl font-bold text-amber-300">{counts[2] ?? 0}</div>
+              <div className="text-[10px] text-amber-400">Shifted (2)</div>
+            </div>
+            <div className="rounded-xl bg-red-500/10 border border-red-500/25 p-3 text-center">
+              <div className="text-xl font-bold text-red-300">{counts[3] ?? 0}</div>
+              <div className="text-[10px] text-red-400">Swing (3)</div>
+            </div>
+          </div>
+          <div>
+            <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-gray-400">Most volatile seats</p>
+            <div className="space-y-1.5">
+              {mostSwing.length === 0 && (
+                <p className="text-[11px] text-gray-500">Need 2011 / 2016 backfill to surface real swings.</p>
+              )}
+              {mostSwing.map(({ c, distinct, years }) => (
+                <Link key={c.id} href={`/constituency/${c.id}`} className="flex items-center gap-2 rounded-lg p-2 hover:bg-white/5 transition-colors">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-gray-200 truncate">{c.name}</p>
+                    <p className="text-[10px] text-gray-400">{c.district}</p>
+                  </div>
+                  <span className="shrink-0 rounded-full bg-red-500/15 px-2 py-0.5 text-[10px] font-bold text-red-300">
+                    {distinct} parties / {years} yrs
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </div>
+          <p className="text-[10px] text-gray-500">Only 2021 is fully seeded today — run the historical backfill for 2011 / 2016 to make this meaningful.</p>
+        </div>
+      </div>
+    );
+  }
+
   // competition (default fallthrough)
   return (
     <div className="flex h-full flex-col">
@@ -651,12 +963,47 @@ function InsightsPanel({ mapMode, selectedDistrict }: { mapMode: MapMode; select
 }
 
 // ── Main Map Component ───────────────────────────────────────
-export function WestBengalMap() {
+export function WestBengalMap({ defaultMode }: { defaultMode?: string } = {}) {
   const [hoveredId, setHoveredId]           = useState<string | null>(null);
   const [panel, setPanel]                   = useState<string | null>(null);
   const [selectedDistrict, setSelectedDistrict] = useState<string | null>(null);
-  const [mapMode, setMapMode] = useState<MapMode>('women');
+  const phase = getClientElectionPhase();
+  const MAP_MODES = useMemo(() => getMapModes(phase), [phase]);
+  const initialMode: MapMode = useMemo(() => {
+    const allowed = new Set(MAP_MODES.map(m => m.id));
+    if (defaultMode && allowed.has(defaultMode as MapMode)) return defaultMode as MapMode;
+    return 'women';
+  }, [defaultMode, MAP_MODES]);
+  const [mapMode, setMapMode] = useState<MapMode>(initialMode);
   const mapRowRef = useRef<HTMLDivElement>(null);
+
+  // Live summary — only populated when the user is on the liveLeader mode, and
+  // polled on its own cadence (30s) so it doesn't thrash other map modes.
+  const [liveSummary, setLiveSummary] = useState<StateLiveSummary | null>(null);
+  const [liveStatus, setLiveStatus]   = useState<'idle' | 'loading' | 'ok' | 'no-data' | 'error'>('idle');
+  useEffect(() => {
+    if (mapMode !== 'liveLeader') return;
+    let cancelled = false;
+    setLiveStatus(prev => (prev === 'ok' ? 'ok' : 'loading'));
+    async function tick() {
+      try {
+        const res = await fetch('/api/live/state', { cache: 'no-store' });
+        const body = await res.json();
+        if (cancelled) return;
+        if (body.status === 'ok' && body.summary) {
+          setLiveSummary(body.summary as StateLiveSummary);
+          setLiveStatus('ok');
+        } else {
+          setLiveStatus('no-data');
+        }
+      } catch {
+        if (!cancelled) setLiveStatus('error');
+      }
+    }
+    tick();
+    const id = setInterval(tick, 30000);
+    return () => { cancelled = true; clearInterval(id); };
+  }, [mapMode]);
 
   const districtConstIds = useMemo(() => {
     if (!selectedDistrict) return null;
@@ -686,7 +1033,55 @@ export function WestBengalMap() {
     const minAge = allStats.length ? Math.min(...allStats.filter(s => s.avgAge > 0).map(s => s.avgAge)) : 30;
     const maxAge = allStats.length ? Math.max(...allStats.filter(s => s.avgAge > 0).map(s => s.avgAge)) : 70;
 
+    // Global literacy range for gradient scaling
+    const allLits = demographics.map(d => d.literacyRate).filter((v): v is number => typeof v === 'number');
+    const minLit = allLits.length ? Math.min(...allLits) : 55;
+    const maxLit = allLits.length ? Math.max(...allLits) : 90;
+
     for (const ac of wbAcPaths) {
+      // Live leader: discrete party color if AC has a leader, grey otherwise.
+      if (mapMode === 'liveLeader') {
+        const partyId = liveSummary?.leaderByAc?.[ac.id] ?? null;
+        fills[ac.id] = partyId ? (partyById[partyId]?.color ?? '#64748b') : '#1f2937';
+        continue;
+      }
+
+      // Incumbent 2021: discrete party color
+      if (mapMode === 'incumbent2021') {
+        const w = winner2021ById[ac.id];
+        fills[ac.id] = w ? (partyById[w.partyId]?.color ?? '#64748b') : '#1f2937';
+        continue;
+      }
+
+      // Turnout 2021: gradient grey → blue
+      if (mapMode === 'turnout2021') {
+        const w = winner2021ById[ac.id];
+        if (!w) { fills[ac.id] = '#1f2937'; continue; }
+        const t = Math.max(0, Math.min(1, (w.turnoutPct - 60) / 35));
+        fills[ac.id] = lerpColor([224, 231, 255], [30, 64, 175], t);
+        continue;
+      }
+
+      // Literacy: gradient amber → emerald (lower → higher)
+      if (mapMode === 'literacy') {
+        const d = demographicsById[ac.id];
+        if (!d || typeof d.literacyRate !== 'number') { fills[ac.id] = '#1f2937'; continue; }
+        const t = maxLit > minLit ? (d.literacyRate - minLit) / (maxLit - minLit) : 0;
+        fills[ac.id] = lerpColor([254, 215, 170], [5, 150, 105], Math.max(0, Math.min(1, t)));
+        continue;
+      }
+
+      // Swing: how many distinct winning parties across tracked years
+      if (mapMode === 'swing') {
+        const byYear = winnersByYearByAc[ac.id] ?? {};
+        const distinct = new Set(Object.values(byYear)).size;
+        if (distinct === 0) { fills[ac.id] = '#1f2937'; continue; }
+        // 1 distinct = safe seat (dark), 2 = some swing, 3 = highly swing
+        const t = Math.min(1, (distinct - 1) / 2);
+        fills[ac.id] = lerpColor([30, 41, 59], [239, 68, 68], t);
+        continue;
+      }
+
       const stat = constStats[ac.id];
       if (!stat || stat.candCount === 0) { fills[ac.id] = '#e5e7eb'; continue; }
       let t: number;
@@ -710,7 +1105,7 @@ export function WestBengalMap() {
       fills[ac.id] = lerpColor(c1, c2, t);
     }
     return fills;
-  }, [mapMode]);
+  }, [mapMode, liveSummary]);
 
   const handleMouseEnter = useCallback((id: string) => setHoveredId(id), []);
   const handleMouseLeave = useCallback(() => setHoveredId(null), []);
@@ -746,12 +1141,17 @@ export function WestBengalMap() {
   // Legend config per mode
   const legendConfig = useMemo(() => {
     switch (mapMode) {
-      case 'criminal':    return { type: 'gradient' as const, from: '#bbf7d0', to: '#ef4444', leftLabel: '0%',   rightLabel: '100%', title: 'Criminal rate'   };
-      case 'women':       return { type: 'gradient' as const, from: '#e5e7eb', to: '#c026d3', leftLabel: 'None', rightLabel: 'High',  title: 'Women share'    };
-      case 'competition': return { type: 'gradient' as const, from: '#bfdbfe', to: '#1d4ed8', leftLabel: 'Few',  rightLabel: 'Many',  title: 'Candidates'     };
-      case 'wealth':      return { type: 'gradient' as const, from: '#dcfce7', to: '#15803d', leftLabel: 'Low',  rightLabel: 'High',  title: 'Avg assets'     };
-      case 'age':         return { type: 'gradient' as const, from: '#fef3c7', to: '#b45309', leftLabel: 'Young',rightLabel: 'Senior',title: 'Avg candidate age' };
-      default:            return { type: 'phase' as const };
+      case 'criminal':      return { type: 'gradient' as const, from: '#bbf7d0', to: '#ef4444', leftLabel: '0%',   rightLabel: '100%', title: 'Criminal rate'   };
+      case 'women':         return { type: 'gradient' as const, from: '#e5e7eb', to: '#c026d3', leftLabel: 'None', rightLabel: 'High',  title: 'Women share'    };
+      case 'competition':   return { type: 'gradient' as const, from: '#bfdbfe', to: '#1d4ed8', leftLabel: 'Few',  rightLabel: 'Many',  title: 'Candidates'     };
+      case 'wealth':        return { type: 'gradient' as const, from: '#dcfce7', to: '#15803d', leftLabel: 'Low',  rightLabel: 'High',  title: 'Avg assets'     };
+      case 'age':           return { type: 'gradient' as const, from: '#fef3c7', to: '#b45309', leftLabel: 'Young',rightLabel: 'Senior',title: 'Avg candidate age' };
+      case 'turnout2021':   return { type: 'gradient' as const, from: '#e0e7ff', to: '#1e40af', leftLabel: '60%',  rightLabel: '95%',   title: '2021 turnout'   };
+      case 'literacy':      return { type: 'gradient' as const, from: '#fed7aa', to: '#059669', leftLabel: 'Low',  rightLabel: 'High',  title: 'Literacy rate'  };
+      case 'swing':         return { type: 'gradient' as const, from: '#1e293b', to: '#ef4444', leftLabel: 'Safe', rightLabel: 'Swing', title: 'Party flip rate'};
+      case 'incumbent2021': return { type: 'parties' as const, title: '2021 winners' };
+      case 'liveLeader':    return { type: 'parties' as const, title: 'Live leader by AC' };
+      default:              return { type: 'phase' as const };
     }
   }, [mapMode]);
 
@@ -846,6 +1246,28 @@ export function WestBengalMap() {
                     <span className="text-[9px] font-medium text-gray-300">Phase 2 · 29 Apr</span>
                   </div>
                 </div>
+              ) : legendConfig.type === 'parties' ? (
+                <div>
+                  <p className="mb-1 text-[9px] font-semibold text-gray-500">{legendConfig.title}</p>
+                  <div className="flex flex-wrap gap-x-2 gap-y-1 max-w-[200px]">
+                    {[
+                      { id: 'AITC',   abbr: 'TMC'  },
+                      { id: 'BJP',    abbr: 'BJP'  },
+                      { id: 'INC',    abbr: 'INC'  },
+                      { id: 'CPI(M)', abbr: 'CPM'  },
+                      { id: 'ALL INDIA SECULAR FRONT', abbr: 'AISF' },
+                      { id: 'IND',    abbr: 'IND'  },
+                    ].map((p) => (
+                      <div key={p.id} className="flex items-center gap-1">
+                        <span
+                          className="h-2 w-2 rounded-full"
+                          style={{ backgroundColor: partyById[p.id]?.color ?? '#64748b' }}
+                        />
+                        <span className="text-[8px] font-medium text-gray-400">{p.abbr}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
               ) : (
                 <div>
                   <p className="mb-1 text-[9px] font-semibold text-gray-500">{legendConfig.title}</p>
@@ -884,7 +1306,7 @@ export function WestBengalMap() {
           {panel !== null ? (
             <ConstituencyPanel constituencyId={panel} onClose={() => setPanel(null)} />
           ) : (
-            <InsightsPanel mapMode={mapMode} selectedDistrict={selectedDistrict} />
+            <InsightsPanel mapMode={mapMode} selectedDistrict={selectedDistrict} liveSummary={liveSummary} liveStatus={liveStatus} />
           )}
         </div>
       </div>

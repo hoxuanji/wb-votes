@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { getConstituencyById } from '@/data/constituencies';
 
 export const runtime = 'nodejs';
 
@@ -14,7 +15,6 @@ function parseXml(xml: string) {
         .trim() ?? '';
 
     const title = raw('title');
-    // Google News RSS wraps actual link in <link> as CDATA or after </title>
     const linkMatch = block.match(/<link>(https?[^<]+)<\/link>/)
       || block.match(/href="(https?[^"]+)"/);
     const link = linkMatch?.[1]?.trim() ?? '';
@@ -26,21 +26,50 @@ function parseXml(xml: string) {
   return items;
 }
 
+function buildQuery(params: {
+  acId?: string | null;
+  q?: string | null;
+  lang: 'en' | 'bn';
+}): { query: string; limit: number } {
+  if (params.acId) {
+    const c = getConstituencyById(params.acId);
+    if (c) {
+      const name = params.lang === 'bn' ? c.nameBn : c.name;
+      const district = params.lang === 'bn' ? c.districtBn : c.district;
+      return {
+        query: `"${name}" ${district} West Bengal`,
+        limit: 10,
+      };
+    }
+  }
+  return {
+    query: params.q || 'West Bengal election 2026',
+    limit: 6,
+  };
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const q = searchParams.get('q') ?? 'West Bengal election 2026';
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=en-IN&gl=IN&ceid=IN:en`;
+  const acId = searchParams.get('acId');
+  const q    = searchParams.get('q');
+  const lang = (searchParams.get('lang') === 'bn' ? 'bn' : 'en') as 'en' | 'bn';
+
+  const { query, limit } = buildQuery({ acId, q, lang });
+
+  const hl   = lang === 'bn' ? 'bn'  : 'en-IN';
+  const ceid = lang === 'bn' ? 'IN:bn' : 'IN:en';
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=${hl}&gl=IN&ceid=${ceid}`;
 
   try {
     const res = await fetch(url, {
-      next: { revalidate: 900 },
+      next: { revalidate: 1800 },
       headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WBVotes/1.0)' },
     });
-    if (!res.ok) return NextResponse.json({ articles: [] });
+    if (!res.ok) return NextResponse.json({ articles: [], query });
     const xml = await res.text();
-    const articles = parseXml(xml).slice(0, 6);
-    return NextResponse.json({ articles });
+    const articles = parseXml(xml).slice(0, limit);
+    return NextResponse.json({ articles, query });
   } catch {
-    return NextResponse.json({ articles: [] });
+    return NextResponse.json({ articles: [], query });
   }
 }

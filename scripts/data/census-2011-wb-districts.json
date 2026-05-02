@@ -1,0 +1,31 @@
+{
+  "_meta": {
+    "source": "Census of India 2011 — District Primary Census Abstract for West Bengal",
+    "sourceUrl": "https://censusindia.gov.in/2011census/dchb/DCHB.html",
+    "note": "Post-2011 district splits (Alipurduar 2014, Kalimpong/Jhargram/Paschim Bardhaman/Purba Bardhaman 2017) use the parent district's 2011 values as a proxy. Values marked _proxy=true should be refined once district-specific 2021 Census data is published.",
+    "lastUpdated": "2026-04-29"
+  },
+  "Alipurduar":         { "population": 1501983, "literacyRate": 73.79, "sexRatio": 961, "scPct": 32.06, "stPct": 27.16, "urbanPct": 14.89, "_proxy": true, "_parent": "Jalpaiguri (pre-2014)" },
+  "Bankura":            { "population": 3596674, "literacyRate": 70.26, "sexRatio": 954, "scPct": 32.67, "stPct": 10.73, "urbanPct": 8.27 },
+  "Birbhum":            { "population": 3502404, "literacyRate": 70.68, "sexRatio": 956, "scPct": 29.51, "stPct":  6.59, "urbanPct": 12.73 },
+  "Cooch Behar":        { "population": 2819086, "literacyRate": 74.78, "sexRatio": 942, "scPct": 50.11, "stPct":  0.62, "urbanPct": 10.20 },
+  "Dakshin Dinajpur":   { "population": 1676276, "literacyRate": 72.82, "sexRatio": 956, "scPct": 28.43, "stPct": 16.18, "urbanPct": 13.78 },
+  "Darjeeling":         { "population": 1595181, "literacyRate": 79.56, "sexRatio": 970, "scPct": 17.33, "stPct":  7.99, "urbanPct": 39.12 },
+  "Hooghly":            { "population": 5519145, "literacyRate": 81.80, "sexRatio": 961, "scPct": 24.52, "stPct":  4.54, "urbanPct": 38.59 },
+  "Howrah":             { "population": 4850029, "literacyRate": 82.67, "sexRatio": 938, "scPct": 15.42, "stPct":  0.27, "urbanPct": 63.39 },
+  "Jalpaiguri":         { "population": 2370821, "literacyRate": 73.25, "sexRatio": 953, "scPct": 36.70, "stPct": 19.32, "urbanPct": 17.97 },
+  "Jhargram":           { "population": 1136548, "literacyRate": 78.00, "sexRatio": 966, "scPct": 18.26, "stPct": 14.87, "urbanPct": 12.18, "_proxy": true, "_parent": "Paschim Medinipur (pre-2017)" },
+  "Kalimpong":          { "population":  251642, "literacyRate": 79.56, "sexRatio": 970, "scPct": 17.33, "stPct":  7.99, "urbanPct": 39.12, "_proxy": true, "_parent": "Darjeeling (pre-2017)" },
+  "Kolkata":            { "population": 4496694, "literacyRate": 87.14, "sexRatio": 899, "scPct":  5.50, "stPct":  0.24, "urbanPct": 100.00 },
+  "Malda":              { "population": 3988845, "literacyRate": 61.73, "sexRatio": 944, "scPct":  7.94, "stPct":  7.98, "urbanPct": 13.58 },
+  "Murshidabad":        { "population": 7103807, "literacyRate": 66.59, "sexRatio": 958, "scPct": 12.60, "stPct":  1.28, "urbanPct": 19.79 },
+  "Nadia":              { "population": 5167600, "literacyRate": 74.97, "sexRatio": 947, "scPct": 29.32, "stPct":  2.69, "urbanPct": 29.24 },
+  "North 24 Parganas":  { "population": 10009781, "literacyRate": 84.06, "sexRatio": 949, "scPct": 21.59, "stPct":  2.64, "urbanPct": 57.22 },
+  "Paschim Bardhaman":  { "population": 2882031, "literacyRate": 76.21, "sexRatio": 945, "scPct": 27.43, "stPct":  6.29, "urbanPct": 39.91, "_proxy": true, "_parent": "Bardhaman (pre-2017)" },
+  "Paschim Medinipur":  { "population": 4776909, "literacyRate": 78.00, "sexRatio": 966, "scPct": 18.26, "stPct": 14.87, "urbanPct": 12.18 },
+  "Purba Bardhaman":    { "population": 4835532, "literacyRate": 76.21, "sexRatio": 945, "scPct": 27.43, "stPct":  6.29, "urbanPct": 39.91, "_proxy": true, "_parent": "Bardhaman (pre-2017)" },
+  "Purba Medinipur":    { "population": 5095875, "literacyRate": 87.02, "sexRatio": 936, "scPct": 15.36, "stPct":  0.61, "urbanPct": 11.39 },
+  "Purulia":            { "population": 2930115, "literacyRate": 64.48, "sexRatio": 957, "scPct": 19.22, "stPct": 19.38, "urbanPct": 12.81 },
+  "South 24 Parganas":  { "population": 8161961, "literacyRate": 77.51, "sexRatio": 956, "scPct": 33.90, "stPct":  1.15, "urbanPct": 25.62 },
+  "Uttar Dinajpur":     { "population": 3007134, "literacyRate": 59.07, "sexRatio": 939, "scPct": 27.65, "stPct":  5.58, "urbanPct": 12.08 }
+}

@@ -2,9 +2,10 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, ClipboardList, GitCompare } from 'lucide-react';
+import { Home, Users, ClipboardList, GitCompare, Compass } from 'lucide-react';
+import { getClientElectionPhase } from '@/lib/election-phase';
 
-const TABS = [
+const BASE_TABS = [
   { href: '/',           icon: Home,          label: 'Home'       },
   { href: '/candidates', icon: Users,         label: 'Candidates' },
   { href: '/quiz',       icon: ClipboardList, label: 'Quiz'       },
@@ -13,6 +14,15 @@ const TABS = [
 
 export function BottomNav() {
   const pathname = usePathname();
+  const phase = getClientElectionPhase();
+
+  const tabs = phase === 'pre'
+    ? BASE_TABS
+    : [
+        BASE_TABS[0],
+        { href: '/explore', icon: Compass, label: 'Explore' },
+        ...BASE_TABS.slice(1, 3), // drop "Compare" to keep 5 tabs visible
+      ];
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
@@ -26,7 +36,7 @@ export function BottomNav() {
       aria-label="Main navigation"
     >
       <div className="flex h-16 items-stretch">
-        {TABS.map(({ href, icon: Icon, label }) => {
+        {tabs.map(({ href, icon: Icon, label }) => {
           const active = isActive(href);
           return (
             <Link

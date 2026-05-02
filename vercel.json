@@ -21,6 +21,18 @@
       ]
     },
     {
+      "source": "/api/live/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },
+    {
+      "source": "/api/cron/(.*)",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0" }
+      ]
+    },
+    {
       "source": "/_next/static/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
@@ -35,5 +47,11 @@
   ],
   "env": {
     "NEXT_PUBLIC_SITE_URL": "https://wbvotes.in"
-  }
+  },
+  "crons": [
+    {
+      "path": "/api/cron/scrape-results",
+      "schedule": "*/3 * * * *"
+    }
+  ]
 }

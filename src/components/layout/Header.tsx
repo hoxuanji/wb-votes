@@ -4,9 +4,21 @@ import Link from 'next/link';
 import { Scale } from 'lucide-react';
 import { useLanguage } from '@/lib/language-context';
 import { GlobalSearch } from '@/components/GlobalSearch';
+import { getClientElectionPhase } from '@/lib/election-phase';
 
 export function Header() {
   const { lang, setLang, t } = useLanguage();
+  const phase = getClientElectionPhase();
+  const showExplore = phase !== 'pre';
+
+  const navLinks = [
+    { href: '/',           label: t('Home', 'হোম') },
+    ...(showExplore ? [{ href: '/explore', label: t('Explore', 'এক্সপ্লোর') }] : []),
+    { href: '/candidates', label: t('Candidates', 'প্রার্থী') },
+    { href: '/quiz',       label: t('Quiz', 'কুইজ') },
+    { href: '/compare',    label: t('Compare', 'তুলনা') },
+    { href: '/methodology',label: t('Methodology', 'পদ্ধতি') },
+  ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">
@@ -27,13 +39,7 @@ export function Header() {
 
         {/* Desktop nav */}
         <nav className="hidden items-center gap-1 md:flex" aria-label="Primary navigation">
-          {[
-            { href: '/',           label: t('Home', 'হোম') },
-            { href: '/candidates', label: t('Candidates', 'প্রার্থী') },
-            { href: '/quiz',       label: t('Quiz', 'কুইজ') },
-            { href: '/compare',    label: t('Compare', 'তুলনা') },
-            { href: '/methodology',label: t('Methodology', 'পদ্ধতি') },
-          ].map(({ href, label }) => (
+          {navLinks.map(({ href, label }) => (
             <Link
               key={href}
               href={href}

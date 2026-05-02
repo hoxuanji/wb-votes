@@ -126,3 +126,51 @@ export interface ConstituencyInsightStats {
   genderBreakdown: { Male: number; Female: number; Other: number };
   dataQualityScore: number;
 }
+
+export type ElectionYear = 2011 | 2016 | 2021 | 2026;
+
+export interface HistoricalContestant {
+  name: string;
+  partyId: string;
+  partyAbbr: string;
+  votes: number;
+  voteShare: number;
+}
+
+export interface HistoricalACResult {
+  constituencyId: string;
+  year: ElectionYear;
+  winner: HistoricalContestant;
+  runnerUp?: HistoricalContestant;
+  topContestants?: HistoricalContestant[];
+  turnoutPct: number;
+  marginVotes: number;
+  marginPct: number;
+  totalVotes: number;
+  totalElectors?: number;
+}
+
+export interface ACDemographics {
+  constituencyId: string;
+  population?: number;
+  literacyRate?: number;
+  sexRatio?: number;
+  scPct?: number;
+  stPct?: number;
+  urbanPct?: number;
+  sourceYear: number;
+  sourceNote?: string;
+}
+
+export interface MLARecord {
+  candidateId: string;
+  constituencyId: string;
+  term: '2021-2026' | '2026-2031';
+  attendancePct?: number;
+  questionsAsked?: number;
+  billsIntroduced?: number;
+  debatesParticipated?: number;
+  mpladsSpending?: number;
+  lastUpdated: string;
+  sourceUrl?: string;
+}
