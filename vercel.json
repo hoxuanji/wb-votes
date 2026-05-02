@@ -47,11 +47,5 @@
   ],
   "env": {
     "NEXT_PUBLIC_SITE_URL": "https://wbvotes.in"
-  },
-  "crons": [
-    {
-      "path": "/api/cron/scrape-results",
-      "schedule": "*/3 * * * *"
-    }
-  ]
+  }
 }

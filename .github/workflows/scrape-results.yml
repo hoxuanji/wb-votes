@@ -1,0 +1,47 @@
+name: Scrape ECI results
+
+# Triggers the /api/cron/scrape-results endpoint.
+#
+# Default: manual only (workflow_dispatch). Use the "Run workflow" button
+# in the Actions tab, or `gh workflow run scrape-results.yml`, to fire a
+# single scrape run — useful for smoke-testing the endpoint.
+#
+# COUNTING DAY: uncomment the `schedule:` block below and push. GitHub
+# Actions will then run the scraper every 5 minutes. Comment it back out
+# once counting is finished (or rely on the server-side phase gate, which
+# makes the scraper a no-op unless ELECTION_PHASE=live).
+#
+# Required repo secrets:
+#   CRON_SECRET   — must match the value set in Vercel env vars
+#   SCRAPER_URL   — full URL to the cron endpoint, e.g.
+#                   https://wbvotes.in/api/cron/scrape-results
+
+on:
+  workflow_dispatch:
+  # schedule:
+  #   - cron: '*/5 * * * *'
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Hit scrape endpoint
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+          SCRAPER_URL: ${{ secrets.SCRAPER_URL }}
+        run: |
+          if [ -z "$CRON_SECRET" ] || [ -z "$SCRAPER_URL" ]; then
+            echo "::error::CRON_SECRET and SCRAPER_URL repo secrets must be set"
+            exit 1
+          fi
+          http_code=$(curl -sS -o response.json -w '%{http_code}' \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            --max-time 90 \
+            "$SCRAPER_URL")
+          echo "HTTP $http_code"
+          cat response.json
+          echo
+          if [ "$http_code" -ge 400 ]; then
+            exit 1
+          fi
