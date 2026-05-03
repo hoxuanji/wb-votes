@@ -167,22 +167,29 @@ function extractCandidateRows(tableInner: string): ACLiveResult['candidates'] {
 async function fetchOneAc(
   acId: string,
   assemblyNumber: number,
-): Promise<{ data: ACLiveResult | null; sourceUrl: string | null; httpStatus: number | null }> {
+): Promise<{
+  data: ACLiveResult | null;
+  sourceUrl: string | null;
+  httpStatus: number | null;
+  attempts: { url: string; status: number }[];
+}> {
+  const attempts: { url: string; status: number }[] = [];
   for (const url of candidateUrls(assemblyNumber)) {
     const attempt = await fetchHtml(url);
+    attempts.push({ url, status: attempt.status });
     if (!attempt.html) continue;
     const data = parseEciAcPage(attempt.html);
     if (data) {
       // Stamp AC id into candidateIds so downstream components can dedupe.
       data.candidates = data.candidates.map((c) => ({ ...c, candidateId: `${acId}:${c.candidateId}` }));
       if (data.leaderId) data.leaderId = `${acId}:${data.leaderId}`;
-      return { data, sourceUrl: url, httpStatus: attempt.status };
+      return { data, sourceUrl: url, httpStatus: attempt.status, attempts };
     }
     // If HTML loaded but parsed to null (placeholder / no table), return the
     // status so the caller can distinguish "no data yet" from "fetch failed".
-    return { data: null, sourceUrl: url, httpStatus: attempt.status };
+    return { data: null, sourceUrl: url, httpStatus: attempt.status, attempts };
   }
-  return { data: null, sourceUrl: null, httpStatus: null };
+  return { data: null, sourceUrl: null, httpStatus: null, attempts };
 }
 
 async function runWithConcurrency<T, R>(
@@ -246,19 +253,21 @@ export async function GET(req: Request) {
   }
 
   // Optional ?dry=1 — fetches one AC and returns parsed output without writing.
-  // Useful for smoke-testing the parser on counting day.
+  // Useful for smoke-testing the parser on counting day. ?dry=N fetches AC index N (0-based).
   const url = new URL(req.url);
-  if (url.searchParams.get('dry') === '1') {
-    const target = constituencies[0];
-    const { data, sourceUrl, httpStatus } = await fetchOneAc(target.id, target.assemblyNumber);
-    return NextResponse.json({ status: 'dry', target: target.id, httpStatus, sourceUrl, data });
+  const dry = url.searchParams.get('dry');
+  if (dry !== null) {
+    const idx = Number.isFinite(parseInt(dry, 10)) ? parseInt(dry, 10) : 0;
+    const target = constituencies[Math.max(0, Math.min(idx, constituencies.length - 1))];
+    const { data, sourceUrl, httpStatus, attempts } = await fetchOneAc(target.id, target.assemblyNumber);
+    return NextResponse.json({ status: 'dry', target: target.id, assemblyNumber: target.assemblyNumber, httpStatus, sourceUrl, attempts, data });
   }
 
   const results: { acId: string; data: ACLiveResult }[] = [];
-  const failures: { acId: string; reason: string }[] = [];
+  const failures: { acId: string; reason: string; attempts: { url: string; status: number }[] }[] = [];
 
   await runWithConcurrency(constituencies, 8, async (c) => {
-    const { data, sourceUrl, httpStatus } = await fetchOneAc(c.id, c.assemblyNumber);
+    const { data, sourceUrl, httpStatus, attempts } = await fetchOneAc(c.id, c.assemblyNumber);
     if (data) {
       await writeACResult(c.id, data);
       results.push({ acId: c.id, data });
@@ -266,6 +275,7 @@ export async function GET(req: Request) {
       failures.push({
         acId: c.id,
         reason: httpStatus === null ? 'no-url-worked' : `http-${httpStatus}-or-placeholder (${sourceUrl ?? '-'})`,
+        attempts,
       });
     }
   });
@@ -277,12 +287,22 @@ export async function GET(req: Request) {
     summaryWritten = true;
   }
 
+  // Aggregate status histogram across all attempts — at a glance tells us
+  // whether ECI is 403-ing us, 404-ing us, or returning 200s we can't parse.
+  const statusHistogram: Record<string, number> = {};
+  for (const f of failures) {
+    for (const a of f.attempts) {
+      const key = a.status === 0 ? 'network-error' : String(a.status);
+      statusHistogram[key] = (statusHistogram[key] ?? 0) + 1;
+    }
+  }
+
   const prev = await readMeta();
   const allFailed = results.length === 0;
   await writeMeta({
     lastRun: new Date().toISOString(),
     lastStatus: allFailed ? 'error' : failures.length > 0 ? 'partial' : 'ok',
-    lastError: failures.length > 0 ? `${failures.length} AC(s) failed; sample: ${failures.slice(0, 3).map((f) => `${f.acId}=${f.reason}`).join(', ')}` : undefined,
+    lastError: failures.length > 0 ? `${failures.length} AC(s) failed; statuses: ${JSON.stringify(statusHistogram)}` : undefined,
     sourceUrl: ECI_BASE,
     acsParsed: results.length,
     ...(allFailed && prev ? { lastRun: prev.lastRun, acsParsed: prev.acsParsed } : {}),
@@ -293,6 +313,7 @@ export async function GET(req: Request) {
     parsed: results.length,
     errors: failures.length,
     summaryWritten,
-    sampleFailures: failures.slice(0, 5),
+    statusHistogram,
+    sampleFailures: failures.slice(0, 3),
   });
 }
