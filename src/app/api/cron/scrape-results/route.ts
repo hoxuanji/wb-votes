@@ -22,6 +22,10 @@ const STATEWISE_MAX_PAGES = 20; // hard cap; we stop early on first 404
 // ids from the party index, then fetch each party's lead page.
 const PARTY_INDEX_URL = `${ECI_BASE}/partywiseresult-S25.htm`;
 const PARTY_LEAD_URL = (partyNumericId: string) => `${ECI_BASE}/partywiseleadresult-${partyNumericId}S25.htm`;
+// Per-AC detail pages — have the FULL candidate list with real vote counts.
+// Pattern: candidateswise-S25{acNumber}.htm. Format is card-based, not a table.
+const CANDIDATESWISE_URL = (acNumber: number) => `${ECI_BASE}/candidateswise-S25${acNumber}.htm`;
+const CANDIDATESWISE_BATCH_SIZE = 30;
 const CRON_SECRET = process.env.CRON_SECRET;
 
 const BROWSER_HEADERS: Record<string, string> = {
@@ -175,20 +179,54 @@ function parseStatewisePage(html: string): StatewiseRow[] {
   return rows;
 }
 
-function buildACLiveResult(row: StatewiseRow, enrich?: PartywiseEnrichment): ACLiveResult | null {
+function buildACLiveResult(
+  row: StatewiseRow,
+  enrich: PartywiseEnrichment | undefined,
+  detail: CandidateswiseData | undefined,
+): ACLiveResult | null {
   const acId = lookupAcId(row.acName, row.acNumber);
   if (!acId) return null;
   // Skip rows with no data yet (no leading candidate means counting hasn't
   // reported anything for this AC). Leave any prior KV entry in place.
   if (!row.leadName && !row.trailName && row.marginVotes === 0) return null;
 
+  // Preferred path — candidateswise detail page has every candidate with real
+  // vote counts and a status flag. Use it when available.
+  if (detail && detail.candidates.length > 0) {
+    const candidates: ACLiveResult['candidates'] = detail.candidates
+      .map((c, i) => ({
+        candidateId: `${acId}:${c.name}:${resolvePartyId(c.partyName)}:${i}`,
+        name: c.name,
+        partyId: resolvePartyId(c.partyName),
+        votes: c.votes,
+        voteShare: 0,
+      }))
+      .sort((a, b) => b.votes - a.votes);
+    const totalCounted = candidates.reduce((s, c) => s + c.votes, 0);
+    if (totalCounted > 0) {
+      candidates.forEach((c) => { c.voteShare = (c.votes / totalCounted) * 100; });
+    }
+    const leader = candidates[0];
+    const runnerUp = candidates[1];
+    const computedMargin = leader && runnerUp ? leader.votes - runnerUp.votes : 0;
+    return {
+      candidates,
+      leaderId: leader?.candidateId ?? null,
+      leaderPartyId: leader?.partyId ?? null,
+      marginVotes: computedMargin > 0 ? computedMargin : row.marginVotes,
+      totalCounted,
+      declared: detail.declared || row.declared,
+      lastUpdated: new Date().toISOString(),
+    };
+  }
+
+  // Fallback path (detail page not yet published for this AC): build a
+  // leader+trailer skeleton from statewise. Votes come from partywise if the
+  // name lines up, else remain 0.
   const leaderPartyId = row.leadPartyName ? resolvePartyId(row.leadPartyName) : null;
   const trailPartyId = row.trailPartyName ? resolvePartyId(row.trailPartyName) : null;
   const leaderCandidateId = row.leadName ? `${acId}:${row.leadName}:${leaderPartyId ?? ''}` : null;
 
-  // Use partywise enrichment if it matches this AC's leader. We compare names
-  // defensively — a mismatch usually means the partywise page is stale, in
-  // which case we'd rather keep votes as 0 than publish bad numbers.
   const leaderVotes = enrich && sameName(enrich.leadName, row.leadName) ? enrich.leadVotes : 0;
   const trailerVotes = leaderVotes > 0 && row.marginVotes > 0
     ? Math.max(0, leaderVotes - row.marginVotes)
@@ -229,6 +267,56 @@ function buildACLiveResult(row: StatewiseRow, enrich?: PartywiseEnrichment): ACL
 function sameName(a: string, b: string): boolean {
   const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
   return !!a && !!b && norm(a) === norm(b);
+}
+
+interface CandidateswiseData {
+  candidates: { name: string; partyName: string; status: string; votes: number }[];
+  declared: boolean;
+}
+
+/**
+ * Parse an ECI per-AC detail page (candidateswise-S25{n}.htm).
+ * Each candidate sits in a <div class='cand-box'> with a .status badge
+ * (won/leading/trailing) containing the vote count, plus .nme-prty > h5 (name) + h6 (party).
+ * Split-on-opener approach sidesteps the nested-div closer ambiguity.
+ */
+function parseCandidateswisePage(html: string): CandidateswiseData {
+  const candidates: CandidateswiseData['candidates'] = [];
+  const parts = html.split(/<div class=['"]cand-box[^'"]*['"][^>]*>/);
+  // parts[0] is the prefix before the first card; each later part starts inside a card
+  for (let i = 1; i < parts.length; i++) {
+    const chunk = parts[i];
+    const nameMatch = chunk.match(/<h5[^>]*>([\s\S]*?)<\/h5>/);
+    const partyMatch = chunk.match(/<h6[^>]*>([\s\S]*?)<\/h6>/);
+    const statusMatch = chunk.match(/class=['"]status\s+(\w+)['"][^>]*>\s*<div[^>]*>[\s\S]*?<\/div>\s*<div[^>]*>\s*([\d,\s]+)/);
+    if (!nameMatch) continue;
+    const name = nameMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
+    const partyName = partyMatch ? partyMatch[1].replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim() : '';
+    const status = statusMatch ? statusMatch[1].trim().toLowerCase() : '';
+    const votes = statusMatch ? parseInt(statusMatch[2].replace(/[^\d]/g, ''), 10) || 0 : 0;
+    if (!name || name.toUpperCase() === 'NOTA') continue; // NOTA shows at the end with no vote cell
+    candidates.push({ name, partyName, status, votes });
+  }
+  const declared = candidates.some((c) => c.status === 'won');
+  return { candidates, declared };
+}
+
+/** Fetch candidateswise pages for the given AC numbers in batches to avoid a thundering herd. */
+async function fetchCandidateswiseData(acNumbers: number[]): Promise<Map<number, CandidateswiseData>> {
+  const byAc = new Map<number, CandidateswiseData>();
+  for (let i = 0; i < acNumbers.length; i += CANDIDATESWISE_BATCH_SIZE) {
+    const chunk = acNumbers.slice(i, i + CANDIDATESWISE_BATCH_SIZE);
+    const results = await Promise.all(chunk.map(async (n) => {
+      const { html } = await fetchHtml(CANDIDATESWISE_URL(n));
+      if (!html) return { n, data: null as CandidateswiseData | null };
+      const data = parseCandidateswisePage(html);
+      return { n, data: data.candidates.length > 0 ? data : null };
+    }));
+    for (const r of results) {
+      if (r.data) byAc.set(r.n, r.data);
+    }
+  }
+  return byAc;
 }
 
 interface PartywiseEnrichment {
@@ -419,11 +507,18 @@ export async function GET(req: Request) {
 
   const { byAc: partywiseByAc, partyIds, partyPageStatuses } = await fetchPartywiseEnrichments();
 
+  // Fetch per-AC detail pages for every AC that has reported a leader. This
+  // gives us real vote counts for every candidate instead of the synthetic
+  // leader+trailer skeleton we fall back to.
+  const acNumbersWithData = rows.filter((r) => r.leadName || r.trailName).map((r) => r.acNumber);
+  const candidateswiseByAc = await fetchCandidateswiseData(acNumbersWithData);
+
   if (dry !== null) {
     const withData = rows.filter((r) => r.leadName || r.trailName || r.marginVotes);
     const sample = withData.slice(0, 5).map((r) => ({
       ...r,
       enrichment: partywiseByAc.get(r.acNumber) ?? null,
+      detail: candidateswiseByAc.get(r.acNumber) ?? null,
     }));
     return NextResponse.json({
       status: 'dry',
@@ -433,6 +528,7 @@ export async function GET(req: Request) {
       totalRows: rows.length,
       rowsWithData: withData.length,
       rowsEnriched: Array.from(partywiseByAc.keys()).length,
+      rowsWithDetail: candidateswiseByAc.size,
       sample,
     });
   }
@@ -440,12 +536,11 @@ export async function GET(req: Request) {
   const writes: { acId: string; data: ACLiveResult }[] = [];
   let skipped = 0;
   let unmatched = 0;
-  // Build the write plan first so KV writes can all run in parallel.
   const toWrite: { acId: string; data: ACLiveResult }[] = [];
   for (const row of rows) {
     const acId = lookupAcId(row.acName, row.acNumber);
     if (!acId) { unmatched++; continue; }
-    const data = buildACLiveResult(row, partywiseByAc.get(row.acNumber));
+    const data = buildACLiveResult(row, partywiseByAc.get(row.acNumber), candidateswiseByAc.get(row.acNumber));
     if (!data) { skipped++; continue; }
     toWrite.push({ acId, data });
   }
@@ -486,6 +581,7 @@ export async function GET(req: Request) {
     totalRows: rows.length,
     written: writes.length,
     enriched: Array.from(partywiseByAc.keys()).length,
+    withDetail: candidateswiseByAc.size,
     unmatched,
     skippedEmpty: skipped,
     summaryWritten,
