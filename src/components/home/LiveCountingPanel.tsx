@@ -5,6 +5,7 @@ import { Clock } from 'lucide-react';
 import type { StateLiveSummary, ScraperMeta } from '@/lib/live-store';
 import { StateTally } from '@/components/home/StateTally';
 import { PartyScoreboard } from '@/components/home/PartyScoreboard';
+import { PartyInsights } from '@/components/home/PartyInsights';
 import { ACResultsTicker } from '@/components/home/ACResultsTicker';
 import { TightestMargins } from '@/components/home/TightestMargins';
 
@@ -109,6 +110,7 @@ export function LiveCountingPanel() {
 
       <StateTally summary={summary} />
       <PartyScoreboard summary={summary} />
+      <PartyInsights summary={summary} />
       <ACResultsTicker summary={summary} />
       <TightestMargins summary={summary} />
     </div>

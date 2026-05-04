@@ -28,6 +28,10 @@ export interface StateLiveSummary {
   totalACs: number;
   declared: number;
   leadingByParty: Record<string, number>;
+  /** Aggregated vote totals per party across all reporting ACs. Only counts
+   * leader+trailer per AC (ECI doesn't publish also-ran vote counts live), so
+   * this is a lower-bound approximation of true state-wide vote share. */
+  votesByParty?: Record<string, number>;
   /** Per-AC leader partyId (null = undeclared / no data). Used to colour the live-leader map. */
   leaderByAc?: Record<string, string | null>;
   turnoutPct?: number;
