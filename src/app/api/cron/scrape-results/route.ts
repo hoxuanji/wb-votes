@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { writeACResult, writeStateSummary, writeMeta, readMeta } from '@/lib/live-store';
 import { getServerElectionPhase } from '@/lib/election-phase';
 import { constituencies } from '@/data/constituencies';
+import { parties } from '@/data/parties';
 import type { ACLiveResult, StateLiveSummary } from '@/lib/live-store';
 
 export const runtime = 'nodejs';
@@ -12,12 +13,12 @@ export const maxDuration = 60;
 // Akamai blocks Vercel's egress. Set ECI_BASE + ECI_PROXY_SECRET in Vercel env.
 const ECI_BASE = process.env.ECI_BASE ?? 'https://results.eci.gov.in/ResultAcGenMay2026';
 const ECI_PROXY_SECRET = process.env.ECI_PROXY_SECRET;
-const STATE_CODE = 'S25'; // West Bengal in ECI's state code scheme
+// ECI paginates the statewise trends at 20 rows/page. For WB (294 ACs) that's
+// 15 pages: statewiseS251.htm .. statewiseS2515.htm. Pattern: statewiseS25{page}.htm
+const STATEWISE_URL = (page: number) => `${ECI_BASE}/statewiseS25${page}.htm`;
+const STATEWISE_MAX_PAGES = 20; // hard cap; we stop early on first 404
 const CRON_SECRET = process.env.CRON_SECRET;
 
-// Realistic browser headers — the ECI site is fronted by Akamai and rejects
-// non-browser UAs. Verified 2026-05-04: UA below + Sec-Fetch-* returns 200 on
-// the root; the placeholder UA returned 403.
 const BROWSER_HEADERS: Record<string, string> = {
   'User-Agent':
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 ' +
@@ -31,191 +32,156 @@ const BROWSER_HEADERS: Record<string, string> = {
   'Upgrade-Insecure-Requests': '1',
 };
 
-// Regex markers that tell us the page isn't real results yet. If any match, we
-// treat the page as unusable and leave any existing live-store entry alone,
-// rather than blanking it out.
-const PLACEHOLDER_MARKERS = [
-  /Access Denied/i,
-  /trends will start from/i,
-  /No Record Found/i,
-];
-
-interface FetchAttempt { url: string; html: string | null; status: number }
-
-/** Try a few plausible URL forms so we survive ECI tweaking their path scheme. */
-function candidateUrls(assemblyNumber: number): string[] {
-  const n = assemblyNumber;
-  const pad2 = String(n).padStart(2, '0');
-  const pad3 = String(n).padStart(3, '0');
-  return [
-    `${ECI_BASE}/AcConstituency-${n}.htm`,
-    `${ECI_BASE}/ConstituencywiseS25${pad2}.htm`,
-    `${ECI_BASE}/ConstituencywiseS25${pad3}.htm`,
-    `${ECI_BASE}/AcConstituency${STATE_CODE}-${n}.htm`,
-    `${ECI_BASE}/Constituencywise-S25-${n}.htm`,
-  ];
-}
-
-async function fetchHtml(url: string): Promise<FetchAttempt> {
+async function fetchHtml(url: string): Promise<{ html: string | null; status: number }> {
   try {
     const headers: Record<string, string> = { ...BROWSER_HEADERS };
     if (ECI_PROXY_SECRET) headers['X-Proxy-Secret'] = ECI_PROXY_SECRET;
     const res = await fetch(url, { headers, cache: 'no-store' });
-    if (!res.ok) return { url, html: null, status: res.status };
-    const html = await res.text();
-    return { url, html, status: res.status };
+    if (!res.ok) return { html: null, status: res.status };
+    return { html: await res.text(), status: res.status };
   } catch {
-    return { url, html: null, status: 0 };
+    return { html: null, status: 0 };
   }
 }
 
-function looksLikePlaceholder(html: string): boolean {
-  return PLACEHOLDER_MARKERS.some((re) => re.test(html));
+// Party name → partyId lookup. ECI prints full party names verbatim; our party
+// ids are either abbreviations (AITC, BJP, INC) or the uppercased name.
+const partyIdByName = new Map<string, string>();
+for (const p of parties) partyIdByName.set(p.name.toLowerCase(), p.id);
+
+function resolvePartyId(name: string): string {
+  const key = name.trim().toLowerCase();
+  if (!key) return '';
+  return partyIdByName.get(key) ?? name.trim().toUpperCase();
 }
+
+// AC number → AC id lookup.
+const acIdByNumber = new Map<number, string>();
+for (const c of constituencies) acIdByNumber.set(c.assemblyNumber, c.id);
 
 /**
- * Defensive parse of an ECI AC-results page.
- * ECI's DOM has historically been a results table inside a div.ECI-results /
- * table.table-striped. We scan all <table>s and accept the first one whose
- * rows look like [name, party, votes, (voteShare?)]. Designed to be tolerant
- * of ECI reshuffling table order or nesting.
+ * The statewise page embeds a tooltip <div> inside each party cell, and also
+ * wraps each party cell's visible content in a nested <table>. To parse the
+ * outer 9-column row reliably we:
+ *   1. strip tooltip divs (they contain nested <tr>s that break row splitting),
+ *   2. replace each <td>...<table>...</table>...</td> with <td>FirstCellText</td>
+ *      so the outer row becomes a flat 9-cell <tr>.
  */
-function parseEciAcPage(html: string): ACLiveResult | null {
-  if (looksLikePlaceholder(html)) return null;
-
-  // Scan every <table> and pick the one whose rows parse as candidate rows.
-  const tableRe = /<table[^>]*>([\s\S]*?)<\/table>/gi;
-  let tableMatch: RegExpExecArray | null;
-  let bestCandidates: ACLiveResult['candidates'] | null = null;
-
-  while ((tableMatch = tableRe.exec(html)) !== null) {
-    const rows = extractCandidateRows(tableMatch[1]);
-    if (rows.length >= 2 && (!bestCandidates || rows.length > bestCandidates.length)) {
-      bestCandidates = rows;
-    }
+function flattenRowCells(html: string): string {
+  let out = html.replace(/<div class=['"]tooltip['"][^>]*>[\s\S]*?<\/div>/g, '');
+  // Repeat until stable in case of deeper nesting surprise.
+  let prev = '';
+  while (prev !== out) {
+    prev = out;
+    out = out.replace(
+      /(<td[^>]*>)\s*<table[^>]*>([\s\S]*?)<\/table>\s*(<\/td>)/g,
+      (_, open: string, inner: string, close: string) => {
+        const firstCell = inner.match(/<td[^>]*>([\s\S]*?)<\/td>/);
+        const text = firstCell ? firstCell[1].replace(/<[^>]+>/g, '').replace(/\s+/g, ' ').trim() : '';
+        return `${open}${text}${close}`;
+      },
+    );
   }
-
-  if (!bestCandidates || bestCandidates.length === 0) return null;
-
-  bestCandidates.sort((a, b) => b.votes - a.votes);
-  const totalCounted = bestCandidates.reduce((s, c) => s + c.votes, 0);
-  bestCandidates.forEach((c) => {
-    if (!c.voteShare) c.voteShare = totalCounted > 0 ? (c.votes / totalCounted) * 100 : 0;
-  });
-
-  const leader = bestCandidates[0];
-  const runnerUp = bestCandidates[1];
-  const declared = /\b(DECLARED|WINNER)\b/.test(html);
-
-  return {
-    candidates: bestCandidates,
-    leaderId: leader.candidateId,
-    leaderPartyId: leader.partyId,
-    marginVotes: runnerUp ? leader.votes - runnerUp.votes : leader.votes,
-    totalCounted,
-    declared,
-    lastUpdated: new Date().toISOString(),
-  };
+  return out;
 }
 
-function extractCandidateRows(tableInner: string): ACLiveResult['candidates'] {
-  const rows: ACLiveResult['candidates'] = [];
-  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/gi;
-  let rm: RegExpExecArray | null;
-  let idx = 0;
+interface StatewiseRow {
+  acNumber: number;
+  acName: string;
+  leadName: string;
+  leadPartyName: string;
+  trailName: string;
+  trailPartyName: string;
+  marginVotes: number;
+  roundCurrent: number | null;
+  roundTotal: number | null;
+  status: string;
+  declared: boolean;
+}
 
-  while ((rm = rowRe.exec(tableInner)) !== null) {
+function parseStatewisePage(html: string): StatewiseRow[] {
+  const flat = flattenRowCells(html);
+  const rows: StatewiseRow[] = [];
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
+  let rm: RegExpExecArray | null;
+  while ((rm = rowRe.exec(flat)) !== null) {
     const cells: string[] = [];
-    const cellRe = /<t[dh][^>]*>([\s\S]*?)<\/t[dh]>/gi;
+    const cellRe = /<td[^>]*>([\s\S]*?)<\/td>/g;
     let cm: RegExpExecArray | null;
     while ((cm = cellRe.exec(rm[1])) !== null) {
       cells.push(cm[1].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim());
     }
-    if (cells.length < 3) continue;
+    if (cells.length < 9) continue;
+    const acNumber = parseInt(cells[1], 10);
+    if (!Number.isFinite(acNumber) || acNumber < 1 || acNumber > 400) continue;
+    if (!cells[0] || cells[0].length > 80) continue;
 
-    // Heuristic: find a cell that parses to a vote count ≥ 50. The first such
-    // cell gets treated as the votes column; name is the first non-numeric cell,
-    // party is the cell right before votes (or the cell after name).
-    const numericIdx = cells.findIndex((c) => {
-      const n = parseInt(c.replace(/[^\d]/g, ''), 10);
-      return Number.isFinite(n) && n >= 50 && /^[\d, ]+$/.test(c.trim());
-    });
-    if (numericIdx < 1) continue;
-
-    const name = cells[0];
-    const party = cells[Math.max(1, numericIdx - 1)] || cells[1];
-    const votes = parseInt(cells[numericIdx].replace(/[^\d]/g, ''), 10);
-    if (!name || name.length > 100) continue;
-    if (!Number.isFinite(votes) || votes < 0) continue;
-
-    // Optional vote share column (cell after votes, with % or small decimal)
-    let voteShare = 0;
-    const afterVotes = cells[numericIdx + 1];
-    if (afterVotes) {
-      const pct = parseFloat(afterVotes.replace(/[^\d.]/g, ''));
-      if (Number.isFinite(pct) && pct >= 0 && pct <= 100) voteShare = pct;
-    }
+    const marginRaw = cells[6].replace(/[^\d-]/g, '');
+    const marginVotes = parseInt(marginRaw, 10);
+    const [curr, total] = cells[7].split('/').map((s) => parseInt(s.trim(), 10));
+    const status = cells[8];
 
     rows.push({
-      candidateId: `${name}:${party}:${idx}`,
-      name,
-      partyId: party,
-      votes,
-      voteShare,
+      acNumber,
+      acName: cells[0],
+      leadName: cells[2],
+      leadPartyName: cells[3],
+      trailName: cells[4],
+      trailPartyName: cells[5],
+      marginVotes: Number.isFinite(marginVotes) ? marginVotes : 0,
+      roundCurrent: Number.isFinite(curr) ? curr : null,
+      roundTotal: Number.isFinite(total) ? total : null,
+      status,
+      declared: /result declared|winner|decl\.?\b/i.test(status),
     });
-    idx++;
   }
-
   return rows;
 }
 
-async function fetchOneAc(
-  acId: string,
-  assemblyNumber: number,
-): Promise<{
-  data: ACLiveResult | null;
-  sourceUrl: string | null;
-  httpStatus: number | null;
-  attempts: { url: string; status: number }[];
-}> {
-  const attempts: { url: string; status: number }[] = [];
-  for (const url of candidateUrls(assemblyNumber)) {
-    const attempt = await fetchHtml(url);
-    attempts.push({ url, status: attempt.status });
-    if (!attempt.html) continue;
-    const data = parseEciAcPage(attempt.html);
-    if (data) {
-      // Stamp AC id into candidateIds so downstream components can dedupe.
-      data.candidates = data.candidates.map((c) => ({ ...c, candidateId: `${acId}:${c.candidateId}` }));
-      if (data.leaderId) data.leaderId = `${acId}:${data.leaderId}`;
-      return { data, sourceUrl: url, httpStatus: attempt.status, attempts };
-    }
-    // If HTML loaded but parsed to null (placeholder / no table), return the
-    // status so the caller can distinguish "no data yet" from "fetch failed".
-    return { data: null, sourceUrl: url, httpStatus: attempt.status, attempts };
-  }
-  return { data: null, sourceUrl: null, httpStatus: null, attempts };
-}
+function buildACLiveResult(row: StatewiseRow): ACLiveResult | null {
+  const acId = acIdByNumber.get(row.acNumber);
+  if (!acId) return null;
+  // Skip rows with no data yet (no leading candidate means counting hasn't
+  // reported anything for this AC). Leave any prior KV entry in place.
+  if (!row.leadName && !row.trailName && row.marginVotes === 0) return null;
 
-async function runWithConcurrency<T, R>(
-  items: T[],
-  limit: number,
-  worker: (item: T) => Promise<R>,
-): Promise<R[]> {
-  const results: R[] = new Array(items.length);
-  let cursor = 0;
-  async function next() {
-    while (cursor < items.length) {
-      const i = cursor++;
-      results[i] = await worker(items[i]);
-    }
+  const leaderPartyId = row.leadPartyName ? resolvePartyId(row.leadPartyName) : null;
+  const trailPartyId = row.trailPartyName ? resolvePartyId(row.trailPartyName) : null;
+  const leaderCandidateId = row.leadName ? `${acId}:${row.leadName}:${leaderPartyId ?? ''}` : null;
+
+  const candidates: ACLiveResult['candidates'] = [];
+  if (row.leadName) {
+    candidates.push({
+      candidateId: `${acId}:${row.leadName}:${leaderPartyId ?? ''}`,
+      name: row.leadName,
+      partyId: leaderPartyId ?? 'IND',
+      votes: 0,
+      voteShare: 0,
+    });
   }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, next));
-  return results;
+  if (row.trailName) {
+    candidates.push({
+      candidateId: `${acId}:${row.trailName}:${trailPartyId ?? ''}`,
+      name: row.trailName,
+      partyId: trailPartyId ?? 'IND',
+      votes: 0,
+      voteShare: 0,
+    });
+  }
+
+  return {
+    candidates,
+    leaderId: leaderCandidateId,
+    leaderPartyId,
+    marginVotes: row.marginVotes,
+    totalCounted: 0,
+    declared: row.declared,
+    lastUpdated: new Date().toISOString(),
+  };
 }
 
 function buildStateSummary(
-  results: { acId: string; data: ACLiveResult }[],
+  entries: { acId: string; data: ACLiveResult }[],
   totalACs: number,
 ): StateLiveSummary {
   const leadingByParty: Record<string, number> = {};
@@ -223,13 +189,15 @@ function buildStateSummary(
   let declared = 0;
   const margins: StateLiveSummary['tightestMargins'] = [];
 
-  for (const { acId, data } of results) {
+  for (const { acId, data } of entries) {
     leaderByAc[acId] = data.leaderPartyId;
     if (data.leaderPartyId) {
       leadingByParty[data.leaderPartyId] = (leadingByParty[data.leaderPartyId] ?? 0) + 1;
     }
     if (data.declared) declared++;
-    margins.push({ acId, marginVotes: data.marginVotes, leaderPartyId: data.leaderPartyId });
+    if (data.marginVotes > 0) {
+      margins.push({ acId, marginVotes: data.marginVotes, leaderPartyId: data.leaderPartyId });
+    }
   }
 
   margins.sort((a, b) => a.marginVotes - b.marginVotes);
@@ -257,68 +225,81 @@ export async function GET(req: Request) {
     return NextResponse.json({ status: 'skipped', phase });
   }
 
-  // Optional ?dry=1 — fetches one AC and returns parsed output without writing.
-  // Useful for smoke-testing the parser on counting day. ?dry=N fetches AC index N (0-based).
   const url = new URL(req.url);
   const dry = url.searchParams.get('dry');
-  if (dry !== null) {
-    const idx = Number.isFinite(parseInt(dry, 10)) ? parseInt(dry, 10) : 0;
-    const target = constituencies[Math.max(0, Math.min(idx, constituencies.length - 1))];
-    const { data, sourceUrl, httpStatus, attempts } = await fetchOneAc(target.id, target.assemblyNumber);
-    return NextResponse.json({ status: 'dry', target: target.id, assemblyNumber: target.assemblyNumber, httpStatus, sourceUrl, attempts, data });
+
+  // Fetch paginated statewise pages until we hit a 404 (ECI stops at page 15
+  // for WB today but we walk until empty to survive reshuffles).
+  const pageStatuses: { page: number; url: string; status: number; rows: number }[] = [];
+  const rows: StatewiseRow[] = [];
+  for (let p = 1; p <= STATEWISE_MAX_PAGES; p++) {
+    const pageUrl = STATEWISE_URL(p);
+    const { html, status } = await fetchHtml(pageUrl);
+    if (!html) {
+      pageStatuses.push({ page: p, url: pageUrl, status, rows: 0 });
+      if (status === 404) break;
+      continue;
+    }
+    const pageRows = parseStatewisePage(html);
+    pageStatuses.push({ page: p, url: pageUrl, status, rows: pageRows.length });
+    rows.push(...pageRows);
+    // Defensive: ECI pages occasionally return 200 with an empty table —
+    // if we see zero rows on page 1 we bail so we don't blank out KV.
+    if (p === 1 && pageRows.length === 0) break;
   }
 
-  const results: { acId: string; data: ACLiveResult }[] = [];
-  const failures: { acId: string; reason: string; attempts: { url: string; status: number }[] }[] = [];
+  if (rows.length === 0) {
+    return NextResponse.json({
+      status: 'error',
+      pageStatuses,
+      parsed: 0,
+    }, { status: 200 });
+  }
 
-  await runWithConcurrency(constituencies, 8, async (c) => {
-    const { data, sourceUrl, httpStatus, attempts } = await fetchOneAc(c.id, c.assemblyNumber);
-    if (data) {
-      await writeACResult(c.id, data);
-      results.push({ acId: c.id, data });
-    } else {
-      failures.push({
-        acId: c.id,
-        reason: httpStatus === null ? 'no-url-worked' : `http-${httpStatus}-or-placeholder (${sourceUrl ?? '-'})`,
-        attempts,
-      });
-    }
-  });
+  if (dry !== null) {
+    const withData = rows.filter((r) => r.leadName || r.trailName || r.marginVotes);
+    return NextResponse.json({
+      status: 'dry',
+      pageStatuses,
+      totalRows: rows.length,
+      rowsWithData: withData.length,
+      sample: withData.slice(0, 5),
+    });
+  }
+
+  const writes: { acId: string; data: ACLiveResult }[] = [];
+  let skipped = 0;
+  for (const row of rows) {
+    const acId = acIdByNumber.get(row.acNumber);
+    if (!acId) { skipped++; continue; }
+    const data = buildACLiveResult(row);
+    if (!data) { skipped++; continue; }
+    await writeACResult(acId, data);
+    writes.push({ acId, data });
+  }
 
   let summaryWritten = false;
-  if (results.length > 0) {
-    const summary = buildStateSummary(results, constituencies.length);
-    await writeStateSummary(summary);
+  if (writes.length > 0) {
+    await writeStateSummary(buildStateSummary(writes, constituencies.length));
     summaryWritten = true;
   }
 
-  // Aggregate status histogram across all attempts — at a glance tells us
-  // whether ECI is 403-ing us, 404-ing us, or returning 200s we can't parse.
-  const statusHistogram: Record<string, number> = {};
-  for (const f of failures) {
-    for (const a of f.attempts) {
-      const key = a.status === 0 ? 'network-error' : String(a.status);
-      statusHistogram[key] = (statusHistogram[key] ?? 0) + 1;
-    }
-  }
-
   const prev = await readMeta();
-  const allFailed = results.length === 0;
   await writeMeta({
     lastRun: new Date().toISOString(),
-    lastStatus: allFailed ? 'error' : failures.length > 0 ? 'partial' : 'ok',
-    lastError: failures.length > 0 ? `${failures.length} AC(s) failed; statuses: ${JSON.stringify(statusHistogram)}` : undefined,
-    sourceUrl: ECI_BASE,
-    acsParsed: results.length,
-    ...(allFailed && prev ? { lastRun: prev.lastRun, acsParsed: prev.acsParsed } : {}),
+    lastStatus: writes.length === 0 ? 'error' : writes.length < rows.length ? 'partial' : 'ok',
+    lastError: writes.length === 0 ? `parsed ${rows.length} rows, none written` : undefined,
+    sourceUrl: STATEWISE_URL(1),
+    acsParsed: writes.length,
+    ...(writes.length === 0 && prev ? { lastRun: prev.lastRun, acsParsed: prev.acsParsed } : {}),
   });
 
   return NextResponse.json({
-    status: allFailed ? 'error' : 'ok',
-    parsed: results.length,
-    errors: failures.length,
+    status: writes.length > 0 ? 'ok' : 'error',
+    pageStatuses,
+    totalRows: rows.length,
+    written: writes.length,
+    skippedEmpty: skipped,
     summaryWritten,
-    statusHistogram,
-    sampleFailures: failures.slice(0, 3),
   });
 }
