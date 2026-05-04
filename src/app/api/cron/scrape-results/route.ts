@@ -419,10 +419,20 @@ export async function GET(req: Request) {
   }
 
   const prev = await readMeta();
+  // "partial" should mean real failures, not "some ACs haven't reported yet".
+  // Empty statewise rows are the default pre-counting state and get `skipped`;
+  // only unmatched names (or zero writes) flag a genuine error.
+  const lastStatus: 'ok' | 'error' | 'partial' =
+    writes.length === 0 ? 'error' : unmatched > 0 ? 'partial' : 'ok';
   await writeMeta({
     lastRun: new Date().toISOString(),
-    lastStatus: writes.length === 0 ? 'error' : writes.length < rows.length ? 'partial' : 'ok',
-    lastError: writes.length === 0 ? `parsed ${rows.length} rows, none written` : undefined,
+    lastStatus,
+    lastError:
+      writes.length === 0
+        ? `parsed ${rows.length} rows, none written`
+        : unmatched > 0
+          ? `${unmatched} AC(s) could not be matched to local data`
+          : undefined,
     sourceUrl: STATEWISE_URL(1),
     acsParsed: writes.length,
     ...(writes.length === 0 && prev ? { lastRun: prev.lastRun, acsParsed: prev.acsParsed } : {}),
