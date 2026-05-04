@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { writeACResult, writeStateSummary, writeMeta, readMeta, deleteACResult } from '@/lib/live-store';
+import { writeACResult, writeStateSummary, writeMeta, readMeta, deleteACResult, readStateSummary } from '@/lib/live-store';
 import { getServerElectionPhase } from '@/lib/election-phase';
 import { constituencies } from '@/data/constituencies';
 import { parties } from '@/data/parties';
@@ -392,6 +392,7 @@ async function fetchPartywiseEnrichments(): Promise<{
 function buildStateSummary(
   entries: { acId: string; data: ACLiveResult }[],
   totalACs: number,
+  prevDeclaredAt: Map<string, string>,
 ): StateLiveSummary {
   const leadingByParty: Record<string, number> = {};
   const votesByParty: Record<string, number> = {};
@@ -401,6 +402,7 @@ function buildStateSummary(
   const declaredWinners: StateLiveSummary['declaredWinners'] = [];
   let declared = 0;
   const margins: StateLiveSummary['tightestMargins'] = [];
+  const nowIso = new Date().toISOString();
 
   for (const { acId, data } of entries) {
     leaderByAc[acId] = data.leaderPartyId;
@@ -427,6 +429,9 @@ function buildStateSummary(
           candidateName: winner.name,
           partyId: winner.partyId,
           marginVotes: data.marginVotes,
+          // Preserve first-seen timestamp across runs so UI can sort by
+          // declaration time; stamp 'now' only for freshly-declared ACs.
+          declaredAt: prevDeclaredAt.get(acId) ?? nowIso,
         });
       }
     }
@@ -436,8 +441,8 @@ function buildStateSummary(
   }
 
   margins.sort((a, b) => a.marginVotes - b.marginVotes);
-  // Biggest-margin declared wins first so the home page shows authoritative calls.
-  declaredWinners.sort((a, b) => b.marginVotes - a.marginVotes);
+  // Most recently declared first — that's what viewers want top-of-page.
+  declaredWinners.sort((a, b) => (b.declaredAt ?? '').localeCompare(a.declaredAt ?? ''));
 
   return {
     totalACs,
@@ -449,7 +454,7 @@ function buildStateSummary(
     marginByAc,
     declaredWinners,
     tightestMargins: margins.slice(0, 10),
-    lastUpdated: new Date().toISOString(),
+    lastUpdated: nowIso,
   };
 }
 
@@ -549,7 +554,12 @@ export async function GET(req: Request) {
 
   let summaryWritten = false;
   if (writes.length > 0) {
-    await writeStateSummary(buildStateSummary(writes, constituencies.length));
+    const prevSummary = await readStateSummary();
+    const prevDeclaredAt = new Map<string, string>();
+    for (const w of prevSummary?.declaredWinners ?? []) {
+      if (w.declaredAt) prevDeclaredAt.set(w.acId, w.declaredAt);
+    }
+    await writeStateSummary(buildStateSummary(writes, constituencies.length, prevDeclaredAt));
     summaryWritten = true;
   }
 

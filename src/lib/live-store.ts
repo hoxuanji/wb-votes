@@ -39,7 +39,7 @@ export interface StateLiveSummary {
   /** Per-AC current margin (leader − trailer votes). */
   marginByAc?: Record<string, number>;
   /** ACs where ECI has officially declared the result, with winner details. */
-  declaredWinners?: { acId: string; candidateName: string; partyId: string; marginVotes: number }[];
+  declaredWinners?: { acId: string; candidateName: string; partyId: string; marginVotes: number; declaredAt?: string }[];
   turnoutPct?: number;
   tightestMargins: { acId: string; marginVotes: number; leaderPartyId: string | null }[];
   lastUpdated: string;
