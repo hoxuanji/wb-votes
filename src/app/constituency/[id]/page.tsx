@@ -16,6 +16,7 @@ import { DemographicsPanel } from '@/components/DemographicsPanel';
 import { ConstituencyNewsFeed } from '@/components/ConstituencyNewsFeed';
 import { MLAScorecard } from '@/components/MLAScorecard';
 import { LiveResultsTab } from '@/components/LiveResultsTab';
+import { LiveStatusPill } from '@/components/LiveStatusPill';
 import { getClientElectionPhase, getDefaultConstituencyTab } from '@/lib/election-phase';
 import { historicalResults } from '@/data/historical-results';
 import { parties } from '@/data/parties';
@@ -237,10 +238,13 @@ export default function ConstituencyPage({ params }: PageProps) {
 
         <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
           <div>
-            <h1 className="text-2xl font-extrabold text-white">
-              {constituency.name}
-              <span className="ml-2 text-base font-semibold text-gray-400">{constituency.nameBn}</span>
-            </h1>
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-2xl font-extrabold text-white">
+                {constituency.name}
+                <span className="ml-2 text-base font-semibold text-gray-400">{constituency.nameBn}</span>
+              </h1>
+              {showLive && <LiveStatusPill constituencyId={constituency.id} />}
+            </div>
             <div className="mt-1 flex flex-wrap items-center gap-2 text-sm text-gray-400">
               <span className="inline-flex items-center gap-1">
                 <MapPin className="h-3.5 w-3.5" /> {constituency.district}
