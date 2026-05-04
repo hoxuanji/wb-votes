@@ -3,7 +3,7 @@
 import type { StateLiveSummary } from '@/lib/live-store';
 import { parties } from '@/data/parties';
 import { historicalResults } from '@/data/historical-results';
-import { ArrowUp, ArrowDown, Minus } from 'lucide-react';
+import { ArrowUp, ArrowDown, Minus, Trophy, Radio } from 'lucide-react';
 
 const partyById = Object.fromEntries(parties.map(p => [p.id, p]));
 
@@ -14,6 +14,10 @@ function seatsBy2021(partyId: string): number {
 interface Props { summary: StateLiveSummary; }
 
 export function PartyScoreboard({ summary }: Props) {
+  const wonByParty: Record<string, number> = {};
+  for (const w of summary.declaredWinners ?? []) {
+    wonByParty[w.partyId] = (wonByParty[w.partyId] ?? 0) + 1;
+  }
   const rows = Object.entries(summary.leadingByParty).sort((a, b) => b[1] - a[1]);
   if (rows.length === 0) return null;
 
@@ -22,11 +26,13 @@ export function PartyScoreboard({ summary }: Props) {
       <div className="mx-auto max-w-6xl">
         <h2 className="mb-4 text-sm font-bold uppercase tracking-wider text-gray-400">Party performance</h2>
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
-          {rows.map(([partyId, count]) => {
+          {rows.map(([partyId, total]) => {
             const party = partyById[partyId];
             const color = party?.color ?? '#64748b';
             const baseline = seatsBy2021(partyId);
-            const delta = count - baseline;
+            const delta = total - baseline;
+            const won = wonByParty[partyId] ?? 0;
+            const leading = Math.max(0, total - won);
             return (
               <div
                 key={partyId}
@@ -35,9 +41,25 @@ export function PartyScoreboard({ summary }: Props) {
               >
                 <div className="flex items-baseline justify-between">
                   <span className="text-[11px] font-bold text-white">{party?.abbreviation ?? partyId}</span>
-                  <span className="text-2xl font-extrabold text-white">{count}</span>
+                  <span className="text-2xl font-extrabold text-white">{total}</span>
                 </div>
                 <p className="mt-0.5 text-[10px] text-gray-500 truncate">{party?.name ?? partyId}</p>
+
+                {/* Won vs Leading split under the headline total */}
+                <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px]">
+                  <span
+                    className="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-bold"
+                    style={{ backgroundColor: won > 0 ? 'rgba(245, 158, 11, 0.18)' : 'rgba(255,255,255,0.04)', color: won > 0 ? '#fcd34d' : '#94a3b8' }}
+                  >
+                    <Trophy className="h-2.5 w-2.5" />
+                    {won} won
+                  </span>
+                  <span className="inline-flex items-center gap-1 rounded bg-white/5 px-1.5 py-0.5 font-bold text-gray-300">
+                    <Radio className="h-2.5 w-2.5" />
+                    {leading} leading
+                  </span>
+                </div>
+
                 <div className="mt-1.5 flex items-center gap-1 text-[10px]">
                   {delta > 0 ? (
                     <>
