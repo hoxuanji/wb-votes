@@ -1,0 +1,5 @@
+name = "eci-proxy"
+main = "src/index.ts"
+compatibility_date = "2026-05-01"
+
+# PROXY_SECRET is set via: npx wrangler secret put PROXY_SECRET

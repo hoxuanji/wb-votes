@@ -8,7 +8,10 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 60;
 
-const ECI_BASE = 'https://results.eci.gov.in/AcResultGenMay2026';
+// ECI_BASE can be swapped to a Cloudflare Worker proxy (workers/eci-proxy) when
+// Akamai blocks Vercel's egress. Set ECI_BASE + ECI_PROXY_SECRET in Vercel env.
+const ECI_BASE = process.env.ECI_BASE ?? 'https://results.eci.gov.in/ResultAcGenMay2026';
+const ECI_PROXY_SECRET = process.env.ECI_PROXY_SECRET;
 const STATE_CODE = 'S25'; // West Bengal in ECI's state code scheme
 const CRON_SECRET = process.env.CRON_SECRET;
 
@@ -55,7 +58,9 @@ function candidateUrls(assemblyNumber: number): string[] {
 
 async function fetchHtml(url: string): Promise<FetchAttempt> {
   try {
-    const res = await fetch(url, { headers: BROWSER_HEADERS, cache: 'no-store' });
+    const headers: Record<string, string> = { ...BROWSER_HEADERS };
+    if (ECI_PROXY_SECRET) headers['X-Proxy-Secret'] = ECI_PROXY_SECRET;
+    const res = await fetch(url, { headers, cache: 'no-store' });
     if (!res.ok) return { url, html: null, status: res.status };
     const html = await res.text();
     return { url, html, status: res.status };

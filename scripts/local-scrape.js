@@ -24,7 +24,8 @@ const path = require('path');
 
 const CRON_SECRET = process.env.CRON_SECRET;
 const BASE = process.env.BASE || 'https://wb-votes.vercel.app';
-const ECI_BASE = 'https://results.eci.gov.in/AcResultGenMay2026';
+const ECI_BASE = process.env.ECI_BASE || 'https://results.eci.gov.in/ResultAcGenMay2026';
+const ECI_PROXY_SECRET = process.env.ECI_PROXY_SECRET;
 const STATE_CODE = 'S25';
 
 const argv = process.argv.slice(2);
@@ -76,7 +77,9 @@ function candidateUrls(n) {
 
 async function fetchHtml(url) {
   try {
-    const res = await fetch(url, { headers: BROWSER_HEADERS });
+    const headers = { ...BROWSER_HEADERS };
+    if (ECI_PROXY_SECRET) headers['X-Proxy-Secret'] = ECI_PROXY_SECRET;
+    const res = await fetch(url, { headers });
     if (!res.ok) return { status: res.status, html: null };
     return { status: res.status, html: await res.text() };
   } catch (e) {
