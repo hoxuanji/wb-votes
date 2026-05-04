@@ -308,12 +308,20 @@ function buildStateSummary(
   const leadingByParty: Record<string, number> = {};
   const votesByParty: Record<string, number> = {};
   const leaderByAc: Record<string, string | null> = {};
+  const leaderNameByAc: Record<string, string> = {};
+  const marginByAc: Record<string, number> = {};
   const declaredWinners: StateLiveSummary['declaredWinners'] = [];
   let declared = 0;
   const margins: StateLiveSummary['tightestMargins'] = [];
 
   for (const { acId, data } of entries) {
     leaderByAc[acId] = data.leaderPartyId;
+    if (data.candidates[0]) {
+      leaderNameByAc[acId] = data.candidates[0].name;
+    }
+    if (data.marginVotes > 0) {
+      marginByAc[acId] = data.marginVotes;
+    }
     if (data.leaderPartyId) {
       leadingByParty[data.leaderPartyId] = (leadingByParty[data.leaderPartyId] ?? 0) + 1;
     }
@@ -349,6 +357,8 @@ function buildStateSummary(
     leadingByParty,
     votesByParty,
     leaderByAc,
+    leaderNameByAc,
+    marginByAc,
     declaredWinners,
     tightestMargins: margins.slice(0, 10),
     lastUpdated: new Date().toISOString(),
