@@ -86,6 +86,15 @@ export async function writeACResult(acId: string, data: ACLiveResult): Promise<v
   await kvSet(KEY_AC(acId), JSON.stringify(data));
 }
 
+export async function deleteACResult(acId: string): Promise<void> {
+  if (!hasKV) { mem.delete(KEY_AC(acId)); return; }
+  const res = await fetch(`${KV_URL}/del/${encodeURIComponent(KEY_AC(acId))}`, {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${KV_TOKEN}` },
+  });
+  if (!res.ok) throw new Error(`KV del failed: ${res.status}`);
+}
+
 export async function readStateSummary(): Promise<StateLiveSummary | null> {
   const raw = await kvGet(KEY_STATE);
   return raw ? (JSON.parse(raw) as StateLiveSummary) : null;

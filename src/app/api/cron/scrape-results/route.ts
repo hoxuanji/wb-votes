@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { writeACResult, writeStateSummary, writeMeta, readMeta } from '@/lib/live-store';
+import { writeACResult, writeStateSummary, writeMeta, readMeta, deleteACResult } from '@/lib/live-store';
 import { getServerElectionPhase } from '@/lib/election-phase';
 import { constituencies } from '@/data/constituencies';
 import { parties } from '@/data/parties';
@@ -351,6 +351,19 @@ export async function GET(req: Request) {
 
   const url = new URL(req.url);
   const dry = url.searchParams.get('dry');
+  const reset = url.searchParams.get('reset') === '1';
+
+  // One-shot cleanup: blank every AC's KV entry before the scrape. Use this
+  // after a fix that re-wires how rows map to constituencies, so stale
+  // incorrectly-attributed data doesn't linger on ACs that haven't yet
+  // re-reported on ECI. Hit ?reset=1 once manually.
+  let resetCount = 0;
+  if (reset) {
+    for (const c of constituencies) {
+      await deleteACResult(c.id);
+      resetCount++;
+    }
+  }
 
   // Fetch paginated statewise pages until we hit a 404 (ECI stops at page 15
   // for WB today but we walk until empty to survive reshuffles).
@@ -449,5 +462,6 @@ export async function GET(req: Request) {
     unmatched,
     skippedEmpty: skipped,
     summaryWritten,
+    resetCount,
   });
 }
