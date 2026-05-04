@@ -280,25 +280,22 @@ async function fetchPartywiseEnrichments(): Promise<{
   partyPageStatuses: { partyId: string; url: string; status: number; rows: number }[];
 }> {
   const byAc = new Map<number, PartywiseEnrichment>();
-  const partyPageStatuses: { partyId: string; url: string; status: number; rows: number }[] = [];
 
   const { html: indexHtml } = await fetchHtml(PARTY_INDEX_URL);
-  if (!indexHtml) return { byAc, partyIds: [], partyPageStatuses };
+  if (!indexHtml) return { byAc, partyIds: [], partyPageStatuses: [] };
 
   const partyIds = extractPartyIds(indexHtml);
-  for (const partyId of partyIds) {
+  const results = await Promise.all(partyIds.map(async (partyId) => {
     const url = PARTY_LEAD_URL(partyId);
     const { html, status } = await fetchHtml(url);
-    if (!html) {
-      partyPageStatuses.push({ partyId, url, status, rows: 0 });
-      continue;
-    }
-    const rows = parsePartywiseLeadPage(html);
-    partyPageStatuses.push({ partyId, url, status, rows: rows.length });
-    for (const r of rows) {
-      // Last write wins — but rows should be unique per AC since each AC has
-      // exactly one leader and thus appears on exactly one party's lead page.
-      byAc.set(r.acNumber, r);
+    const rows = html ? parsePartywiseLeadPage(html) : [];
+    return { partyId, url, status, rows };
+  }));
+
+  const partyPageStatuses = results.map((r) => ({ partyId: r.partyId, url: r.url, status: r.status, rows: r.rows.length }));
+  for (const r of results) {
+    for (const row of r.rows) {
+      byAc.set(row.acNumber, row);
     }
   }
   return { byAc, partyIds, partyPageStatuses };
@@ -366,30 +363,25 @@ export async function GET(req: Request) {
   // re-reported on ECI. Hit ?reset=1 once manually.
   let resetCount = 0;
   if (reset) {
-    for (const c of constituencies) {
-      await deleteACResult(c.id);
-      resetCount++;
-    }
+    await Promise.all(constituencies.map((c) => deleteACResult(c.id)));
+    resetCount = constituencies.length;
   }
 
-  // Fetch paginated statewise pages until we hit a 404 (ECI stops at page 15
-  // for WB today but we walk until empty to survive reshuffles).
-  const pageStatuses: { page: number; url: string; status: number; rows: number }[] = [];
-  const rows: StatewiseRow[] = [];
-  for (let p = 1; p <= STATEWISE_MAX_PAGES; p++) {
+  // Fetch statewise pages in parallel (cap at STATEWISE_MAX_PAGES). 404 on a
+  // page just means we've gone past the last real one; filter those out.
+  const pageNums = Array.from({ length: STATEWISE_MAX_PAGES }, (_, i) => i + 1);
+  const pageResults = await Promise.all(pageNums.map(async (p) => {
     const pageUrl = STATEWISE_URL(p);
     const { html, status } = await fetchHtml(pageUrl);
-    if (!html) {
-      pageStatuses.push({ page: p, url: pageUrl, status, rows: 0 });
-      if (status === 404) break;
-      continue;
-    }
-    const pageRows = parseStatewisePage(html);
-    pageStatuses.push({ page: p, url: pageUrl, status, rows: pageRows.length });
-    rows.push(...pageRows);
-    // Defensive: ECI pages occasionally return 200 with an empty table —
-    // if we see zero rows on page 1 we bail so we don't blank out KV.
-    if (p === 1 && pageRows.length === 0) break;
+    const pageRows = html ? parseStatewisePage(html) : [];
+    return { page: p, url: pageUrl, status, rows: pageRows };
+  }));
+  const pageStatuses: { page: number; url: string; status: number; rows: number }[] = [];
+  const rows: StatewiseRow[] = [];
+  for (const r of pageResults) {
+    pageStatuses.push({ page: r.page, url: r.url, status: r.status, rows: r.rows.length });
+    if (r.status !== 200) continue;
+    rows.push(...r.rows);
   }
 
   if (rows.length === 0) {
@@ -423,14 +415,17 @@ export async function GET(req: Request) {
   const writes: { acId: string; data: ACLiveResult }[] = [];
   let skipped = 0;
   let unmatched = 0;
+  // Build the write plan first so KV writes can all run in parallel.
+  const toWrite: { acId: string; data: ACLiveResult }[] = [];
   for (const row of rows) {
     const acId = lookupAcId(row.acName, row.acNumber);
     if (!acId) { unmatched++; continue; }
     const data = buildACLiveResult(row, partywiseByAc.get(row.acNumber));
     if (!data) { skipped++; continue; }
-    await writeACResult(acId, data);
-    writes.push({ acId, data });
+    toWrite.push({ acId, data });
   }
+  await Promise.all(toWrite.map((w) => writeACResult(w.acId, w.data)));
+  writes.push(...toWrite);
 
   let summaryWritten = false;
   if (writes.length > 0) {
