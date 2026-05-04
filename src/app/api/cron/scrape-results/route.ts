@@ -17,6 +17,11 @@ const ECI_PROXY_SECRET = process.env.ECI_PROXY_SECRET;
 // 15 pages: statewiseS251.htm .. statewiseS2515.htm. Pattern: statewiseS25{page}.htm
 const STATEWISE_URL = (page: number) => `${ECI_BASE}/statewiseS25${page}.htm`;
 const STATEWISE_MAX_PAGES = 20; // hard cap; we stop early on first 404
+// Party-wise lead result pages carry vote counts for leading candidates —
+// statewise pages only have margin, not raw totals. We discover active party
+// ids from the party index, then fetch each party's lead page.
+const PARTY_INDEX_URL = `${ECI_BASE}/partywiseresult-S25.htm`;
+const PARTY_LEAD_URL = (partyNumericId: string) => `${ECI_BASE}/partywiseleadresult-${partyNumericId}S25.htm`;
 const CRON_SECRET = process.env.CRON_SECRET;
 
 const BROWSER_HEADERS: Record<string, string> = {
@@ -138,7 +143,7 @@ function parseStatewisePage(html: string): StatewiseRow[] {
   return rows;
 }
 
-function buildACLiveResult(row: StatewiseRow): ACLiveResult | null {
+function buildACLiveResult(row: StatewiseRow, enrich?: PartywiseEnrichment): ACLiveResult | null {
   const acId = acIdByNumber.get(row.acNumber);
   if (!acId) return null;
   // Skip rows with no data yet (no leading candidate means counting hasn't
@@ -149,14 +154,23 @@ function buildACLiveResult(row: StatewiseRow): ACLiveResult | null {
   const trailPartyId = row.trailPartyName ? resolvePartyId(row.trailPartyName) : null;
   const leaderCandidateId = row.leadName ? `${acId}:${row.leadName}:${leaderPartyId ?? ''}` : null;
 
+  // Use partywise enrichment if it matches this AC's leader. We compare names
+  // defensively — a mismatch usually means the partywise page is stale, in
+  // which case we'd rather keep votes as 0 than publish bad numbers.
+  const leaderVotes = enrich && sameName(enrich.leadName, row.leadName) ? enrich.leadVotes : 0;
+  const trailerVotes = leaderVotes > 0 && row.marginVotes > 0
+    ? Math.max(0, leaderVotes - row.marginVotes)
+    : 0;
+  const totalCounted = leaderVotes + trailerVotes;
+
   const candidates: ACLiveResult['candidates'] = [];
   if (row.leadName) {
     candidates.push({
       candidateId: `${acId}:${row.leadName}:${leaderPartyId ?? ''}`,
       name: row.leadName,
       partyId: leaderPartyId ?? 'IND',
-      votes: 0,
-      voteShare: 0,
+      votes: leaderVotes,
+      voteShare: totalCounted > 0 ? (leaderVotes / totalCounted) * 100 : 0,
     });
   }
   if (row.trailName) {
@@ -164,8 +178,8 @@ function buildACLiveResult(row: StatewiseRow): ACLiveResult | null {
       candidateId: `${acId}:${row.trailName}:${trailPartyId ?? ''}`,
       name: row.trailName,
       partyId: trailPartyId ?? 'IND',
-      votes: 0,
-      voteShare: 0,
+      votes: trailerVotes,
+      voteShare: totalCounted > 0 ? (trailerVotes / totalCounted) * 100 : 0,
     });
   }
 
@@ -174,10 +188,88 @@ function buildACLiveResult(row: StatewiseRow): ACLiveResult | null {
     leaderId: leaderCandidateId,
     leaderPartyId,
     marginVotes: row.marginVotes,
-    totalCounted: 0,
+    totalCounted,
     declared: row.declared,
     lastUpdated: new Date().toISOString(),
   };
+}
+
+function sameName(a: string, b: string): boolean {
+  const norm = (s: string) => s.toLowerCase().replace(/[^a-z ]/g, '').replace(/\s+/g, ' ').trim();
+  return !!a && !!b && norm(a) === norm(b);
+}
+
+interface PartywiseEnrichment {
+  acNumber: number;
+  leadName: string;
+  leadVotes: number;
+}
+
+/** Discover party numeric ids (e.g. 140, 3373, 369) from the party index. */
+function extractPartyIds(indexHtml: string): string[] {
+  const ids = new Set<string>();
+  const re = /partywiseleadresult-(\d+)S25\.htm/g;
+  let m: RegExpExecArray | null;
+  while ((m = re.exec(indexHtml)) !== null) ids.add(m[1]);
+  return Array.from(ids);
+}
+
+/**
+ * Parse a party-wise lead page. Columns:
+ *   S.No | Constituency(#acNum) | Leading Candidate | Total Votes | Margin | Status
+ */
+function parsePartywiseLeadPage(html: string): PartywiseEnrichment[] {
+  const rows: PartywiseEnrichment[] = [];
+  const rowRe = /<tr[^>]*>([\s\S]*?)<\/tr>/g;
+  let rm: RegExpExecArray | null;
+  while ((rm = rowRe.exec(html)) !== null) {
+    const cells: string[] = [];
+    const cellRe = /<td[^>]*>([\s\S]*?)<\/td>/g;
+    let cm: RegExpExecArray | null;
+    while ((cm = cellRe.exec(rm[1])) !== null) {
+      cells.push(cm[1].replace(/<[^>]+>/g, ' ').replace(/&nbsp;/g, ' ').replace(/\s+/g, ' ').trim());
+    }
+    if (cells.length < 6) continue;
+    if (!/^\d+$/.test(cells[0])) continue;
+    const acMatch = cells[1].match(/\((\d+)\)\s*$/);
+    if (!acMatch) continue;
+    const acNumber = parseInt(acMatch[1], 10);
+    const leadVotes = parseInt(cells[3].replace(/[^\d]/g, ''), 10);
+    if (!Number.isFinite(acNumber) || !Number.isFinite(leadVotes)) continue;
+    rows.push({ acNumber, leadName: cells[2], leadVotes });
+  }
+  return rows;
+}
+
+/** Fetch the party index + each party's lead page; returns a map keyed by AC number. */
+async function fetchPartywiseEnrichments(): Promise<{
+  byAc: Map<number, PartywiseEnrichment>;
+  partyIds: string[];
+  partyPageStatuses: { partyId: string; url: string; status: number; rows: number }[];
+}> {
+  const byAc = new Map<number, PartywiseEnrichment>();
+  const partyPageStatuses: { partyId: string; url: string; status: number; rows: number }[] = [];
+
+  const { html: indexHtml } = await fetchHtml(PARTY_INDEX_URL);
+  if (!indexHtml) return { byAc, partyIds: [], partyPageStatuses };
+
+  const partyIds = extractPartyIds(indexHtml);
+  for (const partyId of partyIds) {
+    const url = PARTY_LEAD_URL(partyId);
+    const { html, status } = await fetchHtml(url);
+    if (!html) {
+      partyPageStatuses.push({ partyId, url, status, rows: 0 });
+      continue;
+    }
+    const rows = parsePartywiseLeadPage(html);
+    partyPageStatuses.push({ partyId, url, status, rows: rows.length });
+    for (const r of rows) {
+      // Last write wins — but rows should be unique per AC since each AC has
+      // exactly one leader and thus appears on exactly one party's lead page.
+      byAc.set(r.acNumber, r);
+    }
+  }
+  return { byAc, partyIds, partyPageStatuses };
 }
 
 function buildStateSummary(
@@ -256,14 +348,23 @@ export async function GET(req: Request) {
     }, { status: 200 });
   }
 
+  const { byAc: partywiseByAc, partyIds, partyPageStatuses } = await fetchPartywiseEnrichments();
+
   if (dry !== null) {
     const withData = rows.filter((r) => r.leadName || r.trailName || r.marginVotes);
+    const sample = withData.slice(0, 5).map((r) => ({
+      ...r,
+      enrichment: partywiseByAc.get(r.acNumber) ?? null,
+    }));
     return NextResponse.json({
       status: 'dry',
       pageStatuses,
+      partyIds,
+      partyPageStatuses,
       totalRows: rows.length,
       rowsWithData: withData.length,
-      sample: withData.slice(0, 5),
+      rowsEnriched: Array.from(partywiseByAc.keys()).length,
+      sample,
     });
   }
 
@@ -272,7 +373,7 @@ export async function GET(req: Request) {
   for (const row of rows) {
     const acId = acIdByNumber.get(row.acNumber);
     if (!acId) { skipped++; continue; }
-    const data = buildACLiveResult(row);
+    const data = buildACLiveResult(row, partywiseByAc.get(row.acNumber));
     if (!data) { skipped++; continue; }
     await writeACResult(acId, data);
     writes.push({ acId, data });
@@ -297,8 +398,11 @@ export async function GET(req: Request) {
   return NextResponse.json({
     status: writes.length > 0 ? 'ok' : 'error',
     pageStatuses,
+    partyIds,
+    partyPageStatuses,
     totalRows: rows.length,
     written: writes.length,
+    enriched: Array.from(partywiseByAc.keys()).length,
     skippedEmpty: skipped,
     summaryWritten,
   });
