@@ -151,8 +151,8 @@ export function LiveResultsTab({ constituencyId, className = '' }: LiveResultsTa
         </div>
       )}
 
-      <div className="space-y-2">
-        {data.candidates.slice(0, 10).map((c) => {
+      <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+        {data.candidates.map((c) => {
           const party = getPartyById(c.partyId);
           const color = party?.color ?? '#546E7A';
           const widthPct = (c.votes / maxVotes) * 100;
@@ -160,7 +160,14 @@ export function LiveResultsTab({ constituencyId, className = '' }: LiveResultsTa
             <div key={c.candidateId} className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-2">
-                  <p className="truncate text-xs font-medium text-white">{c.name}</p>
+                  <p className="truncate text-xs font-medium text-white">
+                    {c.name}
+                    {party && (
+                      <span className="ml-1.5 text-[10px] font-semibold text-gray-500">
+                        {party.abbreviation}
+                      </span>
+                    )}
+                  </p>
                   <p className="shrink-0 text-[11px] text-gray-400">
                     {c.votes.toLocaleString()}
                     <span className="ml-1 text-gray-500">({c.voteShare.toFixed(1)}%)</span>
@@ -178,10 +185,14 @@ export function LiveResultsTab({ constituencyId, className = '' }: LiveResultsTa
         })}
       </div>
 
-      <p className="mt-4 text-[11px] text-gray-500">
-        Total counted: <span className="text-gray-300">{data.totalCounted.toLocaleString()}</span>
-        {data.totalElectors && ` of ${data.totalElectors.toLocaleString()} electors`}
-        · polling every 15s
+      <p className="mt-4 flex items-center justify-between text-[11px] text-gray-500">
+        <span>
+          Total counted: <span className="text-gray-300">{data.totalCounted.toLocaleString()}</span>
+          {data.totalElectors && ` of ${data.totalElectors.toLocaleString()} electors`}
+          {' · '}
+          {data.candidates.length} candidate{data.candidates.length === 1 ? '' : 's'}
+        </span>
+        <span>polling every 15s</span>
       </p>
     </div>
   );
