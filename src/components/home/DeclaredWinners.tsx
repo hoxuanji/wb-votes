@@ -97,15 +97,15 @@ function Card({ row, tone }: { row: Row; tone: 'declared' | 'leading' }) {
         className="absolute -right-8 -top-8 h-24 w-24 rounded-full opacity-20 blur-2xl"
         style={{ background: color }}
       />
-      {freshlyDeclared && (
-        <span className="absolute right-2 top-2 animate-pulse rounded-full bg-amber-300/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-amber-200">
-          New
-        </span>
-      )}
       <div className="relative flex items-start justify-between gap-2">
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 group-hover:text-white/70">
-            {row.acName}
+          <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-gray-400 group-hover:text-white/70">
+            <span className="truncate">{row.acName}</span>
+            {freshlyDeclared && (
+              <span className="shrink-0 animate-pulse rounded-full bg-amber-300/20 px-1.5 py-0.5 text-[9px] font-bold tracking-wider text-amber-200">
+                NEW
+              </span>
+            )}
           </p>
           <p className="mt-1 truncate text-sm font-bold text-white">{row.candidateName}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
