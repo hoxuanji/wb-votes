@@ -6,6 +6,7 @@ import type { StateLiveSummary, ScraperMeta } from '@/lib/live-store';
 import { StateTally } from '@/components/home/StateTally';
 import { PartyScoreboard } from '@/components/home/PartyScoreboard';
 import { PartyInsights } from '@/components/home/PartyInsights';
+import { Comparison2021 } from '@/components/home/Comparison2021';
 import { ACResultsTicker } from '@/components/home/ACResultsTicker';
 import { TightestMargins } from '@/components/home/TightestMargins';
 
@@ -111,6 +112,7 @@ export function LiveCountingPanel() {
       <StateTally summary={summary} />
       <PartyScoreboard summary={summary} />
       <PartyInsights summary={summary} />
+      <Comparison2021 summary={summary} />
       <ACResultsTicker summary={summary} />
       <TightestMargins summary={summary} />
     </div>
