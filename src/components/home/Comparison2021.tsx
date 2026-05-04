@@ -177,41 +177,43 @@ export function Comparison2021({ summary }: Props) {
         </div>
 
         <div className="overflow-hidden rounded-2xl border border-white/10 bg-white/5">
-          <table className="w-full text-sm">
-            <thead className="bg-white/5 text-[11px] uppercase tracking-wider text-gray-400">
-              <tr>
-                <th className="px-3 py-2 text-left">Party</th>
-                <th className="px-3 py-2 text-right">2026 leading</th>
-                <th className="px-3 py-2 text-right">2021</th>
-                <th className="px-3 py-2 text-right">Δ</th>
-                <th className="px-3 py-2 text-right">Holding</th>
-                <th className="px-3 py-2 text-right">Gaining</th>
-                <th className="px-3 py-2 text-right">Losing</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-white/5">
-              {partyRows.map((r) => {
-                const party = partyById[r.partyId];
-                return (
-                  <tr key={r.partyId} className="hover:bg-white/5">
-                    <td className="px-3 py-2">
-                      <span className="inline-flex items-center gap-2">
-                        <span className="h-2.5 w-2.5 rounded-sm" style={{ background: party?.color ?? '#64748b' }} />
-                        <span className="font-semibold text-white">{party?.abbreviation ?? r.partyId}</span>
-                        <span className="text-[11px] text-gray-500 truncate max-w-[12rem]">{party?.name ?? r.partyId}</span>
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 text-right font-mono font-bold text-white">{r.current}</td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-400">{r.seats2021}</td>
-                    <td className="px-3 py-2 text-right"><DeltaPill delta={r.delta} /></td>
-                    <td className="px-3 py-2 text-right font-mono text-gray-300">{r.retained}</td>
-                    <td className="px-3 py-2 text-right font-mono text-emerald-300">{r.gained > 0 ? `+${r.gained}` : '—'}</td>
-                    <td className="px-3 py-2 text-right font-mono text-red-300">{r.lost > 0 ? `−${r.lost}` : '—'}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-white/5 text-[11px] uppercase tracking-wider text-gray-400">
+                <tr>
+                  <th className="px-3 py-2 text-left">Party</th>
+                  <th className="px-3 py-2 text-right">2026</th>
+                  <th className="px-3 py-2 text-right">2021</th>
+                  <th className="px-3 py-2 text-right">Δ</th>
+                  <th className="px-3 py-2 text-right">Hold</th>
+                  <th className="px-3 py-2 text-right">Gain</th>
+                  <th className="px-3 py-2 text-right">Loss</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/5">
+                {partyRows.map((r) => {
+                  const party = partyById[r.partyId];
+                  return (
+                    <tr key={r.partyId} className="hover:bg-white/5">
+                      <td className="px-3 py-2">
+                        <span className="inline-flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 shrink-0 rounded-sm" style={{ background: party?.color ?? '#64748b' }} />
+                          <span className="font-semibold text-white">{party?.abbreviation ?? r.partyId}</span>
+                          <span className="hidden truncate text-[11px] text-gray-500 sm:inline sm:max-w-[10rem]">{party?.name ?? r.partyId}</span>
+                        </span>
+                      </td>
+                      <td className="px-3 py-2 text-right font-mono font-bold text-white">{r.current}</td>
+                      <td className="px-3 py-2 text-right font-mono text-gray-400">{r.seats2021}</td>
+                      <td className="px-3 py-2 text-right"><DeltaPill delta={r.delta} /></td>
+                      <td className="px-3 py-2 text-right font-mono text-gray-300">{r.retained}</td>
+                      <td className="px-3 py-2 text-right font-mono text-emerald-300">{r.gained > 0 ? `+${r.gained}` : '—'}</td>
+                      <td className="px-3 py-2 text-right font-mono text-red-300">{r.lost > 0 ? `−${r.lost}` : '—'}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         {topFlips.length > 0 && (

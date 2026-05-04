@@ -1233,49 +1233,74 @@ export function WestBengalMap({ defaultMode }: { defaultMode?: string } = {}) {
               </div>
             )}
 
-            {/* Legend */}
-            <div className="absolute bottom-3 left-3 rounded-xl border border-white/15 bg-slate-950/90 px-2.5 py-2 shadow-sm backdrop-blur-sm">
+            {/* Legend — vertical column hugging the left edge so the map keeps
+                its horizontal breathing room. */}
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 rounded-lg border border-white/15 bg-slate-950/90 px-2 py-2 shadow-sm backdrop-blur-sm">
               {legendConfig.type === 'phase' ? (
                 <div className="flex flex-col gap-1.5">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-500">Phases</p>
                   <div className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE1_FILL }} />
-                    <span className="text-[9px] font-medium text-gray-300">Phase 1 · 23 Apr</span>
+                    <span className="whitespace-nowrap text-[9px] font-medium text-gray-300">Phase 1</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: PHASE2_FILL }} />
-                    <span className="text-[9px] font-medium text-gray-300">Phase 2 · 29 Apr</span>
+                    <span className="whitespace-nowrap text-[9px] font-medium text-gray-300">Phase 2</span>
                   </div>
                 </div>
               ) : legendConfig.type === 'parties' ? (
-                <div>
-                  <p className="mb-1 text-[9px] font-semibold text-gray-500">{legendConfig.title}</p>
-                  <div className="flex flex-wrap gap-x-2 gap-y-1 max-w-[200px]">
-                    {[
-                      { id: 'AITC',   abbr: 'TMC'  },
-                      { id: 'BJP',    abbr: 'BJP'  },
-                      { id: 'INC',    abbr: 'INC'  },
-                      { id: 'CPI(M)', abbr: 'CPM'  },
-                      { id: 'ALL INDIA SECULAR FRONT', abbr: 'AISF' },
-                      { id: 'IND',    abbr: 'IND'  },
-                    ].map((p) => (
-                      <div key={p.id} className="flex items-center gap-1">
-                        <span
-                          className="h-2 w-2 rounded-full"
-                          style={{ backgroundColor: partyById[p.id]?.color ?? '#64748b' }}
-                        />
-                        <span className="text-[8px] font-medium text-gray-400">{p.abbr}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="flex max-h-[20rem] flex-col gap-1 overflow-y-auto pr-0.5">
+                  <p className="mb-0.5 text-[9px] font-semibold uppercase tracking-wider text-gray-500">
+                    {legendConfig.title.includes('2021') ? '2021 seats' : 'Live seats'}
+                  </p>
+                  {(() => {
+                    // Build the legend dynamically so every party with a seat
+                    // gets its own row; hardcoding missed AIFB, AISF-variants, etc.
+                    let rows: { partyId: string; count: number }[] = [];
+                    if (mapMode === 'liveLeader' && liveSummary) {
+                      rows = Object.entries(liveSummary.leadingByParty)
+                        .map(([partyId, count]) => ({ partyId, count }));
+                    } else if (mapMode === 'incumbent2021') {
+                      const counts2021: Record<string, number> = {};
+                      for (const ac of constituencies) {
+                        const pid = winner2021ById[ac.id]?.partyId;
+                        if (pid) counts2021[pid] = (counts2021[pid] ?? 0) + 1;
+                      }
+                      rows = Object.entries(counts2021).map(([partyId, count]) => ({ partyId, count }));
+                    }
+                    rows.sort((a, b) => b.count - a.count);
+                    if (rows.length === 0) {
+                      return (
+                        <span className="text-[9px] text-gray-500">
+                          waiting for data
+                        </span>
+                      );
+                    }
+                    return rows.map((row) => {
+                      const party = partyById[row.partyId];
+                      return (
+                        <div key={row.partyId} className="flex items-center gap-1.5">
+                          <span
+                            className="h-2 w-2 shrink-0 rounded-full"
+                            style={{ backgroundColor: party?.color ?? '#64748b' }}
+                          />
+                          <span className="whitespace-nowrap text-[9px] font-medium text-gray-300">
+                            {party?.abbreviation ?? row.partyId}
+                          </span>
+                          <span className="ml-auto pl-2 text-[9px] font-mono font-semibold text-white tabular-nums">
+                            {row.count}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
                 </div>
               ) : (
-                <div>
-                  <p className="mb-1 text-[9px] font-semibold text-gray-500">{legendConfig.title}</p>
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[8px] text-gray-400">{legendConfig.leftLabel}</span>
-                    <div className="h-2 w-20 rounded-full" style={{ background: `linear-gradient(to right, ${legendConfig.from}, ${legendConfig.to})` }} />
-                    <span className="text-[8px] text-gray-400">{legendConfig.rightLabel}</span>
-                  </div>
+                <div className="flex flex-col gap-1">
+                  <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-500">{legendConfig.title}</p>
+                  <div className="h-16 w-2 rounded-full" style={{ background: `linear-gradient(to top, ${legendConfig.from}, ${legendConfig.to})` }} />
+                  <span className="text-[8px] text-gray-400">{legendConfig.rightLabel}</span>
+                  <span className="mt-8 -translate-y-full text-[8px] text-gray-400">{legendConfig.leftLabel}</span>
                 </div>
               )}
             </div>
