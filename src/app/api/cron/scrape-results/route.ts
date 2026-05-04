@@ -60,9 +60,41 @@ function resolvePartyId(name: string): string {
   return partyIdByName.get(key) ?? name.trim().toUpperCase();
 }
 
-// AC number → AC id lookup.
+// AC number → AC id lookup (fallback only — see acIdByName below).
 const acIdByNumber = new Map<number, string>();
 for (const c of constituencies) acIdByNumber.set(c.assemblyNumber, c.id);
+
+// Our local `constituencies.ts` assemblyNumbers do not always align with ECI's
+// 2026 numbering (e.g. Bhabanipur is #166 locally but #159 on ECI). Name-based
+// matching is the authoritative join key; number is a fallback for rare cases
+// where ECI spells a name differently.
+const acIdByName = new Map<string, string>();
+function normalizeName(s: string): string {
+  return s.toLowerCase().replace(/[^a-z0-9]+/g, '');
+}
+for (const c of constituencies) acIdByName.set(normalizeName(c.name), c.id);
+
+// Spelling variants — ECI's normalized name → our normalized name.
+const ECI_NAME_ALIASES: Record<string, string> = {
+  bhagawangola: 'bhagabangola',
+  jaynagar: 'joynagar',
+  labpur: 'labhpur',
+  mahisadal: 'mahishadal',
+  mangalkot: 'mongalkote',
+  nowda: 'naoda',
+};
+
+function lookupAcId(acName: string, acNumber: number): string | null {
+  const key = normalizeName(acName);
+  const direct = acIdByName.get(key);
+  if (direct) return direct;
+  const aliased = ECI_NAME_ALIASES[key];
+  if (aliased) {
+    const hit = acIdByName.get(aliased);
+    if (hit) return hit;
+  }
+  return acIdByNumber.get(acNumber) ?? null;
+}
 
 /**
  * The statewise page embeds a tooltip <div> inside each party cell, and also
@@ -144,7 +176,7 @@ function parseStatewisePage(html: string): StatewiseRow[] {
 }
 
 function buildACLiveResult(row: StatewiseRow, enrich?: PartywiseEnrichment): ACLiveResult | null {
-  const acId = acIdByNumber.get(row.acNumber);
+  const acId = lookupAcId(row.acName, row.acNumber);
   if (!acId) return null;
   // Skip rows with no data yet (no leading candidate means counting hasn't
   // reported anything for this AC). Leave any prior KV entry in place.
@@ -370,9 +402,10 @@ export async function GET(req: Request) {
 
   const writes: { acId: string; data: ACLiveResult }[] = [];
   let skipped = 0;
+  let unmatched = 0;
   for (const row of rows) {
-    const acId = acIdByNumber.get(row.acNumber);
-    if (!acId) { skipped++; continue; }
+    const acId = lookupAcId(row.acName, row.acNumber);
+    if (!acId) { unmatched++; continue; }
     const data = buildACLiveResult(row, partywiseByAc.get(row.acNumber));
     if (!data) { skipped++; continue; }
     await writeACResult(acId, data);
@@ -403,6 +436,7 @@ export async function GET(req: Request) {
     totalRows: rows.length,
     written: writes.length,
     enriched: Array.from(partywiseByAc.keys()).length,
+    unmatched,
     skippedEmpty: skipped,
     summaryWritten,
   });
