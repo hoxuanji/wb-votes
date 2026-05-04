@@ -34,6 +34,8 @@ export interface StateLiveSummary {
   votesByParty?: Record<string, number>;
   /** Per-AC leader partyId (null = undeclared / no data). Used to colour the live-leader map. */
   leaderByAc?: Record<string, string | null>;
+  /** ACs where ECI has officially declared the result, with winner details. */
+  declaredWinners?: { acId: string; candidateName: string; partyId: string; marginVotes: number }[];
   turnoutPct?: number;
   tightestMargins: { acId: string; marginVotes: number; leaderPartyId: string | null }[];
   lastUpdated: string;

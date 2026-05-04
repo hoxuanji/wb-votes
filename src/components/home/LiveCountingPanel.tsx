@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
 import type { StateLiveSummary, ScraperMeta } from '@/lib/live-store';
 import { StateTally } from '@/components/home/StateTally';
+import { DeclaredWinners } from '@/components/home/DeclaredWinners';
 import { PartyScoreboard } from '@/components/home/PartyScoreboard';
 import { PartyInsights } from '@/components/home/PartyInsights';
 import { Comparison2021 } from '@/components/home/Comparison2021';
@@ -110,6 +111,7 @@ export function LiveCountingPanel() {
       </div>
 
       <StateTally summary={summary} />
+      <DeclaredWinners summary={summary} />
       <PartyScoreboard summary={summary} />
       <PartyInsights summary={summary} />
       <Comparison2021 summary={summary} />

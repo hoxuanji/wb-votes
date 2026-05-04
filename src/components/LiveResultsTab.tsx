@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Radio, Info, Clock } from 'lucide-react';
+import { Radio, Info, Clock, Trophy } from 'lucide-react';
 import { getPartyById } from '@/data/parties';
 import type { ACLiveResult } from '@/lib/live-store';
 
@@ -89,9 +89,12 @@ export function LiveResultsTab({ constituencyId, className = '' }: LiveResultsTa
     <div className={`rounded-xl border border-white/10 bg-white/5 p-4 sm:p-5 ${className}`}>
       <div className="mb-4 flex items-center justify-between gap-2">
         <h3 className="flex items-center gap-2 text-sm font-semibold text-white">
-          <Radio className="h-4 w-4 animate-pulse text-red-400" />
-          Live Results
-          {data.declared && <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-bold text-emerald-300">DECLARED</span>}
+          {data.declared ? (
+            <Trophy className="h-4 w-4 text-amber-400" />
+          ) : (
+            <Radio className="h-4 w-4 animate-pulse text-red-400" />
+          )}
+          {data.declared ? 'Result Declared' : 'Live Results'}
         </h3>
         <span className="flex items-center gap-1 text-[11px] text-gray-500">
           <Clock className="h-3 w-3" />
@@ -99,12 +102,42 @@ export function LiveResultsTab({ constituencyId, className = '' }: LiveResultsTa
         </span>
       </div>
 
-      {leader && (
+      {leader && data.declared && (
+        <div
+          className="relative mb-4 overflow-hidden rounded-xl p-4 text-white shadow-lg"
+          style={{
+            background: `linear-gradient(135deg, ${leaderColor} 0%, ${leaderColor}cc 45%, rgba(250, 204, 21, 0.85) 130%)`,
+          }}
+        >
+          <div className="absolute -right-6 -top-6 h-32 w-32 rounded-full bg-white/10 blur-2xl" />
+          <div className="absolute right-3 top-3 flex items-center gap-1 rounded-full bg-black/30 px-2 py-1 text-[10px] font-bold uppercase tracking-wider text-amber-200 backdrop-blur">
+            <Trophy className="h-3 w-3" /> Winner
+          </div>
+          <p className="relative text-[11px] font-semibold uppercase tracking-[0.2em] text-white/80">
+            Declared
+          </p>
+          <p className="relative mt-1 text-2xl font-extrabold leading-tight">{leader.name}</p>
+          <div className="relative mt-2 flex flex-wrap items-center gap-2 text-sm">
+            <span className="rounded bg-black/30 px-2 py-0.5 text-[11px] font-bold text-white backdrop-blur">
+              {leaderParty?.abbreviation ?? leader.partyId}
+            </span>
+            <span className="font-mono text-white/90">
+              {leader.votes.toLocaleString()} votes
+            </span>
+            {leader.voteShare > 0 && (
+              <span className="text-white/80">· {leader.voteShare.toFixed(1)}%</span>
+            )}
+            <span className="text-white/80">· margin {data.marginVotes.toLocaleString()}</span>
+          </div>
+        </div>
+      )}
+
+      {leader && !data.declared && (
         <div
           className="mb-4 rounded-lg border border-white/10 bg-black/20 p-3"
           style={{ borderLeft: `4px solid ${leaderColor}` }}
         >
-          <p className="text-xs text-gray-400">{data.declared ? 'Winner' : 'Leading'}</p>
+          <p className="text-xs text-gray-400">Leading</p>
           <p className="mt-0.5 text-base font-bold text-white">{leader.name}</p>
           <div className="mt-1 flex items-center gap-2 text-xs">
             <span className="rounded px-1.5 py-0.5 text-[10px] font-bold text-white" style={{ backgroundColor: leaderColor }}>

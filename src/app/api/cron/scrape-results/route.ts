@@ -308,6 +308,7 @@ function buildStateSummary(
   const leadingByParty: Record<string, number> = {};
   const votesByParty: Record<string, number> = {};
   const leaderByAc: Record<string, string | null> = {};
+  const declaredWinners: StateLiveSummary['declaredWinners'] = [];
   let declared = 0;
   const margins: StateLiveSummary['tightestMargins'] = [];
 
@@ -321,13 +322,26 @@ function buildStateSummary(
         votesByParty[c.partyId] = (votesByParty[c.partyId] ?? 0) + c.votes;
       }
     }
-    if (data.declared) declared++;
+    if (data.declared) {
+      declared++;
+      const winner = data.candidates[0];
+      if (winner) {
+        declaredWinners.push({
+          acId,
+          candidateName: winner.name,
+          partyId: winner.partyId,
+          marginVotes: data.marginVotes,
+        });
+      }
+    }
     if (data.marginVotes > 0) {
       margins.push({ acId, marginVotes: data.marginVotes, leaderPartyId: data.leaderPartyId });
     }
   }
 
   margins.sort((a, b) => a.marginVotes - b.marginVotes);
+  // Biggest-margin declared wins first so the home page shows authoritative calls.
+  declaredWinners.sort((a, b) => b.marginVotes - a.marginVotes);
 
   return {
     totalACs,
@@ -335,6 +349,7 @@ function buildStateSummary(
     leadingByParty,
     votesByParty,
     leaderByAc,
+    declaredWinners,
     tightestMargins: margins.slice(0, 10),
     lastUpdated: new Date().toISOString(),
   };
