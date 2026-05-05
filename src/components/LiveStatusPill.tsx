@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Trophy, Radio } from 'lucide-react';
+import { Trophy, Radio, CalendarClock } from 'lucide-react';
 import { getPartyById } from '@/data/parties';
+import { isReElectionAc } from '@/lib/re-election';
 import type { ACLiveResult } from '@/lib/live-store';
 
 /**
@@ -16,6 +17,7 @@ export function LiveStatusPill({ constituencyId }: { constituencyId: string }) {
   const [data, setData] = useState<ACLiveResult | null>(null);
 
   useEffect(() => {
+    if (isReElectionAc(constituencyId)) return;
     let cancelled = false;
     async function tick() {
       try {
@@ -30,6 +32,17 @@ export function LiveStatusPill({ constituencyId }: { constituencyId: string }) {
     const id = setInterval(tick, 15000);
     return () => { cancelled = true; clearInterval(id); };
   }, [constituencyId]);
+
+  // Re-election pending (countermanded poll) — render a distinctive pill
+  // regardless of whether the live store has any data for this AC.
+  if (isReElectionAc(constituencyId)) {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-500/15 px-2.5 py-1 text-[11px] font-bold uppercase tracking-wider text-amber-300">
+        <CalendarClock className="h-3 w-3" />
+        Re-election pending
+      </span>
+    );
+  }
 
   if (!data || !data.leaderPartyId) return null;
 

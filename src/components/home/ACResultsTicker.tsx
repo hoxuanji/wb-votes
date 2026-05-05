@@ -4,6 +4,7 @@ import Link from 'next/link';
 import type { StateLiveSummary } from '@/lib/live-store';
 import { parties } from '@/data/parties';
 import { constituencies } from '@/data/constituencies';
+import { isReElectionAc } from '@/lib/re-election';
 
 const partyById = Object.fromEntries(parties.map(p => [p.id, p]));
 const constById = Object.fromEntries(constituencies.map(c => [c.id, c]));
@@ -21,7 +22,7 @@ export function ACResultsTicker({ summary }: Props) {
   const marginByAc = new Map(tightest.map(t => [t.acId, t]));
   const declaredSet = new Set((summary.declaredWinners ?? []).map(w => w.acId));
 
-  const ids = Object.keys(leaderByAc).filter((id) => !!leaderByAc[id]);
+  const ids = Object.keys(leaderByAc).filter((id) => !!leaderByAc[id] && !isReElectionAc(id));
   ids.sort((a, b) => {
     const da = declaredSet.has(a);
     const db = declaredSet.has(b);

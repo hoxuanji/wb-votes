@@ -6,6 +6,7 @@ import { Trophy, Sparkles, Radio } from 'lucide-react';
 import type { StateLiveSummary } from '@/lib/live-store';
 import { parties } from '@/data/parties';
 import { constituencies } from '@/data/constituencies';
+import { isReElectionAc } from '@/lib/re-election';
 
 const partyById = Object.fromEntries(parties.map((p) => [p.id, p]));
 const constById = Object.fromEntries(constituencies.map((c) => [c.id, c]));
@@ -62,6 +63,9 @@ function buildRows(summary: StateLiveSummary): { declared: Row[]; leading: Row[]
   const leading: Row[] = [];
   for (const [acId, partyId] of Object.entries(leaderByAc)) {
     if (!partyId || declaredSet.has(acId)) continue;
+    // Re-election ACs have no meaningful 'leading' state — hide them here;
+    // they're called out by the dedicated ReElectionNotice banner.
+    if (isReElectionAc(acId)) continue;
     leading.push({
       acId,
       acName: constById[acId]?.name ?? acId,

@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Radio, Info, Clock, Trophy, AlertCircle, ArrowRight } from 'lucide-react';
+import { Radio, Info, Clock, Trophy, AlertCircle, ArrowRight, CalendarClock } from 'lucide-react';
 import { getPartyById } from '@/data/parties';
 import { historicalResults } from '@/data/historical-results';
+import { isReElectionAc, reElectionInfo } from '@/lib/re-election';
 import type { ACLiveResult } from '@/lib/live-store';
 
 interface LiveResultsTabProps {
@@ -29,7 +30,11 @@ export function LiveResultsTab({ constituencyId, className = '' }: LiveResultsTa
   const [data, setData] = useState<ACLiveResult | null>(null);
   const [status, setStatus] = useState<'loading' | 'ok' | 'no-data' | 'error'>('loading');
 
+  // Short-circuit for ACs with a countermanded poll — no live scrape applies.
+  const reElection = isReElectionAc(constituencyId) ? reElectionInfo(constituencyId) : null;
+
   useEffect(() => {
+    if (reElection) return;
     let cancelled = false;
 
     async function tick() {
@@ -52,7 +57,34 @@ export function LiveResultsTab({ constituencyId, className = '' }: LiveResultsTa
     tick();
     const id = setInterval(tick, 15000);
     return () => { cancelled = true; clearInterval(id); };
-  }, [constituencyId]);
+  }, [constituencyId, reElection]);
+
+  if (reElection) {
+    return (
+      <div className={`rounded-xl border border-amber-400/30 bg-amber-500/5 p-6 ${className}`}>
+        <div className="flex items-start gap-3">
+          <div className="shrink-0 rounded-full bg-amber-500/15 p-2.5">
+            <CalendarClock className="h-5 w-5 text-amber-300" />
+          </div>
+          <div>
+            <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-300">
+              Re-election pending
+            </p>
+            <p className="mt-1 text-base font-bold text-white">{reElection.reason}</p>
+            {reElection.expected && (
+              <p className="mt-1 text-sm text-amber-100/80">{reElection.expected}</p>
+            )}
+            <p className="mt-3 text-[12px] text-amber-100/60">
+              The original poll has been countermanded by the Election Commission.
+              No result is tallied for this constituency; a fresh election will be held
+              separately. Other 293 seats of the West Bengal assembly were counted on
+              4 May 2026.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (status === 'loading') {
     return (
