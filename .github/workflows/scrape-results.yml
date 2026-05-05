@@ -18,8 +18,11 @@ name: Scrape ECI results
 
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '*/5 * * * *'
+  # schedule:
+  #   - cron: '*/5 * * * *'
+  # Re-enable the schedule above only when counting is live again (e.g. for
+  # Falta's re-election). Counting for the other 293 seats concluded
+  # 2026-05-04; keeping the cron running would just hammer ECI for no reason.
 
 jobs:
   scrape:
