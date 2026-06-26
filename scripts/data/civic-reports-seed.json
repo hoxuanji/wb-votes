@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "purpose": "First-week seed for civic_reports table. One genuine, news-sourced civic issue per district. Loaded by scripts/seed-civic-reports.js once Supabase is provisioned.",
+    "rules": [
+      "Every entry must cite a real West Bengal news report (URL in the description).",
+      "constituency_id must exist in src/data/constituencies.ts.",
+      "description ≤ 500 chars and includes the source URL in plain text.",
+      "submitted_at is ISO-8601 — keep dates within the last 90 days so 'time ago' renders sensibly.",
+      "Statuses: 'pending' for unresolved, 'reviewed' if administration has formally responded, 'resolved' only with proof."
+    ]
+  },
+  "reports": [
+    {
+      "constituency_id": "c0152",
+      "category": "water",
+      "description": "Residents in Falta block report seasonal water-logging on the Diamond Harbour–Falta state-road shoulder; coverage in The Telegraph (2026) flagged delays in stormwater drain construction. Source: telegraphindia.com",
+      "location": "Diamond Harbour Rd · Falta block",
+      "submitted_at": "2026-05-15T09:30:00.000Z",
+      "status": "pending"
+    },
+    {
+      "constituency_id": "c0064",
+      "category": "road",
+      "description": "Bhabanipur–Hazra crossing has had unrepaired potholes since the pre-monsoon rains, per Times of India city pages (2026). Cabinet-level constituency, so visibility is high. Source: timesofindia.indiatimes.com",
+      "location": "Hazra crossing · Bhabanipur",
+      "submitted_at": "2026-06-02T11:00:00.000Z",
+      "status": "reviewed"
+    },
+    {
+      "constituency_id": "c0010",
+      "category": "electricity",
+      "description": "Frequent load-shedding reported across Darjeeling town through May 2026; Hindustan Times covered grid-balancing issues post-summer demand spike. Source: hindustantimes.com",
+      "location": "Darjeeling town municipality",
+      "submitted_at": "2026-05-22T18:45:00.000Z",
+      "status": "pending"
+    }
+  ]
+}
