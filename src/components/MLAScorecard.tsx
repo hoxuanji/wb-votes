@@ -4,13 +4,15 @@ import { getPartyById } from '@/data/parties';
 import { getCabinetMemberByConstituency } from '@/data/cabinet';
 import { getCurrentMLAForAC } from '@/data/current-mla';
 import { getMLARecordForAC } from '@/data/mla-records';
-import { getServerElectionPhase, isGovernance } from '@/lib/election-phase';
+import { getServerElectionPhase, isGovernance, type ElectionPhase } from '@/lib/election-phase';
 import { getHistoricalResultForACYear } from '@/data/historical-results';
 import { MinistryBadge } from '@/components/cabinet/MinistryBadge';
 
 interface MLAScorecardProps {
   constituencyId: string;
   className?: string;
+  /** Phase override — pass from client trees where getServerElectionPhase() can't run. */
+  phase?: ElectionPhase;
 }
 
 function pct(v?: number): string {
@@ -20,8 +22,8 @@ function pct(v?: number): string {
 // WB MLALADS standard: ₹70 lakh/year
 const MLALADS_ANNUAL_L = 70;
 
-export function MLAScorecard({ constituencyId, className = '' }: MLAScorecardProps) {
-  const phase    = getServerElectionPhase();
+export function MLAScorecard({ constituencyId, className = '', phase: phaseOverride }: MLAScorecardProps) {
+  const phase    = phaseOverride ?? getServerElectionPhase();
   const minister = getCabinetMemberByConstituency(constituencyId);
 
   // In governance: read 2026 winner. In pre/live/post: read 2021 incumbent.
