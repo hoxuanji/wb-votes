@@ -53,7 +53,7 @@ export function HomeHero() {
   const isLiveLike = phase === 'live' || phase === 'post';
 
   return (
-    <section className={`relative overflow-visible bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 px-4 ${compact ? 'pb-8 pt-10' : 'pb-14 pt-14'} text-white`}>
+    <section className={`relative overflow-visible bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 px-4 ${phase === 'governance' ? 'pb-5 pt-7' : compact ? 'pb-8 pt-10' : 'pb-14 pt-14'} text-white`}>
       {/* Ambient orbs */}
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute -right-24 -top-24 h-96 w-96 rounded-full bg-blue-500/10 blur-3xl" />
@@ -80,7 +80,7 @@ export function HomeHero() {
             </p>
           </>
         ) : phase === 'governance' ? (
-          <h1 className="mb-5 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl md:text-4xl">
+          <h1 className="mb-3 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl md:text-3xl">
             <span className="bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-300 bg-clip-text text-transparent">
               West Bengal at Work
             </span>
@@ -92,12 +92,6 @@ export function HomeHero() {
               : <>Result declared — <span className="bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-300 bg-clip-text text-transparent">West Bengal 2026</span></>
             }
           </h1>
-        )}
-
-        {phase === 'governance' && (
-          <p className="mx-auto mb-5 max-w-xl text-sm text-blue-100/80 sm:text-base">
-            Track how your MLA, ministry, and assembly are performing — constituency by constituency.
-          </p>
         )}
 
         <HeroSearchBar />
@@ -156,7 +150,7 @@ function PhaseBadge({ phase }: { phase: ElectionPhase }) {
   }
   if (phase === 'governance') {
     return (
-      <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-100 backdrop-blur-sm">
+      <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-100 backdrop-blur-sm">
         <Building2 className="h-3 w-3" />
         Civic dashboard · 2026 term
       </span>
@@ -207,7 +201,7 @@ function GovernanceChips() {
   const GOVERNMENT_FORMED = '2026-05-09';
   const daysIn = Math.max(0, Math.floor((Date.now() - new Date(GOVERNMENT_FORMED).getTime()) / 86_400_000));
   return (
-    <div className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
+    <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-center gap-2">
       <div className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1.5 text-sm text-white backdrop-blur-sm">
         <span className="font-extrabold text-emerald-200">{daysIn}</span>
         <span className="ml-1 text-emerald-100/80">days into new term</span>
