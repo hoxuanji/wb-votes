@@ -7,7 +7,7 @@ export const runtime = 'nodejs';
 // and /api/reports rather than lifting them into a shared lib. Two callers,
 // different cache TTLs — not worth the shared module yet.
 
-type FeedKind = 'news' | 'report';
+type FeedKind = 'news' | 'report' | 'press';
 interface FeedItem {
   kind: FeedKind;
   id: string;
@@ -78,6 +78,44 @@ async function fetchNews(acId: string | null): Promise<FeedItem[]> {
   }
 }
 
+async function fetchCabinetReleases(acId: string | null): Promise<FeedItem[]> {
+  // Cabinet decisions + central press releases mentioning WB.
+  // ponytail: Google-News-of-PIB instead of direct PIB RSS — PIB's regional feed
+  // is flaky and Google indexes it reliably. Same parseXml, no extra deps.
+  let query = '("West Bengal cabinet" OR "Bengal cabinet" OR site:pib.gov.in "West Bengal")';
+  if (acId) {
+    const c = getConstituencyById(acId);
+    if (c) query = `("${c.district}" cabinet OR site:pib.gov.in "${c.district}") "West Bengal"`;
+  }
+  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-IN&gl=IN&ceid=IN:en`;
+
+  try {
+    const res = await fetch(url, {
+      next: { revalidate: 3600 },
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WBVotes/1.0)' },
+    });
+    if (!res.ok) return [];
+    const xml = await res.text();
+    return parseXml(xml).slice(0, 8).map(a => {
+      const ts  = a.pubDate ? new Date(a.pubDate) : null;
+      const iso = ts && !isNaN(ts.getTime()) ? ts.toISOString() : '1970-01-01T00:00:00.000Z';
+      const isPib = /pib\.gov\.in/i.test(a.link);
+      return {
+        kind: 'press' as const,
+        id: a.link,
+        title: a.title,
+        source: isPib ? 'PIB · Govt of India' : (a.source || 'Cabinet update'),
+        link: a.link,
+        acId: acId ?? undefined,
+        timestamp: iso,
+        category: isPib ? 'press_release' : 'cabinet',
+      };
+    });
+  } catch {
+    return [];
+  }
+}
+
 async function fetchReports(acId: string | null): Promise<FeedItem[]> {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -129,9 +167,15 @@ export async function GET(req: Request) {
   const acId  = searchParams.get('acId');
   const limit = Math.max(1, Math.min(100, Number(searchParams.get('limit')) || 20));
 
-  const [news, reports] = await Promise.all([fetchNews(acId), fetchReports(acId)]);
+  const [news, press, reports] = await Promise.all([
+    fetchNews(acId),
+    fetchCabinetReleases(acId),
+    fetchReports(acId),
+  ]);
 
-  const items = [...news, ...reports]
+  const dedupedNews = news.filter(n => !press.some(p => p.id === n.id));
+
+  const items = [...press, ...dedupedNews, ...reports]
     .sort((a, b) => b.timestamp.localeCompare(a.timestamp))
     .slice(0, limit);
 
