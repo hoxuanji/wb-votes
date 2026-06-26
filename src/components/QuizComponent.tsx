@@ -118,7 +118,7 @@ export function QuizComponent() {
                   placeholder={t('Search constituency or district…', 'নির্বাচনী এলাকা বা জেলা খুঁজুন…')}
                   value={constSearch}
                   onChange={e => setConstSearch(e.target.value)}
-                  className="w-full rounded-xl border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500/50 focus:outline-none"
+                  className="w-full rounded-xl border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-gray-200 placeholder-gray-500 outline-none focus:outline-none focus:ring-0"
                 />
               </div>
               <div className="max-h-52 overflow-y-auto rounded-xl border border-white/10">

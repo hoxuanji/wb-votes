@@ -101,7 +101,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
               value={query}
               onChange={e => { setQuery(e.target.value); setPage(1); }}
               placeholder="Search by name or constituency…"
-              className="w-full rounded-lg border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-gray-200 placeholder-gray-500 focus:border-blue-500/50 focus:outline-none"
+              className="w-full rounded-lg border border-white/15 bg-white/5 py-2 pl-9 pr-3 text-sm text-gray-200 placeholder-gray-500 outline-none focus:outline-none focus:ring-0"
             />
           </div>
 
@@ -109,7 +109,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
           <select
             value={partyFilter}
             onChange={e => { setPartyFilter(e.target.value); resetPage(); }}
-            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 focus:border-blue-500/50 focus:outline-none"
+            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 outline-none focus:outline-none focus:ring-0"
           >
             <option value="">All Parties</option>
             <optgroup label="Major Parties">
@@ -128,7 +128,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
           <select
             value={districtFilter}
             onChange={e => { setDistrictFilter(e.target.value); resetPage(); }}
-            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 focus:border-blue-500/50 focus:outline-none"
+            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 outline-none focus:outline-none focus:ring-0"
           >
             <option value="">All Districts</option>
             {districts.map(d => (
@@ -140,7 +140,7 @@ export function CandidatesFilter({ candidates, parties, districts, partyMap, con
           <select
             value={sortBy}
             onChange={e => { setSortBy(e.target.value); setPage(1); }}
-            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 focus:border-blue-500/50 focus:outline-none"
+            className="rounded-lg border border-white/15 bg-slate-900 px-3 py-2 text-sm text-gray-300 outline-none focus:outline-none focus:ring-0"
           >
             {SORT_OPTIONS.map(o => (
               <option key={o.value} value={o.value}>{o.label}</option>

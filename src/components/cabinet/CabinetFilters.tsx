@@ -62,7 +62,7 @@ export function CabinetFilters({ parties }: CabinetFiltersProps) {
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search by name or ministry…"
-          className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-9 pr-9 text-sm text-white placeholder:text-gray-500 outline-none transition-colors hover:bg-white/[0.07] focus:border-blue-400/40 min-h-[44px]"
+          className="w-full rounded-lg border border-white/10 bg-white/5 py-2.5 pl-9 pr-9 text-sm text-white placeholder:text-gray-500 outline-none focus:outline-none focus:ring-0 transition-colors hover:bg-white/[0.07] min-h-[44px]"
         />
         {query && (
           <button
@@ -79,7 +79,7 @@ export function CabinetFilters({ parties }: CabinetFiltersProps) {
       <select
         value={rank}
         onChange={(e) => setParam('rank', e.target.value)}
-        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none hover:bg-white/[0.07] focus:border-blue-400/40 min-h-[44px]"
+        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none focus:outline-none focus:ring-0 hover:bg-white/[0.07] min-h-[44px]"
         aria-label="Filter by rank"
       >
         {RANK_OPTIONS.map((o) => (
@@ -91,7 +91,7 @@ export function CabinetFilters({ parties }: CabinetFiltersProps) {
       <select
         value={party}
         onChange={(e) => setParam('party', e.target.value)}
-        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none hover:bg-white/[0.07] focus:border-blue-400/40 min-h-[44px]"
+        className="rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white outline-none focus:outline-none focus:ring-0 hover:bg-white/[0.07] min-h-[44px]"
         aria-label="Filter by party"
       >
         <option value="all" className="bg-slate-900">All parties</option>

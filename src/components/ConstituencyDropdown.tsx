@@ -25,7 +25,7 @@ export function ConstituencyDropdown({ selected }: Props) {
         onChange={e => {
           if (e.target.value) router.push(`/find-rep?ac=${e.target.value}`);
         }}
-        className="w-full appearance-none rounded-xl border border-white/20 bg-slate-900/80 px-4 py-3 text-base text-white backdrop-blur-sm outline-none focus:border-blue-400/60 min-h-[48px]"
+        className="w-full appearance-none rounded-xl border border-white/20 bg-slate-900/80 px-4 py-3 text-base text-white backdrop-blur-sm outline-none focus:outline-none focus:ring-0 min-h-[48px]"
       >
         <option value="" className="bg-slate-900">— Search your constituency —</option>
         {districts.map(district => (

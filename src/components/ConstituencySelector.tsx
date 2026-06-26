@@ -38,7 +38,7 @@ export function ConstituencySelector() {
           placeholder={t('Search constituency…', 'নির্বাচনী এলাকা খুঁজুন…')}
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-sm shadow-sm placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+          className="w-full rounded-xl border border-gray-300 bg-white py-3 pl-10 pr-4 text-sm shadow-sm placeholder:text-gray-400 outline-none focus:outline-none focus:ring-0"
         />
       </div>
 

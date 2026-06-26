@@ -107,7 +107,7 @@ export function CivicReportForm({ constituencyId, constituencyName }: Props) {
                 ? 'e.g. Ward 12, Mohalla name, Market area'
                 : 'e.g. Village Binol, Block Amdanga, GP Paikpara'
           }
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 outline-none focus:border-blue-400/40 min-h-[44px]"
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 outline-none focus:outline-none focus:ring-0 min-h-[44px]"
         />
       </div>
 
@@ -123,7 +123,7 @@ export function CivicReportForm({ constituencyId, constituencyName }: Props) {
           onChange={e => setLandmark(e.target.value)}
           maxLength={120}
           placeholder="Near bus stop, school, market, crossing…"
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 outline-none focus:border-blue-400/40 min-h-[44px]"
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 outline-none focus:outline-none focus:ring-0 min-h-[44px]"
         />
       </div>
 
@@ -163,7 +163,7 @@ export function CivicReportForm({ constituencyId, constituencyName }: Props) {
           rows={3}
           maxLength={500}
           placeholder="What's the problem? What did you see? The more specific, the better."
-          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 outline-none focus:border-blue-400/40 min-h-[80px]"
+          className="w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2.5 text-sm text-white placeholder:text-gray-600 outline-none focus:outline-none focus:ring-0 min-h-[80px]"
           required
         />
         <p className="mt-1 text-right text-[10px] text-gray-600">{description.length}/500</p>
