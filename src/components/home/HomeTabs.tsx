@@ -9,9 +9,12 @@ import { ResultsAnalysisPanel } from '@/components/home/ResultsAnalysisPanel';
 import { NewsPanel } from '@/components/home/NewsPanel';
 import { CabinetSummary } from '@/components/cabinet/CabinetSummary';
 import { GovernanceNewsFeed } from '@/components/GovernanceNewsFeed';
-import { Radio, Compass, Newspaper, BarChart3, Building2, Wallet, ScrollText, Archive, ArrowRight } from 'lucide-react';
+import { LiveActivityFeed } from '@/components/home/LiveActivityFeed';
+import { ACPicker } from '@/components/home/ACPicker';
+import { MyACSection } from '@/components/home/MyACSection';
+import { Radio, Compass, Newspaper, BarChart3, Building2, Wallet, ScrollText, Archive, ArrowRight, Sparkles } from 'lucide-react';
 
-type TabId = 'live' | 'results' | 'explore' | 'news' | 'cabinet' | 'funds' | 'assembly' | 'archive';
+type TabId = 'today' | 'live' | 'results' | 'explore' | 'news' | 'cabinet' | 'funds' | 'assembly' | 'archive';
 
 interface TabDef {
   id: TabId;
@@ -51,6 +54,7 @@ export function HomeTabs() {
     }
     if (phase === 'governance') {
       return [
+        { id: 'today',    label: 'Today',         icon: Sparkles,   panel: <TodayPanel /> },
         { id: 'cabinet',  label: 'Cabinet',       icon: Building2,  panel: <CabinetSummary /> },
         { id: 'funds',    label: 'Funds',         icon: Wallet,     panel: <FundsPreviewPanel /> },
         { id: 'assembly', label: 'Assembly',      icon: ScrollText, panel: <AssemblyPreviewPanel /> },
@@ -126,6 +130,16 @@ export function HomeTabs() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+
+function TodayPanel() {
+  return (
+    <section className="mx-auto max-w-4xl px-4 py-6 space-y-8">
+      <LiveActivityFeed />
+      <ACPicker />
+      <MyACSection />
+    </section>
+  );
+}
 
 function GovernanceNewsPanel() {
   return (
