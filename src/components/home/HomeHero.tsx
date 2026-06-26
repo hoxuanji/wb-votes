@@ -9,6 +9,7 @@ import { parties } from '@/data/parties';
 import { getClientElectionPhase, type ElectionPhase } from '@/lib/election-phase';
 import type { StateLiveSummary } from '@/lib/live-store';
 import { Radio, CheckCircle2, Building2 } from 'lucide-react';
+import { useLanguage } from '@/lib/language-context';
 
 const partyById = Object.fromEntries(parties.map(p => [p.id, p]));
 
@@ -24,6 +25,7 @@ const partyById = Object.fromEntries(parties.map(p => [p.id, p]));
  */
 export function HomeHero() {
   const phase = getClientElectionPhase();
+  const { t } = useLanguage();
   const totalCriminal = candidates.filter((c) => c.criminalCases > 0).length;
   const womenCount = candidates.filter(c => c.gender === 'Female').length;
 
@@ -82,7 +84,7 @@ export function HomeHero() {
         ) : phase === 'governance' ? (
           <h1 className="mb-3 text-xl font-extrabold leading-tight tracking-tight sm:text-2xl md:text-3xl">
             <span className="bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-300 bg-clip-text text-transparent">
-              West Bengal at Work
+              {t('West Bengal at Work', 'কর্মরত পশ্চিমবঙ্গ')}
             </span>
           </h1>
         ) : (
@@ -132,11 +134,12 @@ export function HomeHero() {
 // ─────────────────────────────────────────────────────────────────────────────
 
 function PhaseBadge({ phase }: { phase: ElectionPhase }) {
+  const { t } = useLanguage();
   if (phase === 'live') {
     return (
       <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-red-400/40 bg-red-500/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-red-100 backdrop-blur-sm">
         <Radio className="h-3 w-3 animate-pulse" />
-        Result day · Counting LIVE
+        {t('Result day · Counting LIVE', 'ফলাফলের দিন · গণনা চলছে')}
       </span>
     );
   }
@@ -144,7 +147,7 @@ function PhaseBadge({ phase }: { phase: ElectionPhase }) {
     return (
       <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-100 backdrop-blur-sm">
         <CheckCircle2 className="h-3 w-3" />
-        Final result · 2026
+        {t('Final result · 2026', 'চূড়ান্ত ফলাফল · ২০২৬')}
       </span>
     );
   }
@@ -152,14 +155,14 @@ function PhaseBadge({ phase }: { phase: ElectionPhase }) {
     return (
       <span className="mb-3 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-100 backdrop-blur-sm">
         <Building2 className="h-3 w-3" />
-        Civic dashboard · 2026 term
+        {t('Civic dashboard · 2026 term', 'নাগরিক ড্যাশবোর্ড · ২০২৬ মেয়াদ')}
       </span>
     );
   }
   return (
     <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-white/20 bg-white/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-blue-200 backdrop-blur-sm">
       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-blue-300" />
-      WB Elections 2026 · Phase 1: 23 Apr · Phase 2: 29 Apr
+      {t('WB Elections 2026 · Phase 1: 23 Apr · Phase 2: 29 Apr', 'বঙ্গ নির্বাচন ২০২৬ · পর্ব ১: ২৩ এপ্রিল · পর্ব ২: ২৯ এপ্রিল')}
     </span>
   );
 }
@@ -196,6 +199,7 @@ function LiveChips({ summary }: { summary: StateLiveSummary }) {
 }
 
 function GovernanceChips() {
+  const { t } = useLanguage();
   // Days since the new government formed. Suvendu Adhikari (BJP) sworn in 9 May 2026.
   // ISO date kept here so a future ElectionConfig (M2) can replace this with a config-driven value.
   const GOVERNMENT_FORMED = '2026-05-09';
@@ -204,14 +208,14 @@ function GovernanceChips() {
     <div className="mx-auto mt-4 flex max-w-2xl flex-wrap justify-center gap-2">
       <div className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1.5 text-sm text-white backdrop-blur-sm">
         <span className="font-extrabold text-emerald-200">{daysIn}</span>
-        <span className="ml-1 text-emerald-100/80">days into new term</span>
+        <span className="ml-1 text-emerald-100/80">{t('days into new term', 'দিন নতুন মেয়াদে')}</span>
       </div>
       <div className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-blue-100 backdrop-blur-sm">
         <span className="font-bold">{constituencies.length}</span>
-        <span className="ml-1 text-blue-200/80">constituencies</span>
+        <span className="ml-1 text-blue-200/80">{t('constituencies', 'কেন্দ্র')}</span>
       </div>
       <div className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-blue-100 backdrop-blur-sm">
-        <span className="text-blue-200/80">Term:</span>
+        <span className="text-blue-200/80">{t('Term:', 'মেয়াদ:')}</span>
         <span className="ml-1 font-bold">2026–2031</span>
       </div>
     </div>

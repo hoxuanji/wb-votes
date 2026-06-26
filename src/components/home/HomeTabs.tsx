@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getClientElectionPhase } from '@/lib/election-phase';
+import { useLanguage } from '@/lib/language-context';
 import { CandidateExplorerPanel } from '@/components/home/CandidateExplorerPanel';
 import { LiveCountingPanel } from '@/components/home/LiveCountingPanel';
 import { ResultsAnalysisPanel } from '@/components/home/ResultsAnalysisPanel';
@@ -33,33 +34,34 @@ interface TabDef {
  */
 export function HomeTabs() {
   const phase = getClientElectionPhase();
+  const { t } = useLanguage();
 
   const tabs: TabDef[] = (() => {
-    const explore = { id: 'explore' as const, label: 'Explore',    icon: Compass,   panel: <CandidateExplorerPanel mapDefaultMode={phase === 'pre' ? undefined : 'liveLeader'} showCountdown={phase === 'pre'} /> };
-    const news    = { id: 'news'    as const, label: 'News',       icon: Newspaper, panel: <NewsPanel /> };
+    const explore = { id: 'explore' as const, label: t('Explore', 'এক্সপ্লোর'),    icon: Compass,   panel: <CandidateExplorerPanel mapDefaultMode={phase === 'pre' ? undefined : 'liveLeader'} showCountdown={phase === 'pre'} /> };
+    const news    = { id: 'news'    as const, label: t('News', 'খবর'),       icon: Newspaper, panel: <NewsPanel /> };
 
     if (phase === 'live') {
       return [
-        { id: 'live',    label: 'Live Counting', icon: Radio,     panel: <LiveCountingPanel /> },
+        { id: 'live',    label: t('Live Counting', 'লাইভ গণনা'), icon: Radio,     panel: <LiveCountingPanel /> },
         explore,
         news,
       ];
     }
     if (phase === 'post') {
       return [
-        { id: 'results', label: 'Results Analysis', icon: BarChart3, panel: <ResultsAnalysisPanel /> },
+        { id: 'results', label: t('Results Analysis', 'ফলাফল বিশ্লেষণ'), icon: BarChart3, panel: <ResultsAnalysisPanel /> },
         explore,
         news,
       ];
     }
     if (phase === 'governance') {
       return [
-        { id: 'today',    label: 'Today',         icon: Sparkles,   panel: <TodayPanel /> },
-        { id: 'cabinet',  label: 'Cabinet',       icon: Building2,  panel: <CabinetSummary /> },
-        { id: 'funds',    label: 'Funds',         icon: Wallet,     panel: <FundsPreviewPanel /> },
-        { id: 'assembly', label: 'Assembly',      icon: ScrollText, panel: <AssemblyPreviewPanel /> },
-        { id: 'news',     label: 'News',          icon: Newspaper,  panel: <GovernanceNewsPanel /> },
-        { id: 'archive',  label: '2026 Archive',  icon: Archive,    panel: <ArchivePanel /> },
+        { id: 'today',    label: t('Today', 'আজ'),         icon: Sparkles,   panel: <TodayPanel /> },
+        { id: 'cabinet',  label: t('Cabinet', 'মন্ত্রিসভা'),       icon: Building2,  panel: <CabinetSummary /> },
+        { id: 'funds',    label: t('Funds', 'তহবিল'),         icon: Wallet,     panel: <FundsPreviewPanel /> },
+        { id: 'assembly', label: t('Assembly', 'বিধানসভা'),      icon: ScrollText, panel: <AssemblyPreviewPanel /> },
+        { id: 'news',     label: t('News', 'খবর'),          icon: Newspaper,  panel: <GovernanceNewsPanel /> },
+        { id: 'archive',  label: t('2026 Archive', '২০২৬ আর্কাইভ'),  icon: Archive,    panel: <ArchivePanel /> },
       ];
     }
     return [explore];
