@@ -65,8 +65,8 @@ export function DemographicsPanel({ constituencyId, className = '' }: Demographi
         <Info className="h-3 w-3 shrink-0 mt-0.5" />
         <span>
           {d.sourceNote
-            ? `${d.sourceNote}. Figures are district-level; AC-level data will be added when ECI voter rolls are ingested.`
-            : 'Figures reflect district-level Census 2011 data; AC-level data will be added when ECI voter rolls are ingested.'}
+            ? d.sourceNote
+            : 'Figures reflect district-level Census 2011 data.'}
         </span>
       </p>
     </div>

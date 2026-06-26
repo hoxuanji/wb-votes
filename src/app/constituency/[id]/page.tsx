@@ -15,6 +15,11 @@ import { HistoricalResultsPanel } from '@/components/HistoricalResultsPanel';
 import { DemographicsPanel } from '@/components/DemographicsPanel';
 import { ConstituencyNewsFeed } from '@/components/ConstituencyNewsFeed';
 import { MLAScorecard } from '@/components/MLAScorecard';
+import { MPCard } from '@/components/MPCard';
+import { CivicReportForm } from '@/components/CivicReportForm';
+import { ConstituencyIssuesFeed } from '@/components/ConstituencyIssuesFeed';
+import { getLSConstituencyForAC } from '@/data/ac-ls-map';
+import { getMPByLSConstituency } from '@/data/wbmps';
 import { LiveResultsTab } from '@/components/LiveResultsTab';
 import { LiveStatusPill } from '@/components/LiveStatusPill';
 import { getClientElectionPhase, getDefaultConstituencyTab } from '@/lib/election-phase';
@@ -212,7 +217,19 @@ export default function ConstituencyPage({ params }: PageProps) {
   const historyTab  = <HistoricalResultsPanel constituencyId={params.id} />;
   const demoTab     = <DemographicsPanel constituencyId={params.id} />;
   const newsTab     = <ConstituencyNewsFeed constituencyId={params.id} />;
-  const mlaTab      = <MLAScorecard constituencyId={params.id} />;
+  const lsName  = getLSConstituencyForAC(params.id);
+  const mp      = lsName ? getMPByLSConstituency(lsName) : null;
+  const mlaTab  = (
+    <div className="space-y-4">
+      <MLAScorecard constituencyId={params.id} />
+      {mp && <MPCard mp={mp} acName={constituency.name} />}
+      <ConstituencyIssuesFeed constituencyId={params.id} constituencyName={constituency.name} />
+      <div className="rounded-xl border border-white/10 bg-white/[0.03] p-4">
+        <h3 className="mb-3 text-sm font-semibold text-white">Report a Local Issue</h3>
+        <CivicReportForm constituencyId={params.id} constituencyName={constituency.name} />
+      </div>
+    </div>
+  );
   const liveTab     = <LiveResultsTab constituencyId={params.id} />;
 
   const tabs: DashboardTabDef[] = [

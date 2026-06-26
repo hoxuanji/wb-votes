@@ -10,15 +10,24 @@ export function Header() {
   const { lang, setLang, t } = useLanguage();
   const phase = getClientElectionPhase();
   const showExplore = phase !== 'pre';
+  const isGovernance = phase === 'governance';
 
-  const navLinks = [
-    { href: '/',           label: t('Home', 'হোম') },
-    ...(showExplore ? [{ href: '/explore', label: t('Explore', 'এক্সপ্লোর') }] : []),
-    { href: '/candidates', label: t('Candidates', 'প্রার্থী') },
-    { href: '/quiz',       label: t('Quiz', 'কুইজ') },
-    { href: '/compare',    label: t('Compare', 'তুলনা') },
-    { href: '/methodology',label: t('Methodology', 'পদ্ধতি') },
-  ];
+  const navLinks = isGovernance
+    ? [
+        { href: '/',            label: t('Home', 'হোম') },
+        { href: '/cabinet',     label: t('Cabinet', 'মন্ত্রিসভা') },
+        { href: '/find-rep',    label: t('Find Your Rep', 'প্রতিনিধি খুঁজুন') },
+        { href: '/candidates',  label: t('Constituencies', 'কেন্দ্র') },
+        { href: '/methodology', label: t('Methodology', 'পদ্ধতি') },
+      ]
+    : [
+        { href: '/',           label: t('Home', 'হোম') },
+        ...(showExplore ? [{ href: '/explore', label: t('Explore', 'এক্সপ্লোর') }] : []),
+        { href: '/candidates', label: t('Candidates', 'প্রার্থী') },
+        { href: '/quiz',       label: t('Quiz', 'কুইজ') },
+        { href: '/compare',    label: t('Compare', 'তুলনা') },
+        { href: '/methodology',label: t('Methodology', 'পদ্ধতি') },
+      ];
 
   return (
     <header className="sticky top-0 z-40 border-b border-white/10 bg-slate-950/90 backdrop-blur-md">

@@ -4,16 +4,20 @@
  * Reads NEXT_PUBLIC_ELECTION_PHASE (for client-visible decisions like default
  * tab / map mode) and ELECTION_PHASE (for server/scraper decisions).
  *
- * Valid values: 'pre' | 'live' | 'post' (default 'pre').
+ * Valid values: 'pre' | 'live' | 'post' | 'governance' (default 'pre').
  *
- * - pre:   polling underway or in the future. Show candidates. Live tab hidden.
- * - live:  counting day — results being published. Live tab + /live enabled.
- * - post:  counting finished, 2026 results archived. Dashboard defaults to MLA.
+ * - pre:        polling underway or in the future. Show candidates. Live tab hidden.
+ * - live:       counting day — results being published. Live tab + /live enabled.
+ * - post:       counting finished, 2026 results archived. Story-So-Far insights.
+ * - governance: steady-state between elections. Default tab on /constituency/[id]
+ *               is MLA. Home shows Cabinet / Funds / Projects / Assembly / News /
+ *               Archive. Election-era surfaces (/live, /results, /compare, /quiz)
+ *               stay accessible via the Archive tab.
  */
 
-export type ElectionPhase = 'pre' | 'live' | 'post';
+export type ElectionPhase = 'pre' | 'live' | 'post' | 'governance';
 
-const VALID: Set<string> = new Set(['pre', 'live', 'post']);
+const VALID: Set<string> = new Set(['pre', 'live', 'post', 'governance']);
 
 function normalise(raw: string | undefined): ElectionPhase {
   if (raw && VALID.has(raw)) return raw as ElectionPhase;
@@ -36,7 +40,17 @@ export function isPost(phase: ElectionPhase): boolean {
   return phase === 'post';
 }
 
+export function isGovernance(phase: ElectionPhase): boolean {
+  return phase === 'governance';
+}
+
+/** True while an election cycle is active (pre/live/post). False during governance. */
+export function isElectionActive(phase: ElectionPhase): boolean {
+  return phase !== 'governance';
+}
+
 export function getDefaultConstituencyTab(phase: ElectionPhase): 'overview' | 'candidates' | 'mla' | 'live' {
+  if (phase === 'governance') return 'mla';
   if (phase === 'post') return 'mla';
   if (phase === 'live') return 'live';
   return 'overview';

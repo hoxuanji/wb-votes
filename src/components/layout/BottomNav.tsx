@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Home, Users, ClipboardList, GitCompare, Compass } from 'lucide-react';
+import { Home, Users, ClipboardList, GitCompare, Compass, Building2, Wallet, Search } from 'lucide-react';
 import { getClientElectionPhase } from '@/lib/election-phase';
 
 const BASE_TABS = [
@@ -12,17 +12,26 @@ const BASE_TABS = [
   { href: '/compare',    icon: GitCompare,    label: 'Compare'    },
 ] as const;
 
+const GOVERNANCE_TABS = [
+  { href: '/',            icon: Home,       label: 'Home'     },
+  { href: '/cabinet',     icon: Building2,  label: 'Cabinet'  },
+  { href: '/find-rep',    icon: Search,     label: 'Find Rep' },
+  { href: '/funds',       icon: Wallet,     label: 'Funds'    },
+] as const;
+
 export function BottomNav() {
   const pathname = usePathname();
   const phase = getClientElectionPhase();
 
-  const tabs = phase === 'pre'
-    ? BASE_TABS
-    : [
-        BASE_TABS[0],
-        { href: '/explore', icon: Compass, label: 'Explore' },
-        ...BASE_TABS.slice(1, 3), // drop "Compare" to keep 5 tabs visible
-      ];
+  const tabs = phase === 'governance'
+    ? GOVERNANCE_TABS
+    : phase === 'pre'
+      ? BASE_TABS
+      : [
+          BASE_TABS[0],
+          { href: '/explore', icon: Compass, label: 'Explore' },
+          ...BASE_TABS.slice(1, 3),
+        ];
 
   function isActive(href: string) {
     if (href === '/') return pathname === '/';
@@ -45,22 +54,14 @@ export function BottomNav() {
               className={`
                 flex flex-1 flex-col items-center justify-center gap-0.5 text-[10px] font-semibold
                 transition-all duration-150 active:scale-95 select-none
-                ${active
-                  ? 'text-blue-400'
-                  : 'text-gray-500 active:text-gray-300'
-                }
+                ${active ? 'text-blue-400' : 'text-gray-500 active:text-gray-300'}
               `}
               aria-current={active ? 'page' : undefined}
             >
-              <div className={`
-                flex h-7 w-12 items-center justify-center rounded-full transition-all duration-150
-                ${active ? 'bg-blue-400/20' : 'active:bg-white/10'}
-              `}>
+              <div className={`flex h-7 w-12 items-center justify-center rounded-full transition-all duration-150 ${active ? 'bg-blue-400/20' : 'active:bg-white/10'}`}>
                 <Icon className={`h-5 w-5 transition-transform duration-150 ${active ? 'scale-110' : ''}`} />
               </div>
-              <span className={`leading-none ${active ? 'text-blue-400' : 'text-gray-500'}`}>
-                {label}
-              </span>
+              <span className={`leading-none ${active ? 'text-blue-400' : 'text-gray-500'}`}>{label}</span>
             </Link>
           );
         })}

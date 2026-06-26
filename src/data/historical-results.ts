@@ -1,11 +1,12 @@
-// AUTO-GENERATED — WB historical Assembly results — 2026-04-30
+// AUTO-GENERATED — WB historical Assembly results — 2026-05-15
 // Built by: node scripts/build-historical.js
 // Sources: src/data/raw/historical/lokdhaba-wb-ac-{year}.csv (preferred)
+//        + src/data/raw/historical/IndiaVotes_AC__West_Bengal_{year}.csv (winner-only fallback)
 //        + src/data/raw/historical/{year}.json (legacy)
 //        + scripts/data/incumbents-2021.csv (2021 last-resort)
 import type { HistoricalACResult } from '@/types';
 
-export const historicalResults: HistoricalACResult[] = [
+const _r2011: HistoricalACResult[] = [
   {
     "constituencyId": "c0001",
     "year": 2011,
@@ -17022,7 +17023,10 @@ export const historicalResults: HistoricalACResult[] = [
     "marginPct": 2.7,
     "totalVotes": 162965,
     "totalElectors": 189414
-  },
+  }
+];
+
+const _r2016: HistoricalACResult[] = [
   {
     "constituencyId": "c0001",
     "year": 2016,
@@ -34417,7 +34421,10 @@ export const historicalResults: HistoricalACResult[] = [
     "marginPct": 0.14,
     "totalVotes": 199235,
     "totalElectors": 234055
-  },
+  }
+];
+
+const _r2021: HistoricalACResult[] = [
   {
     "constituencyId": "c0001",
     "year": 2021,
@@ -51870,6 +51877,4699 @@ export const historicalResults: HistoricalACResult[] = [
     "totalElectors": 263200
   }
 ];
+
+const _r2026: HistoricalACResult[] = [
+  {
+    "constituencyId": "c0012",
+    "year": 2026,
+    "winner": {
+      "name": "Paritosh Das",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.1,
+    "marginVotes": 70420,
+    "marginPct": 30.6,
+    "totalVotes": 229846,
+    "totalElectors": 244331
+  },
+  {
+    "constituencyId": "c0106",
+    "year": 2026,
+    "winner": {
+      "name": "Mohammad Kasem Siddique",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.8,
+    "marginVotes": 2995,
+    "marginPct": 1.4,
+    "totalVotes": 211933,
+    "totalElectors": 221207
+  },
+  {
+    "constituencyId": "c0192",
+    "year": 2026,
+    "winner": {
+      "name": "Amit Samanta",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.5,
+    "marginVotes": 4454,
+    "marginPct": 1.9,
+    "totalVotes": 235146,
+    "totalElectors": 256982
+  },
+  {
+    "constituencyId": "c0209",
+    "year": 2026,
+    "winner": {
+      "name": "Bag Hemanta",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.5,
+    "marginVotes": 28959,
+    "marginPct": 12.4,
+    "totalVotes": 234269,
+    "totalElectors": 253260
+  },
+  {
+    "constituencyId": "c0293",
+    "year": 2026,
+    "winner": {
+      "name": "Agnimitra Paul",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.1,
+    "marginVotes": 40839,
+    "marginPct": 19.2,
+    "totalVotes": 212935,
+    "totalElectors": 239030
+  },
+  {
+    "constituencyId": "c0294",
+    "year": 2026,
+    "winner": {
+      "name": "Krishnendu Mukherjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 87.8,
+    "marginVotes": 11615,
+    "marginPct": 5.6,
+    "totalVotes": 207852,
+    "totalElectors": 236858
+  },
+  {
+    "constituencyId": "c0105",
+    "year": 2026,
+    "winner": {
+      "name": "Dr. Sumay Hira",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.2,
+    "marginVotes": 9408,
+    "marginPct": 4.3,
+    "totalVotes": 218596,
+    "totalElectors": 229506
+  },
+  {
+    "constituencyId": "c0281",
+    "year": 2026,
+    "winner": {
+      "name": "Kalita Maji",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.7,
+    "marginVotes": 12535,
+    "marginPct": 5.6,
+    "totalVotes": 223461,
+    "totalElectors": 236010
+  },
+  {
+    "constituencyId": "c0102",
+    "year": 2026,
+    "winner": {
+      "name": "Burhanul Mukaddim (LITON)",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.7,
+    "marginVotes": 40061,
+    "marginPct": 17.7,
+    "totalVotes": 225978,
+    "totalElectors": 236162
+  },
+  {
+    "constituencyId": "c0097",
+    "year": 2026,
+    "winner": {
+      "name": "Soma Thakur",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.8,
+    "marginVotes": 34616,
+    "marginPct": 16,
+    "totalVotes": 216505,
+    "totalElectors": 240989
+  },
+  {
+    "constituencyId": "c0251",
+    "year": 2026,
+    "winner": {
+      "name": "Rahidas Mahato",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.8,
+    "marginVotes": 40817,
+    "marginPct": 17.9,
+    "totalVotes": 227700,
+    "totalElectors": 250657
+  },
+  {
+    "constituencyId": "c0191",
+    "year": 2026,
+    "winner": {
+      "name": "Arunava Sen",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.8,
+    "marginVotes": 11316,
+    "marginPct": 5.2,
+    "totalVotes": 216358,
+    "totalElectors": 230578
+  },
+  {
+    "constituencyId": "c0075",
+    "year": 2026,
+    "winner": {
+      "name": "Subrata Maitra (KANCHAN)",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.6,
+    "marginVotes": 17548,
+    "marginPct": 7.9,
+    "totalVotes": 222909,
+    "totalElectors": 240830
+  },
+  {
+    "constituencyId": "c0054",
+    "year": 2026,
+    "winner": {
+      "name": "Raju Karmakar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.4,
+    "marginVotes": 46881,
+    "marginPct": 21,
+    "totalVotes": 223050,
+    "totalElectors": 233865
+  },
+  {
+    "constituencyId": "c0200",
+    "year": 2026,
+    "winner": {
+      "name": "Sumana Sarkar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.6,
+    "marginVotes": 41914,
+    "marginPct": 18.7,
+    "totalVotes": 224684,
+    "totalElectors": 240088
+  },
+  {
+    "constituencyId": "c0250",
+    "year": 2026,
+    "winner": {
+      "name": "Jaladhar Mahato",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.4,
+    "marginVotes": 35051,
+    "marginPct": 16.1,
+    "totalVotes": 217572,
+    "totalElectors": 235388
+  },
+  {
+    "constituencyId": "c0176",
+    "year": 2026,
+    "winner": {
+      "name": "Sanjay Kumar Singh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 87.5,
+    "marginVotes": 11997,
+    "marginPct": 10.3,
+    "totalVotes": 116914,
+    "totalElectors": 133573
+  },
+  {
+    "constituencyId": "c0168",
+    "year": 2026,
+    "winner": {
+      "name": "Sobhandeb Chattopadhyay",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 88.2,
+    "marginVotes": 61476,
+    "marginPct": 36.9,
+    "totalVotes": 166565,
+    "totalElectors": 188839
+  },
+  {
+    "constituencyId": "c0041",
+    "year": 2026,
+    "winner": {
+      "name": "Bidyut Kumar Roy",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 47576,
+    "marginPct": 30.3,
+    "totalVotes": 156852,
+    "totalElectors": 166912
+  },
+  {
+    "constituencyId": "c0249",
+    "year": 2026,
+    "winner": {
+      "name": "Labsen Baskey",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.1,
+    "marginVotes": 29577,
+    "marginPct": 11.2,
+    "totalVotes": 263398,
+    "totalElectors": 285966
+  },
+  {
+    "constituencyId": "c0099",
+    "year": 2026,
+    "winner": {
+      "name": "Swapan Majumder",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.5,
+    "marginVotes": 37814,
+    "marginPct": 17.9,
+    "totalVotes": 211259,
+    "totalElectors": 228359
+  },
+  {
+    "constituencyId": "c0098",
+    "year": 2026,
+    "winner": {
+      "name": "Ashok Kirtania",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.9,
+    "marginVotes": 40670,
+    "marginPct": 19.4,
+    "totalVotes": 209844,
+    "totalElectors": 225962
+  },
+  {
+    "constituencyId": "c0260",
+    "year": 2026,
+    "winner": {
+      "name": "Niladri Sekhar Dana",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.4,
+    "marginVotes": 54177,
+    "marginPct": 23,
+    "totalVotes": 235798,
+    "totalElectors": 260886
+  },
+  {
+    "constituencyId": "c0296",
+    "year": 2026,
+    "winner": {
+      "name": "Arijit Roy",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.4,
+    "marginVotes": 11722,
+    "marginPct": 6.4,
+    "totalVotes": 182509,
+    "totalElectors": 201898
+  },
+  {
+    "constituencyId": "c0118",
+    "year": 2026,
+    "winner": {
+      "name": "Sajal Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.1,
+    "marginVotes": 16956,
+    "marginPct": 10.1,
+    "totalVotes": 168150,
+    "totalElectors": 186541
+  },
+  {
+    "constituencyId": "c0125",
+    "year": 2026,
+    "winner": {
+      "name": "Sankar Chatterjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.1,
+    "marginVotes": 34558,
+    "marginPct": 14.7,
+    "totalVotes": 235060,
+    "totalElectors": 252439
+  },
+  {
+    "constituencyId": "c0272",
+    "year": 2026,
+    "winner": {
+      "name": "Moumita Biswas Misra",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.2,
+    "marginVotes": 30470,
+    "marginPct": 15,
+    "totalVotes": 202459,
+    "totalElectors": 221961
+  },
+  {
+    "constituencyId": "c0278",
+    "year": 2026,
+    "winner": {
+      "name": "Nisith Kumar Malik",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.8,
+    "marginVotes": 6460,
+    "marginPct": 2.6,
+    "totalVotes": 244161,
+    "totalElectors": 260360
+  },
+  {
+    "constituencyId": "c0261",
+    "year": 2026,
+    "winner": {
+      "name": "Billeswar Sinha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.6,
+    "marginVotes": 41310,
+    "marginPct": 17.8,
+    "totalVotes": 232676,
+    "totalElectors": 251402
+  },
+  {
+    "constituencyId": "c0113",
+    "year": 2026,
+    "winner": {
+      "name": "Kaustuv Bagchi",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.1,
+    "marginVotes": 15822,
+    "marginPct": 10.3,
+    "totalVotes": 153721,
+    "totalElectors": 170646
+  },
+  {
+    "constituencyId": "c0145",
+    "year": 2026,
+    "winner": {
+      "name": "Biman Banerjee",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.3,
+    "marginVotes": 17862,
+    "marginPct": 8.1,
+    "totalVotes": 219921,
+    "totalElectors": 233097
+  },
+  {
+    "constituencyId": "c0142",
+    "year": 2026,
+    "winner": {
+      "name": "Bivas Sardar",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.1,
+    "marginVotes": 31815,
+    "marginPct": 13.5,
+    "totalVotes": 235636,
+    "totalElectors": 245106
+  },
+  {
+    "constituencyId": "c0133",
+    "year": 2026,
+    "winner": {
+      "name": "Nilima Mistry Bishal",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.9,
+    "marginVotes": 56181,
+    "marginPct": 24.4,
+    "totalVotes": 230458,
+    "totalElectors": 240303
+  },
+  {
+    "constituencyId": "c0130",
+    "year": 2026,
+    "winner": {
+      "name": "Surajit Mitra (BADAL)",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.7,
+    "marginVotes": 9544,
+    "marginPct": 3.8,
+    "totalVotes": 249208,
+    "totalElectors": 260361
+  },
+  {
+    "constituencyId": "c0103",
+    "year": 2026,
+    "winner": {
+      "name": "Md. Tauseffur Rahman",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.5,
+    "marginVotes": 57270,
+    "marginPct": 24.2,
+    "totalVotes": 236879,
+    "totalElectors": 245388
+  },
+  {
+    "constituencyId": "c0164",
+    "year": 2026,
+    "winner": {
+      "name": "Dr. Indranil Khan",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.2,
+    "marginVotes": 24699,
+    "marginPct": 10.4,
+    "totalVotes": 237312,
+    "totalElectors": 266173
+  },
+  {
+    "constituencyId": "c0163",
+    "year": 2026,
+    "winner": {
+      "name": "Sankar Sikder",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.7,
+    "marginVotes": 25137,
+    "marginPct": 10.8,
+    "totalVotes": 233052,
+    "totalElectors": 259752
+  },
+  {
+    "constituencyId": "c0074",
+    "year": 2026,
+    "winner": {
+      "name": "Bharat Kumar Jhawar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93,
+    "marginVotes": 13208,
+    "marginPct": 5.8,
+    "totalVotes": 226812,
+    "totalElectors": 243984
+  },
+  {
+    "constituencyId": "c0171",
+    "year": 2026,
+    "winner": {
+      "name": "Kunal Kumar Ghosh",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.5,
+    "marginVotes": 28576,
+    "marginPct": 16.6,
+    "totalVotes": 172540,
+    "totalElectors": 190599
+  },
+  {
+    "constituencyId": "c0166",
+    "year": 2026,
+    "winner": {
+      "name": "Adhikari Suvendu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 86.4,
+    "marginVotes": 15105,
+    "marginPct": 10.9,
+    "totalVotes": 138584,
+    "totalElectors": 160313
+  },
+  {
+    "constituencyId": "c0063",
+    "year": 2026,
+    "winner": {
+      "name": "Reyat Hossain Sarkar",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.7,
+    "marginVotes": 56407,
+    "marginPct": 26,
+    "totalVotes": 217131,
+    "totalElectors": 224618
+  },
+  {
+    "constituencyId": "c0222",
+    "year": 2026,
+    "winner": {
+      "name": "Santanu Pramanik",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.6,
+    "marginVotes": 20878,
+    "marginPct": 8.5,
+    "totalVotes": 246952,
+    "totalElectors": 263775
+  },
+  {
+    "constituencyId": "c0158",
+    "year": 2026,
+    "winner": {
+      "name": "Md Nawsad Siddique",
+      "partyId": "ALL INDIA SECULAR FRONT",
+      "partyAbbr": "AISF",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 97.5,
+    "marginVotes": 32088,
+    "marginPct": 12.1,
+    "totalVotes": 265799,
+    "totalElectors": 272711
+  },
+  {
+    "constituencyId": "c0072",
+    "year": 2026,
+    "winner": {
+      "name": "Mustafijur Rahaman (SUMAN)",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89,
+    "marginVotes": 30753,
+    "marginPct": 14.5,
+    "totalVotes": 212804,
+    "totalElectors": 239184
+  },
+  {
+    "constituencyId": "c0279",
+    "year": 2026,
+    "winner": {
+      "name": "Karfa Soumen",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.3,
+    "marginVotes": 6528,
+    "marginPct": 3.1,
+    "totalVotes": 211442,
+    "totalElectors": 226642
+  },
+  {
+    "constituencyId": "c0109",
+    "year": 2026,
+    "winner": {
+      "name": "Pawan Kumar Singh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.9,
+    "marginVotes": 22807,
+    "marginPct": 21.6,
+    "totalVotes": 105375,
+    "totalElectors": 117195
+  },
+  {
+    "constituencyId": "c0121",
+    "year": 2026,
+    "winner": {
+      "name": "Sharadwat Mukherjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 86.4,
+    "marginVotes": 37330,
+    "marginPct": 21.2,
+    "totalVotes": 176102,
+    "totalElectors": 203877
+  },
+  {
+    "constituencyId": "c0107",
+    "year": 2026,
+    "winner": {
+      "name": "Sudipta Das",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.2,
+    "marginVotes": 13343,
+    "marginPct": 9.3,
+    "totalVotes": 144155,
+    "totalElectors": 158096
+  },
+  {
+    "constituencyId": "c0248",
+    "year": 2026,
+    "winner": {
+      "name": "Dr. Pranat Tudu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.9,
+    "marginVotes": 22977,
+    "marginPct": 11.2,
+    "totalVotes": 205400,
+    "totalElectors": 221125
+  },
+  {
+    "constituencyId": "c0154",
+    "year": 2026,
+    "winner": {
+      "name": "Dilip Mondal",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.8,
+    "marginVotes": 36925,
+    "marginPct": 14.8,
+    "totalVotes": 248924,
+    "totalElectors": 268266
+  },
+  {
+    "constituencyId": "c0266",
+    "year": 2026,
+    "winner": {
+      "name": "Shukla Chatterjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.2,
+    "marginVotes": 30605,
+    "marginPct": 14.9,
+    "totalVotes": 205298,
+    "totalElectors": 220284
+  },
+  {
+    "constituencyId": "c0299",
+    "year": 2026,
+    "winner": {
+      "name": "Chandranath Sinha",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.3,
+    "marginVotes": 13188,
+    "marginPct": 5.4,
+    "totalVotes": 242785,
+    "totalElectors": 260112
+  },
+  {
+    "constituencyId": "c0156",
+    "year": 2026,
+    "winner": {
+      "name": "Ashok Kumar Deb",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 46850,
+    "marginPct": 21.7,
+    "totalVotes": 216100,
+    "totalElectors": 229907
+  },
+  {
+    "constituencyId": "c0069",
+    "year": 2026,
+    "winner": {
+      "name": "Sukhen Kumar Bagdi",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 87.1,
+    "marginVotes": 22300,
+    "marginPct": 12,
+    "totalVotes": 186417,
+    "totalElectors": 214003
+  },
+  {
+    "constituencyId": "c0143",
+    "year": 2026,
+    "winner": {
+      "name": "Paresh Ram Das",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.8,
+    "marginVotes": 40665,
+    "marginPct": 17.8,
+    "totalVotes": 228318,
+    "totalElectors": 238236
+  },
+  {
+    "constituencyId": "c0144",
+    "year": 2026,
+    "winner": {
+      "name": "Md Baharul Islam",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 97.3,
+    "marginVotes": 91954,
+    "marginPct": 38.3,
+    "totalVotes": 240040,
+    "totalElectors": 246673
+  },
+  {
+    "constituencyId": "c0094",
+    "year": 2026,
+    "winner": {
+      "name": "Bankim Chandra Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.6,
+    "marginVotes": 36945,
+    "marginPct": 17.6,
+    "totalVotes": 209610,
+    "totalElectors": 223981
+  },
+  {
+    "constituencyId": "c0031",
+    "year": 2026,
+    "winner": {
+      "name": "Azad Minhajul Arfin",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.3,
+    "marginVotes": 28011,
+    "marginPct": 14.2,
+    "totalVotes": 197401,
+    "totalElectors": 216095
+  },
+  {
+    "constituencyId": "c0195",
+    "year": 2026,
+    "winner": {
+      "name": "Dilip Singh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.2,
+    "marginVotes": 3026,
+    "marginPct": 1.5,
+    "totalVotes": 202388,
+    "totalElectors": 221952
+  },
+  {
+    "constituencyId": "c0047",
+    "year": 2026,
+    "winner": {
+      "name": "Prasun Banerjee",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.6,
+    "marginVotes": 63874,
+    "marginPct": 27.3,
+    "totalVotes": 233628,
+    "totalElectors": 244428
+  },
+  {
+    "constituencyId": "c0197",
+    "year": 2026,
+    "winner": {
+      "name": "Deepanjan Kumar Guha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.9,
+    "marginVotes": 13441,
+    "marginPct": 7.3,
+    "totalVotes": 184893,
+    "totalElectors": 203451
+  },
+  {
+    "constituencyId": "c0220",
+    "year": 2026,
+    "winner": {
+      "name": "Pijush Kanti Das",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.3,
+    "marginVotes": 20270,
+    "marginPct": 8.4,
+    "totalVotes": 241340,
+    "totalElectors": 255924
+  },
+  {
+    "constituencyId": "c0204",
+    "year": 2026,
+    "winner": {
+      "name": "Swati Khandoker",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.7,
+    "marginVotes": 19663,
+    "marginPct": 8.7,
+    "totalVotes": 226021,
+    "totalElectors": 246543
+  },
+  {
+    "constituencyId": "c0239",
+    "year": 2026,
+    "winner": {
+      "name": "Sukanta Dolui",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93,
+    "marginVotes": 33481,
+    "marginPct": 12.7,
+    "totalVotes": 262895,
+    "totalElectors": 282820
+  },
+  {
+    "constituencyId": "c0084",
+    "year": 2026,
+    "winner": {
+      "name": "Jeber Sekh",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.2,
+    "marginVotes": 30780,
+    "marginPct": 14.7,
+    "totalVotes": 209212,
+    "totalElectors": 232057
+  },
+  {
+    "constituencyId": "c0259",
+    "year": 2026,
+    "winner": {
+      "name": "Satyanarayan Mukhopadhyay",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.6,
+    "marginVotes": 47174,
+    "marginPct": 21.5,
+    "totalVotes": 219369,
+    "totalElectors": 242151
+  },
+  {
+    "constituencyId": "c0028",
+    "year": 2026,
+    "winner": {
+      "name": "Hamidul Rahaman",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.8,
+    "marginVotes": 69124,
+    "marginPct": 32.9,
+    "totalVotes": 209938,
+    "totalElectors": 219236
+  },
+  {
+    "constituencyId": "c0169",
+    "year": 2026,
+    "winner": {
+      "name": "Bandyopadhyay Nayna",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 86.5,
+    "marginVotes": 22002,
+    "marginPct": 20.1,
+    "totalVotes": 109290,
+    "totalElectors": 126349
+  },
+  {
+    "constituencyId": "c0198",
+    "year": 2026,
+    "winner": {
+      "name": "Subir Nag",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.5,
+    "marginVotes": 43435,
+    "marginPct": 17.2,
+    "totalVotes": 252189,
+    "totalElectors": 275715
+  },
+  {
+    "constituencyId": "c0004",
+    "year": 2026,
+    "winner": {
+      "name": "Rathindra Bose",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.2,
+    "marginVotes": 23284,
+    "marginPct": 11.4,
+    "totalVotes": 203643,
+    "totalElectors": 213968
+  },
+  {
+    "constituencyId": "c0003",
+    "year": 2026,
+    "winner": {
+      "name": "Sukumar Ray",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.9,
+    "marginVotes": 70384,
+    "marginPct": 27.9,
+    "totalVotes": 252356,
+    "totalElectors": 263078
+  },
+  {
+    "constituencyId": "c0019",
+    "year": 2026,
+    "winner": {
+      "name": "Sikha Chatterjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.9,
+    "marginVotes": 97715,
+    "marginPct": 39,
+    "totalVotes": 250768,
+    "totalElectors": 264380
+  },
+  {
+    "constituencyId": "c0229",
+    "year": 2026,
+    "winner": {
+      "name": "Ajit Kumar Jana",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92,
+    "marginVotes": 10376,
+    "marginPct": 4.8,
+    "totalVotes": 217163,
+    "totalElectors": 236168
+  },
+  {
+    "constituencyId": "c0023",
+    "year": 2026,
+    "winner": {
+      "name": "Noman Rai",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 82.7,
+    "marginVotes": 6057,
+    "marginPct": 3.5,
+    "totalVotes": 171767,
+    "totalElectors": 207716
+  },
+  {
+    "constituencyId": "c0237",
+    "year": 2026,
+    "winner": {
+      "name": "Tapan Kumar Dutta",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 84.6,
+    "marginVotes": 32134,
+    "marginPct": 12.8,
+    "totalVotes": 250336,
+    "totalElectors": 296045
+  },
+  {
+    "constituencyId": "c0236",
+    "year": 2026,
+    "winner": {
+      "name": "Subhashis Om",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.2,
+    "marginVotes": 28801,
+    "marginPct": 13.3,
+    "totalVotes": 216236,
+    "totalElectors": 231898
+  },
+  {
+    "constituencyId": "c0128",
+    "year": 2026,
+    "winner": {
+      "name": "Anisur Rahaman Bidesh",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.3,
+    "marginVotes": 17818,
+    "marginPct": 7.7,
+    "totalVotes": 231155,
+    "totalElectors": 240007
+  },
+  {
+    "constituencyId": "c0203",
+    "year": 2026,
+    "winner": {
+      "name": "Asima Patra",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.2,
+    "marginVotes": 13057,
+    "marginPct": 5.3,
+    "totalVotes": 244795,
+    "totalElectors": 262689
+  },
+  {
+    "constituencyId": "c0015",
+    "year": 2026,
+    "winner": {
+      "name": "Naresh Roy",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.8,
+    "marginVotes": 38550,
+    "marginPct": 15.6,
+    "totalVotes": 247337,
+    "totalElectors": 258127
+  },
+  {
+    "constituencyId": "c0151",
+    "year": 2026,
+    "winner": {
+      "name": "Panna Lal Halder",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.2,
+    "marginVotes": 31266,
+    "marginPct": 13.5,
+    "totalVotes": 230859,
+    "totalElectors": 245097
+  },
+  {
+    "constituencyId": "c0007",
+    "year": 2026,
+    "winner": {
+      "name": "Ajay Ray",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96,
+    "marginVotes": 17447,
+    "marginPct": 6.6,
+    "totalVotes": 266111,
+    "totalElectors": 277291
+  },
+  {
+    "constituencyId": "c0178",
+    "year": 2026,
+    "winner": {
+      "name": "Tapas Maity",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 42177,
+    "marginPct": 16.7,
+    "totalVotes": 253004,
+    "totalElectors": 269236
+  },
+  {
+    "constituencyId": "c0078",
+    "year": 2026,
+    "winner": {
+      "name": "Md. Mostafijur Rahaman",
+      "partyId": "CPI(M)",
+      "partyAbbr": "CPM",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96,
+    "marginVotes": 16296,
+    "marginPct": 6.4,
+    "totalVotes": 256583,
+    "totalElectors": 267374
+  },
+  {
+    "constituencyId": "c0297",
+    "year": 2026,
+    "winner": {
+      "name": "Anup Kumar Saha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 27647,
+    "marginPct": 12.7,
+    "totalVotes": 217706,
+    "totalElectors": 231503
+  },
+  {
+    "constituencyId": "c0119",
+    "year": 2026,
+    "winner": {
+      "name": "Arijit Bakshi",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.4,
+    "marginVotes": 25273,
+    "marginPct": 12.9,
+    "totalVotes": 196639,
+    "totalElectors": 217541
+  },
+  {
+    "constituencyId": "c0116",
+    "year": 2026,
+    "winner": {
+      "name": "Sourav Sikdar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.3,
+    "marginVotes": 26404,
+    "marginPct": 11.9,
+    "totalVotes": 221874,
+    "totalElectors": 240341
+  },
+  {
+    "constituencyId": "c0290",
+    "year": 2026,
+    "winner": {
+      "name": "Lakshman Chandra Ghorui",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.6,
+    "marginVotes": 37598,
+    "marginPct": 17.6,
+    "totalVotes": 213827,
+    "totalElectors": 238700
+  },
+  {
+    "constituencyId": "c0289",
+    "year": 2026,
+    "winner": {
+      "name": "Chandra Sekhar Banerjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.5,
+    "marginVotes": 30934,
+    "marginPct": 14.6,
+    "totalVotes": 212208,
+    "totalElectors": 237127
+  },
+  {
+    "constituencyId": "c0228",
+    "year": 2026,
+    "winner": {
+      "name": "Adhikari Dibyendu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.1,
+    "marginVotes": 25692,
+    "marginPct": 9.6,
+    "totalVotes": 268651,
+    "totalElectors": 291598
+  },
+  {
+    "constituencyId": "c0046",
+    "year": 2026,
+    "winner": {
+      "name": "Amlan Bhaduri (BURO)",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.5,
+    "marginVotes": 93784,
+    "marginPct": 40.3,
+    "totalVotes": 232833,
+    "totalElectors": 249137
+  },
+  {
+    "constituencyId": "c0170",
+    "year": 2026,
+    "winner": {
+      "name": "Sandipan Saha",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92,
+    "marginVotes": 34006,
+    "marginPct": 20.7,
+    "totalVotes": 164515,
+    "totalElectors": 178877
+  },
+  {
+    "constituencyId": "c0013",
+    "year": 2026,
+    "winner": {
+      "name": "Dipak Barman",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.6,
+    "marginVotes": 45999,
+    "marginPct": 19.6,
+    "totalVotes": 234521,
+    "totalElectors": 245264
+  },
+  {
+    "constituencyId": "c0056",
+    "year": 2026,
+    "winner": {
+      "name": "Motab Shaikh",
+      "partyId": "INC",
+      "partyAbbr": "INC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.3,
+    "marginVotes": 8193,
+    "marginPct": 4.7,
+    "totalVotes": 173058,
+    "totalElectors": 181659
+  },
+  {
+    "constituencyId": "c0100",
+    "year": 2026,
+    "winner": {
+      "name": "Subrata Thakur",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.5,
+    "marginVotes": 47683,
+    "marginPct": 22.9,
+    "totalVotes": 208207,
+    "totalElectors": 222723
+  },
+  {
+    "constituencyId": "c0282",
+    "year": 2026,
+    "winner": {
+      "name": "Raju Patra",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.1,
+    "marginVotes": 10494,
+    "marginPct": 4.6,
+    "totalVotes": 229565,
+    "totalElectors": 243955
+  },
+  {
+    "constituencyId": "c0038",
+    "year": 2026,
+    "winner": {
+      "name": "Satyendra Nath Roy",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.6,
+    "marginVotes": 28339,
+    "marginPct": 14.8,
+    "totalVotes": 191385,
+    "totalElectors": 200146
+  },
+  {
+    "constituencyId": "c0241",
+    "year": 2026,
+    "winner": {
+      "name": "Pradip Lodha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.3,
+    "marginVotes": 26225,
+    "marginPct": 11.9,
+    "totalVotes": 219594,
+    "totalElectors": 232881
+  },
+  {
+    "constituencyId": "c0044",
+    "year": 2026,
+    "winner": {
+      "name": "Chinmoy Deb Barman",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95,
+    "marginVotes": 38192,
+    "marginPct": 15.8,
+    "totalVotes": 242392,
+    "totalElectors": 255085
+  },
+  {
+    "constituencyId": "c0238",
+    "year": 2026,
+    "winner": {
+      "name": "Sital Kapat",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 87,
+    "marginVotes": 37657,
+    "marginPct": 15.6,
+    "totalVotes": 240717,
+    "totalElectors": 276569
+  },
+  {
+    "constituencyId": "c0030",
+    "year": 2026,
+    "winner": {
+      "name": "Md Ghulam Rabbani",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.4,
+    "marginVotes": 83790,
+    "marginPct": 46,
+    "totalVotes": 182242,
+    "totalElectors": 199468
+  },
+  {
+    "constituencyId": "c0210",
+    "year": 2026,
+    "winner": {
+      "name": "Prasanta Digar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.5,
+    "marginVotes": 49582,
+    "marginPct": 21.4,
+    "totalVotes": 231900,
+    "totalElectors": 248076
+  },
+  {
+    "constituencyId": "c0246",
+    "year": 2026,
+    "winner": {
+      "name": "Rajesh Mahata",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.6,
+    "marginVotes": 26675,
+    "marginPct": 12.7,
+    "totalVotes": 210851,
+    "totalElectors": 227793
+  },
+  {
+    "constituencyId": "c0132",
+    "year": 2026,
+    "winner": {
+      "name": "Bikarna Naskar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.5,
+    "marginVotes": 16100,
+    "marginPct": 7.7,
+    "totalVotes": 209107,
+    "totalElectors": 221332
+  },
+  {
+    "constituencyId": "c0043",
+    "year": 2026,
+    "winner": {
+      "name": "Joyel Murmu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.7,
+    "marginVotes": 78188,
+    "marginPct": 34.7,
+    "totalVotes": 225494,
+    "totalElectors": 238230
+  },
+  {
+    "constituencyId": "c0104",
+    "year": 2026,
+    "winner": {
+      "name": "Debdas Mondal",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.7,
+    "marginVotes": 31462,
+    "marginPct": 15.9,
+    "totalVotes": 197749,
+    "totalElectors": 208822
+  },
+  {
+    "constituencyId": "c0218",
+    "year": 2026,
+    "winner": {
+      "name": "Pradip Kumar Bijali",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.6,
+    "marginVotes": 49062,
+    "marginPct": 20.6,
+    "totalVotes": 238380,
+    "totalElectors": 251919
+  },
+  {
+    "constituencyId": "c0305",
+    "year": 2026,
+    "winner": {
+      "name": "Fayezul Haque (KAJAL SK)",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95,
+    "marginVotes": 28298,
+    "marginPct": 12.6,
+    "totalVotes": 225402,
+    "totalElectors": 237273
+  },
+  {
+    "constituencyId": "c0124",
+    "year": 2026,
+    "winner": {
+      "name": "Abdul Matin Muhammad",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.4,
+    "marginVotes": 49341,
+    "marginPct": 21,
+    "totalVotes": 234632,
+    "totalElectors": 243400
+  },
+  {
+    "constituencyId": "c0076",
+    "year": 2026,
+    "winner": {
+      "name": "Niamot Sheikh",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.3,
+    "marginVotes": 12665,
+    "marginPct": 5.4,
+    "totalVotes": 233996,
+    "totalElectors": 245484
+  },
+  {
+    "constituencyId": "c0096",
+    "year": 2026,
+    "winner": {
+      "name": "Asim Kumar Sarkar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.8,
+    "marginVotes": 22055,
+    "marginPct": 10.4,
+    "totalVotes": 211181,
+    "totalElectors": 225109
+  },
+  {
+    "constituencyId": "c0202",
+    "year": 2026,
+    "winner": {
+      "name": "Madhumita Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.5,
+    "marginVotes": 3488,
+    "marginPct": 1.4,
+    "totalVotes": 244247,
+    "totalElectors": 264175
+  },
+  {
+    "constituencyId": "c0039",
+    "year": 2026,
+    "winner": {
+      "name": "Biplab Mitra",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.1,
+    "marginVotes": 1986,
+    "marginPct": 1,
+    "totalVotes": 203061,
+    "totalElectors": 211295
+  },
+  {
+    "constituencyId": "c0048",
+    "year": 2026,
+    "winner": {
+      "name": "Md. Matibur Rahaman",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.7,
+    "marginVotes": 48271,
+    "marginPct": 21.3,
+    "totalVotes": 226145,
+    "totalElectors": 238850
+  },
+  {
+    "constituencyId": "c0033",
+    "year": 2026,
+    "winner": {
+      "name": "Haripada Barman",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.8,
+    "marginVotes": 12361,
+    "marginPct": 5.2,
+    "totalVotes": 238615,
+    "totalElectors": 246530
+  },
+  {
+    "constituencyId": "c0131",
+    "year": 2026,
+    "winner": {
+      "name": "Rekha Patra",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.5,
+    "marginVotes": 5421,
+    "marginPct": 2.6,
+    "totalVotes": 205411,
+    "totalElectors": 215122
+  },
+  {
+    "constituencyId": "c0181",
+    "year": 2026,
+    "winner": {
+      "name": "Nandita Chowdhury",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.6,
+    "marginVotes": 7828,
+    "marginPct": 3.6,
+    "totalVotes": 220480,
+    "totalElectors": 240607
+  },
+  {
+    "constituencyId": "c0179",
+    "year": 2026,
+    "winner": {
+      "name": "Arup Roy",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.5,
+    "marginVotes": 16083,
+    "marginPct": 8.4,
+    "totalVotes": 192349,
+    "totalElectors": 214821
+  },
+  {
+    "constituencyId": "c0177",
+    "year": 2026,
+    "winner": {
+      "name": "Umesh Rai",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 88.2,
+    "marginVotes": 11250,
+    "marginPct": 8.5,
+    "totalVotes": 132215,
+    "totalElectors": 149948
+  },
+  {
+    "constituencyId": "c0268",
+    "year": 2026,
+    "winner": {
+      "name": "Nirmal Kumar Dhara",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.1,
+    "marginVotes": 900,
+    "marginPct": 0.4,
+    "totalVotes": 230812,
+    "totalElectors": 245267
+  },
+  {
+    "constituencyId": "c0029",
+    "year": 2026,
+    "winner": {
+      "name": "Agarwal Kanaia Lal",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91,
+    "marginVotes": 40063,
+    "marginPct": 21.8,
+    "totalVotes": 183941,
+    "totalElectors": 202217
+  },
+  {
+    "constituencyId": "c0036",
+    "year": 2026,
+    "winner": {
+      "name": "Mosaraf Hussen",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.2,
+    "marginVotes": 27878,
+    "marginPct": 13.7,
+    "totalVotes": 203460,
+    "totalElectors": 211422
+  },
+  {
+    "constituencyId": "c0160",
+    "year": 2026,
+    "winner": {
+      "name": "Sarbori Mukherjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 87.8,
+    "marginVotes": 27716,
+    "marginPct": 12.1,
+    "totalVotes": 229099,
+    "totalElectors": 260821
+  },
+  {
+    "constituencyId": "c0187",
+    "year": 2026,
+    "winner": {
+      "name": "Anupam Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.4,
+    "marginVotes": 6671,
+    "marginPct": 2.7,
+    "totalVotes": 250316,
+    "totalElectors": 270806
+  },
+  {
+    "constituencyId": "c0110",
+    "year": 2026,
+    "winner": {
+      "name": "Dr. Rajesh Kumar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.1,
+    "marginVotes": 20909,
+    "marginPct": 11.5,
+    "totalVotes": 182221,
+    "totalElectors": 195630
+  },
+  {
+    "constituencyId": "c0065",
+    "year": 2026,
+    "winner": {
+      "name": "Babar Ali",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.9,
+    "marginVotes": 21516,
+    "marginPct": 8.5,
+    "totalVotes": 251961,
+    "totalElectors": 262787
+  },
+  {
+    "constituencyId": "c0017",
+    "year": 2026,
+    "winner": {
+      "name": "Ananta Deb Adhikary",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 68805,
+    "marginPct": 29.2,
+    "totalVotes": 235248,
+    "totalElectors": 250381
+  },
+  {
+    "constituencyId": "c0274",
+    "year": 2026,
+    "winner": {
+      "name": "Arun Halder",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.5,
+    "marginVotes": 11178,
+    "marginPct": 5.2,
+    "totalVotes": 212976,
+    "totalElectors": 225468
+  },
+  {
+    "constituencyId": "c0292",
+    "year": 2026,
+    "winner": {
+      "name": "Dr. Bijan Mukherjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.5,
+    "marginVotes": 22514,
+    "marginPct": 12.5,
+    "totalVotes": 179893,
+    "totalElectors": 196545
+  },
+  {
+    "constituencyId": "c0205",
+    "year": 2026,
+    "winner": {
+      "name": "Prosenjit Bag",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.6,
+    "marginVotes": 862,
+    "marginPct": 0.4,
+    "totalVotes": 229903,
+    "totalElectors": 251069
+  },
+  {
+    "constituencyId": "c0059",
+    "year": 2026,
+    "winner": {
+      "name": "Chitta Mukherjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.7,
+    "marginVotes": 10542,
+    "marginPct": 5,
+    "totalVotes": 211463,
+    "totalElectors": 220859
+  },
+  {
+    "constituencyId": "c0135",
+    "year": 2026,
+    "winner": {
+      "name": "Biswanath Das",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96,
+    "marginVotes": 26350,
+    "marginPct": 12.1,
+    "totalVotes": 218204,
+    "totalElectors": 227238
+  },
+  {
+    "constituencyId": "c0247",
+    "year": 2026,
+    "winner": {
+      "name": "Lakshmi Kanta Sau",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93,
+    "marginVotes": 38147,
+    "marginPct": 17.4,
+    "totalVotes": 218678,
+    "totalElectors": 235147
+  },
+  {
+    "constituencyId": "c0172",
+    "year": 2026,
+    "winner": {
+      "name": "Vijay Ojha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 86.5,
+    "marginVotes": 5797,
+    "marginPct": 5.5,
+    "totalVotes": 106175,
+    "totalElectors": 122686
+  },
+  {
+    "constituencyId": "c0252",
+    "year": 2026,
+    "winner": {
+      "name": "Biswajit Mahato",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.6,
+    "marginVotes": 22218,
+    "marginPct": 9.7,
+    "totalVotes": 229964,
+    "totalElectors": 253825
+  },
+  {
+    "constituencyId": "c0137",
+    "year": 2026,
+    "winner": {
+      "name": "Dipankar Jana",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.2,
+    "marginVotes": 4760,
+    "marginPct": 2.1,
+    "totalVotes": 230138,
+    "totalElectors": 241720
+  },
+  {
+    "constituencyId": "c0011",
+    "year": 2026,
+    "winner": {
+      "name": "Bishal Lama",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.7,
+    "marginVotes": 37843,
+    "marginPct": 18.8,
+    "totalVotes": 200812,
+    "totalElectors": 221457
+  },
+  {
+    "constituencyId": "c0034",
+    "year": 2026,
+    "winner": {
+      "name": "Utpal Brahmacharo",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.1,
+    "marginVotes": 76425,
+    "marginPct": 29.9,
+    "totalVotes": 255232,
+    "totalElectors": 268281
+  },
+  {
+    "constituencyId": "c0082",
+    "year": 2026,
+    "winner": {
+      "name": "Alifa Ahmed",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.3,
+    "marginVotes": 10172,
+    "marginPct": 4.7,
+    "totalVotes": 216918,
+    "totalElectors": 232460
+  },
+  {
+    "constituencyId": "c0022",
+    "year": 2026,
+    "winner": {
+      "name": "Bharat Kumar Chetri",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 83,
+    "marginVotes": 21464,
+    "marginPct": 12.8,
+    "totalVotes": 167417,
+    "totalElectors": 201619
+  },
+  {
+    "constituencyId": "c0276",
+    "year": 2026,
+    "winner": {
+      "name": "Siddhartha Majumdar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.6,
+    "marginVotes": 28630,
+    "marginPct": 13.5,
+    "totalVotes": 211900,
+    "totalElectors": 226370
+  },
+  {
+    "constituencyId": "c0095",
+    "year": 2026,
+    "winner": {
+      "name": "Anupam Biswas",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.7,
+    "marginVotes": 34792,
+    "marginPct": 16.3,
+    "totalVotes": 213567,
+    "totalElectors": 230489
+  },
+  {
+    "constituencyId": "c0117",
+    "year": 2026,
+    "winner": {
+      "name": "Madan Mitra",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.5,
+    "marginVotes": 5646,
+    "marginPct": 3.8,
+    "totalVotes": 147127,
+    "totalElectors": 162646
+  },
+  {
+    "constituencyId": "c0071",
+    "year": 2026,
+    "winner": {
+      "name": "Gargi Das Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 84.3,
+    "marginVotes": 10335,
+    "marginPct": 5.3,
+    "totalVotes": 196528,
+    "totalElectors": 233024
+  },
+  {
+    "constituencyId": "c0225",
+    "year": 2026,
+    "winner": {
+      "name": "Arup Kumar Das",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.8,
+    "marginVotes": 31472,
+    "marginPct": 14.9,
+    "totalVotes": 211547,
+    "totalElectors": 227954
+  },
+  {
+    "constituencyId": "c0224",
+    "year": 2026,
+    "winner": {
+      "name": "Sumita Sinha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.1,
+    "marginVotes": 20055,
+    "marginPct": 8.1,
+    "totalVotes": 247954,
+    "totalElectors": 263602
+  },
+  {
+    "constituencyId": "c0032",
+    "year": 2026,
+    "winner": {
+      "name": "Biraj Biswas",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.3,
+    "marginVotes": 19869,
+    "marginPct": 9.1,
+    "totalVotes": 218326,
+    "totalElectors": 231599
+  },
+  {
+    "constituencyId": "c0079",
+    "year": 2026,
+    "winner": {
+      "name": "Samarendranath Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.8,
+    "marginVotes": 10185,
+    "marginPct": 4.2,
+    "totalVotes": 239776,
+    "totalElectors": 252844
+  },
+  {
+    "constituencyId": "c0159",
+    "year": 2026,
+    "winner": {
+      "name": "Ahmed Javed Khan",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.1,
+    "marginVotes": 20974,
+    "marginPct": 8.8,
+    "totalVotes": 239304,
+    "totalElectors": 265616
+  },
+  {
+    "constituencyId": "c0255",
+    "year": 2026,
+    "winner": {
+      "name": "Kamala Kanta Hansda",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.1,
+    "marginVotes": 21276,
+    "marginPct": 10.2,
+    "totalVotes": 209177,
+    "totalElectors": 229552
+  },
+  {
+    "constituencyId": "c0175",
+    "year": 2026,
+    "winner": {
+      "name": "Ritesh Tiwari",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 88.9,
+    "marginVotes": 1651,
+    "marginPct": 1.1,
+    "totalVotes": 149292,
+    "totalElectors": 167936
+  },
+  {
+    "constituencyId": "c0267",
+    "year": 2026,
+    "winner": {
+      "name": "Lakshmi Kanta Majumdar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 34367,
+    "marginPct": 14.4,
+    "totalVotes": 238591,
+    "totalElectors": 253697
+  },
+  {
+    "constituencyId": "c0286",
+    "year": 2026,
+    "winner": {
+      "name": "Krishna Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.7,
+    "marginVotes": 35066,
+    "marginPct": 14.7,
+    "totalVotes": 238050,
+    "totalElectors": 256811
+  },
+  {
+    "constituencyId": "c0230",
+    "year": 2026,
+    "winner": {
+      "name": "Bhadra Hemram",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.2,
+    "marginVotes": 15887,
+    "marginPct": 7.1,
+    "totalVotes": 222504,
+    "totalElectors": 238769
+  },
+  {
+    "constituencyId": "c0240",
+    "year": 2026,
+    "winner": {
+      "name": "Seuli Saha",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.2,
+    "marginVotes": 50105,
+    "marginPct": 19.9,
+    "totalVotes": 252410,
+    "totalElectors": 268034
+  },
+  {
+    "constituencyId": "c0287",
+    "year": 2026,
+    "winner": {
+      "name": "Anadi Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.9,
+    "marginVotes": 27610,
+    "marginPct": 12.8,
+    "totalVotes": 215149,
+    "totalElectors": 234035
+  },
+  {
+    "constituencyId": "c0211",
+    "year": 2026,
+    "winner": {
+      "name": "Susanta Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 87.7,
+    "marginVotes": 34483,
+    "marginPct": 14.6,
+    "totalVotes": 235440,
+    "totalElectors": 268570
+  },
+  {
+    "constituencyId": "c0271",
+    "year": 2026,
+    "winner": {
+      "name": "Nabin Chandra Bag",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95,
+    "marginVotes": 8284,
+    "marginPct": 3.7,
+    "totalVotes": 221975,
+    "totalElectors": 233679
+  },
+  {
+    "constituencyId": "c0235",
+    "year": 2026,
+    "winner": {
+      "name": "Dinen Roy",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.9,
+    "marginVotes": 2872,
+    "marginPct": 1.4,
+    "totalVotes": 207025,
+    "totalElectors": 218142
+  },
+  {
+    "constituencyId": "c0233",
+    "year": 2026,
+    "winner": {
+      "name": "Dilip Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 88.8,
+    "marginVotes": 30506,
+    "marginPct": 19,
+    "totalVotes": 160371,
+    "totalElectors": 180530
+  },
+  {
+    "constituencyId": "c0114",
+    "year": 2026,
+    "winner": {
+      "name": "Kalyan Chakraborti",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93,
+    "marginVotes": 24486,
+    "marginPct": 12.5,
+    "totalVotes": 195189,
+    "totalElectors": 209855
+  },
+  {
+    "constituencyId": "c0068",
+    "year": 2026,
+    "winner": {
+      "name": "Mitali Mal",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 87.9,
+    "marginVotes": 9333,
+    "marginPct": 4.6,
+    "totalVotes": 202598,
+    "totalElectors": 230464
+  },
+  {
+    "constituencyId": "c0223",
+    "year": 2026,
+    "winner": {
+      "name": "Subrata Paik",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.1,
+    "marginVotes": 32690,
+    "marginPct": 13.9,
+    "totalVotes": 235727,
+    "totalElectors": 247976
+  },
+  {
+    "constituencyId": "c0165",
+    "year": 2026,
+    "winner": {
+      "name": "Firhad Hakim",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.8,
+    "marginVotes": 56080,
+    "marginPct": 36.4,
+    "totalVotes": 154129,
+    "totalElectors": 171615
+  },
+  {
+    "constituencyId": "c0085",
+    "year": 2026,
+    "winner": {
+      "name": "Tarak Nath Chatterjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.8,
+    "marginVotes": 78361,
+    "marginPct": 39,
+    "totalVotes": 200865,
+    "totalElectors": 216456
+  },
+  {
+    "constituencyId": "c0088",
+    "year": 2026,
+    "winner": {
+      "name": "Sukanta Biswas",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.5,
+    "marginVotes": 60899,
+    "marginPct": 26.3,
+    "totalVotes": 231544,
+    "totalElectors": 253036
+  },
+  {
+    "constituencyId": "c0087",
+    "year": 2026,
+    "winner": {
+      "name": "Sadhan Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.4,
+    "marginVotes": 27801,
+    "marginPct": 14.2,
+    "totalVotes": 195965,
+    "totalElectors": 209781
+  },
+  {
+    "constituencyId": "c0139",
+    "year": 2026,
+    "winner": {
+      "name": "Barnali Dhara",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.2,
+    "marginVotes": 10383,
+    "marginPct": 5,
+    "totalVotes": 206328,
+    "totalElectors": 216620
+  },
+  {
+    "constituencyId": "c0134",
+    "year": 2026,
+    "winner": {
+      "name": "Ganesh Chandra Mondal",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.3,
+    "marginVotes": 59276,
+    "marginPct": 23.5,
+    "totalVotes": 252081,
+    "totalElectors": 261736
+  },
+  {
+    "constituencyId": "c0295",
+    "year": 2026,
+    "winner": {
+      "name": "Ajay Kumar Poddar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.1,
+    "marginVotes": 26498,
+    "marginPct": 14.1,
+    "totalVotes": 187700,
+    "totalElectors": 210553
+  },
+  {
+    "constituencyId": "c0040",
+    "year": 2026,
+    "winner": {
+      "name": "Toraf Hossain Mandal",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96,
+    "marginVotes": 6685,
+    "marginPct": 3.9,
+    "totalVotes": 173080,
+    "totalElectors": 180385
+  },
+  {
+    "constituencyId": "c0010",
+    "year": 2026,
+    "winner": {
+      "name": "Manoj Kumar Oraon",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 52877,
+    "marginPct": 21.7,
+    "totalVotes": 243903,
+    "totalElectors": 259496
+  },
+  {
+    "constituencyId": "c0024",
+    "year": 2026,
+    "winner": {
+      "name": "Sonam Lama",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 83.3,
+    "marginVotes": 17007,
+    "marginPct": 9.4,
+    "totalVotes": 180065,
+    "totalElectors": 216152
+  },
+  {
+    "constituencyId": "c0037",
+    "year": 2026,
+    "winner": {
+      "name": "Tapas Chandra Roy",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.2,
+    "marginVotes": 9063,
+    "marginPct": 4.6,
+    "totalVotes": 197942,
+    "totalElectors": 205867
+  },
+  {
+    "constituencyId": "c0301",
+    "year": 2026,
+    "winner": {
+      "name": "Debasis Ojha (HAKU DA)",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.7,
+    "marginVotes": 3550,
+    "marginPct": 1.6,
+    "totalVotes": 219857,
+    "totalElectors": 234630
+  },
+  {
+    "constituencyId": "c0062",
+    "year": 2026,
+    "winner": {
+      "name": "Abdul Aziz Doctor",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.2,
+    "marginVotes": 18960,
+    "marginPct": 10.6,
+    "totalVotes": 179123,
+    "totalElectors": 186182
+  },
+  {
+    "constituencyId": "c0014",
+    "year": 2026,
+    "winner": {
+      "name": "Laxuman Limbu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.2,
+    "marginVotes": 40910,
+    "marginPct": 23.4,
+    "totalVotes": 174873,
+    "totalElectors": 193958
+  },
+  {
+    "constituencyId": "c0123",
+    "year": 2026,
+    "winner": {
+      "name": "Rathin Ghosh",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.7,
+    "marginVotes": 2399,
+    "marginPct": 1,
+    "totalVotes": 231442,
+    "totalElectors": 244485
+  },
+  {
+    "constituencyId": "c0150",
+    "year": 2026,
+    "winner": {
+      "name": "Md. Samim Ahamed Molla",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.1,
+    "marginVotes": 58503,
+    "marginPct": 28.6,
+    "totalVotes": 204232,
+    "totalElectors": 217022
+  },
+  {
+    "constituencyId": "c0149",
+    "year": 2026,
+    "winner": {
+      "name": "Sarmistha Purkait",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.2,
+    "marginVotes": 31607,
+    "marginPct": 14.3,
+    "totalVotes": 221320,
+    "totalElectors": 232589
+  },
+  {
+    "constituencyId": "c0155",
+    "year": 2026,
+    "winner": {
+      "name": "Subhasis Das",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.9,
+    "marginVotes": 32913,
+    "marginPct": 14.4,
+    "totalVotes": 228518,
+    "totalElectors": 243365
+  },
+  {
+    "constituencyId": "c0217",
+    "year": 2026,
+    "winner": {
+      "name": "Subhas Chandra Panja",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.6,
+    "marginVotes": 26238,
+    "marginPct": 11.1,
+    "totalVotes": 237345,
+    "totalElectors": 253523
+  },
+  {
+    "constituencyId": "c0020",
+    "year": 2026,
+    "winner": {
+      "name": "Sukra Munda",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.3,
+    "marginVotes": 15492,
+    "marginPct": 7,
+    "totalVotes": 221434,
+    "totalElectors": 237452
+  },
+  {
+    "constituencyId": "c0049",
+    "year": 2026,
+    "winner": {
+      "name": "Abdur Rahim Boxi",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.3,
+    "marginVotes": 59747,
+    "marginPct": 29.8,
+    "totalVotes": 200582,
+    "totalElectors": 212691
+  },
+  {
+    "constituencyId": "c0045",
+    "year": 2026,
+    "winner": {
+      "name": "Gopal Chandra Saha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.5,
+    "marginVotes": 50128,
+    "marginPct": 22.9,
+    "totalVotes": 218596,
+    "totalElectors": 231348
+  },
+  {
+    "constituencyId": "c0254",
+    "year": 2026,
+    "winner": {
+      "name": "Mayna Murmu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.7,
+    "marginVotes": 27283,
+    "marginPct": 11.6,
+    "totalVotes": 234356,
+    "totalElectors": 255460
+  },
+  {
+    "constituencyId": "c0141",
+    "year": 2026,
+    "winner": {
+      "name": "Joydeb Halder S/o - Kartick Chandra Halder",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.5,
+    "marginVotes": 1995,
+    "marginPct": 0.9,
+    "totalVotes": 212193,
+    "totalElectors": 222090
+  },
+  {
+    "constituencyId": "c0280",
+    "year": 2026,
+    "winner": {
+      "name": "Shishir Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93,
+    "marginVotes": 12723,
+    "marginPct": 5.9,
+    "totalVotes": 215824,
+    "totalElectors": 231984
+  },
+  {
+    "constituencyId": "c0051",
+    "year": 2026,
+    "winner": {
+      "name": "Gour Chandra Mandal",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.1,
+    "marginVotes": 13938,
+    "marginPct": 6.2,
+    "totalVotes": 224162,
+    "totalElectors": 235765
+  },
+  {
+    "constituencyId": "c0174",
+    "year": 2026,
+    "winner": {
+      "name": "Tapas Roy",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.2,
+    "marginVotes": 15644,
+    "marginPct": 10.5,
+    "totalVotes": 149664,
+    "totalElectors": 165906
+  },
+  {
+    "constituencyId": "c0002",
+    "year": 2026,
+    "winner": {
+      "name": "Nishith Pramanik",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.9,
+    "marginVotes": 57090,
+    "marginPct": 23.7,
+    "totalVotes": 240932,
+    "totalElectors": 248757
+  },
+  {
+    "constituencyId": "c0157",
+    "year": 2026,
+    "winner": {
+      "name": "Abdul Khaleque Molla",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.1,
+    "marginVotes": 87879,
+    "marginPct": 49.3,
+    "totalVotes": 178383,
+    "totalElectors": 189494
+  },
+  {
+    "constituencyId": "c0025",
+    "year": 2026,
+    "winner": {
+      "name": "Anandamay Barman",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.8,
+    "marginVotes": 104265,
+    "marginPct": 41.8,
+    "totalVotes": 249174,
+    "totalElectors": 268480
+  },
+  {
+    "constituencyId": "c0016",
+    "year": 2026,
+    "winner": {
+      "name": "Dalim Chandra Roy",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.4,
+    "marginVotes": 56503,
+    "marginPct": 22.7,
+    "totalVotes": 249317,
+    "totalElectors": 258545
+  },
+  {
+    "constituencyId": "c0303",
+    "year": 2026,
+    "winner": {
+      "name": "Dudh Kumar Mondal",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.4,
+    "marginVotes": 21002,
+    "marginPct": 10,
+    "totalVotes": 211017,
+    "totalElectors": 225874
+  },
+  {
+    "constituencyId": "c0244",
+    "year": 2026,
+    "winner": {
+      "name": "Sankar Kumar Guchhait",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.1,
+    "marginVotes": 38747,
+    "marginPct": 16,
+    "totalVotes": 242458,
+    "totalElectors": 260295
+  },
+  {
+    "constituencyId": "c0001",
+    "year": 2026,
+    "winner": {
+      "name": "Dadhiram Ray",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.6,
+    "marginVotes": 29584,
+    "marginPct": 13.6,
+    "totalVotes": 216733,
+    "totalElectors": 224413
+  },
+  {
+    "constituencyId": "c0277",
+    "year": 2026,
+    "winner": {
+      "name": "Manab Guha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.4,
+    "marginVotes": 7106,
+    "marginPct": 3.1,
+    "totalVotes": 226263,
+    "totalElectors": 239601
+  },
+  {
+    "constituencyId": "c0127",
+    "year": 2026,
+    "winner": {
+      "name": "Usha Rani Mondal",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96,
+    "marginVotes": 32292,
+    "marginPct": 15.1,
+    "totalVotes": 213232,
+    "totalElectors": 222011
+  },
+  {
+    "constituencyId": "c0275",
+    "year": 2026,
+    "winner": {
+      "name": "Saikat Panja",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.6,
+    "marginVotes": 14798,
+    "marginPct": 7.3,
+    "totalVotes": 202805,
+    "totalElectors": 216764
+  },
+  {
+    "constituencyId": "c0052",
+    "year": 2026,
+    "winner": {
+      "name": "Islam Md Najrul",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95,
+    "marginVotes": 10496,
+    "marginPct": 6.5,
+    "totalVotes": 160850,
+    "totalElectors": 169347
+  },
+  {
+    "constituencyId": "c0215",
+    "year": 2026,
+    "winner": {
+      "name": "Ashoke Dinda",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.6,
+    "marginVotes": 16241,
+    "marginPct": 6.6,
+    "totalVotes": 245272,
+    "totalElectors": 264971
+  },
+  {
+    "constituencyId": "c0307",
+    "year": 2026,
+    "winner": {
+      "name": "Dr. Mosarraf Hossain",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.9,
+    "marginVotes": 37705,
+    "marginPct": 15.6,
+    "totalVotes": 241773,
+    "totalElectors": 252004
+  },
+  {
+    "constituencyId": "c0066",
+    "year": 2026,
+    "winner": {
+      "name": "Gouri Sankar Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.1,
+    "marginVotes": 31521,
+    "marginPct": 13.4,
+    "totalVotes": 236092,
+    "totalElectors": 248269
+  },
+  {
+    "constituencyId": "c0086",
+    "year": 2026,
+    "winner": {
+      "name": "Srutisekhar Goswami",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.4,
+    "marginVotes": 21444,
+    "marginPct": 9.9,
+    "totalVotes": 217165,
+    "totalElectors": 230011
+  },
+  {
+    "constituencyId": "c0067",
+    "year": 2026,
+    "winner": {
+      "name": "Dilip Saha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.4,
+    "marginVotes": 5919,
+    "marginPct": 2.7,
+    "totalVotes": 219697,
+    "totalElectors": 243025
+  },
+  {
+    "constituencyId": "c0021",
+    "year": 2026,
+    "winner": {
+      "name": "Puna Bhengra",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.3,
+    "marginVotes": 25858,
+    "marginPct": 12.9,
+    "totalVotes": 201076,
+    "totalElectors": 220118
+  },
+  {
+    "constituencyId": "c0108",
+    "year": 2026,
+    "winner": {
+      "name": "Sumitro Chatterjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.7,
+    "marginVotes": 10430,
+    "marginPct": 6.7,
+    "totalVotes": 156477,
+    "totalElectors": 170581
+  },
+  {
+    "constituencyId": "c0083",
+    "year": 2026,
+    "winner": {
+      "name": "Santanu Dey",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.3,
+    "marginVotes": 17327,
+    "marginPct": 8.5,
+    "totalVotes": 204047,
+    "totalElectors": 218669
+  },
+  {
+    "constituencyId": "c0306",
+    "year": 2026,
+    "winner": {
+      "name": "Rajendra Prasad Singh(RAJU SINGH)",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.4,
+    "marginVotes": 13446,
+    "marginPct": 6.1,
+    "totalVotes": 220986,
+    "totalElectors": 231681
+  },
+  {
+    "constituencyId": "c0216",
+    "year": 2026,
+    "winner": {
+      "name": "Khanra Nirmal",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.8,
+    "marginVotes": 30603,
+    "marginPct": 12.3,
+    "totalVotes": 248118,
+    "totalElectors": 264437
+  },
+  {
+    "constituencyId": "c0219",
+    "year": 2026,
+    "winner": {
+      "name": "Adhikari Suvendu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.5,
+    "marginVotes": 9665,
+    "marginPct": 3.8,
+    "totalVotes": 251803,
+    "totalElectors": 266415
+  },
+  {
+    "constituencyId": "c0300",
+    "year": 2026,
+    "winner": {
+      "name": "Bidhan Chandra Majhi",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.4,
+    "marginVotes": 8122,
+    "marginPct": 3.2,
+    "totalVotes": 251254,
+    "totalElectors": 269082
+  },
+  {
+    "constituencyId": "c0077",
+    "year": 2026,
+    "winner": {
+      "name": "Humayun Kabir",
+      "partyId": "IND",
+      "partyAbbr": "IND",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.5,
+    "marginVotes": 27943,
+    "marginPct": 12.7,
+    "totalVotes": 220482,
+    "totalElectors": 235737
+  },
+  {
+    "constituencyId": "c0231",
+    "year": 2026,
+    "winner": {
+      "name": "Giri Ramaprasad",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.7,
+    "marginVotes": 20367,
+    "marginPct": 9.1,
+    "totalVotes": 223892,
+    "totalElectors": 239064
+  },
+  {
+    "constituencyId": "c0008",
+    "year": 2026,
+    "winner": {
+      "name": "Girija Shankar Ray",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.5,
+    "marginVotes": 34613,
+    "marginPct": 14.9,
+    "totalVotes": 231603,
+    "totalElectors": 239923
+  },
+  {
+    "constituencyId": "c0245",
+    "year": 2026,
+    "winner": {
+      "name": "Amiya Kisku",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.3,
+    "marginVotes": 6424,
+    "marginPct": 3.1,
+    "totalVotes": 204823,
+    "totalElectors": 226894
+  },
+  {
+    "constituencyId": "c0112",
+    "year": 2026,
+    "winner": {
+      "name": "Arjun Singh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.7,
+    "marginVotes": 17656,
+    "marginPct": 9.1,
+    "totalVotes": 193805,
+    "totalElectors": 213727
+  },
+  {
+    "constituencyId": "c0265",
+    "year": 2026,
+    "winner": {
+      "name": "Amarnath Shakha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.3,
+    "marginVotes": 31723,
+    "marginPct": 13.1,
+    "totalVotes": 242329,
+    "totalElectors": 262408
+  },
+  {
+    "constituencyId": "c0081",
+    "year": 2026,
+    "winner": {
+      "name": "Rukbanur Rahman",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.8,
+    "marginVotes": 11454,
+    "marginPct": 5.4,
+    "totalVotes": 212602,
+    "totalElectors": 231620
+  },
+  {
+    "constituencyId": "c0183",
+    "year": 2026,
+    "winner": {
+      "name": "Gulsan Mullick",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.9,
+    "marginVotes": 38320,
+    "marginPct": 16.4,
+    "totalVotes": 233424,
+    "totalElectors": 248497
+  },
+  {
+    "constituencyId": "c0288",
+    "year": 2026,
+    "winner": {
+      "name": "Jitendra Kumar Tewari",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.1,
+    "marginVotes": 1398,
+    "marginPct": 0.8,
+    "totalVotes": 173423,
+    "totalElectors": 188390
+  },
+  {
+    "constituencyId": "c0201",
+    "year": 2026,
+    "winner": {
+      "name": "Tusar Kumar Majumdar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.2,
+    "marginVotes": 5228,
+    "marginPct": 2.3,
+    "totalVotes": 232067,
+    "totalElectors": 249081
+  },
+  {
+    "constituencyId": "c0115",
+    "year": 2026,
+    "winner": {
+      "name": "Ratna Debnath",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.7,
+    "marginVotes": 28836,
+    "marginPct": 16.6,
+    "totalVotes": 173939,
+    "totalElectors": 189714
+  },
+  {
+    "constituencyId": "c0214",
+    "year": 2026,
+    "winner": {
+      "name": "Sintu Senapati",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.3,
+    "marginVotes": 32567,
+    "marginPct": 12.7,
+    "totalVotes": 257170,
+    "totalElectors": 278744
+  },
+  {
+    "constituencyId": "c0213",
+    "year": 2026,
+    "winner": {
+      "name": "Subrata Maity(RANA)",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92,
+    "marginVotes": 17903,
+    "marginPct": 8.2,
+    "totalVotes": 219341,
+    "totalElectors": 238519
+  },
+  {
+    "constituencyId": "c0256",
+    "year": 2026,
+    "winner": {
+      "name": "Nadiar Chand Bouri",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.3,
+    "marginVotes": 33721,
+    "marginPct": 15.8,
+    "totalVotes": 213158,
+    "totalElectors": 236120
+  },
+  {
+    "constituencyId": "c0221",
+    "year": 2026,
+    "winner": {
+      "name": "Tapan Maity",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.6,
+    "marginVotes": 9051,
+    "marginPct": 3.9,
+    "totalVotes": 231212,
+    "totalElectors": 247037
+  },
+  {
+    "constituencyId": "c0136",
+    "year": 2026,
+    "winner": {
+      "name": "Samir Kumar Jana",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.1,
+    "marginVotes": 4873,
+    "marginPct": 2,
+    "totalVotes": 245015,
+    "totalElectors": 257704
+  },
+  {
+    "constituencyId": "c0027",
+    "year": 2026,
+    "winner": {
+      "name": "Durga Murmu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.6,
+    "marginVotes": 45263,
+    "marginPct": 22,
+    "totalVotes": 205539,
+    "totalElectors": 217298
+  },
+  {
+    "constituencyId": "c0234",
+    "year": 2026,
+    "winner": {
+      "name": "Swagata Manna",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 18480,
+    "marginPct": 7.7,
+    "totalVotes": 240581,
+    "totalElectors": 255892
+  },
+  {
+    "constituencyId": "c0283",
+    "year": 2026,
+    "winner": {
+      "name": "Pran Krishna Tapadar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.8,
+    "marginVotes": 16662,
+    "marginPct": 7.6,
+    "totalVotes": 218133,
+    "totalElectors": 232577
+  },
+  {
+    "constituencyId": "c0284",
+    "year": 2026,
+    "winner": {
+      "name": "Gopal Chattopadhyay",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.4,
+    "marginVotes": 30226,
+    "marginPct": 13.5,
+    "totalVotes": 223692,
+    "totalElectors": 239480
+  },
+  {
+    "constituencyId": "c0208",
+    "year": 2026,
+    "winner": {
+      "name": "Biman Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.7,
+    "marginVotes": 53453,
+    "marginPct": 22.4,
+    "totalVotes": 238145,
+    "totalElectors": 259590
+  },
+  {
+    "constituencyId": "c0253",
+    "year": 2026,
+    "winner": {
+      "name": "Sudip Kumar Mukherjee",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.9,
+    "marginVotes": 49253,
+    "marginPct": 21.5,
+    "totalVotes": 228925,
+    "totalElectors": 251816
+  },
+  {
+    "constituencyId": "c0060",
+    "year": 2026,
+    "winner": {
+      "name": "Akhruzzaman",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.2,
+    "marginVotes": 40555,
+    "marginPct": 21,
+    "totalVotes": 192812,
+    "totalElectors": 200452
+  },
+  {
+    "constituencyId": "c0257",
+    "year": 2026,
+    "winner": {
+      "name": "Mamoni Bauri",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91,
+    "marginVotes": 44059,
+    "marginPct": 19.1,
+    "totalVotes": 231230,
+    "totalElectors": 254023
+  },
+  {
+    "constituencyId": "c0140",
+    "year": 2026,
+    "winner": {
+      "name": "Tapas Mondal S/o-Shibprasad Mondal",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.8,
+    "marginVotes": 5957,
+    "marginPct": 2.3,
+    "totalVotes": 256621,
+    "totalElectors": 267846
+  },
+  {
+    "constituencyId": "c0035",
+    "year": 2026,
+    "winner": {
+      "name": "Koushik Chowdhury",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.7,
+    "marginVotes": 58641,
+    "marginPct": 35.9,
+    "totalVotes": 163150,
+    "totalElectors": 174126
+  },
+  {
+    "constituencyId": "c0273",
+    "year": 2026,
+    "winner": {
+      "name": "Subhash Patra",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.2,
+    "marginVotes": 834,
+    "marginPct": 0.4,
+    "totalVotes": 231803,
+    "totalElectors": 246060
+  },
+  {
+    "constituencyId": "c0263",
+    "year": 2026,
+    "winner": {
+      "name": "Kshetramohan Hansda",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93,
+    "marginVotes": 28742,
+    "marginPct": 13.8,
+    "totalVotes": 208386,
+    "totalElectors": 224120
+  },
+  {
+    "constituencyId": "c0122",
+    "year": 2026,
+    "winner": {
+      "name": "Tarunjyoti Tewari",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 88.7,
+    "marginVotes": 27757,
+    "marginPct": 14.3,
+    "totalVotes": 194162,
+    "totalElectors": 218890
+  },
+  {
+    "constituencyId": "c0120",
+    "year": 2026,
+    "winner": {
+      "name": "Piyush Kanodia",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.7,
+    "marginVotes": 309,
+    "marginPct": 0.1,
+    "totalVotes": 250776,
+    "totalElectors": 267645
+  },
+  {
+    "constituencyId": "c0018",
+    "year": 2026,
+    "winner": {
+      "name": "Dinesh Sarkar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.6,
+    "marginVotes": 21477,
+    "marginPct": 9.6,
+    "totalVotes": 223057,
+    "totalElectors": 230795
+  },
+  {
+    "constituencyId": "c0227",
+    "year": 2026,
+    "winner": {
+      "name": "Dr. Chandra Sekhar Mondal",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.5,
+    "marginVotes": 26939,
+    "marginPct": 11.1,
+    "totalVotes": 243565,
+    "totalElectors": 269252
+  },
+  {
+    "constituencyId": "c0304",
+    "year": 2026,
+    "winner": {
+      "name": "Dhruba Saha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 24233,
+    "marginPct": 10.5,
+    "totalVotes": 230560,
+    "totalElectors": 245159
+  },
+  {
+    "constituencyId": "c0092",
+    "year": 2026,
+    "winner": {
+      "name": "Ashim Kumar Biswas",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.4,
+    "marginVotes": 64464,
+    "marginPct": 27.9,
+    "totalVotes": 231462,
+    "totalElectors": 253346
+  },
+  {
+    "constituencyId": "c0090",
+    "year": 2026,
+    "winner": {
+      "name": "Partha Sarathi Chatterjee(BABU)",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.5,
+    "marginVotes": 57551,
+    "marginPct": 26.7,
+    "totalVotes": 215293,
+    "totalElectors": 232716
+  },
+  {
+    "constituencyId": "c0091",
+    "year": 2026,
+    "winner": {
+      "name": "Ashim Biswas",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.2,
+    "marginVotes": 51743,
+    "marginPct": 24.7,
+    "totalVotes": 209617,
+    "totalElectors": 232399
+  },
+  {
+    "constituencyId": "c0262",
+    "year": 2026,
+    "winner": {
+      "name": "Kshudiram Tudu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 91.5,
+    "marginVotes": 52269,
+    "marginPct": 22.4,
+    "totalVotes": 232944,
+    "totalElectors": 254570
+  },
+  {
+    "constituencyId": "c0291",
+    "year": 2026,
+    "winner": {
+      "name": "Partha Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.8,
+    "marginVotes": 17786,
+    "marginPct": 9.2,
+    "totalVotes": 194032,
+    "totalElectors": 215994
+  },
+  {
+    "constituencyId": "c0064",
+    "year": 2026,
+    "winner": {
+      "name": "Julfikar Ali",
+      "partyId": "INC",
+      "partyAbbr": "INC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.1,
+    "marginVotes": 2701,
+    "marginPct": 1.1,
+    "totalVotes": 234962,
+    "totalElectors": 244391
+  },
+  {
+    "constituencyId": "c0167",
+    "year": 2026,
+    "winner": {
+      "name": "Dasgupta Swapan",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 86.8,
+    "marginVotes": 20865,
+    "marginPct": 15.2,
+    "totalVotes": 137518,
+    "totalElectors": 158406
+  },
+  {
+    "constituencyId": "c0050",
+    "year": 2026,
+    "winner": {
+      "name": "Samar Mukherjee",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94,
+    "marginVotes": 32562,
+    "marginPct": 14.1,
+    "totalVotes": 231691,
+    "totalElectors": 246547
+  },
+  {
+    "constituencyId": "c0073",
+    "year": 2026,
+    "winner": {
+      "name": "Humayun Kabir",
+      "partyId": "IND",
+      "partyAbbr": "IND",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.7,
+    "marginVotes": 58876,
+    "marginPct": 24.8,
+    "totalVotes": 237661,
+    "totalElectors": 256267
+  },
+  {
+    "constituencyId": "c0232",
+    "year": 2026,
+    "winner": {
+      "name": "Amal Kumar Panda",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.3,
+    "marginVotes": 11136,
+    "marginPct": 4.3,
+    "totalVotes": 256035,
+    "totalElectors": 274383
+  },
+  {
+    "constituencyId": "c0138",
+    "year": 2026,
+    "winner": {
+      "name": "Sumanta Mandal",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.9,
+    "marginVotes": 7881,
+    "marginPct": 3.1,
+    "totalVotes": 257507,
+    "totalElectors": 274103
+  },
+  {
+    "constituencyId": "c0061",
+    "year": 2026,
+    "winner": {
+      "name": "Bayron Biswas",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.8,
+    "marginVotes": 34260,
+    "marginPct": 16.7,
+    "totalVotes": 205722,
+    "totalElectors": 216977
+  },
+  {
+    "constituencyId": "c0302",
+    "year": 2026,
+    "winner": {
+      "name": "Krishna Kanta Saha",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.1,
+    "marginVotes": 10306,
+    "marginPct": 4.3,
+    "totalVotes": 239624,
+    "totalElectors": 251997
+  },
+  {
+    "constituencyId": "c0242",
+    "year": 2026,
+    "winner": {
+      "name": "Biman Mahata",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.7,
+    "marginVotes": 15243,
+    "marginPct": 5.8,
+    "totalVotes": 264554,
+    "totalElectors": 279304
+  },
+  {
+    "constituencyId": "c0258",
+    "year": 2026,
+    "winner": {
+      "name": "Chandana Bauri",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.5,
+    "marginVotes": 32135,
+    "marginPct": 14.9,
+    "totalVotes": 215720,
+    "totalElectors": 233175
+  },
+  {
+    "constituencyId": "c0057",
+    "year": 2026,
+    "winner": {
+      "name": "Mohammed Noor Alam",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.3,
+    "marginVotes": 7587,
+    "marginPct": 4.9,
+    "totalVotes": 153776,
+    "totalElectors": 161435
+  },
+  {
+    "constituencyId": "c0129",
+    "year": 2026,
+    "winner": {
+      "name": "Sanat Sardar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.8,
+    "marginVotes": 17510,
+    "marginPct": 8.2,
+    "totalVotes": 213988,
+    "totalElectors": 223269
+  },
+  {
+    "constituencyId": "c0182",
+    "year": 2026,
+    "winner": {
+      "name": "Priya Paul",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.7,
+    "marginVotes": 16740,
+    "marginPct": 7.4,
+    "totalVotes": 227441,
+    "totalElectors": 240252
+  },
+  {
+    "constituencyId": "c0089",
+    "year": 2026,
+    "winner": {
+      "name": "Swapan Kumar Das",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.1,
+    "marginVotes": 45376,
+    "marginPct": 21.2,
+    "totalVotes": 214043,
+    "totalElectors": 227477
+  },
+  {
+    "constituencyId": "c0199",
+    "year": 2026,
+    "winner": {
+      "name": "Swaraj Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.9,
+    "marginVotes": 23289,
+    "marginPct": 11.9,
+    "totalVotes": 195483,
+    "totalElectors": 210370
+  },
+  {
+    "constituencyId": "c0153",
+    "year": 2026,
+    "winner": {
+      "name": "Agniswar Naskar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.8,
+    "marginVotes": 401,
+    "marginPct": 0.2,
+    "totalVotes": 237716,
+    "totalElectors": 256251
+  },
+  {
+    "constituencyId": "c0180",
+    "year": 2026,
+    "winner": {
+      "name": "Rudranil Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.3,
+    "marginVotes": 16058,
+    "marginPct": 8.9,
+    "totalVotes": 180023,
+    "totalElectors": 194963
+  },
+  {
+    "constituencyId": "c0173",
+    "year": 2026,
+    "winner": {
+      "name": "Purnima Chakraborty",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 87.9,
+    "marginVotes": 14633,
+    "marginPct": 12.6,
+    "totalVotes": 115826,
+    "totalElectors": 131819
+  },
+  {
+    "constituencyId": "c0189",
+    "year": 2026,
+    "winner": {
+      "name": "Dr. Hiranmoy Chattopadhyaya (HIRAAN)",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.9,
+    "marginVotes": 22260,
+    "marginPct": 9.1,
+    "totalVotes": 243576,
+    "totalElectors": 259278
+  },
+  {
+    "constituencyId": "c0026",
+    "year": 2026,
+    "winner": {
+      "name": "Shankar Ghosh",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 90.8,
+    "marginVotes": 73192,
+    "marginPct": 40.1,
+    "totalVotes": 182349,
+    "totalElectors": 200779
+  },
+  {
+    "constituencyId": "c0196",
+    "year": 2026,
+    "winner": {
+      "name": "Arup Kumar Das",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93,
+    "marginVotes": 21438,
+    "marginPct": 9.7,
+    "totalVotes": 220683,
+    "totalElectors": 237388
+  },
+  {
+    "constituencyId": "c0006",
+    "year": 2026,
+    "winner": {
+      "name": "Sangita Roy",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.7,
+    "marginVotes": 2721,
+    "marginPct": 1,
+    "totalVotes": 263995,
+    "totalElectors": 273126
+  },
+  {
+    "constituencyId": "c0005",
+    "year": 2026,
+    "winner": {
+      "name": "Sabitri Barman",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 97.4,
+    "marginVotes": 25278,
+    "marginPct": 9.1,
+    "totalVotes": 278168,
+    "totalElectors": 285548
+  },
+  {
+    "constituencyId": "c0269",
+    "year": 2026,
+    "winner": {
+      "name": "Dibakar Gharami",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.2,
+    "marginVotes": 29410,
+    "marginPct": 13.4,
+    "totalVotes": 219791,
+    "totalElectors": 235770
+  },
+  {
+    "constituencyId": "c0147",
+    "year": 2026,
+    "winner": {
+      "name": "Rupa Ganguly",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.7,
+    "marginVotes": 35782,
+    "marginPct": 14.6,
+    "totalVotes": 244443,
+    "totalElectors": 260993
+  },
+  {
+    "constituencyId": "c0148",
+    "year": 2026,
+    "winner": {
+      "name": "Debasish Dhar",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.3,
+    "marginVotes": 9807,
+    "marginPct": 3.8,
+    "totalVotes": 254845,
+    "totalElectors": 273219
+  },
+  {
+    "constituencyId": "c0194",
+    "year": 2026,
+    "winner": {
+      "name": "Bhaskar Bhattacharya",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.7,
+    "marginVotes": 8685,
+    "marginPct": 4.7,
+    "totalVotes": 184480,
+    "totalElectors": 205662
+  },
+  {
+    "constituencyId": "c0053",
+    "year": 2026,
+    "winner": {
+      "name": "Sabina Yeasmin",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.7,
+    "marginVotes": 60287,
+    "marginPct": 26.7,
+    "totalVotes": 226173,
+    "totalElectors": 236443
+  },
+  {
+    "constituencyId": "c0298",
+    "year": 2026,
+    "winner": {
+      "name": "Jagannath Chattopadhyay",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.9,
+    "marginVotes": 28686,
+    "marginPct": 12.1,
+    "totalVotes": 236672,
+    "totalElectors": 252071
+  },
+  {
+    "constituencyId": "c0058",
+    "year": 2026,
+    "winner": {
+      "name": "Emani Biswas",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95.6,
+    "marginVotes": 12357,
+    "marginPct": 5.6,
+    "totalVotes": 219117,
+    "totalElectors": 229208
+  },
+  {
+    "constituencyId": "c0101",
+    "year": 2026,
+    "winner": {
+      "name": "Bina Mondal",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.7,
+    "marginVotes": 16017,
+    "marginPct": 7.4,
+    "totalVotes": 216890,
+    "totalElectors": 228965
+  },
+  {
+    "constituencyId": "c0264",
+    "year": 2026,
+    "winner": {
+      "name": "Souvik Patra",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.6,
+    "marginVotes": 50073,
+    "marginPct": 22.9,
+    "totalVotes": 218237,
+    "totalElectors": 235685
+  },
+  {
+    "constituencyId": "c0212",
+    "year": 2026,
+    "winner": {
+      "name": "Hare Krishna Bera",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93,
+    "marginVotes": 34729,
+    "marginPct": 13.6,
+    "totalVotes": 255347,
+    "totalElectors": 274508
+  },
+  {
+    "constituencyId": "c0042",
+    "year": 2026,
+    "winner": {
+      "name": "Budhrai Tudu",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 95,
+    "marginVotes": 36987,
+    "marginPct": 20,
+    "totalVotes": 185261,
+    "totalElectors": 194914
+  },
+  {
+    "constituencyId": "c0206",
+    "year": 2026,
+    "winner": {
+      "name": "Santu Pan",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 93.5,
+    "marginVotes": 30999,
+    "marginPct": 14.1,
+    "totalVotes": 220093,
+    "totalElectors": 235441
+  },
+  {
+    "constituencyId": "c0080",
+    "year": 2026,
+    "winner": {
+      "name": "Subrata Kabiraj",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.2,
+    "marginVotes": 28253,
+    "marginPct": 12.1,
+    "totalVotes": 232666,
+    "totalElectors": 252431
+  },
+  {
+    "constituencyId": "c0162",
+    "year": 2026,
+    "winner": {
+      "name": "Papia Adhikary",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 88.8,
+    "marginVotes": 6013,
+    "marginPct": 2.9,
+    "totalVotes": 204160,
+    "totalElectors": 229994
+  },
+  {
+    "constituencyId": "c0009",
+    "year": 2026,
+    "winner": {
+      "name": "Malati Rava Roy",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 96.5,
+    "marginVotes": 26457,
+    "marginPct": 11.5,
+    "totalVotes": 229408,
+    "totalElectors": 237667
+  },
+  {
+    "constituencyId": "c0186",
+    "year": 2026,
+    "winner": {
+      "name": "Samir Kumar Panja",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 92.8,
+    "marginVotes": 12227,
+    "marginPct": 5.8,
+    "totalVotes": 212581,
+    "totalElectors": 229091
+  },
+  {
+    "constituencyId": "c0188",
+    "year": 2026,
+    "winner": {
+      "name": "Pulak Roy",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.8,
+    "marginVotes": 17187,
+    "marginPct": 7.6,
+    "totalVotes": 224825,
+    "totalElectors": 237057
+  },
+  {
+    "constituencyId": "c0184",
+    "year": 2026,
+    "winner": {
+      "name": "Ritabrata Banerjee",
+      "partyId": "AITC",
+      "partyAbbr": "TMC",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.6,
+    "marginVotes": 11838,
+    "marginPct": 5.7,
+    "totalVotes": 206774,
+    "totalElectors": 218481
+  },
+  {
+    "constituencyId": "c0185",
+    "year": 2026,
+    "winner": {
+      "name": "Chiran Bera",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 94.3,
+    "marginVotes": 4177,
+    "marginPct": 2.1,
+    "totalVotes": 202375,
+    "totalElectors": 214671
+  },
+  {
+    "constituencyId": "c0193",
+    "year": 2026,
+    "winner": {
+      "name": "Dipanjan Chakraborty",
+      "partyId": "BJP",
+      "partyAbbr": "BJP",
+      "votes": 0,
+      "voteShare": 0
+    },
+    "turnoutPct": 89.2,
+    "marginVotes": 10415,
+    "marginPct": 5.1,
+    "totalVotes": 203732,
+    "totalElectors": 228272
+  }
+];
+
+export const historicalResults: HistoricalACResult[] = [..._r2011, ..._r2016, ..._r2021, ..._r2026];
 
 export function getHistoricalResultsForAC(constituencyId: string): HistoricalACResult[] {
   return historicalResults

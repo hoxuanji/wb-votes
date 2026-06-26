@@ -6,18 +6,19 @@ import { LastSearchedBanner } from '@/components/LastSearchedBanner';
 import { constituencies } from '@/data/constituencies';
 import { candidates } from '@/data/candidates';
 import { parties } from '@/data/parties';
-import { getClientElectionPhase } from '@/lib/election-phase';
+import { getClientElectionPhase, type ElectionPhase } from '@/lib/election-phase';
 import type { StateLiveSummary } from '@/lib/live-store';
-import { Radio, CheckCircle2 } from 'lucide-react';
+import { Radio, CheckCircle2, Building2 } from 'lucide-react';
 
 const partyById = Object.fromEntries(parties.map(p => [p.id, p]));
 
 /**
  * HomeHero — phase-aware hero for `/`.
  *
- * - pre:   evergreen hero with 4 stat cards (Constituencies / Candidates / With Cases / Women)
- * - live:  compact hero with top-3-party live chips + declared/total chip
- * - post:  compact hero with final-result chips
+ * - pre:        evergreen hero with 4 stat cards (Constituencies / Candidates / With Cases / Women)
+ * - live:       compact hero with top-3-party live chips + declared/total chip
+ * - post:       compact hero with final-result chips
+ * - governance: compact "WB at Work" hero — search bar + governance stat chips
  *
  * Search bar is always visible so it stays one glance away regardless of phase.
  */
@@ -26,11 +27,11 @@ export function HomeHero() {
   const totalCriminal = candidates.filter((c) => c.criminalCases > 0).length;
   const womenCount = candidates.filter(c => c.gender === 'Female').length;
 
-  // Live tally for hero chips — only polled when phase !== 'pre'.
+  // Live tally for hero chips — only polled during live/post.
   const [summary, setSummary] = useState<StateLiveSummary | null>(null);
   const [probed, setProbed]   = useState(false);
   useEffect(() => {
-    if (phase === 'pre') return;
+    if (phase === 'pre' || phase === 'governance') return;
     let cancelled = false;
     async function tick() {
       try {
@@ -49,6 +50,7 @@ export function HomeHero() {
   }, [phase]);
 
   const compact = phase !== 'pre';
+  const isLiveLike = phase === 'live' || phase === 'post';
 
   return (
     <section className={`relative overflow-visible bg-gradient-to-br from-slate-900 via-blue-900 to-indigo-900 px-4 ${compact ? 'pb-8 pt-10' : 'pb-14 pt-14'} text-white`}>
@@ -77,6 +79,12 @@ export function HomeHero() {
               বাংলার প্রতিটি ভোটার যেন জেনে-বুঝে ভোট দিতে পারেন — স্বাধীন, নিরপেক্ষ তথ্য।
             </p>
           </>
+        ) : phase === 'governance' ? (
+          <h1 className="mb-5 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl md:text-4xl">
+            <span className="bg-gradient-to-r from-emerald-200 via-teal-200 to-cyan-300 bg-clip-text text-transparent">
+              West Bengal at Work
+            </span>
+          </h1>
         ) : (
           <h1 className="mb-5 text-2xl font-extrabold leading-tight tracking-tight sm:text-3xl">
             {phase === 'live'
@@ -86,11 +94,19 @@ export function HomeHero() {
           </h1>
         )}
 
+        {phase === 'governance' && (
+          <p className="mx-auto mb-5 max-w-xl text-sm text-blue-100/80 sm:text-base">
+            Track how your MLA, ministry, and assembly are performing — constituency by constituency.
+          </p>
+        )}
+
         <HeroSearchBar />
 
         {/* Stat cards or live chips */}
-        {compact && summary ? (
+        {isLiveLike && summary ? (
           <LiveChips summary={summary} />
+        ) : phase === 'governance' ? (
+          <GovernanceChips />
         ) : !compact ? (
           <div className="mx-auto mt-8 grid max-w-2xl grid-cols-4 gap-3 text-center">
             {[
@@ -106,12 +122,10 @@ export function HomeHero() {
             ))}
           </div>
         ) : probed ? (
-          // Compact mode + probed at least once + still no data → graceful microcopy
           <p className="mx-auto mt-5 text-xs text-blue-200/60">
             Awaiting live tally — the dashboard populates once the ECI scraper publishes results.
           </p>
         ) : (
-          // First 15s before the first probe returns — single subtle pulse
           <div className="mx-auto mt-5 h-4 w-48 animate-pulse rounded-full bg-white/5" />
         )}
       </div>
@@ -123,7 +137,7 @@ export function HomeHero() {
 
 // ─────────────────────────────────────────────────────────────────────────────
 
-function PhaseBadge({ phase }: { phase: 'pre' | 'live' | 'post' }) {
+function PhaseBadge({ phase }: { phase: ElectionPhase }) {
   if (phase === 'live') {
     return (
       <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-red-400/40 bg-red-500/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-red-100 backdrop-blur-sm">
@@ -137,6 +151,14 @@ function PhaseBadge({ phase }: { phase: 'pre' | 'live' | 'post' }) {
       <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/15 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-100 backdrop-blur-sm">
         <CheckCircle2 className="h-3 w-3" />
         Final result · 2026
+      </span>
+    );
+  }
+  if (phase === 'governance') {
+    return (
+      <span className="mb-4 inline-flex items-center gap-1.5 rounded-full border border-emerald-400/40 bg-emerald-500/10 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-100 backdrop-blur-sm">
+        <Building2 className="h-3 w-3" />
+        Civic dashboard · 2026 term
       </span>
     );
   }
@@ -174,6 +196,29 @@ function LiveChips({ summary }: { summary: StateLiveSummary }) {
         <span className="font-semibold">{summary.declared}</span>
         <span className="text-blue-200/80">/ {summary.totalACs} declared</span>
         {undeclared > 0 && <span className="text-[11px] text-blue-300/80">· {undeclared} pending</span>}
+      </div>
+    </div>
+  );
+}
+
+function GovernanceChips() {
+  // Days since the new government formed. Suvendu Adhikari (BJP) sworn in 9 May 2026.
+  // ISO date kept here so a future ElectionConfig (M2) can replace this with a config-driven value.
+  const GOVERNMENT_FORMED = '2026-05-09';
+  const daysIn = Math.max(0, Math.floor((Date.now() - new Date(GOVERNMENT_FORMED).getTime()) / 86_400_000));
+  return (
+    <div className="mx-auto mt-6 flex max-w-2xl flex-wrap justify-center gap-2">
+      <div className="rounded-full border border-emerald-300/40 bg-emerald-400/10 px-3 py-1.5 text-sm text-white backdrop-blur-sm">
+        <span className="font-extrabold text-emerald-200">{daysIn}</span>
+        <span className="ml-1 text-emerald-100/80">days into new term</span>
+      </div>
+      <div className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-blue-100 backdrop-blur-sm">
+        <span className="font-bold">{constituencies.length}</span>
+        <span className="ml-1 text-blue-200/80">constituencies</span>
+      </div>
+      <div className="rounded-full border border-white/20 bg-white/5 px-3 py-1.5 text-sm text-blue-100 backdrop-blur-sm">
+        <span className="text-blue-200/80">Term:</span>
+        <span className="ml-1 font-bold">2026–2031</span>
       </div>
     </div>
   );

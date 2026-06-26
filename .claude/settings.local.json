@@ -114,7 +114,17 @@
       "Bash(awk -F, '$1==\"2011\" && $4==\"1\" && \\($9==\"\"||$9==\"GENERAL\"||$9==\"GEN\"||$9==\"SC\"||$9==\"ST\"\\) {print}' src/data/raw/historical/lokdhaba-wb-ac-2011.csv)",
       "Bash(awk -F, '$1==\"2016\" && $4==\"1\" && \\($9==\"\"||$9==\"GENERAL\"||$9==\"GEN\"||$9==\"SC\"||$9==\"ST\"\\) {print}' src/data/raw/historical/lokdhaba-wb-ac-2016.csv)",
       "Bash(awk -F, '$1==\"2021\" && $2==\"228\"' src/data/raw/historical/lokdhaba-wb-ac-2021.csv)",
-      "Bash(git check-ignore *)"
+      "Bash(git check-ignore *)",
+      "Bash(git ls-remote *)",
+      "Bash(git fetch *)",
+      "Read(//private/tmp/**)",
+      "Bash(NEXT_PUBLIC_ELECTION_PHASE=live ELECTION_PHASE=live CRON_SECRET=test-local npx next build)",
+      "Bash(gh secret *)",
+      "Bash(chmod +x scripts/local-scrape.js)",
+      "Bash(gh run *)",
+      "Bash(CRON_SECRET=dummy node scripts/local-scrape.js --dry)",
+      "Bash(env)",
+      "Bash(host results.eci.gov.in)"
     ]
   }
 }

@@ -7,10 +7,15 @@ import { getPartyById } from '@/data/parties';
 import type { ACLiveResult } from '@/lib/live-store';
 
 /**
- * Chief-minister-watch banner. Hardcoded for Mamata Banerjee (AITC) contesting
- * Bhabanipur (c0166) — her seat since 2011. Polls the AC's live result and
- * renders one of four states, each tonally distinct so viewers can feel the
- * drama without reading numbers:
+ * Chief-minister-watch banner. **Frozen 2026 archive content** — only renders
+ * during phase==='live', i.e. when replaying counting day. The 2026 election
+ * outcome was a BJP win with Suvendu Adhikari taking Bhabanipur (c0166) and
+ * becoming CM, so the "MAMATA BANERJEE" copy below is the as-shown-on-counting-
+ * day artifact. Do NOT update for governance use; instead, the future election-
+ * SDK extraction (M2 in roadmap.md) will config-drive the watched candidate.
+ *
+ * Polls the AC's live result and renders one of four states, each tonally
+ * distinct so viewers can feel the drama without reading numbers:
  *
  *   WINNER            gold, 'CM retains her seat'        — declared, she won
  *   DEFEATED          red,  'CM defeated in her own seat' — declared, she lost

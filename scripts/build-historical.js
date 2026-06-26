@@ -368,6 +368,140 @@ function loadLokdhabaCsv(year, constituencies) {
   return results;
 }
 
+// ─── IndiaVotes-shaped CSV (winner-only summary) ──────────────────────────────
+//
+// Used as a fallback when a Lokdhaba CSV isn't yet available for a year. Format:
+//   "AC Name","AC No.","Type","District","Winning Candidate","Party",
+//   "Total Electors","Total Votes","Poll%","Margin","Margin %"
+//
+// Single row per AC. Winner only — no runner-up, no per-candidate vote share.
+// We populate winner.voteShare = 0 since this source doesn't carry it; sync
+// scripts treat 0 as "missing" and write null downstream.
+//
+// AC matching: IndiaVotes AC numbers don't line up with our `assemblyNumber`
+// (different sources use different numbering conventions), so we match on
+// name only — with an alias map for known spelling variants and district
+// disambiguation for names that exist twice (e.g. two Bishnupurs).
+
+// IndiaVotes spelling → our canonical spelling (both normalised via normConstCsv).
+const INDIAVOTES_NAME_ALIASES = {
+  'haora':            'haroa',
+  'mahisadal':        'mahishadal',
+  'labpur':           'labhpur',
+  'kanthidakshn':     'kanthidakshin',
+  'dabgramphulbari':  'dabgramfulbari',
+  'kushmundi':        'kushmandi',
+  'mangalkote':       'mongalkote',
+  'matiaburz':        'metiaburuz',
+};
+
+function normDistrict(s) {
+  return (s || '').toLowerCase().replace(/[^a-z]/g, '');
+}
+
+function loadIndiaVotesCsv(year, constituencies) {
+  const candidates = [
+    path.join(RAW_DIR, `IndiaVotes_AC__West_Bengal_${year}.csv`),
+    path.join(RAW_DIR, `indiavotes-wb-ac-${year}.csv`),
+  ];
+  const file = candidates.find(p => fs.existsSync(p));
+  if (!file) return [];
+
+  const text  = fs.readFileSync(file, 'utf8');
+  const lines = text.split(/\r?\n/).filter(l => l.trim());
+  if (lines.length < 2) return [];
+
+  const header = parseCsvLine(lines[0]).map(h => h.trim());
+  const idx = Object.fromEntries(header.map((h, i) => [h, i]));
+  const need = ['AC Name', 'AC No.', 'Winning Candidate', 'Party', 'Total Votes', 'Total Electors', 'Poll%', 'Margin', 'Margin %', 'District'];
+  for (const k of need) {
+    if (idx[k] === undefined) {
+      console.log(`  ${year} IndiaVotes: missing column "${k}" — skipping file`);
+      return [];
+    }
+  }
+
+  // Build name → constituency lookups. For names that are unique we keep a
+  // direct map; for duplicates (e.g. "Bishnupur") we keep an array and pick
+  // by district at lookup time.
+  const byName = new Map();
+  for (const c of constituencies) {
+    const k = normConstCsv(c.name);
+    const existing = byName.get(k);
+    if (!existing) byName.set(k, c);
+    else if (Array.isArray(existing)) existing.push(c);
+    else byName.set(k, [existing, c]);
+  }
+
+  function resolve(rawName, rawDistrict) {
+    let key = normConstCsv(rawName);
+    key = INDIAVOTES_NAME_ALIASES[key] || key;
+    const hit = byName.get(key);
+    if (!hit) return null;
+    if (Array.isArray(hit)) {
+      const wantDistrict = normDistrict(rawDistrict);
+      const match = hit.find(c => normDistrict(c.district) === wantDistrict);
+      return match ?? hit[0]; // fall back to first — better than nothing
+    }
+    return hit;
+  }
+
+  const results = [];
+  const claimed = new Set();
+  const unmatched = [];
+  const collisions = [];
+
+  for (let i = 1; i < lines.length; i++) {
+    const cols = parseCsvLine(lines[i]);
+    const acName = (cols[idx['AC Name']] || '').trim();
+    if (!acName || acName === 'AC Name') continue; // skip duplicated header rows
+
+    const district = (cols[idx['District']] || '').trim();
+    const constituency = resolve(acName, district);
+    if (!constituency) {
+      unmatched.push(`${acName} (${district || 'no district'})`);
+      continue;
+    }
+    if (claimed.has(constituency.id)) {
+      collisions.push(`${acName} → already claimed ${constituency.id} (${constituency.name})`);
+      continue;
+    }
+    claimed.add(constituency.id);
+
+    const winnerName = (cols[idx['Winning Candidate']] || '').trim();
+    if (!winnerName) continue;
+    const party = resolveParty(cols[idx['Party']]);
+
+    results.push({
+      constituencyId: constituency.id,
+      year,
+      winner: {
+        name:      winnerName,
+        partyId:   party.id,
+        partyAbbr: party.abbr,
+        votes:     0,                    // not provided per-candidate in this format
+        voteShare: 0,                    // not provided — sync scripts treat 0 as missing
+      },
+      turnoutPct:    parsePercent(cols[idx['Poll%']]),
+      marginVotes:   parseNumber(cols[idx['Margin']]),
+      marginPct:     parsePercent(cols[idx['Margin %']]),
+      totalVotes:    parseNumber(cols[idx['Total Votes']]),
+      totalElectors: parseNumber(cols[idx['Total Electors']]) || undefined,
+    });
+  }
+
+  if (unmatched.length) {
+    console.log(`  ${year} IndiaVotes: ${unmatched.length} AC(s) unmatched — add aliases?`);
+    unmatched.slice(0, 10).forEach(s => console.log(`    · ${s}`));
+    if (unmatched.length > 10) console.log(`    · …and ${unmatched.length - 10} more`);
+  }
+  if (collisions.length) {
+    console.log(`  ${year} IndiaVotes: ${collisions.length} duplicate-claim collision(s)`);
+    collisions.slice(0, 5).forEach(s => console.log(`    · ${s}`));
+  }
+  return results;
+}
+
 // ─── generate output ──────────────────────────────────────────────────────────
 
 const FOOTER = `
@@ -389,16 +523,30 @@ export function getAvailableHistoricalYears(): number[] {
 }
 `;
 
-function writeOutput(results) {
+function writeOutput(byYear) {
   const today = new Date().toISOString().slice(0, 10);
+  const years = Object.keys(byYear).map(Number).sort();
+
+  // Emit one constant per year, then a flat union at the end. Without this
+  // split the combined ~1175-row literal blew past TS's TS2590 "union too
+  // complex to represent" threshold once we added the 2026 year.
+  const perYearConsts = years.map(y => {
+    return `const _r${y}: HistoricalACResult[] = ${JSON.stringify(byYear[y], null, 2)};`;
+  }).join('\n\n');
+
+  const concatExpr = years.map(y => `..._r${y}`).join(', ');
+
   const content = `// AUTO-GENERATED — WB historical Assembly results — ${today}
 // Built by: node scripts/build-historical.js
 // Sources: src/data/raw/historical/lokdhaba-wb-ac-{year}.csv (preferred)
+//        + src/data/raw/historical/IndiaVotes_AC__West_Bengal_{year}.csv (winner-only fallback)
 //        + src/data/raw/historical/{year}.json (legacy)
 //        + scripts/data/incumbents-2021.csv (2021 last-resort)
 import type { HistoricalACResult } from '@/types';
 
-export const historicalResults: HistoricalACResult[] = ${JSON.stringify(results, null, 2)};
+${perYearConsts}
+
+export const historicalResults: HistoricalACResult[] = [${concatExpr}];
 ${FOOTER}`;
   fs.writeFileSync(OUTPUT, content, 'utf8');
 }
@@ -411,14 +559,22 @@ function main() {
 
   const constituencies = extractArrayFromTs(CONSTITS_TS, 'constituencies');
 
-  const byYear = { 2011: [], 2016: [], 2021: [] };
+  const YEARS = [2011, 2016, 2021, 2026];
+  const byYear = Object.fromEntries(YEARS.map(y => [y, []]));
 
-  for (const year of [2011, 2016, 2021]) {
+  for (const year of YEARS) {
     // Priority 1: Lokdhaba-shape CSV (full field-level data)
     const csvRows = loadLokdhabaCsv(year, constituencies);
     if (csvRows.length) {
       byYear[year] = csvRows;
       console.log(`  ${year}: ${csvRows.length} AC(s) from lokdhaba-wb-ac-${year}.csv`);
+      continue;
+    }
+    // Priority 1.5: IndiaVotes-shape CSV (winner-only summary)
+    const ivRows = loadIndiaVotesCsv(year, constituencies);
+    if (ivRows.length) {
+      byYear[year] = ivRows;
+      console.log(`  ${year}: ${ivRows.length} AC(s) from IndiaVotes CSV`);
       continue;
     }
     // Priority 2: Raw per-year JSON (legacy)
@@ -440,11 +596,11 @@ function main() {
     console.log(`  ${year}: no input found — skipping`);
   }
 
-  const all = [...byYear[2011], ...byYear[2016], ...byYear[2021]];
-  writeOutput(all);
+  const all = YEARS.flatMap(y => byYear[y]);
+  writeOutput(byYear);
 
   console.log('\n✅  Done');
-  for (const year of [2011, 2016, 2021]) {
+  for (const year of YEARS) {
     console.log(`   ${year}: ${byYear[year].length} AC result(s)`);
   }
   console.log(`   total rows: ${all.length}`);

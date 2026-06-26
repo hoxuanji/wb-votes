@@ -1,0 +1,435 @@
+// AUTO-GENERATED — West Bengal Lok Sabha MPs (2024 general election) — 2026-05-21
+// Built by: node scripts/build-wbmps.js
+// Source: scripts/data/wbmps-2024.json
+import type { WBMP } from '@/types';
+
+export const wbMPs: WBMP[] = [
+  {
+    "id": "jagadish-basunia",
+    "name": "Jagadish Basunia",
+    "partyId": "AITC",
+    "lsConstituency": "Cooch Behar",
+    "lsNumber": 1,
+    "margin": 39250,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "manoj-tigga",
+    "name": "Manoj Tigga",
+    "partyId": "BJP",
+    "lsConstituency": "Alipurduars",
+    "lsNumber": 2,
+    "margin": 75447,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "jayanta-kumar-roy",
+    "name": "Jayanta Kumar Roy",
+    "partyId": "BJP",
+    "lsConstituency": "Jalpaiguri",
+    "lsNumber": 3,
+    "margin": 86693,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "raju-bista",
+    "name": "Raju Bista",
+    "partyId": "BJP",
+    "lsConstituency": "Darjeeling",
+    "lsNumber": 4,
+    "margin": 178525,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "kartick-chandra-paul",
+    "name": "Kartick Chandra Paul",
+    "partyId": "BJP",
+    "lsConstituency": "Raiganj",
+    "lsNumber": 5,
+    "margin": 68197,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "sukanta-majumder",
+    "name": "Sukanta Majumder",
+    "partyId": "BJP",
+    "lsConstituency": "Balurghat",
+    "lsNumber": 6,
+    "margin": 10386,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "khagen-murmu",
+    "name": "Khagen Murmu",
+    "partyId": "BJP",
+    "lsConstituency": "Maldaha Uttar",
+    "lsNumber": 7,
+    "margin": 77708,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "isha-khan-choudhury",
+    "name": "Isha Khan Choudhury",
+    "partyId": "INC",
+    "lsConstituency": "Maldaha Dakshin",
+    "lsNumber": 8,
+    "margin": 128368,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "khalilur-rahaman",
+    "name": "Khalilur Rahaman",
+    "partyId": "AITC",
+    "lsConstituency": "Jangipur",
+    "lsNumber": 9,
+    "margin": 116637,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "yusuf-pathan",
+    "name": "Yusuf Pathan",
+    "partyId": "AITC",
+    "lsConstituency": "Baharampur",
+    "lsNumber": 10,
+    "margin": 85022,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "abu-taher-khan",
+    "name": "Abu Taher Khan",
+    "partyId": "AITC",
+    "lsConstituency": "Murshidabad",
+    "lsNumber": 11,
+    "margin": 164215,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "mahua-moitra",
+    "name": "Mahua Moitra",
+    "partyId": "AITC",
+    "lsConstituency": "Krishnanagar",
+    "lsNumber": 12,
+    "margin": 56705,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "jagannath-sarkar",
+    "name": "Jagannath Sarkar",
+    "partyId": "BJP",
+    "lsConstituency": "Ranaghat",
+    "lsNumber": 13,
+    "margin": 186899,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "shantanu-thakur",
+    "name": "Shantanu Thakur",
+    "partyId": "BJP",
+    "lsConstituency": "Bangaon",
+    "lsNumber": 14,
+    "margin": 73693,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "partha-bhowmick",
+    "name": "Partha Bhowmick",
+    "partyId": "AITC",
+    "lsConstituency": "Barrackpore",
+    "lsNumber": 15,
+    "margin": 64438,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "saugata-roy",
+    "name": "Saugata Roy",
+    "partyId": "AITC",
+    "lsConstituency": "Dum Dum",
+    "lsNumber": 16,
+    "margin": 70660,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "kakoli-ghosh-dastidar",
+    "name": "Kakoli Ghosh Dastidar",
+    "partyId": "AITC",
+    "lsConstituency": "Barasat",
+    "lsNumber": 17,
+    "margin": 114189,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "haji-nurul-islam",
+    "name": "Haji Nurul Islam",
+    "partyId": "AITC",
+    "lsConstituency": "Basirhat",
+    "lsNumber": 18,
+    "margin": 333547,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "pratima-mondal",
+    "name": "Pratima Mondal",
+    "partyId": "AITC",
+    "lsConstituency": "Jaynagar",
+    "lsNumber": 19,
+    "margin": 470219,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "bapi-halder",
+    "name": "Bapi Halder",
+    "partyId": "AITC",
+    "lsConstituency": "Mathurapur",
+    "lsNumber": 20,
+    "margin": 201057,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "abhishek-banerjee",
+    "name": "Abhishek Banerjee",
+    "partyId": "AITC",
+    "lsConstituency": "Diamond Harbour",
+    "lsNumber": 21,
+    "margin": 710930,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "saayoni-ghosh",
+    "name": "Saayoni Ghosh",
+    "partyId": "AITC",
+    "lsConstituency": "Jadavpur",
+    "lsNumber": 22,
+    "margin": 258201,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "mala-roy",
+    "name": "Mala Roy",
+    "partyId": "AITC",
+    "lsConstituency": "Kolkata Dakshin",
+    "lsNumber": 23,
+    "margin": 187231,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "sudip-bandyopadhyay",
+    "name": "Sudip Bandyopadhyay",
+    "partyId": "AITC",
+    "lsConstituency": "Kolkata Uttar",
+    "lsNumber": 24,
+    "margin": 92560,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "prasun-banerjee",
+    "name": "Prasun Banerjee",
+    "partyId": "AITC",
+    "lsConstituency": "Howrah",
+    "lsNumber": 25,
+    "margin": 169442,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "sajda-ahmed",
+    "name": "Sajda Ahmed",
+    "partyId": "AITC",
+    "lsConstituency": "Uluberia",
+    "lsNumber": 26,
+    "margin": 218673,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "kalyan-banerjee",
+    "name": "Kalyan Banerjee",
+    "partyId": "AITC",
+    "lsConstituency": "Sreerampur",
+    "lsNumber": 27,
+    "margin": 174830,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "rachana-banerjee",
+    "name": "Rachana Banerjee",
+    "partyId": "AITC",
+    "lsConstituency": "Hooghly",
+    "lsNumber": 28,
+    "margin": 76853,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "mitali-bag",
+    "name": "Mitali Bag",
+    "partyId": "AITC",
+    "lsConstituency": "Arambagh",
+    "lsNumber": 29,
+    "margin": 6399,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "abhijit-gangopadhyay",
+    "name": "Abhijit Gangopadhyay",
+    "partyId": "BJP",
+    "lsConstituency": "Tamluk",
+    "lsNumber": 30,
+    "margin": 77733,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "soumendu-adhikari",
+    "name": "Soumendu Adhikari",
+    "partyId": "BJP",
+    "lsConstituency": "Kanthi",
+    "lsNumber": 31,
+    "margin": 47764,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "deepak-adhikari",
+    "name": "Deepak Adhikari",
+    "partyId": "AITC",
+    "lsConstituency": "Ghatal",
+    "lsNumber": 32,
+    "margin": 182868,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "kalipada-soren",
+    "name": "Kalipada Soren",
+    "partyId": "AITC",
+    "lsConstituency": "Jhargram",
+    "lsNumber": 33,
+    "margin": 174048,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "june-malia",
+    "name": "June Malia",
+    "partyId": "AITC",
+    "lsConstituency": "Medinipur",
+    "lsNumber": 34,
+    "margin": 27191,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "jyotirmay-singh-mahato",
+    "name": "Jyotirmay Singh Mahato",
+    "partyId": "BJP",
+    "lsConstituency": "Purulia",
+    "lsNumber": 35,
+    "margin": 17079,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "arup-chakraborty",
+    "name": "Arup Chakraborty",
+    "partyId": "AITC",
+    "lsConstituency": "Bankura",
+    "lsNumber": 36,
+    "margin": 32778,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "saumitra-khan",
+    "name": "Saumitra Khan",
+    "partyId": "BJP",
+    "lsConstituency": "Bishnupur",
+    "lsNumber": 37,
+    "margin": 5567,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "sharmila-sarkar",
+    "name": "Sharmila Sarkar",
+    "partyId": "AITC",
+    "lsConstituency": "Bardhaman Purba",
+    "lsNumber": 38,
+    "margin": 160572,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "kirti-azad",
+    "name": "Kirti Azad",
+    "partyId": "AITC",
+    "lsConstituency": "Bardhaman-Durgapur",
+    "lsNumber": 39,
+    "margin": 137981,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "shatrughan-sinha",
+    "name": "Shatrughan Sinha",
+    "partyId": "AITC",
+    "lsConstituency": "Asansol",
+    "lsNumber": 40,
+    "margin": 59564,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "asit-kumar-mal",
+    "name": "Asit Kumar Mal",
+    "partyId": "AITC",
+    "lsConstituency": "Bolpur",
+    "lsNumber": 41,
+    "margin": 327253,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  },
+  {
+    "id": "satabdi-roy",
+    "name": "Satabdi Roy",
+    "partyId": "AITC",
+    "lsConstituency": "Birbhum",
+    "lsNumber": 42,
+    "margin": 197650,
+    "electedOn": "2024-06-04",
+    "sourceUrl": "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal"
+  }
+];
+
+export function getMPByLSConstituency(lsConstituency: string): WBMP | undefined {
+  return wbMPs.find((m) => m.lsConstituency.toLowerCase() === lsConstituency.toLowerCase());
+}
+
+export function getMPById(id: string): WBMP | undefined {
+  return wbMPs.find((m) => m.id === id);
+}
