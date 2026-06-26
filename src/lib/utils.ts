@@ -15,3 +15,14 @@ export function formatCurrency(amount: number): string {
 export function slugify(text: string): string {
   return text.toLowerCase().replace(/\s+/g, '-').replace(/[^\w-]/g, '');
 }
+
+export function timeAgo(dateStr: string): string {
+  if (!dateStr) return '';
+  const d = new Date(dateStr);
+  if (isNaN(d.getTime())) return '';
+  const diff = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
+  if (diff < 604800) return `${Math.floor(diff / 86400)}d ago`;
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
+}
