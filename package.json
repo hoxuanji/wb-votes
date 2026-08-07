@@ -26,7 +26,14 @@
     "scrape": "node scripts/scraper/myneta-2026.js",
     "scrape:2026": "node scripts/scraper/myneta-2026.js",
     "scrape:enrich": "node scripts/scraper/myneta-full.js --enrich-only",
-    "scrape:full": "node scripts/scraper/myneta-full.js --scan"
+    "scrape:full": "node scripts/scraper/myneta-full.js --scan",
+    "mandate": "node packages/mandate/bin/mandate.ts",
+    "test": "node --test \"packages/mandate/src/**/*.test.ts\"",
+    "registry:migrate": "node packages/mandate/bin/mandate.ts migrate",
+    "registry:ingest": "node packages/mandate/bin/mandate.ts ingest",
+    "registry:resolve": "node packages/mandate/bin/mandate.ts resolve",
+    "registry:audit": "node packages/mandate/bin/mandate.ts audit",
+    "registry:typecheck": "tsc --noEmit -p packages/mandate/tsconfig.json 2>&1 | grep \"error TS\" | grep \"^packages/mandate\" && exit 1 || echo \"typecheck clean (packages/mandate)\""
   },
   "dependencies": {
     "@upstash/redis": "^1.37.0",
