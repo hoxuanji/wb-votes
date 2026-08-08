@@ -138,21 +138,7 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
       p.id,
     );
 
-    const demoRows = all<{
-      predicate: string;
-      object_value: string;
-      unit: string | null;
-      as_of: string | null;
-      source_id: string;
-    }>(
-      db,
-      `SELECT cl.predicate, cl.object_value, cl.unit, cl.as_of, ci.source_id
-         FROM claim cl
-         JOIN citation ci ON ci.claim_id = cl.id
-        WHERE cl.subject_ref = ? AND cl.predicate LIKE 'demographics.%'
-        ORDER BY cl.predicate, ci.source_id`,
-      `place:${p.id}`,
-    );
+    const demoRows = demographicClaims(db, p.id);
 
     const directIds = rows
       .flatMap((r) => [r.result_source_id, r.turnout_source_id])
@@ -233,14 +219,31 @@ function groupContests(rows: readonly ContestSql[]): PlaceBrief["contests"] {
   return out;
 }
 
-function groupDemographics(
-  rows: readonly {
-    predicate: string;
-    object_value: string;
-    unit: string | null;
-    as_of: string | null;
-    source_id: string;
-  }[],
+/** A demographic claim row with the source that carries it. */
+export type DemoClaimRow = {
+  predicate: string;
+  object_value: string;
+  unit: string | null;
+  as_of: string | null;
+  source_id: string;
+};
+
+/** Every 'demographics.*' claim about a place, with its citation. Shared with place-analysis.ts —
+ *  §6.5's vintage rule applies to both surfaces, so it is read one way. */
+export function demographicClaims(db: DatabaseSync, placeId: string): DemoClaimRow[] {
+  return all<DemoClaimRow>(
+    db,
+    `SELECT cl.predicate, cl.object_value, cl.unit, cl.as_of, ci.source_id
+       FROM claim cl
+       JOIN citation ci ON ci.claim_id = cl.id
+      WHERE cl.subject_ref = ? AND cl.predicate LIKE 'demographics.%'
+      ORDER BY cl.predicate, ci.source_id`,
+    `place:${placeId}`,
+  );
+}
+
+export function groupDemographics(
+  rows: readonly DemoClaimRow[],
   byId: ReadonlyMap<string, SourceRef>,
 ): Provenanced<DemographicFigure>[] {
   const out: Provenanced<DemographicFigure>[] = [];

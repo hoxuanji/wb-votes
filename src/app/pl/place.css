@@ -1,0 +1,246 @@
+/* Floor 2 (Analysis) and the place-level additions to Floor 1. The MANDATE tokens, the tile/table
+   idiom and the no-ring focus treatments are cycle 2's (src/app/p/mandate.css), imported by
+   src/app/pl/layout.tsx — duplicating the token block would give the two floors two palettes that
+   drift. Everything here is a class that file does not define. */
+
+/* ---------- breadcrumb + lens nav (§11: switching is a link, so it costs nothing) ---------- */
+
+.crumbs {
+  color: var(--muted);
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  margin: 0 0 8px;
+}
+
+.crumbs a {
+  color: var(--text-2);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.lens {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 16px;
+  border-bottom: 1px solid var(--line);
+}
+
+.lens a {
+  padding: 8px 12px;
+  font-size: 13px;
+  color: var(--text-2);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+}
+
+.lens a[aria-current="page"] {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--ink-500);
+}
+
+/* The current tab already WEARS the 2px ink-500 bottom border, so mandate.css's link focus treatment
+   changes nothing on it but the surface — transparent-over-canvas to --raised, 1.13:1, under the 3:1
+   WCAG 2.4.11 floor, i.e. one invisible tab stop on every /pl page. The lens gets its own indicator
+   instead: the 2px ink bar in the left gutter mandate.css already uses for table rows (ink-400 on
+   raised is 6.36:1), which differs from the selected state whether or not the tab is current.
+   outline stays none (house rule); mandate.css's forced-colors block gives the OS its Highlight back. */
+.lens a:focus-visible {
+  background: var(--raised);
+  box-shadow: inset 2px 0 0 var(--ink-400);
+}
+
+/* ---------- flagged anomalies ---------- */
+
+.flags {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+}
+
+.flags li {
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--ink-400);
+  border-radius: 3px;
+  background: var(--panel);
+  color: var(--text-2);
+  font-size: 13px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+}
+
+/* ---------- filters: a GET form and removable chips, no client JS ---------- */
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 8px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  margin: 0 0 8px;
+}
+
+.filters label {
+  display: block;
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.filters select,
+.filters button {
+  font: inherit;
+  font-size: 13px;
+  color: var(--text);
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-bottom: 2px solid var(--line);
+  border-radius: 4px;
+  padding: 6px 8px;
+  outline: none;
+}
+
+.filters button {
+  color: var(--text);
+  background: var(--ink-600);
+  border-color: var(--ink-600);
+  cursor: pointer;
+}
+
+/* The signal is the 2px border, not a saturated fill: --ink-500 as the background dropped the
+   control's own 13px text (--text on it) to 3.41:1, under 1.4.3's 4.5:1, and flattened the ink-400
+   border to 1.41:1 against itself. On --line the text is 13.1:1 and the border 5.4:1, both clear. */
+.filters select:focus-visible,
+.filters button:focus-visible {
+  border-bottom-color: var(--ink-400);
+  background: var(--line);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  list-style: none;
+  padding: 0;
+  margin: 0 0 8px;
+}
+
+.chip {
+  display: inline-flex;
+  gap: 6px;
+  align-items: baseline;
+  font-size: 12px;
+  color: var(--text-2);
+  text-decoration: none;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  border-bottom: 2px solid var(--line);
+  border-radius: 999px;
+  padding: 4px 10px;
+}
+
+.chip .x {
+  color: var(--ink-400);
+}
+
+.chip:focus-visible {
+  border-bottom-color: var(--ink-500);
+  background: var(--panel);
+}
+
+.ignored {
+  color: var(--text-2);
+  font-size: 12px;
+  margin: 0 0 16px;
+  padding: 0;
+  list-style: none;
+}
+
+.ignored li {
+  border-left: 3px solid var(--ink-600);
+  padding: 4px 10px;
+  margin-bottom: 4px;
+}
+
+/* ---------- the cards ---------- */
+
+.cards {
+  display: grid;
+  gap: 16px;
+  margin: 0;
+}
+
+.card {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 16px 16px 8px;
+}
+
+.card h3 {
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin: 0 0 12px;
+  color: var(--text);
+  text-wrap: balance;
+}
+
+/* one line of fact where there is nothing to draw — never an empty axis frame */
+.fact {
+  color: var(--text-2);
+  font-size: 14px;
+  margin: 0 0 8px;
+}
+
+.figs {
+  margin: 0 0 8px;
+}
+
+.card .caveat {
+  margin: 8px 0;
+}
+
+.card table {
+  font-size: 13px;
+}
+
+.card .panel {
+  margin-bottom: 8px;
+}
+
+.card:focus-within {
+  box-shadow: inset 0 0 0 2px var(--ink-500);
+}
+
+/* the row of a linkable child place */
+.childlink {
+  color: var(--ink-400);
+  text-decoration: none;
+  border-bottom: 1px solid var(--line);
+}
+
+@media (forced-colors: active) {
+  .card:focus-within {
+    outline: 2px solid Highlight;
+  }
+}
+
+@media (max-width: 420px) {
+  .card {
+    padding: 12px 12px 4px;
+  }
+  .card h3 {
+    font-size: 15px;
+  }
+  .filters {
+    gap: 6px;
+  }
+}
