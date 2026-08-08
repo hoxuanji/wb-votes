@@ -1,6 +1,6 @@
 import type { DatabaseSync } from "node:sqlite";
 
-export { DEV_DB_PATH, open } from "./open.ts";
+export { DEV_DB_PATH, open, openRead } from "./open.ts";
 export { MIGRATIONS_DIR, migrate } from "./migrate.ts";
 
 /** What node:sqlite will bind. Booleans are not on the list — pass 0/1 for INTEGER flags. */
