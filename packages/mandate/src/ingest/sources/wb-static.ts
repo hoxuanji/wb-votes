@@ -1,8 +1,9 @@
-// Cycle 1 ingest: this repo's eight src/data/*.ts modules -> the registry, with real provenance.
+// Ingest: the eight committed seed files in data/seed/ -> the registry, with real provenance.
 //
-// The modules are the only inputs that exist yet. They are not placeholders: each one is a file
-// with bytes we can sha256 and a header comment carrying the date it was retrieved, so a `source`
-// row built from one is as honest as a scraped PDF — it just has no page anchors yet.
+// The seed files are the only inputs that exist yet. They are not placeholders: each one is a file
+// with bytes we can sha256 and a dated entry in data/seed/provenance.json, so a `source` row built
+// from one is as honest as a scraped PDF — it just has no page anchors yet. Cycle 4 moved them out
+// of src/data/*.ts: the app now reads the same seed, so nothing here imports from src/.
 //
 // Two rules this file exists to keep:
 //   P2 — every affidavit field, every declared value and every demographic figure lands as a
@@ -21,6 +22,7 @@ import type { Anomaly } from "../../core/citation/index.ts";
 import { blockingKeys, detectScript } from "../../core/indic/index.ts";
 import { candidacyId, contentId, contestId, slug } from "../../core/ids.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
+import { coverageFailures, fieldCoverage, formatCoverage, type CoverageRow } from "../field-coverage.ts";
 
 const PARSER_VERSION = "wb-static@1";
 const EPOCH_ID = "delim-2008";
@@ -51,7 +53,7 @@ type PartyRow = {
   nameBn?: string;
   abbreviation: string;
   isNational?: boolean;
-  /** P3's identity system: half of parties.ts carries one. */
+  /** P3's identity system: half of parties.json carries one. */
   symbolUrl?: string;
 };
 type CandidateRow = {
@@ -71,6 +73,10 @@ type CandidateRow = {
   affidavitUrl?: string;
   occupation?: string;
   isIncumbent?: boolean;
+  /** myneta's own photo of the candidate, one distinct URL per candidate row. */
+  photoUrl?: string;
+  /** Years already served, declared only by the 157 rows whose isIncumbent is true. */
+  incumbentYears?: number | null;
 };
 type ContestantRow = {
   name: string;
@@ -97,7 +103,7 @@ type MLARow = {
   term: string;
   marginVotes?: number | null;
   voteShare?: number | null;
-  /** candidates.ts id of this MLA's own nomination. The exact disambiguator when a seat fields
+  /** candidates.json id of this MLA's own nomination. The exact disambiguator when a seat fields
    *  two nominations with the same name — used to join the declared win onto the right candidacy. */
   candidateId?: string | null;
   sourceUrl: string;
@@ -144,18 +150,19 @@ export const MODULE_KEYS = [
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
 const MODULE_FILES: Record<ModuleKey, string> = {
-  constituencies: "constituencies.ts",
-  parties: "parties.ts",
-  candidates: "candidates.ts",
-  historicalResults: "historical-results.ts",
-  currentMLAs: "current-mla.ts",
-  demographics: "demographics.ts",
-  cabinet: "cabinet.ts",
-  mps: "wbmps.ts",
+  constituencies: "constituencies.json",
+  parties: "parties.json",
+  candidates: "candidates.json",
+  historicalResults: "historical-results.json",
+  currentMLAs: "current-mla.json",
+  demographics: "demographics.json",
+  cabinet: "cabinet.json",
+  mps: "wbmps.json",
 };
 
-/** `retrievedOn` is null when the file's header carries no date — that becomes an anomaly, not a
- *  guess. `docHash` is the sha256 of the bytes on disk: change the file, get a new source row. */
+/** `retrievedOn` is null when data/seed/provenance.json has no entry for the file — that becomes
+ *  an anomaly, not a guess. `docHash` is the sha256 of the bytes on disk: change the file, get
+ *  a new source row. */
 export type ModuleDoc = { file: string; retrievedOn: string | null; docHash: string };
 
 export type StaticBundle = {
@@ -170,47 +177,62 @@ export type StaticBundle = {
   mps: readonly MPRow[];
 };
 
-const DATA_DIR = fileURLToPath(new URL("../../../../../src/data/", import.meta.url));
+const DATA_DIR = fileURLToPath(new URL("../../../../../data/seed/", import.meta.url));
 
-/** The retrieval date these files carry is on line 1, e.g.
- *  `// AUTO-GENERATED — myneta.info/WestBengal2026 — 2026-04-25`. Only line 1 is searched: later
- *  header lines mention years and file globs, and a loose scan would pick one of those up. */
+/** Retrieval dates used to live in each module's line-1 header comment. JSON has no comments, so
+ *  they moved with the data into data/seed/provenance.json — one flat `file -> YYYY-MM-DD` map.
+ *  A file with no entry has no date, exactly as a header with no date had none, and still becomes
+ *  a `no_header_date` anomaly rather than a guess. */
+function provenance(dir: string): Record<string, string> {
+  try {
+    return JSON.parse(readFileSync(dir + "provenance.json", "utf8")) as Record<string, string>;
+  } catch {
+    // ponytail: a missing provenance file dates every module to the run clock and says so via the
+    // per-module anomaly. Upgrade to a hard failure if the seed ever ships without it.
+    return {};
+  }
+}
+
+/** `docHash` is the sha256 of the bytes on disk: change the seed file, get a new source row. */
 export function readModuleDoc(file: string, dir: string = DATA_DIR): ModuleDoc {
-  const bytes = readFileSync(dir + file);
-  const firstLine = bytes.subarray(0, Math.min(bytes.indexOf(10) >>> 0, 400)).toString("utf8");
-  const found = /(\d{4}-\d{2}-\d{2})/.exec(firstLine);
   return {
     file,
-    retrievedOn: found?.[1] ?? null,
-    docHash: createHash("sha256").update(bytes).digest("hex"),
+    retrievedOn: provenance(dir)[file] ?? null,
+    docHash: createHash("sha256").update(readFileSync(dir + file)).digest("hex"),
   };
 }
 
-/** The real bundle. Hashes the eight files on disk, then hands over the arrays they export. */
+/** The real bundle. Reads the eight seed files: hash the bytes, parse the rows, once each. Nothing
+ *  here imports from src/ — the app's typed modules are now consumers of this same seed, not the
+ *  registry's source of truth. */
 export async function loadStaticBundle(dir: string = DATA_DIR): Promise<StaticBundle> {
-  const m = await Promise.all([
-    import("../../../../../src/data/constituencies.ts"),
-    import("../../../../../src/data/parties.ts"),
-    import("../../../../../src/data/candidates.ts"),
-    import("../../../../../src/data/historical-results.ts"),
-    import("../../../../../src/data/current-mla.ts"),
-    import("../../../../../src/data/demographics.ts"),
-    import("../../../../../src/data/cabinet.ts"),
-    import("../../../../../src/data/wbmps.ts"),
-  ]);
+  const prov = provenance(dir);
+  const rows: Record<string, unknown> = {};
   const docs = Object.fromEntries(
-    MODULE_KEYS.map((k) => [k, readModuleDoc(MODULE_FILES[k], dir)]),
+    MODULE_KEYS.map((k) => {
+      const file = MODULE_FILES[k];
+      const bytes = readFileSync(dir + file);
+      rows[k] = JSON.parse(bytes.toString("utf8"));
+      return [
+        k,
+        {
+          file,
+          retrievedOn: prov[file] ?? null,
+          docHash: createHash("sha256").update(bytes).digest("hex"),
+        },
+      ];
+    }),
   ) as Record<ModuleKey, ModuleDoc>;
   return {
     docs,
-    constituencies: m[0].constituencies as readonly ConstituencyRow[],
-    parties: m[1].parties as readonly PartyRow[],
-    candidates: m[2].candidates as readonly CandidateRow[],
-    historicalResults: m[3].historicalResults as readonly HistoricalRow[],
-    currentMLAs: m[4].currentMLAs as readonly MLARow[],
-    demographics: m[5].demographics as readonly DemographicsRow[],
-    cabinet: m[6].wbCabinet2026 as readonly CabinetRow[],
-    mps: m[7].wbMPs as readonly MPRow[],
+    constituencies: rows.constituencies as readonly ConstituencyRow[],
+    parties: rows.parties as readonly PartyRow[],
+    candidates: rows.candidates as readonly CandidateRow[],
+    historicalResults: rows.historicalResults as readonly HistoricalRow[],
+    currentMLAs: rows.currentMLAs as readonly MLARow[],
+    demographics: rows.demographics as readonly DemographicsRow[],
+    cabinet: rows.cabinet as readonly CabinetRow[],
+    mps: rows.mps as readonly MPRow[],
   };
 }
 
@@ -221,7 +243,7 @@ export type IngestReport = {
   places: number;
   persons: number;
   parties: number;
-  /** The declared party labels that matched no row in parties.ts by id, abbreviation or name. */
+  /** The declared party labels that matched no row in parties.json by id, abbreviation or name. */
   unmatchedPartyStrings: string[];
   elections: number;
   contests: number;
@@ -231,6 +253,9 @@ export type IngestReport = {
   citations: number;
   /** P2's number: rendered values with no citation behind them. Must be 0. */
   uncitedValues: number;
+  /** Input field set vs registry field set, one row per field of all eight modules. Empty when a
+   *  test fixture was supplied: a fixture is a deliberate subset of the seed's fields. */
+  coverage: CoverageRow[];
   durationMs: number;
   anomalies: Anomaly[];
 };
@@ -266,6 +291,10 @@ const jsonNames = (bn: string | undefined, latin: string): string =>
 
 export async function runIngest(db: DatabaseSync, opts: IngestOptions): Promise<IngestReport> {
   const b = opts.bundle ?? (await loadStaticBundle());
+  // The field-coverage gate compares the SEED's field set to the registry's, so it only means
+  // anything for the seed. A test fixture is a deliberate subset — six candidates with no photoUrl
+  // is not a dropped field, so the gate would be measuring the fixture, not the pipeline.
+  const checkCoverage = opts.bundle === undefined;
   const runId = Number(
     db
       .prepare(
@@ -275,11 +304,15 @@ export async function runIngest(db: DatabaseSync, opts: IngestOptions): Promise<
       .run("static:wb-static", PARSER_VERSION, opts.nowIso).lastInsertRowid,
   );
   try {
-    return ingest(db, b, opts, runId);
+    return ingest(db, b, opts, runId, checkCoverage);
   } catch (cause) {
     // The failure path the DDL's status='failed' exists for. Without it a crashed run stays
     // 'running' with finished_at NULL forever and is indistinguishable from one in flight.
     const detail = (cause as Error).message.split("\n")[0] ?? String(cause);
+    // Only the first line is persisted (it is the one-line summary every failure starts with), but
+    // the rest — the field-coverage table, for instance — is what the operator needs to see, so it
+    // rides along in the message the CLI prints.
+    const rest = (cause as Error).message.split("\n").slice(1).join("\n");
     db.prepare(
       "UPDATE ingest_run SET finished_at=?, anomalies=?, status='failed' WHERE id=?",
     ).run(
@@ -290,8 +323,9 @@ export async function runIngest(db: DatabaseSync, opts: IngestOptions): Promise<
     throw new Error(
       `ingest run ${runId} stopped on a write and is recorded as status='failed': ${detail}. ` +
         `Tables written before the failure are committed and every write is an idempotent upsert, ` +
-        `so correct the offending row in src/data/ and re-run \`mandate ingest\`; ` +
-        `\`mandate ingest --fresh\` rebuilds from an empty database.`,
+        `so correct the offending row in data/seed/ and re-run \`mandate ingest\`; ` +
+        `\`mandate ingest --fresh\` rebuilds from an empty database.` +
+        (rest === "" ? "" : `\n${rest}`),
       { cause },
     );
   }
@@ -302,6 +336,7 @@ function ingest(
   b: StaticBundle,
   opts: IngestOptions,
   runId: number,
+  checkCoverage: boolean,
 ): IngestReport {
   const now = opts.nowIso;
   const clock = opts.monotonicMs ?? (() => performance.now());
@@ -356,7 +391,7 @@ function ingest(
     anomalies.push({
       kind: "no_header_date",
       ref: `module:${k}`,
-      detail: `${b.docs[k].file} has no retrieval date on line 1; retrieved_at falls back to the run clock`,
+      detail: `${b.docs[k].file} has no entry in data/seed/provenance.json; retrieved_at falls back to the run clock`,
     });
     return now.slice(0, 10);
   };
@@ -428,7 +463,7 @@ function ingest(
       kind: meta.kind,
       publisher: meta.publisher,
       title: meta.title,
-      url: `repo:src/data/${b.docs[k].file}`,
+      url: `repo:data/seed/${b.docs[k].file}`,
       retrievedAt: stamp(day),
       // The census file's vintage is the census year, not the day we generated the file.
       publishedOn: k === "demographics" ? `${b.demographics[0]?.sourceYear ?? 2011}-01-01` : day,
@@ -458,7 +493,7 @@ function ingest(
       anomalies.push({
         kind: "invalid_source_url",
         ref,
-        detail: `sourceUrl ${JSON.stringify(url)} is not a URL; the fact now cites ${MODULE_FILES[fallback]}, the module whose bytes we hashed. Fix the URL in src/data/${MODULE_FILES[fallback]}.`,
+        detail: `sourceUrl ${JSON.stringify(url)} is not a URL; the fact now cites ${MODULE_FILES[fallback]}, the seed file whose bytes we hashed. Fix the URL in data/seed/${MODULE_FILES[fallback]}.`,
       });
       return src(fallback);
     }
@@ -466,7 +501,7 @@ function ingest(
       anomalies.push({
         kind: "invalid_source_url",
         ref,
-        detail: `sourceUrl ${JSON.stringify(url)} is not http(s); the fact now cites ${MODULE_FILES[fallback]}. Fix the URL in src/data/${MODULE_FILES[fallback]}.`,
+        detail: `sourceUrl ${JSON.stringify(url)} is not http(s); the fact now cites ${MODULE_FILES[fallback]}. Fix the URL in data/seed/${MODULE_FILES[fallback]}.`,
       });
       return src(fallback);
     }
@@ -598,7 +633,7 @@ function ingest(
   }
 
   // ── parties: resolve the declared label, never drop the candidacy ──────────
-  // parties.ts keys are inconsistent in the candidate data — sometimes the id ("SUCI"), sometimes
+  // parties.json keys are inconsistent in the candidate data — sometimes the id ("SUCI"), sometimes
   // the full name ("ALL INDIA FORWARD BLOC"), sometimes the abbreviation. Try all three, case
   // -insensitively (a superset of the spec's "case-insensitive name" that can only match more).
   const byId = new Map<string, string>();
@@ -615,7 +650,7 @@ function ingest(
     return byId.get(k) ?? byAbbr.get(k) ?? byName.get(k) ?? null;
   };
 
-  /** → { id, raw }: `raw` is non-null exactly when the label resolved to nothing in parties.ts,
+  /** → { id, raw }: `raw` is non-null exactly when the label resolved to nothing in parties.json,
    *  which is what candidacy.party_raw exists to record. Pure — the counting is the loop below. */
   const resolveParty = (
     ...labels: (string | null | undefined)[]
@@ -650,13 +685,13 @@ function ingest(
     anomalies.push({
       kind: "unresolved_party",
       ref: `party_label:${raw}`,
-      detail: `declared party "${raw}" matches no id, abbreviation or name in parties.ts; a registered_unrecognised party row was synthesised and every candidacy kept its raw label in candidacy.party_raw (${unmatchedCounts.get(raw)} rows)`,
+      detail: `declared party "${raw}" matches no id, abbreviation or name in parties.json; a registered_unrecognised party row was synthesised and every candidacy kept its raw label in candidacy.party_raw (${unmatchedCounts.get(raw)} rows)`,
     });
   }
 
   // ── symbols (P3) ───────────────────────────────────────────────────────────
   // P3 is "symbol before colour", so a party card with no symbol can only fall back to colour —
-  // the inversion P3 forbids. parties.ts ships an asset path for half the register; that path is
+  // the inversion P3 forbids. parties.json ships an asset path for half the register; that path is
   // the symbol we have, so it becomes a symbol row and party_version.symbol_id points at it.
   const symbolSeen = new Set<string>();
   let unnamedSymbols = 0;
@@ -831,13 +866,13 @@ function ingest(
   const candidatesDay = moduleDate("candidates");
   /** (constituencyId, name slug) -> the single matching 2026 candidacy, or null when ambiguous. */
   const candidacyByAcName = new Map<string, { candidacyId: string; personId: string } | null>();
-  /** candidates.ts id -> its 2026 candidacy. The exact key, used when the name key is ambiguous. */
+  /** candidates.json id -> its 2026 candidacy. The exact key, used when the name key is ambiguous. */
   const candidacyByMynetaId = new Map<string, { candidacyId: string; personId: string }>();
-  /** (constituencyId, name slug) -> candidates.ts id, from current-mla.ts. current-mla.ts already
+  /** (constituencyId, name slug) -> candidates.json id, from current-mla.json. current-mla.json already
    *  carries the winner's own candidateId, so a seat with two same-named nominations does NOT need
    *  entity resolution to place the win — the input says which one won. */
   const winnerCandidateId = new Map<string, string>();
-  /** 2026 contests that ended up with an elected candidacy, so the current-mla.ts backstop below
+  /** 2026 contests that ended up with an elected candidacy, so the current-mla.json backstop below
    *  only fires for the seats the results module never covered. */
   const electedContests = new Set<string>();
   for (const m of b.currentMLAs) {
@@ -917,7 +952,7 @@ function ingest(
       anomalies.push({
         kind: "missing_affidavit_url",
         ref: `candidate:${c.id}`,
-        detail: `no affidavitUrl in candidates.ts, so every declared figure for "${c.name}" cites the module itself instead of the affidavit. Backfill the URL for a per-document citation.`,
+        detail: `no affidavitUrl in candidates.json, so every declared figure for "${c.name}" cites the module itself instead of the affidavit. Backfill the URL for a per-document citation.`,
       });
     }
     {
@@ -963,6 +998,34 @@ function ingest(
       }
       if (c.age != null) {
         claim(`person:${personId}`, "age_declared", c.age, "years", candidatesDay, affSource);
+      }
+
+      // photoUrl and incumbentYears: declared in the same affidavit extract as everything above and
+      // dropped by cycles 1-3 with nothing reporting it — 2,920 photo URLs and 157 tenure figures
+      // reached the registry as zero rows. field-coverage.ts is why that can no longer happen.
+      //
+      // Claims, not columns (§12). A column is the shape for a value the read path filters, sorts
+      // or joins on; nothing filters a candidate list by photo URL or by years-served, and adding
+      // person.photo_url would put an asset locator in ring 1 with no source_id of its own. A claim
+      // is the only shape that carries the affidavit citation these two values need, which is P2's
+      // whole point — so neither needs a migration and 007 does not exist.
+      if (c.photoUrl) {
+        claim(`person:${personId}`, "photo_url_declared", c.photoUrl, null, candidatesDay, affSource);
+      }
+      if (c.incumbentYears != null) {
+        // Subject is the CANDIDACY, not the person: "5 years served" is a figure about THIS
+        // nomination — the same human's next candidacy declares a different number, and a person
+        // -subject claim would be a claim_key_collision the moment two of their candidacies are
+        // ingested with the same as_of. §12's rule, not a preference: the subject of a claim is
+        // whatever the declaration is about.
+        claim(
+          `candidacy:${candId}`,
+          "incumbent_years_declared",
+          c.incumbentYears,
+          "years",
+          candidatesDay,
+          affSource,
+        );
       }
     }
   }
@@ -1089,8 +1152,8 @@ function ingest(
       if (h.year === 2026) {
         match = candidacyByAcName.get(`${h.constituencyId}|${slug(c.name)}`);
         if (!match && isWinner) {
-          // The name key is ambiguous (two nominations, one name) or absent. current-mla.ts names
-          // the winner's own candidates.ts id, so for a declared WINNER the right candidacy is
+          // The name key is ambiguous (two nominations, one name) or absent. current-mla.json names
+          // the winner's own candidates.json id, so for a declared WINNER the right candidacy is
           // known exactly — fabricating a third person here loses the affidavit's age and
           // education for a sitting MLA the input already identified.
           const exact = winnerCandidateId.get(`${h.constituencyId}|${slug(c.name)}`);
@@ -1100,7 +1163,7 @@ function ingest(
           anomalies.push({
             kind: "unmatched_declared_winner",
             ref: `contest:${contest}`,
-            detail: `declared ${isWinner ? "winner" : "contestant"} "${c.name}" matches ${match === null ? "more than one" : "no"} 2026 nomination in ${h.constituencyId} and current-mla.ts names no candidateId for them; a separate person + candidacy was created for resolve/ to judge`,
+            detail: `declared ${isWinner ? "winner" : "contestant"} "${c.name}" matches ${match === null ? "more than one" : "no"} 2026 nomination in ${h.constituencyId} and current-mla.json names no candidateId for them; a separate person + candidacy was created for resolve/ to judge`,
           });
         }
       }
@@ -1219,7 +1282,7 @@ function ingest(
     }
   }
 
-  // ── declared winners current-mla.ts knows about and historical-results.ts does not ────────────
+  // ── declared winners current-mla.json knows about and historical-results.ts does not ────────────
   // 294 sitting MLAs, and historical-results.ts carries a 2026 row for 293 seats. The missing seat
   // still has a declared winner with a candidateId, so its candidacy is marked elected here rather
   // than left as one more 'contesting' row. No result row: there are no tallies to record.
@@ -1234,7 +1297,7 @@ function ingest(
     anomalies.push({
       kind: "elected_without_result",
       ref: `contest:${contest}`,
-      detail: `current-mla.ts declares ${m.name} (${m.candidateId}) elected in ${m.constituencyId} but historical-results.ts has no 2026 row, so the candidacy is marked elected with no result row behind it — no votes, share or rank are invented`,
+      detail: `current-mla.json declares ${m.name} (${m.candidateId}) elected in ${m.constituencyId} but historical-results.ts has no 2026 row, so the candidacy is marked elected with no result row behind it — no votes, share or rank are invented`,
     });
   }
 
@@ -1596,7 +1659,7 @@ function ingest(
     anomalies.push({
       kind: "symbol_name_unknown",
       ref: "registry",
-      detail: `${unnamedSymbols} symbol rows carry their asset filename as name: parties.ts ships the image path but not the ECI symbol name ("Grass Flowers", "Lotus"). svg_ref is the real datum; backfill name from the ECI symbol notification.`,
+      detail: `${unnamedSymbols} symbol rows carry their asset filename as name: parties.json ships the image path but not the ECI symbol name ("Grass Flowers", "Lotus"). svg_ref is the real datum; backfill name from the ECI symbol notification.`,
     });
   }
   if (siteRootUrls.size > 0) {
@@ -1644,10 +1707,28 @@ function ingest(
     });
   }
 
+  // ── the field-coverage gate: did every input field reach the registry? ─────
+  // The check cycles 1-3 did not have. Every other audit in this file asks whether what we wrote is
+  // cited; this one asks whether we wrote everything, which is how 2,920 photoUrls and 157
+  // incumbentYears reached the registry as zero rows with 239 tests green. It reports through the
+  // anomaly list because that is what `mandate ingest` prints, and it FAILS the run on an
+  // unexplained drop — a gate you have to remember to look at is not a gate.
+  const coverage = checkCoverage ? fieldCoverage(db, b) : [];
+  if (coverage.length > 0) {
+    // First in the list, not last: `mandate ingest` prints the first 20 anomalies and this run has
+    // 121, so a pushed coverage table would be reported as "… 101 more in ingest_run" — the same
+    // invisible-gate mistake as cycle 1's registry:audit.
+    anomalies.unshift({
+      kind: "field_coverage",
+      ref: "registry",
+      detail: `input field set vs registry field set, all eight seed modules:\n${formatCoverage(coverage)}`,
+    });
+  }
+  const coverageBroken = coverageFailures(coverage);
+
   const rowsIn =
     b.constituencies.length + b.parties.length + b.candidates.length + b.historicalResults.length +
-    b.currentMLAs.length + b.demographics.length + b.cabinet.length + b.mps.length;
-  const rowsOut =
+    b.currentMLAs.length + b.demographics.length + b.cabinet.length + b.mps.length;  const rowsOut =
     sourceRows.size + placeRows.length + placeVersionRows.length + symbolRows.length + partyRows.length +
     partyVersionRows.length + electionRows.length + contestRows.length + personRows.length +
     aliasRows.length + identifierRows.length + candidacyRows.size + affidavitRows.length +
@@ -1666,6 +1747,22 @@ function ingest(
   const count = (t: string): number =>
     Number(db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get()?.n ?? 0);
 
+  // Thrown after the ingest_run row is closed, so the written rows and the run record survive for
+  // inspection: every write is an idempotent upsert, and the fix is to carry the field, not to undo
+  // the run. The first line is what runIngest persists as the failure detail, so it names the
+  // fields; the table follows for the operator. Failing here is the point — the drop this gate
+  // exists for shipped three times because nothing failed.
+  if (coverageBroken.length > 0) {
+    throw new Error(
+      `field-coverage gate: ${coverageBroken.length} input field(s) unaccounted for — ` +
+        coverage
+          .filter((r) => r.failure !== null)
+          .map((r) => `${r.module}.${r.field} (${r.input} in, ${r.registry ?? "-"} out)`)
+          .join(", ") +
+        `\n\n${coverageBroken.join("\n")}\n\n${formatCoverage(coverage)}`,
+    );
+  }
+
   return {
     sources: count("source"),
     places: count("place"),
@@ -1679,6 +1776,7 @@ function ingest(
     claims: count("claim"),
     citations: count("citation"),
     uncitedValues,
+    coverage,
     durationMs: Math.round(clock() - startedMs),
     anomalies,
   };

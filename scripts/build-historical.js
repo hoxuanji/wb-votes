@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-historical.js — Builds src/data/historical-results.ts from raw per-year inputs.
+ * build-historical.js — Builds data/seed/historical-results.json from raw per-year inputs.
  *
  * Inputs (in order of priority — first match wins per year):
  *   1. src/data/raw/historical/lokdhaba-wb-ac-{year}.csv  (preferred — full field-level data)
@@ -8,7 +8,7 @@
  *   3. scripts/data/incumbents-2021.csv                   (2021-only last resort)
  *
  * Output:
- *   src/data/historical-results.ts
+ *   data/seed/historical-results.json  (+ its date in data/seed/provenance.json)
  *
  * Raw JSON shape per year:
  *   [ { constituencyId, year, winner: {name, partyId, partyAbbr, votes, voteShare},
@@ -27,38 +27,15 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { readSeed, writeSeed, seedPath } = require('./build-seed');
 
 const ROOT          = path.resolve(__dirname, '..');
 const RAW_DIR       = path.join(ROOT, 'src/data/raw/historical');
 const DATA_DIR      = path.join(ROOT, 'src/data');
 const INCUMBENTS    = path.join(__dirname, 'data/incumbents-2021.csv');
-const CONSTITS_TS   = path.join(DATA_DIR, 'constituencies.ts');
-const OUTPUT        = path.join(DATA_DIR, 'historical-results.ts');
+const OUTPUT        = seedPath('historical-results');
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-
-function extractArrayFromTs(tsPath, exportName) {
-  const src = fs.readFileSync(tsPath, 'utf8');
-  const declRe = new RegExp(`export const ${exportName}[^\\n]+=`);
-  const declMatch = declRe.exec(src);
-  if (!declMatch) throw new Error(`Cannot find export ${exportName} in ${tsPath}`);
-  const afterEq = declMatch.index + declMatch[0].length;
-  const arrStart = src.indexOf('[', afterEq);
-  let depth = 0, i = arrStart, inStr = false, strCh = '';
-  while (i < src.length) {
-    const ch = src[i];
-    if (inStr) {
-      if (ch === '\\') { i += 2; continue; }
-      if (ch === strCh) inStr = false;
-    } else {
-      if (ch === '"' || ch === "'") { inStr = true; strCh = ch; }
-      else if (ch === '[') depth++;
-      else if (ch === ']') { depth--; if (depth === 0) break; }
-    }
-    i++;
-  }
-  return JSON.parse(src.slice(arrStart, i + 1));
-}
 
 function normConst(s) {
   return (s || '').toLowerCase().replace(/[^a-z]/g, '');
@@ -93,7 +70,7 @@ function parseSimpleCsv(text) {
   });
 }
 
-// Map CSV party-name → party.id used in src/data/parties.ts.
+// Map CSV party-name → party.id used in data/seed/parties.json.
 // Falls back to IND for anything not in this table (honest data).
 const PARTY_NAME_TO_ID = {
   'all india trinamool congress':              'AITC',
@@ -201,7 +178,7 @@ function loadRawYear(year) {
 // ─── Lokdhaba-shaped CSV (preferred format) ───────────────────────────────────
 //
 // Map ECI abbreviation (from lokdhaba-wb-ac-*.csv `party` column) to the
-// partyId values used in src/data/parties.ts. Unknown abbreviations fall back
+// partyId values used in data/seed/parties.json. Unknown abbreviations fall back
 // to 'IND' (the plan's honest-default rule).
 const CSV_PARTY_TO_ID = {
   AITC:       'AITC',
@@ -504,51 +481,11 @@ function loadIndiaVotesCsv(year, constituencies) {
 
 // ─── generate output ──────────────────────────────────────────────────────────
 
-const FOOTER = `
-export function getHistoricalResultsForAC(constituencyId: string): HistoricalACResult[] {
-  return historicalResults
-    .filter((r) => r.constituencyId === constituencyId)
-    .sort((a, b) => a.year - b.year);
-}
-
-export function getHistoricalResultForACYear(
-  constituencyId: string,
-  year: number,
-): HistoricalACResult | undefined {
-  return historicalResults.find((r) => r.constituencyId === constituencyId && r.year === year);
-}
-
-export function getAvailableHistoricalYears(): number[] {
-  return Array.from(new Set(historicalResults.map((r) => r.year))).sort();
-}
-`;
-
 function writeOutput(byYear) {
-  const today = new Date().toISOString().slice(0, 10);
-  const years = Object.keys(byYear).map(Number).sort();
-
-  // Emit one constant per year, then a flat union at the end. Without this
-  // split the combined ~1175-row literal blew past TS's TS2590 "union too
-  // complex to represent" threshold once we added the 2026 year.
-  const perYearConsts = years.map(y => {
-    return `const _r${y}: HistoricalACResult[] = ${JSON.stringify(byYear[y], null, 2)};`;
-  }).join('\n\n');
-
-  const concatExpr = years.map(y => `..._r${y}`).join(', ');
-
-  const content = `// AUTO-GENERATED — WB historical Assembly results — ${today}
-// Built by: node scripts/build-historical.js
-// Sources: src/data/raw/historical/lokdhaba-wb-ac-{year}.csv (preferred)
-//        + src/data/raw/historical/IndiaVotes_AC__West_Bengal_{year}.csv (winner-only fallback)
-//        + src/data/raw/historical/{year}.json (legacy)
-//        + scripts/data/incumbents-2021.csv (2021 last-resort)
-import type { HistoricalACResult } from '@/types';
-
-${perYearConsts}
-
-export const historicalResults: HistoricalACResult[] = [${concatExpr}];
-${FOOTER}`;
-  fs.writeFileSync(OUTPUT, content, 'utf8');
+  // One flat array, years ascending — the same order the four per-year TS constants used to be
+  // spread in. JSON has no TS2590 union-complexity ceiling, so the per-year split is gone.
+  const years = Object.keys(byYear).map(Number).sort((a, b) => a - b);
+  writeSeed('historical-results', years.flatMap((y) => byYear[y]));
 }
 
 // ─── main ─────────────────────────────────────────────────────────────────────
@@ -557,7 +494,7 @@ function main() {
   console.log('Building historical results...\n');
   fs.mkdirSync(RAW_DIR, { recursive: true });
 
-  const constituencies = extractArrayFromTs(CONSTITS_TS, 'constituencies');
+  const constituencies = readSeed('constituencies');
 
   const YEARS = [2011, 2016, 2021, 2026];
   const byYear = Object.fromEntries(YEARS.map(y => [y, []]));

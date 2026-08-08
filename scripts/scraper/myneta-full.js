@@ -8,7 +8,7 @@
  *
  * Run: node scripts/scraper/myneta-full.js
  * Options:
- *   --enrich-only   Re-fetch detail pages for existing candidates.ts to add
+ *   --enrich-only   Re-fetch detail pages for existing data/seed/candidates.json to add
  *                   occupation/photo without changing the candidate list.
  *   --scan          Full scan: iterate IDs 1-3000, discover all candidates.
  *
@@ -20,6 +20,7 @@ const { exec } = require('child_process');
 const fs   = require('fs');
 const path = require('path');
 
+const { readSeed, writeSeed } = require('../build-seed');
 const OUT_DIR      = path.resolve(__dirname, '../../src/data');
 const DELAY_MS     = 250;
 const CONCURRENCY  = 6;
@@ -189,16 +190,7 @@ function parseDetailPage(html, candidateId) {
 async function runEnrichOnly() {
   console.log('--enrich-only: Enriching existing candidates with occupation & photo...\n');
 
-  const candFile = path.join(OUT_DIR, 'candidates.ts');
-  if (!fs.existsSync(candFile)) {
-    console.error('candidates.ts not found — run full scrape first');
-    process.exit(1);
-  }
-
-  const text = fs.readFileSync(candFile, 'utf8');
-  const arrStart = text.indexOf('= [') + 2;
-  const arrEnd = text.indexOf('];\n\nexport function', arrStart) + 1;
-  const existing = JSON.parse(text.slice(arrStart, arrEnd));
+  const existing = readSeed('candidates');
   console.log(`Found ${existing.length} existing candidates`);
 
   let enriched = 0, failed = 0;
@@ -230,11 +222,7 @@ async function runEnrichOnly() {
   await pool(tasks, CONCURRENCY);
   console.log(`\n  Enriched: ${enriched}, Failed: ${failed}`);
 
-  const constFile = path.join(OUT_DIR, 'constituencies.ts');
-  const constText = fs.readFileSync(constFile, 'utf8');
-  const constStart = constText.indexOf('= [') + 2;
-  const constEnd = constText.indexOf('];\n\nexport function', constStart) + 1;
-  const existingConst = JSON.parse(constText.slice(constStart, constEnd));
+  const existingConst = readSeed('constituencies');
 
   await writeOutputFiles(existingConst, existing, []);
 }
@@ -243,12 +231,7 @@ async function runEnrichOnly() {
 async function runFullScan() {
   console.log(`Full scan: fetching candidate IDs 1–${SCAN_LIMIT} from detail pages...\n`);
 
-  // Build a constituency map from existing constituencies.ts
-  const constFile = path.join(OUT_DIR, 'constituencies.ts');
-  const constText = fs.readFileSync(constFile, 'utf8');
-  const constStart = constText.indexOf('= [') + 2;
-  const constEnd = constText.indexOf('];\n\nexport function', constStart) + 1;
-  const allConstituencies = JSON.parse(constText.slice(constStart, constEnd));
+  const allConstituencies = readSeed('constituencies');
 
   const allCandidates = [];
   let scanned = 0, found = 0, skipped = 0;
@@ -283,65 +266,8 @@ async function runFullScan() {
 
 // ── Write output ──────────────────────────────────────────────
 async function writeOutputFiles(allConstituencies, allCandidates, failed) {
-  const today = new Date().toISOString().slice(0, 10);
-
-  // Sort by constituency then name for consistent output
-  allCandidates.sort((a, b) => {
-    if (a.constituencyId < b.constituencyId) return -1;
-    if (a.constituencyId > b.constituencyId) return 1;
-    return a.name.localeCompare(b.name);
-  });
-
-  const constTs = `// AUTO-GENERATED — myneta.info/WestBengal2026 — ${today}
-// 294 constituencies for West Bengal 2026 Assembly Election
-// Re-run: node scripts/scraper/myneta-full.js to refresh
-import type { Constituency } from '@/types';
-
-export const constituencies: Constituency[] = ${JSON.stringify(allConstituencies, null, 2)};
-
-export function getConstituencyById(id: string): Constituency | undefined {
-  return constituencies.find((c) => c.id === id);
-}
-
-export function getConstituenciesByDistrict(): Record<string, Constituency[]> {
-  return constituencies.reduce<Record<string, Constituency[]>>((acc, c) => {
-    if (!acc[c.district]) acc[c.district] = [];
-    acc[c.district].push(c);
-    return acc;
-  }, {});
-}
-`;
-
-  const candTs = `// AUTO-GENERATED — myneta.info/WestBengal2026 — ${today}
-// Source: Association for Democratic Reforms (ADR) / ECI affidavits
-// Re-run: node scripts/scraper/myneta-full.js --enrich-only  (add occupation to existing)
-// Re-run: node scripts/scraper/myneta-full.js --scan          (full re-scan all IDs)
-import type { Candidate } from '@/types';
-
-export const candidates: Candidate[] = ${JSON.stringify(allCandidates, null, 2)};
-
-export function getCandidatesByConstituency(constituencyId: string): Candidate[] {
-  return candidates.filter((c) => c.constituencyId === constituencyId);
-}
-
-export function getCandidateById(id: string): Candidate | undefined {
-  return candidates.find((c) => c.id === id);
-}
-
-export function getCandidatesByIds(ids: string[]): Candidate[] {
-  return ids.map((id) => candidates.find((c) => c.id === id)).filter(Boolean) as Candidate[];
-}
-
-export function formatAssets(amount: number): string {
-  if (amount >= 10_000_000) return \`₹\${(amount / 10_000_000).toFixed(2)} Cr\`;
-  if (amount >= 100_000)    return \`₹\${(amount / 100_000).toFixed(2)} L\`;
-  if (amount >= 1_000)      return \`₹\${(amount / 1_000).toFixed(1)}K\`;
-  return \`₹\${amount}\`;
-}
-`;
-
-  fs.writeFileSync(path.join(OUT_DIR, 'constituencies.ts'), constTs, 'utf8');
-  fs.writeFileSync(path.join(OUT_DIR, 'candidates.ts'), candTs, 'utf8');
+  writeSeed('constituencies', allConstituencies);
+  writeSeed('candidates', allCandidates);
 
   const withOccupation = allCandidates.filter(c => c.occupation && c.occupation !== '' && c.occupation !== 'Not declared').length;
   const withPhoto = allCandidates.filter(c => c.photoUrl && c.photoUrl.includes('myneta.info/images_candidate')).length;
@@ -357,8 +283,8 @@ export function formatAssets(amount: number): string {
   if (failed.length) {
     console.log(`   ⚠  Failed (${failed.length})`);
   }
-  console.log('\n   → src/data/constituencies.ts');
-  console.log('   → src/data/candidates.ts');
+  console.log('\n   → data/seed/constituencies.json');
+  console.log('   → data/seed/candidates.json');
   console.log('\nNote: totalAssets/education require proxy or Playwright — run myneta-2026.js with proxy for those fields.');
 }
 

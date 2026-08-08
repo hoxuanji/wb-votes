@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-demographics.js — Builds src/data/demographics.ts from district-level
+ * build-demographics.js — Builds data/seed/demographics.json from district-level
  * Census data, keyed to each Assembly Constituency via its `district` field.
  *
  * Inputs:
@@ -8,7 +8,7 @@
  *   2. src/data/raw/demographics/ac-overrides.json   (optional — AC-level overrides)
  *
  * Output:
- *   src/data/demographics.ts
+ *   data/seed/demographics.json  (+ its date in data/seed/provenance.json)
  *
  * Strategy:
  *   For each constituency, look up its district in the Census JSON.
@@ -19,47 +19,18 @@
 
 const fs   = require('fs');
 const path = require('path');
+const { readSeed, writeSeed, seedPath } = require('./build-seed');
 
 const ROOT        = path.resolve(__dirname, '..');
 const DATA_DIR    = path.join(ROOT, 'src/data');
-const CONSTITS_TS = path.join(DATA_DIR, 'constituencies.ts');
 const CENSUS      = path.join(__dirname, 'data/census-2011-wb-districts.json');
 const OVERRIDES   = path.join(ROOT, 'src/data/raw/demographics/ac-overrides.json');
-const OUTPUT      = path.join(DATA_DIR, 'demographics.ts');
-
-function extractArrayFromTs(tsPath, exportName) {
-  const src = fs.readFileSync(tsPath, 'utf8');
-  const declRe = new RegExp(`export const ${exportName}[^\\n]+=`);
-  const declMatch = declRe.exec(src);
-  if (!declMatch) throw new Error(`Cannot find export ${exportName} in ${tsPath}`);
-  const afterEq = declMatch.index + declMatch[0].length;
-  const arrStart = src.indexOf('[', afterEq);
-  let depth = 0, i = arrStart, inStr = false, strCh = '';
-  while (i < src.length) {
-    const ch = src[i];
-    if (inStr) {
-      if (ch === '\\') { i += 2; continue; }
-      if (ch === strCh) inStr = false;
-    } else {
-      if (ch === '"' || ch === "'") { inStr = true; strCh = ch; }
-      else if (ch === '[') depth++;
-      else if (ch === ']') { depth--; if (depth === 0) break; }
-    }
-    i++;
-  }
-  return JSON.parse(src.slice(arrStart, i + 1));
-}
-
-const FOOTER = `
-export function getDemographicsForAC(constituencyId: string): ACDemographics | undefined {
-  return demographics.find((d) => d.constituencyId === constituencyId);
-}
-`;
+const OUTPUT      = seedPath('demographics');
 
 function main() {
   console.log('Building demographics...\n');
 
-  const constituencies = extractArrayFromTs(CONSTITS_TS, 'constituencies');
+  const constituencies = readSeed('constituencies');
   const census = JSON.parse(fs.readFileSync(CENSUS, 'utf8'));
   const overrides = fs.existsSync(OVERRIDES)
     ? JSON.parse(fs.readFileSync(OVERRIDES, 'utf8'))
@@ -100,15 +71,7 @@ function main() {
     out.push(entry);
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const content = `// AUTO-GENERATED — WB constituency demographics — ${today}
-// Built by: node scripts/build-demographics.js
-// Source: Census of India 2011 (district-level) + optional AC overrides
-import type { ACDemographics } from '@/types';
-
-export const demographics: ACDemographics[] = ${JSON.stringify(out, null, 2)};
-${FOOTER}`;
-  fs.writeFileSync(OUTPUT, content, 'utf8');
+  writeSeed('demographics', out);
 
   console.log(`✅  Done`);
   console.log(`   ACs covered          : ${out.length - unmapped} / ${constituencies.length}`);

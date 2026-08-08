@@ -401,7 +401,7 @@ test("provenance: counts what was never fetched, so the page can say it in words
     hashKind: "document_bytes" as const,
     retrievalKind: kind,
   });
-  const p = provenance([s("1", "fetched", "repo:src/data/x.ts"), s("2", "asserted_by_upstream", null)]);
+  const p = provenance([s("1", "fetched", "repo:data/seed/x.json"), s("2", "asserted_by_upstream", null)]);
   assert.deepEqual(p, { total: 2, fetched: 1, repoFiles: 1, retrievedAt: "2026-05-12T00:00:00Z" });
   assert.deepEqual(provenance([]), { total: 0, fetched: 0, repoFiles: 0, retrievedAt: null });
 });

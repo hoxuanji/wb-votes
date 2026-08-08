@@ -4,6 +4,7 @@ import {
   detectScript, stripHonorifics, normaliseName, toLatin,
   phoneticKey, blockingKeys, UNPARSEABLE_KEY,
 } from './index.ts';
+import { loadStaticBundle } from '../../ingest/sources/wb-static.ts';
 
 const shares = (a: string, b: string): boolean =>
   blockingKeys(a).some((k) => blockingKeys(b).includes(k));
@@ -112,11 +113,7 @@ test('toLatin handles matras, conjuncts, nukta and ya-phala', () => {
 // above the current measurement so a change that makes the key materially coarser fails
 // here instead of quietly making resolution quadratic.
 test('blocking stays selective on the real corpus', async () => {
-  const [{ candidates }, { historicalResults }, { currentMLAs }] = await Promise.all([
-    import('../../../../../src/data/candidates.ts'),
-    import('../../../../../src/data/historical-results.ts'),
-    import('../../../../../src/data/current-mla.ts'),
-  ]);
+  const { candidates, historicalResults, currentMLAs } = await loadStaticBundle();
 
   const names: string[] = [];
   for (const c of candidates) { names.push(c.name); if (c.nameBn) names.push(c.nameBn); }

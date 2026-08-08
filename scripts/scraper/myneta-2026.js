@@ -17,6 +17,7 @@ const PROXY_PORT    = 4646;
 const TARGET        = 'myneta.info';
 const DELAY_MS      = 300;
 const CONCURRENCY   = 5;   // parallel detail-page fetches
+const { readSeed, writeSeed } = require('../build-seed');
 const OUT_DIR       = path.resolve(__dirname, '../../src/data');
 const PHOTOS_ONLY   = process.argv.includes('--photos-only');
 
@@ -316,19 +317,7 @@ async function main() {
 async function runPhotosOnly() {
   console.log('--photos-only mode: updating photos for existing candidates...\n');
 
-  // Read existing candidates.ts
-  const candFile = path.join(OUT_DIR, 'candidates.ts');
-  if (!fs.existsSync(candFile)) {
-    console.error('candidates.ts not found, run full scrape first');
-    process.exit(1);
-  }
-
-  const text = fs.readFileSync(candFile, 'utf8');
-  // Find the opening [ of the array (after '= ')
-  const start = text.indexOf('= [') + 2;
-  // Find the closing ]; which marks end of array
-  const end = text.indexOf('];\n\nexport function', start) + 1;
-  const existing = JSON.parse(text.slice(start, end));
+  const existing = readSeed('candidates');
   console.log(`Found ${existing.length} existing candidates`);
 
   // Extract myneta IDs from affidavitUrl
@@ -355,68 +344,14 @@ async function runPhotosOnly() {
   }
   console.log(`  Updated: ${updated} real photos, ${unchanged} using fallback`);
 
-  // Read existing constituencies.ts
-  const constFile = path.join(OUT_DIR, 'constituencies.ts');
-  const constText = fs.readFileSync(constFile, 'utf8');
-  const constStart = constText.indexOf('= [') + 2;
-  const constEnd = constText.indexOf('];\n\nexport function', constStart) + 1;
-  const existingConst = JSON.parse(constText.slice(constStart, constEnd));
+  const existingConst = readSeed('constituencies');
 
   await writeOutputFiles(existingConst, withIds, []);
 }
 
 async function writeOutputFiles(allConstituencies, allCandidates, failed) {
-  const today = new Date().toISOString().slice(0, 10);
-
-  const constTs = `// AUTO-GENERATED — myneta.info/WestBengal2026 — ${today}
-// 294 constituencies for West Bengal 2026 Assembly Election
-// Re-run: node scripts/scraper/myneta-2026.js to refresh
-import type { Constituency } from '@/types';
-
-export const constituencies: Constituency[] = ${JSON.stringify(allConstituencies, null, 2)};
-
-export function getConstituencyById(id: string): Constituency | undefined {
-  return constituencies.find((c) => c.id === id);
-}
-
-export function getConstituenciesByDistrict(): Record<string, Constituency[]> {
-  return constituencies.reduce<Record<string, Constituency[]>>((acc, c) => {
-    if (!acc[c.district]) acc[c.district] = [];
-    acc[c.district].push(c);
-    return acc;
-  }, {});
-}
-`;
-
-  const candTs = `// AUTO-GENERATED — myneta.info/WestBengal2026 — ${today}
-// Source: Association for Democratic Reforms (ADR) / ECI affidavits
-// Re-run: node scripts/scraper/myneta-2026.js to refresh
-import type { Candidate } from '@/types';
-
-export const candidates: Candidate[] = ${JSON.stringify(allCandidates, null, 2)};
-
-export function getCandidatesByConstituency(constituencyId: string): Candidate[] {
-  return candidates.filter((c) => c.constituencyId === constituencyId);
-}
-
-export function getCandidateById(id: string): Candidate | undefined {
-  return candidates.find((c) => c.id === id);
-}
-
-export function getCandidatesByIds(ids: string[]): Candidate[] {
-  return ids.map((id) => candidates.find((c) => c.id === id)).filter(Boolean) as Candidate[];
-}
-
-export function formatAssets(amount: number): string {
-  if (amount >= 10_000_000) return \`₹\${(amount / 10_000_000).toFixed(2)} Cr\`;
-  if (amount >= 100_000)    return \`₹\${(amount / 100_000).toFixed(2)} L\`;
-  if (amount >= 1_000)      return \`₹\${(amount / 1_000).toFixed(1)}K\`;
-  return \`₹\${amount}\`;
-}
-`;
-
-  fs.writeFileSync(path.join(OUT_DIR, 'constituencies.ts'), constTs, 'utf8');
-  fs.writeFileSync(path.join(OUT_DIR, 'candidates.ts'), candTs, 'utf8');
+  writeSeed('constituencies', allConstituencies);
+  writeSeed('candidates', allCandidates);
 
   const totalCriminal = allCandidates.filter(c => c.criminalCases > 0).length;
   const totalPhotos   = allCandidates.filter(c => c.photoUrl && c.photoUrl.includes('myneta.info')).length;
@@ -429,8 +364,8 @@ export function formatAssets(amount: number): string {
   if (failed.length) {
     console.log(`   ⚠  Failed (${failed.length}): ${failed.map(f => f.name).join(', ')}`);
   }
-  console.log('\n   → src/data/constituencies.ts');
-  console.log('   → src/data/candidates.ts');
+  console.log('\n   → data/seed/constituencies.json');
+  console.log('   → data/seed/candidates.json');
 }
 
 main().catch(err => { console.error('Fatal:', err); process.exit(1); });

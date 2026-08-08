@@ -22,7 +22,7 @@ export const SOURCE_KINDS = [
   "secc",
   "press",
   "factcheck",
-  /** cycle 1's own src/data/*.ts modules — real sources with a real hash, just not scraped yet. */
+  /** the committed data/seed/*.json files — real sources with a real hash, just not scraped yet. */
   "static_module",
 ] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];

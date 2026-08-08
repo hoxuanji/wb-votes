@@ -32,7 +32,7 @@ const RESULTS: SourceRef = {
   ...SRC,
   id: "s2",
   kind: "eci_declaration",
-  url: "repo:src/data/historical-results.ts",
+  url: "repo:data/seed/historical-results.json",
   retrievalKind: "fetched",
   hashKind: "document_bytes",
 };
@@ -336,20 +336,15 @@ test("P5: nothing rendered on the person surface uses that word for a declared c
 // module format in with it (root package.json has no "type", so NodeNext reads those .ts files as
 // CommonJS and every export is TS1287). Cycle 2 did that with the /v1 envelope and the person
 // brief; both now live in this directory, where the strict gate can fail on them.
-// ponytail: the one documented exception is ingest reading the old app's seed data. Delete it from
-// the allow-list when that data is ingested from files instead of imported.
+// ponytail: no allow-list any more. Cycle 4 moved the seed data to data/seed/*.json, which the
+// ingest reads with readFileSync instead of importing, so the rule is now absolute.
 test("no file in this package imports a file from the old app's src/", async () => {
   const { readdirSync, readFileSync } = await import("node:fs");
   const src = new URL("../", import.meta.url);
   const pkg = new URL("../../", import.meta.url).href;
-  // The two documented exceptions are cycle-1 files that read the old app's seed data as their
-  // input. Their 28 residual errors are the old app's own (root package.json has no "type", so
-  // NodeNext reads src/data/*.ts as CommonJS), which is exactly what registry:typecheck's grep is
-  // for. Drop them from this list when ingest reads that data from files instead of importing it.
-  const allowed = new Set(["ingest/sources/wb-static.ts", "core/indic/index.test.ts"]);
   for (const f of readdirSync(src, { recursive: true, encoding: "utf8" })) {
     const rel = f.replaceAll("\\", "/");
-    if (!rel.endsWith(".ts") || allowed.has(rel)) continue;
+    if (!rel.endsWith(".ts")) continue;
     const file = new URL(rel, src);
     for (const m of readFileSync(file, "utf8").matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)) {
       const spec = m[1]!;
@@ -374,7 +369,7 @@ test("freshness counts fetched vs asserted, and repo files separately", () => {
 });
 
 test("a repo: source is never described as a document read from the publisher", () => {
-  // Every 'fetched' row in this registry is a repo:src/data/*.ts file.
+  // Every 'fetched' row in this registry is a repo:data/seed/*.json file.
   assert.equal(retrievalText(RESULTS), "read from a file in this repository, hashed document bytes");
   assert.equal(retrievalText(SRC), "not fetched — asserted by upstream");
   assert.equal(

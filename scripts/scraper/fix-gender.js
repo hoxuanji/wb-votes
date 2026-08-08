@@ -6,7 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const CANDIDATES_FILE = path.resolve(__dirname, '../../src/data/candidates.ts');
+const { readSeed, writeSeed } = require('../build-seed');
 
 // Only clearly female names — ambiguous names (Santosh, Sujan, Chandra, Soma) are excluded
 const FEMALE_FIRST_NAMES = new Set([
@@ -118,11 +118,8 @@ function inferGender(name) {
 }
 
 // ---------------------------------------------------------------------------
-const raw = fs.readFileSync(CANDIDATES_FILE, 'utf8');
-const arrayMatch = raw.match(/(export const candidates: Candidate\[\] = )(\[[\s\S]+?\])(;\n\nexport function)/);
-if (!arrayMatch) { console.error('Cannot find candidates array'); process.exit(1); }
 
-const candidates = JSON.parse(arrayMatch[2]);
+const candidates = readSeed('candidates');
 console.log(`Loaded ${candidates.length} candidates`);
 
 // Reset all to Male first, then apply inference
@@ -141,5 +138,5 @@ const samples = candidates.filter(c => c.gender === 'Female').slice(0, 25);
 console.log('\nSample female candidates (verify manually):');
 samples.forEach(c => console.log(` ✓ ${c.name}`));
 
-fs.writeFileSync(CANDIDATES_FILE, raw.replace(arrayMatch[2], JSON.stringify(candidates, null, 2)), 'utf8');
-console.log('\n✅ Written to src/data/candidates.ts');
+writeSeed('candidates', candidates);
+console.log('\n✅ Written to data/seed/candidates.json');

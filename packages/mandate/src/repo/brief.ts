@@ -375,7 +375,7 @@ export function retrievalText(s: SourceRef): string {
     : `fetched from the publisher, ${hash}`;
 }
 
-/** Only an http(s) source is linkable. `repo:src/data/...` and a null url are not, and must not
+/** Only an http(s) source is linkable. `repo:data/seed/...` and a null url are not, and must not
  *  render as if they were (P2). */
 export function href(s: SourceRef | null): string | null {
   return s?.url != null && /^https?:\/\//.test(s.url) ? s.url : null;

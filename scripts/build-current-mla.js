@@ -1,12 +1,12 @@
 #!/usr/bin/env node
 /**
- * build-current-mla.js — Builds src/data/current-mla.ts from a JSON seed.
+ * build-current-mla.js — Builds data/seed/current-mla.json from a JSON seed.
  *
  * Input:
  *   scripts/data/current-mla.json   (array of CurrentMLA; partial; expand as data lands)
  *
  * Output:
- *   src/data/current-mla.ts
+ *   data/seed/current-mla.json  (+ its date in data/seed/provenance.json)
  *
  * The 2026 winner data wasn't backfilled into historical-results.ts (only the
  * KV live store held it during counting day, and that is now disabled). Until
@@ -21,17 +21,8 @@ const path = require('path');
 
 const ROOT   = path.resolve(__dirname, '..');
 const INPUT  = path.join(__dirname, 'data/current-mla.json');
-const OUTPUT = path.join(ROOT, 'src/data/current-mla.ts');
-
-const FOOTER = `
-export function getCurrentMLAForAC(constituencyId: string): CurrentMLA | undefined {
-  return currentMLAs.find((m) => m.constituencyId === constituencyId);
-}
-
-export function hasCurrentMLAData(constituencyId: string): boolean {
-  return currentMLAs.some((m) => m.constituencyId === constituencyId);
-}
-`;
+const { writeSeed, seedPath } = require('./build-seed');
+const OUTPUT = seedPath('current-mla');
 
 function validate(record, idx) {
   const required = ['constituencyId', 'name', 'partyId', 'term', 'sourceUrl'];
@@ -69,16 +60,7 @@ function main() {
     seen.add(r.constituencyId);
   }
 
-  const today = new Date().toISOString().slice(0, 10);
-  const content = `// AUTO-GENERATED — Sitting MLAs for current WB Assembly term — ${today}
-// Built by: node scripts/build-current-mla.js
-// Source: scripts/data/current-mla.json — hand-curated from authoritative sources.
-// Coverage gap: as of last build, ${records.length}/294 ACs are populated.
-import type { CurrentMLA } from '@/types';
-
-export const currentMLAs: CurrentMLA[] = ${JSON.stringify(records, null, 2)};
-${FOOTER}`;
-  fs.writeFileSync(OUTPUT, content, 'utf8');
+  writeSeed('current-mla', records);
 
   const byTerm = records.reduce((acc, r) => { acc[r.term] = (acc[r.term] || 0) + 1; return acc; }, {});
   const byParty = records.reduce((acc, r) => { acc[r.partyId] = (acc[r.partyId] || 0) + 1; return acc; }, {});

@@ -9,22 +9,38 @@ import test from "node:test";
 
 import { slug } from "../core/ids.ts";
 import { migrate, open } from "../db/index.ts";
-import { MODULE_KEYS, countUncited, runIngest } from "./index.ts";
+import { MODULE_KEYS, countUncited, loadStaticBundle, readModuleDoc, runIngest } from "./index.ts";
 import { resolvePersons } from "./resolve/index.ts";
 import type { ModuleKey, StaticBundle } from "./index.ts";
 
 const NOW = "2026-08-07T00:00:00Z";
 
+// The one thing cycle 4 could break silently: retrieval dates moved out of each module's line-1
+// header comment and into data/seed/provenance.json. Lose that lookup and every source row's
+// retrieved_at quietly falls back to the run clock, which reads as fresh and is not. Asserted
+// against the real seed, because the real seed is the thing that would rot.
+test("retrieval dates come from data/seed/provenance.json, and an absent entry stays absent", async () => {
+  assert.equal(readModuleDoc("candidates.json").retrievedOn, "2026-04-25");
+  assert.equal(readModuleDoc("historical-results.json").retrievedOn, "2026-05-15");
+  // parties.json never carried a date; that is a fact to report, not a gap to fill with today.
+  assert.equal(readModuleDoc("parties.json").retrievedOn, null);
+  // docHash is the seed file's own bytes, so every module is a distinct source row.
+  const b = await loadStaticBundle();
+  assert.equal(new Set(MODULE_KEYS.map((k) => b.docs[k].docHash)).size, MODULE_KEYS.length);
+  assert.equal(b.constituencies.length, 294);
+  assert.ok(b.candidates.length > 2000);
+});
+
 /** Distinct docHash per module, so the eight module sources stay eight distinct rows. */
 const docs = Object.fromEntries(
   MODULE_KEYS.map((k, i) => [
     k,
-    { file: `${k}.ts`, retrievedOn: "2026-04-25", docHash: String(i).repeat(64) },
+    { file: `${k}.json`, retrievedOn: "2026-04-25", docHash: String(i).repeat(64) },
   ]),
 ) as StaticBundle["docs"];
 
 // "JATIYA UNNAYAN PARTY" is a real unmatched label from the real data: it is not an id, an
-// abbreviation or a name in parties.ts, and its candidacy must survive anyway.
+// abbreviation or a name in parties.json, and its candidacy must survive anyway.
 const UNMATCHED = "JATIYA UNNAYAN PARTY";
 
 function fixture(): StaticBundle {
@@ -40,10 +56,13 @@ function fixture(): StaticBundle {
     ],
     candidates: [
       {
+        // the sitting-MLA shape: a photo and a declared tenure, the two fields cycles 1-3 dropped
         id: "wb26_1", name: "Hiten Barman", partyId: "AITC", constituencyId: "c0001",
         age: 57, gender: "Male", education: "Graduate", criminalCases: 0,
         totalAssets: 1021356, totalLiabilities: 0, movableAssets: 500000,
         affidavitUrl: "https://myneta.info/x?candidate_id=1", occupation: "Social Work",
+        photoUrl: "https://myneta.info/images_candidate/WestBengal2026/hiten.jpg",
+        isIncumbent: true, incumbentYears: 5,
       },
       {
         // the unresolvable party label, and a declared case count with no docket
@@ -51,6 +70,8 @@ function fixture(): StaticBundle {
         age: 61, gender: "Male", education: "Graduate", criminalCases: 3,
         totalAssets: 900, totalLiabilities: 100,
         affidavitUrl: "https://myneta.info/x?candidate_id=2",
+        // a photo but no tenure: not an incumbent, so there is no figure to carry
+        photoUrl: "https://myneta.info/images_candidate/WestBengal2026/kamal.jpg",
       },
       {
         // matches the 2026 declared winner below by name, so the result lands on THIS candidacy
@@ -302,7 +323,7 @@ test("a second result row for the same seat and year never gives a contest two w
   const db = open(":memory:");
   migrate(db, NOW);
   const b = fixture();
-  // the real defect: historical-results.ts assigns two different seats the same AC id 40 times
+  // the real defect: historical-results.json assigns two different seats the same AC id 40 times
   const collided: StaticBundle = {
     ...b,
     historicalResults: [
@@ -692,7 +713,7 @@ test("B10: a malformed sourceUrl is an anomaly, not the end of the run", async (
          JOIN source s ON s.id = ci.source_id WHERE c.predicate = 'mla_term'`,
     )
     .get();
-  assert.equal(cited?.url, "repo:src/data/currentMLAs.ts");
+  assert.equal(cited?.url, "repo:data/seed/currentMLAs.json");
   assert.equal(countUncited(db), 0);
   db.close();
 });
@@ -881,13 +902,13 @@ test("B14: an ingest after a resolve does not resurrect the person the merge abs
   db.close();
 });
 
-test("B15: two same-named nominations — current-mla.ts's candidateId places the win exactly", async () => {
+test("B15: two same-named nominations — current-mla.json's candidateId places the win exactly", async () => {
   const db = open(":memory:");
   migrate(db, NOW);
   const b = fixture();
   // c0099 really does field three "Swapan Majumder" rows in the real data. The name key is then
   // ambiguous, and cycle 1c fabricated a THIRD person with status 'elected' and no declared age —
-  // while current-mla.ts already names the winner's candidates.ts id.
+  // while current-mla.json already names the winner's candidates.json id.
   await runIngest(db, {
     nowIso: NOW,
     bundle: {
@@ -931,7 +952,7 @@ test("B16: a seat whose 2026 result row is missing still has its declared winner
   const db = open(":memory:");
   migrate(db, NOW);
   const b = fixture();
-  // Falta's shape: current-mla.ts declares a winner with a candidateId, historical-results.ts has
+  // Falta's shape: current-mla.json declares a winner with a candidateId, historical-results.ts has
   // no 2026 row for the seat, so the sitting MLA's candidacy stayed 'contesting' forever.
   const report = await runIngest(db, {
     nowIso: NOW,
@@ -953,7 +974,7 @@ test("B16: a seat whose 2026 result row is missing still has its declared winner
         WHERE contest_id = 'wb-assembly-2026:mekliganj-001' AND status = 'elected'`,
     )
     .all();
-  assert.equal(won.length, 1, "one declared winner, on the nomination current-mla.ts points at");
+  assert.equal(won.length, 1, "one declared winner, on the nomination current-mla.json points at");
   assert.match(String(won[0]?.id), /hiten-barman/);
   assert.equal(won[0]?.age, 57, "and it is the affidavit's candidacy, so the declared age is there");
   // no tallies exist for that seat, so no result row is invented and the gap stays reported
@@ -969,5 +990,48 @@ test("B16: a seat whose 2026 result row is missing still has its declared winner
   );
   assert.ok(report.anomalies.some((a) => a.kind === "elected_without_result"));
   assert.equal(countUncited(db), 0);
+  db.close();
+});
+
+test("B7: photoUrl and incumbentYears are carried, cited, and never invented", async () => {
+  const { db } = await ingested();
+  /** claim + the URL of the source its citation resolves to. */
+  const cited = (predicate: string): { subject: string; value: string; unit: string | null; url: string }[] =>
+    db
+      .prepare(
+        `SELECT c.subject_ref AS subject, c.object_value AS value, c.unit AS unit, s.url AS url
+           FROM claim c JOIN citation ci ON ci.claim_id = c.id JOIN source s ON s.id = ci.source_id
+          WHERE c.predicate = ? ORDER BY c.subject_ref`,
+      )
+      .all(predicate)
+      .map((r) => ({
+        subject: String(r.subject),
+        value: String(r.value),
+        unit: r.unit === null ? null : String(r.unit),
+        url: String(r.url),
+      }));
+
+  // A URL is a claim about the PERSON, cited to that candidate's own affidavit page — the shape
+  // every other declared field already has, and the reason no column was added to `person`.
+  const photos = cited("photo_url_declared");
+  assert.equal(photos.length, 2, "two of the three fixture candidates ship a photo");
+  assert.ok(photos.every((p) => p.subject.startsWith("person:")));
+  assert.deepEqual(
+    photos.map((p) => [JSON.parse(p.value), p.url]).sort(),
+    [
+      ["https://myneta.info/images_candidate/WestBengal2026/hiten.jpg", "https://myneta.info/x?candidate_id=1"],
+      ["https://myneta.info/images_candidate/WestBengal2026/kamal.jpg", "https://myneta.info/x?candidate_id=2"],
+    ].sort(),
+  );
+
+  // The tenure is a figure about the CANDIDACY: the same human's next nomination declares a
+  // different number, so a person-subject claim would collide with itself.
+  const years = cited("incumbent_years_declared");
+  assert.equal(years.length, 1, "only the incumbent declares years served — the other two invent none");
+  assert.match(String(years[0]?.subject), /^candidacy:wb-assembly-2026:mekliganj-001/);
+  assert.deepEqual([JSON.parse(String(years[0]?.value)), years[0]?.unit], [5, "years"]);
+  assert.equal(years[0]?.url, "https://myneta.info/x?candidate_id=1");
+
+  assert.equal(countUncited(db), 0, "both new claims are cited, so P2's number stays 0");
   db.close();
 });

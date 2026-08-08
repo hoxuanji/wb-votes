@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /**
  * enrich-occupation.js — Re-fetches myneta.info detail pages to extract
- * "Self Profession:" for all candidates. Updates candidates.ts in-place.
+ * "Self Profession:" for all candidates. Updates data/seed/candidates.json in-place.
  *
  * Run: node scripts/scraper/enrich-occupation.js
  * ETA: ~5 min for 2707 candidates at concurrency 6 / 300ms delay
@@ -12,7 +12,7 @@ const path = require('path');
 
 const CONCURRENCY = 6;
 const DELAY_MS = 300;
-const CANDIDATES_FILE = path.resolve(__dirname, '../../src/data/candidates.ts');
+const { readSeed, writeSeed } = require('../build-seed');
 
 function get(url, retries) {
   retries = retries === undefined ? 2 : retries;
@@ -60,11 +60,8 @@ function extractCandidateId(url) {
   return m ? m[1] : null;
 }
 
-var raw = fs.readFileSync(CANDIDATES_FILE, 'utf8');
-var arrayMatch = raw.match(/(export const candidates: Candidate\[\] = )(\[[\s\S]+?\])(;\n\nexport function)/);
-if (!arrayMatch) { console.error('Cannot find candidates array'); process.exit(1); }
 
-var candidates = JSON.parse(arrayMatch[2]);
+var candidates = readSeed('candidates');
 console.log('Loaded ' + candidates.length + ' candidates');
 
 var toFetch = candidates.filter(function(c) { return !c.occupation || c.occupation === 'Not declared'; });
@@ -107,6 +104,6 @@ pool(tasks, CONCURRENCY).then(function() {
   console.log('\nSample:');
   samples.forEach(function(c) { console.log(' - ' + c.name + ': ' + c.occupation); });
 
-  fs.writeFileSync(CANDIDATES_FILE, raw.replace(arrayMatch[2], JSON.stringify(candidates, null, 2)), 'utf8');
-  console.log('\n✅ Written to src/data/candidates.ts');
+  writeSeed('candidates', candidates);
+  console.log('\n✅ Written to data/seed/candidates.json');
 });

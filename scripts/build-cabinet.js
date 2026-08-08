@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 /**
- * build-cabinet.js — Builds src/data/cabinet.ts from a JSON seed.
+ * build-cabinet.js — Builds data/seed/cabinet.json from a hand-curated JSON seed.
  *
  * Input:
  *   scripts/data/cabinet.json   (array of CabinetMember; hand-curated)
  *
  * Output:
- *   src/data/cabinet.ts
+ *   data/seed/cabinet.json  (+ its date in data/seed/provenance.json)
  *
  * Cabinet membership comes from wb.gov.in / news coverage of swearing-in
  * ceremonies and reshuffles. We DO NOT scrape here — keep the JSON updated
- * by hand. This script is the "read JSON → emit TS" stage only.
+ * by hand. This script is the validate-and-emit stage only.
  *
  * On reshuffle: edit the JSON, set the prior portfolio's `to` date, append
  * a new portfolio entry with the new `from` date, and rebuild.
@@ -21,29 +21,8 @@ const path = require('path');
 
 const ROOT   = path.resolve(__dirname, '..');
 const INPUT  = path.join(__dirname, 'data/cabinet.json');
-const OUTPUT = path.join(ROOT, 'src/data/cabinet.ts');
-
-const FOOTER = `
-export function getCabinetMemberById(id: string): CabinetMember | undefined {
-  return wbCabinet2026.find((m) => m.id === id);
-}
-
-export function getCabinetMemberByConstituency(
-  constituencyId: string,
-): CabinetMember | undefined {
-  return wbCabinet2026.find((m) => m.constituencyId === constituencyId);
-}
-
-export function getChiefMinister(): CabinetMember | undefined {
-  return wbCabinet2026.find((m) =>
-    m.portfolios.some((p) => p.rank === 'CM' && !p.to),
-  );
-}
-
-export function getCurrentPortfolios(member: CabinetMember) {
-  return member.portfolios.filter((p) => !p.to);
-}
-`;
+const { writeSeed, seedPath } = require('./build-seed');
+const OUTPUT = seedPath('cabinet');
 
 function validate(member, idx) {
   const required = ['id', 'name', 'partyId', 'inducted', 'sourceUrl', 'portfolios'];
@@ -76,15 +55,7 @@ function main() {
 
   records.forEach(validate);
 
-  const today = new Date().toISOString().slice(0, 10);
-  const content = `// AUTO-GENERATED — WB Cabinet (2026 term) — ${today}
-// Built by: node scripts/build-cabinet.js
-// Source: scripts/data/cabinet.json — keep in sync with wb.gov.in cabinet listings.
-import type { CabinetMember } from '@/types';
-
-export const wbCabinet2026: CabinetMember[] = ${JSON.stringify(records, null, 2)};
-${FOOTER}`;
-  fs.writeFileSync(OUTPUT, content, 'utf8');
+  writeSeed('cabinet', records);
 
   const ranks = records.reduce((acc, m) => {
     const top = m.portfolios.find((p) => !p.to)?.rank ?? 'unknown';

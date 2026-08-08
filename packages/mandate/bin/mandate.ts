@@ -4,17 +4,25 @@
 // into `mandate: <message>` and exit 1, so an operator never sees a stack trace.
 //
 //   mandate migrate                      apply pending ops/migrations/*.sql
-//   mandate ingest [--fresh]             load src/data/*.ts into the registry
+//   mandate ingest [--fresh]             load data/seed/*.json into the registry
 //   mandate resolve [--dry-run]          entity resolution (resolve/ owns it)
 //   mandate audit [--n=200] [--seed=1]   sample merges for the published error rate
 //   mandate unmerge --id=<n>             reverse one person_merge, restoring the absorbed person
 //   mandate query person <term>          search the alias blocking index
 //   mandate coverage                     row counts + citation coverage
+//   mandate export [--diff] [--out=<dir>]  rebuild data/seed/*.json FROM the registry and report
+//                                        what does not come back (a measurement, never a migration)
 
-import { rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { blockingKeys } from "../src/core/indic/index.ts";
-import { DEV_DB_PATH, all, get, migrate, open } from "../src/db/index.ts";
+import { DEV_DB_PATH, all, get, migrate, open, openRead } from "../src/db/index.ts";
 import { countUncited, runIngest } from "../src/ingest/index.ts";
+import {
+  THRESHOLD_PCT,
+  diffAgainstSeed,
+  formatReport,
+  reconstruct,
+} from "../src/ingest/export.ts";
 import { auditSample, resolvePersons, unmerge } from "../src/ingest/resolve/index.ts";
 
 const argv = process.argv.slice(2);
@@ -37,12 +45,13 @@ const posInt = (name: string, fallback: number): number => {
 const USAGE = `mandate <command>
 
   migrate                      apply pending migrations
-  ingest [--fresh]             ingest src/data/*.ts (--fresh: drop the db first)
+  ingest [--fresh]             ingest data/seed/*.json (--fresh: drop the db first)
   resolve [--dry-run]          resolve person duplicates
   audit [--n=200] [--seed=1]   audit a reproducible sample of merges
   unmerge --id=<n>             reverse person_merge <n> and restore the absorbed person
   query person <term>          find people by name / blocking key
-  coverage                     per-table row counts and citation coverage`;
+  coverage                     per-table row counts and citation coverage
+  export [--diff] [--out=<dir>]  rebuild the seed from the registry and report what differs`;
 
 /** Two columns, right-aligned values. Every subcommand prints through this so output is one shape. */
 function table(rows: readonly [string, unknown][]): void {
@@ -194,8 +203,41 @@ try {
       break;
     }
 
-    case "coverage": {
-      const db = open();
+    case "export": {
+      // A MEASUREMENT, not a migration: nothing in the repo reads the rebuilt modules. The number
+      // it prints is how much of data/seed/*.json the registry can give back, which is the gate on
+      // ever deleting the seed and the old app (§29 Phase C/E). See ADR 0004.
+      const db = openRead();
+      const out = argv.find((a) => a.startsWith("--out="))?.slice("--out=".length);
+      if (out !== undefined) {
+        const rebuilt = reconstruct(db);
+        mkdirSync(out, { recursive: true });
+        for (const [file, rows] of Object.entries(rebuilt)) {
+          writeFileSync(`${out.replace(/\/$/, "")}/${file}`, JSON.stringify(rows));
+          console.log(`  ${file}  ${rows.length} rows`);
+        }
+        // These files are evidence, not an input: a value entity resolution cannot attribute to one
+        // row is written with an " ambiguous:<guess>" prefix rather than the guess.
+        console.log(`wrote ${out} — a measurement artefact; nothing in the repo reads it`);
+      }
+      if (out !== undefined && !has("diff")) {
+        db.close();
+        break;
+      }
+      const report = diffAgainstSeed(db);
+      db.close();
+      console.log(formatReport(report));
+      if (report.pct < THRESHOLD_PCT) {
+        fail(
+          `reconstructability ${report.pct.toFixed(1)}% is below the ${THRESHOLD_PCT}% floor — ` +
+            `the registry gives back less of data/seed/ than it did. The floor is a ratchet: raise ` +
+            `it in the commit that raises the number, never lower it to make this pass.`,
+        );
+      }
+      break;
+    }
+
+    case "coverage": {      const db = open();
       const tables = all<{ name: string }>(
         db,
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",

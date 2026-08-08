@@ -37,7 +37,7 @@ const PROVENANCE =
  *  invariant to a one-sided bound for exactly this reason — see resolve/index.ts
  *  `vote_share_never_exceeds_100`. */
 const TRUNCATION =
-  "src/data/historical-results.ts publishes only a truncated top-N field (at most 5 contestants), " +
+  "data/seed/historical-results.json publishes only a truncated top-N field (at most 5 contestants), " +
   "so shares do not sum to 100 — 1,009 of 1,135 contest revisions are short, averaging 72.9%.";
 
 // ── formatters, once ─────────────────────────────────────────────────────────────────────────────

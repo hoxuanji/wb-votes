@@ -47,7 +47,7 @@ function aliasRows(personId: string, name: string): string {
 /**
  * One of everything: two persons, two elections, a declared contest, an undecided 2026 seat, an
  * affidavit, a district-level census figure and provisional claims with their citations.
- * ponytail: raw SQL, not the ingest pipeline — the pipeline reads this repo's src/data and would
+ * ponytail: raw SQL, not the ingest pipeline — the pipeline reads this repo's data/seed and would
  * make the contract depend on the corpus. Rebuild it from ingest the day the DDL churns.
  */
 function buildFixture(): string {
@@ -56,9 +56,9 @@ function buildFixture(): string {
   migrate(d, NOW);
   d.exec(`
     INSERT INTO source (id,kind,publisher,title,url,retrieved_at,doc_hash,hash_kind,retrieval_kind) VALUES
-      ('src-results','eci_declaration','ECI, via Lokdhaba (TCPD)','Assembly results','repo:src/data/historical-results.ts','2026-07-01T00:00:00.000Z','h1','document_bytes','fetched'),
+      ('src-results','eci_declaration','ECI, via Lokdhaba (TCPD)','Assembly results','repo:data/seed/historical-results.json','2026-07-01T00:00:00.000Z','h1','document_bytes','fetched'),
       ('src-affidavit','affidavit','myneta.info / ADR','Affidavit','https://myneta.info/x','2026-07-02T00:00:00.000Z','h2','url_only','asserted_by_upstream'),
-      ('src-census','census','Census of India','WB constituency demographics (district-level Census 2011 proxy)','repo:src/data/demographics.ts','2026-07-03T00:00:00.000Z','h3','document_bytes','fetched');
+      ('src-census','census','Census of India','WB constituency demographics (district-level Census 2011 proxy)','repo:data/seed/demographics.json','2026-07-03T00:00:00.000Z','h3','document_bytes','fetched');
     INSERT INTO ingest_run (pipeline,parser_version,started_at,finished_at,status)
       VALUES ('static:fixture','v1','${NOW}','${NOW}','ok');
     INSERT INTO boundary_epoch (id,name,effective_from,source_id)

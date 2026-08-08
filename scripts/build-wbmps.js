@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * build-wbmps.js — Builds src/data/wbmps.ts (WB MPs) and
+ * build-wbmps.js — Builds data/seed/wbmps.json (WB MPs) and
  *                   src/data/ac-ls-map.ts (AC→Lok Sabha constituency mapping).
  *
  * Inputs:
@@ -8,7 +8,7 @@
  *   AC_LS_RAW (hardcoded below)          — Wikipedia "List of WB constituencies" AC→LS map
  *
  * Outputs:
- *   src/data/wbmps.ts
+ *   data/seed/wbmps.json  (+ its date in data/seed/provenance.json)
  *   src/data/ac-ls-map.ts
  */
 
@@ -16,9 +16,9 @@ const fs   = require('fs');
 const path = require('path');
 
 const ROOT         = path.resolve(__dirname, '..');
-const CONSTITS_TS  = path.join(ROOT, 'src/data/constituencies.ts');
 const INPUT_MPS    = path.join(__dirname, 'data/wbmps-2024.json');
-const OUTPUT_MPS   = path.join(ROOT, 'src/data/wbmps.ts');
+const { readSeed, writeSeed, seedPath } = require('./build-seed');
+const OUTPUT_MPS   = seedPath('wbmps');
 const OUTPUT_MAP   = path.join(ROOT, 'src/data/ac-ls-map.ts');
 
 // ─── AC → LS RAW DATA (Wikipedia, all 294 entries) ──────────────────────────
@@ -127,29 +127,6 @@ const AC_LS_RAW = [
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-function extractArrayFromTs(tsPath, exportName) {
-  const src = fs.readFileSync(tsPath, 'utf8');
-  const declRe = new RegExp(`export const ${exportName}[^\\n]+=`);
-  const declMatch = declRe.exec(src);
-  if (!declMatch) throw new Error(`Cannot find export ${exportName} in ${tsPath}`);
-  const afterEq = declMatch.index + declMatch[0].length;
-  const arrStart = src.indexOf('[', afterEq);
-  let depth = 0, i = arrStart, inStr = false, strCh = '';
-  while (i < src.length) {
-    const ch = src[i];
-    if (inStr) {
-      if (ch === '\\') { i += 2; continue; }
-      if (ch === strCh) inStr = false;
-    } else {
-      if (ch === '"' || ch === "'") { inStr = true; strCh = ch; }
-      else if (ch === '[') depth++;
-      else if (ch === ']') { depth--; if (depth === 0) break; }
-    }
-    i++;
-  }
-  return JSON.parse(src.slice(arrStart, i + 1));
-}
-
 function normName(s) {
   return (s || '').toLowerCase().replace(/[^a-z]/g, '');
 }
@@ -204,23 +181,7 @@ const LS_DISTRICT_HINT = {
 
 function buildMPs() {
   const mps = JSON.parse(fs.readFileSync(INPUT_MPS, 'utf8'));
-  const today = new Date().toISOString().slice(0, 10);
-  const content = `// AUTO-GENERATED — West Bengal Lok Sabha MPs (2024 general election) — ${today}
-// Built by: node scripts/build-wbmps.js
-// Source: scripts/data/wbmps-2024.json
-import type { WBMP } from '@/types';
-
-export const wbMPs: WBMP[] = ${JSON.stringify(mps, null, 2)};
-
-export function getMPByLSConstituency(lsConstituency: string): WBMP | undefined {
-  return wbMPs.find((m) => m.lsConstituency.toLowerCase() === lsConstituency.toLowerCase());
-}
-
-export function getMPById(id: string): WBMP | undefined {
-  return wbMPs.find((m) => m.id === id);
-}
-`;
-  fs.writeFileSync(OUTPUT_MPS, content, 'utf8');
+  writeSeed('wbmps', mps);
   console.log(`  MPs      : ${mps.length} → ${path.relative(ROOT, OUTPUT_MPS)}`);
   return mps;
 }
@@ -275,7 +236,7 @@ export function getLSConstituencyForAC(acId: string): string | undefined {
 
 function main() {
   console.log('Building MP data + AC→LS map...\n');
-  const constits = extractArrayFromTs(CONSTITS_TS, 'constituencies');
+  const constits = readSeed('constituencies');
   buildMPs();
   buildACLSMap(constits);
   console.log('\n✅  Done');
