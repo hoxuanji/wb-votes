@@ -43,27 +43,49 @@ identical to §18's package names now is what makes it mechanical later — do n
 - **Reversal condition:** if the one-way dependency direction is violated twice, split early —
   the boundary is evidently not holding on discipline alone.
 
-## Known conflict with the root tsconfig — one line, outside this package
+## Reconciling the root and registry tsconfigs — resolved
 
-`packages/` is not in the root `tsconfig.json`'s `exclude`, and its `include` is `**/*.ts`. So
-`next build`'s type-check stage compiles all of `packages/mandate` with the Next app's compiler
-options, which have no `allowImportingTsExtensions` and no `target`. That is 104 errors
-(`npx tsc --noEmit -p tsconfig.json`): 50× TS5097 on the `.ts` import specifiers, 39× TS2802 and
-15× TS1501 from the ES5 default target. All 104 are under `packages/`; `src/` is clean under that
-config.
-
-The two configs are mutually exclusive on purpose and cannot be reconciled by editing this
-package: the `.ts` extensions are load-bearing for Node's native TypeScript execution (`node
-bin/mandate.ts` resolves the real filename), which is the whole point of the no-build-step
-decision above. `registry:typecheck` cannot see the breakage because it only reads
-`packages/mandate/tsconfig.json`.
-
-The fix is one word in the root config, which is outside this package's ownership:
+An earlier revision of this ADR claimed the two configs were "mutually exclusive on purpose and
+cannot be reconciled by editing this package", and worked around it by adding `packages` to the
+root `exclude`. **That claim was wrong.** Two compiler options in the root config reconcile them:
 
 ```jsonc
 // tsconfig.json
-"exclude": ["node_modules", "scripts", "workers", "packages"]
+"target": "ES2022",                    // was absent, so tsc defaulted to ES5
+"allowImportingTsExtensions": true,    // legal here: moduleResolution is "bundler" + noEmit
 ```
 
-`packages/mandate` is type-checked by its own project (`npm run registry:typecheck`), so excluding
-it from the app's project loses no coverage. Until that line lands, `npm run build` fails.
+Measured, with `include` and `paths` resolving from the repo root:
+
+| root config | errors | where |
+|---|---|---|
+| no `target`, `packages` excluded | 0 | — |
+| no `target`, `packages` included | **103** | all under `packages/` |
+| `target: ES2022` + `allowImportingTsExtensions` | **0** | whole repo, `packages` included |
+
+The 103 were 50× TS5097 on the `.ts` import specifiers and 53× TS2802/TS1501 from the ES5
+default target. Both are properties of the *root* config, not of this package: the `.ts`
+extensions are load-bearing for Node's native TypeScript execution, and ES5 was never a real
+constraint for a Next 14 app whose bundle target comes from browserslist via SWC, not from
+`target`.
+
+So `packages` is no longer excluded, and the registry is type-checked twice, deliberately:
+
+- `npm run type-check` — the whole repo under the app's options, catching anything that would
+  break `next build`. Without this the seam is invisible: the Next app is about to import the
+  repository layer, and an excluded directory is still pulled into the program by an import,
+  so excluding it only delays the failure to build time.
+- `npm run registry:typecheck` — this package's own project, which adds the strict flags the
+  app does not have (`noUncheckedIndexedAccess`, `erasableSyntaxOnly`, `verbatimModuleSyntax`).
+
+## Correction: the old app had no pre-existing type errors
+
+A related claim in the cycle-1 commits and in the `node:sqlite` shim comment — that the old app's
+own typecheck "already carries 40 pre-existing errors" — was also wrong. The 40 came from
+`npm run type-check` at a moment when `packages/` was in the program: every one of them was this
+package's code compiled under the app's options. With `packages` excluded, `src/` reports **0**.
+
+The shim in `packages/mandate/src/types/node-sqlite.d.ts` is still the right call, but for the
+narrower reason only: `@types/node@20` predates `node:sqlite`, and bumping a dependency the whole
+app shares to obtain types for one module in one package is the wrong trade. It is not because the
+app's types were already broken. They were not.

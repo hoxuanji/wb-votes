@@ -1,10 +1,14 @@
 // Ambient types for node:sqlite (stable since Node 22.5; this repo pins @types/node@20,
 // which predates it). Only the surface packages/mandate actually uses is declared.
 //
-// ponytail: local shim, not a dependency bump — @types/node is the OLD Next app's
-// devDependency and its typecheck already carries 40 pre-existing errors; bumping it to
-// chase one module's types risks adding more. Delete this file the moment @types/node
-// >= 22 is adopted repo-wide (see docs/debt.md).
+// ponytail: local shim, not a dependency bump — @types/node is shared with the OLD Next app,
+// and bumping a dependency the whole repo depends on to obtain types for one module in one
+// package is the wrong trade. Delete this file when @types/node >= 22 is adopted repo-wide
+// (see docs/debt.md).
+//
+// An earlier version of this comment justified the shim by claiming the app's typecheck "already
+// carries 40 pre-existing errors". That was false — those 40 were this package's own code being
+// compiled under the app's config. src/ reports 0. See docs/adr/0002.
 
 declare module 'node:sqlite' {
   /** Values sqlite can bind and return. */

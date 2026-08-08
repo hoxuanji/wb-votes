@@ -25,7 +25,9 @@
       "@/*": [
         "./src/*"
       ]
-    }
+    },
+    "target": "ES2022",
+    "allowImportingTsExtensions": true
   },
   "include": [
     "next-env.d.ts",
@@ -36,7 +38,6 @@
   "exclude": [
     "node_modules",
     "scripts",
-    "workers",
-    "packages"
+    "workers"
   ]
 }
