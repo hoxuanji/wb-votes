@@ -170,10 +170,14 @@ test("searchPersons: unions every blocking key and finds distinct homonyms", { s
     hits.some((h) => reversed.includes(h.id)),
     "surname-first and given-name-first meet",
   );
+  // Deterministic, but no longer alphabetical-by-id: this used to assert the order EQUALLED the
+  // sorted id list, which was the old `ORDER BY p.id` written down as a requirement. Ranking is now
+  // by match tier then prominence, so determinism is what the test should check — the same query
+  // twice must give the same order, and the tie-breaker is the id, so it always does.
   assert.deepEqual(
+    searchPersons(d, "Md Salim", 50).map((h) => h.id),
     hits.map((h) => h.id),
-    [...hits.map((h) => h.id)].sort(),
-    "deterministic order",
+    "the same query returned two different orders",
   );
   d.close();
 });
@@ -181,6 +185,48 @@ test("searchPersons: unions every blocking key and finds distinct homonyms", { s
 test("searchPersons: gibberish and empty terms return no rows", { skip }, () => {
   const d = db();
   assert.deepEqual(searchPersons(d, "   ", 5), []); // UNPARSEABLE_KEY bucket excluded
+  d.close();
+});
+
+// ── the two failures a UI exposed ────────────────────────────────────────────────────────────────
+// Both were invisible while search was only consumed by /v1/search, which nobody read the ranking of.
+
+test("searchPersons: a one-word query finds a two-word name", { skip }, () => {
+  const d = db();
+  // The original bug: a single token emits the bare key `mt`, a two-token record emits `bnrj|mt`,
+  // `mtbnrj` and surname-only `bnrj` — never a given-name-only key. So the most obvious query in the
+  // dataset returned six phonetic near-misses and not the person.
+  for (const q of ["mamata", "\u09AE\u09AE\u09A4\u09BE", "Mamata"]) {
+    const hits = searchPersons(d, q, 10);
+    const names = hits.map((h) => h.canonicalName);
+    assert.ok(
+      names.some((n) => /banerjee/i.test(n)),
+      `${q} did not surface a Banerjee at all: ${names.join(", ")}`,
+    );
+    assert.equal(hits[0]?.match, "name", `${q} led with a phonetic guess instead of a real match`);
+  }
+  d.close();
+});
+
+test("searchPersons: a phonetic-only hit is labelled, never presented as a match", { skip }, () => {
+  const d = db();
+  // "zzzznobody" keys to `jnbd`, and so does "JHUNU BAIDYA" — z->j with vowels dropped. The key is
+  // behaving correctly; what was wrong was calling the result a match. It must arrive as a
+  // suggestion so a surface can say so.
+  const junk = searchPersons(d, "zzzznobody", 10);
+  assert.ok(
+    junk.every((h) => h.match === "sounds-like"),
+    "gibberish produced a name-tier match",
+  );
+
+  // Both directions: a real name must NOT be demoted to a suggestion.
+  const real = searchPersons(d, "Mamata", 5);
+  assert.ok(real.length > 0 && real[0]?.match === "name");
+
+  // A LIKE wildcard is a pattern injection, not a SQL one: unescaped, "%" returned the registry.
+  for (const wild of ["%", "_", "%%", "\\"]) {
+    assert.equal(searchPersons(d, wild, 50).length, 0, `${wild} matched something`);
+  }
   d.close();
 });
 

@@ -16,7 +16,8 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { blockingKeys } from "../core/index.ts";
-import { migrate, open, openRead } from "../db/index.ts";
+import { open, openRead } from "../db/index.ts";
+import { migrate } from "../db/migrate.ts";
 import type { Envelope, Meta, Reply } from "./envelope.ts";
 import { personReply, placeReply, searchReply, unavailable } from "./envelope.ts";
 

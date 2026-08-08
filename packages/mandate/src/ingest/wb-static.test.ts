@@ -5,15 +5,21 @@
 // count never becomes a case), and no candidacy is ever dropped for an unresolvable party.
 
 import assert from "node:assert/strict";
+import { copyFileSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import test from "node:test";
+import { fileURLToPath } from "node:url";
 
 import { slug } from "../core/ids.ts";
-import { migrate, open } from "../db/index.ts";
+import { open } from "../db/index.ts";
+import { migrate } from "../db/migrate.ts";
 import { MODULE_KEYS, countUncited, loadStaticBundle, readModuleDoc, runIngest } from "./index.ts";
 import { resolvePersons } from "./resolve/index.ts";
 import type { ModuleKey, StaticBundle } from "./index.ts";
 
 const NOW = "2026-08-07T00:00:00Z";
+const SEED_DIR = fileURLToPath(new URL("../../../../data/seed/", import.meta.url));
 
 // The one thing cycle 4 could break silently: retrieval dates moved out of each module's line-1
 // header comment and into data/seed/provenance.json. Lose that lookup and every source row's
@@ -29,6 +35,20 @@ test("retrieval dates come from data/seed/provenance.json, and an absent entry s
   assert.equal(new Set(MODULE_KEYS.map((k) => b.docs[k].docHash)).size, MODULE_KEYS.length);
   assert.equal(b.constituencies.length, 294);
   assert.ok(b.candidates.length > 2000);
+});
+
+test("a MALFORMED provenance.json throws; only a MISSING one falls back to the run clock", async () => {
+  // The swallowed error: one stray comma used to void all seven retrieval dates at once and stamp
+  // every source with the run clock, reported as an ordinary anomaly. A source row that says
+  // "retrieved today" about a file retrieved in April is a guess wearing a fact's clothes.
+  const dir = `${mkdtempSync(join(tmpdir(), "seed-prov-"))}/`;
+  writeFileSync(`${dir}provenance.json`, '{ "candidates.json": "2026-04-25",,, }');
+  await assert.rejects(() => loadStaticBundle(dir), /provenance\.json is not valid JSON/);
+
+  // A missing file is the documented case and stays documented: no date, reported per module.
+  const bare = `${mkdtempSync(join(tmpdir(), "seed-none-"))}/`;
+  copyFileSync(SEED_DIR + "cabinet.json", `${bare}cabinet.json`);
+  assert.equal(readModuleDoc("cabinet.json", bare).retrievedOn, null);
 });
 
 /** Distinct docHash per module, so the eight module sources stay eight distinct rows. */

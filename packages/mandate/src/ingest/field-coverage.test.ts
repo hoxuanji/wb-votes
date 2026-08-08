@@ -10,8 +10,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { DatabaseSync } from "node:sqlite";
 
-import { migrate, open } from "../db/index.ts";
-import { coverageFailures, fieldCoverage, formatCoverage, inputFieldCounts } from "./field-coverage.ts";
+import { open } from "../db/index.ts";
+import { migrate } from "../db/migrate.ts";
+import { RULES, coverageFailures, fieldCoverage, formatCoverage, inputFieldCounts, seedShapeFailures } from "./field-coverage.ts";
 import { loadStaticBundle, runIngest } from "./index.ts";
 import type { StaticBundle } from "./index.ts";
 
@@ -146,6 +147,106 @@ test("the gate runs inside the ingest, not only where a human looks", async () =
   });
   assert.deepEqual(r.coverage, []);
   db.close();
+});
+
+test("a name field's total loss FAILS the gate, per module", async () => {
+  const { db, bundle } = await ingested();
+  // mps.name, cabinet.name and currentMLAs.name shared one probe — `person_alias WHERE kind =
+  // 'press'` — which counts a superset of all three, so any one of them could lose every name and
+  // the probe would still read 1,041. Staged here exactly as the reviewer reproduced it: delete
+  // every press alias belonging to a person who holds an ls_seat_won claim, i.e. the ingest no
+  // longer writing any MP name at all. Under the shared probe this stayed verdict="carried".
+  const anchors: [string, string, RegExp][] = [
+    ["mps", "predicate = 'ls_seat_won'", /^mps\.name: 42 input rows carry it, 0 reached the registry/],
+    ["cabinet", "predicate LIKE 'cabinet_portfolio:%'", /^cabinet\.name: 6 input rows carry it, 0 reached the registry/],
+    ["currentMLAs", "predicate = 'mla_term'", /^currentMLAs\.name: 294 input rows carry it, 0 reached the registry/],
+  ];
+  for (const [module, where, expected] of anchors) {
+    db.exec("BEGIN");
+    try {
+      db.exec(
+        `DELETE FROM person_alias WHERE kind = 'press' AND person_id IN
+           (SELECT REPLACE(subject_ref, 'person:', '') FROM claim WHERE ${where})`,
+      );
+      const failures = coverageFailures(fieldCoverage(db, bundle));
+      assert.equal(failures.length, 1, `${module}: ${failures.join(" | ")}`);
+      assert.match(String(failures[0]), expected);
+    } finally {
+      db.exec("ROLLBACK");
+    }
+  }
+});
+
+test("no two modules share a probe, so a probe always answers for its own module", () => {
+  // The structural form of the bug above. Two fields of ONE module may share a probe — a result row
+  // carries winner.name and winner.votes together — but a probe shared across modules counts rows
+  // another module wrote and can never fall below this module's input.
+  const seen = new Map<string, string>();
+  for (const [module, rules] of Object.entries(RULES)) {
+    for (const [field, rule] of Object.entries(rules)) {
+      if (!("probe" in rule)) continue;
+      const owner = seen.get(rule.probe);
+      assert.ok(
+        owner === undefined || owner === module,
+        `${module}.${field} reuses ${owner}'s probe: ${rule.probe}`,
+      );
+      seen.set(rule.probe, module);
+    }
+  }
+});
+
+test("an allowlist entry the registry contradicts FAILS, so 'not modelled' cannot be a lie", async () => {
+  const { db, bundle } = await ingested();
+  // The direction the rot test could not reach: a `drop` entry was never checked against the
+  // registry, so moving a carried field onto the allowlist with a plausible reason silenced the gate
+  // AND printed "not-modelled" for 2,920 rows the registry was holding. `assertAbsent` closes it —
+  // here by giving one AC seat a Bengali name the entry claims place.names never holds.
+  db.exec("BEGIN");
+  try {
+    db.exec(
+      `UPDATE place SET names = '{"bn":"\u09ae\u09c7\u0996\u09b2\u09bf\u0997\u099e\u09cd\u099c"}'
+         WHERE kind = 'ac' AND id = (SELECT id FROM place WHERE kind = 'ac' ORDER BY id LIMIT 1)`,
+    );
+    const failures = coverageFailures(fieldCoverage(db, bundle));
+    assert.equal(failures.length, 1, failures.join(" | "));
+    assert.match(
+      String(failures[0]),
+      /^constituencies\.nameBn: allowlisted as not modelled, but 1 registry rows carry it/,
+    );
+  } finally {
+    db.exec("ROLLBACK");
+  }
+});
+
+test("a seed row that breaks src/types/index.ts FAILS, which the JSON import no longer catches", async () => {
+  const { bundle } = await ingested();
+  assert.deepEqual(seedShapeFailures(bundle), []);
+  // scripts/scraper/overrides.json patches candidate fields and build-data.js writes them straight
+  // into data/seed/candidates.json. `raw as Candidate[]` is a cast, so an override that drops `age`
+  // or spells gender "M" passes tsc, passes the coverage gate (input and registry fall together)
+  // and renders as undefined on /candidate/[id]. An annotation cannot help: tsc WIDENS a JSON
+  // literal, so a correct `reservation: "SC"` arrives as `string` and fails too.
+  const [first, ...rest] = bundle.candidates;
+  const { age: _age, ...ageless } = first as typeof first & { age?: number };
+  const missing = { ...bundle, candidates: [ageless, ...rest] } as StaticBundle;
+  assert.match(String(seedShapeFailures(missing)[0]), /has no `age`, which src\/types\/index\.ts declares non-optional/);
+
+  const wrongEnum = { ...bundle, candidates: [{ ...first, gender: "M" }, ...rest] } as StaticBundle;
+  assert.match(String(seedShapeFailures(wrongEnum)[0]), /has `gender` = "M", which is not one of/);
+
+  // A nested required key and a nested union, since half the contract lives one level down.
+  const [firstMinister, ...others] = bundle.cabinet;
+  const badRank = {
+    ...bundle,
+    cabinet: [{ ...firstMinister, portfolios: [{ ministry: "Finance", rank: "Deputy", from: "2026-05-09" }] }, ...others],
+  } as StaticBundle;
+  assert.match(String(seedShapeFailures(badRank)[0]), /has `portfolios\.rank` = "Deputy", which is not one of/);
+
+  const noMinistry = {
+    ...bundle,
+    cabinet: [{ ...firstMinister, portfolios: [{ rank: "CM", from: "2026-05-09" }] }, ...others],
+  } as StaticBundle;
+  assert.match(String(seedShapeFailures(noMinistry)[0]), /has no `portfolios\.ministry`/);
 });
 
 test("inputFieldCounts counts what a row actually carries, one level into nested shapes", () => {

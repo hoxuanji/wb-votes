@@ -17,7 +17,8 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { all, get, migrate, open } from "../../db/index.ts";
+import { all, get, open } from "../../db/index.ts";
+import { migrate } from "../../db/migrate.ts";
 import {
   BIRTH_YEAR_CONFIDENCES,
   CANDIDACY_STATUSES,

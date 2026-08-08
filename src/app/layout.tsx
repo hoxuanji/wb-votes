@@ -1,37 +1,42 @@
 import type { Metadata, Viewport } from 'next';
-import { Analytics } from '@vercel/analytics/react';
 import './globals.css';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { Disclaimer } from '@/components/layout/Disclaimer';
-import { LanguageProvider } from '@/lib/language-context';
+
+/**
+ * The root layout owns html/body and nothing else.
+ *
+ * Everything that used to be here — Header, Footer, BottomNav, Disclaimer, LanguageProvider,
+ * Analytics — is now in src/app/(legacy)/layout.tsx and applies only to the WB Votes routes.
+ * Nested layouts compose, so while that chrome sat at the root it wrapped every MANDATE surface
+ * too, which is why /pl and /p looked like the old app with new content inside them.
+ *
+ * globals.css stays at the root because it carries Tailwind's preflight, which the legacy
+ * components' utility classes need; the MANDATE tokens are scoped to `.mandate` and override it.
+ *
+ * ponytail: no shell component here. A shell that must render on both a Situation Room and a
+ * legacy quiz page is two shells wearing one name.
+ */
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  colorScheme: 'dark',
 };
 
 export const metadata: Metadata = {
   title: {
-    default: 'WB Votes — West Bengal Voter Information',
-    template: '%s | WB Votes',
+    default: 'MANDATE — Election Intelligence',
+    template: '%s · MANDATE',
   },
   description:
-    'An independent, non-partisan voter information tool for West Bengal Assembly Elections. View candidate profiles, criminal records, assets, and take the policy quiz.',
-  keywords: ['West Bengal election', 'candidates', 'voter awareness', 'WB assembly', 'neta affidavit'],
+    'A canonical registry of Indian politicians, parties and places, with every figure carrying the source it came from.',
   openGraph: {
-    title: 'WB Votes — West Bengal Voter Information',
-    description: 'Compare candidates, view affidavits, and discover your policy alignment for West Bengal elections.',
+    title: 'MANDATE — Election Intelligence',
+    description:
+      'Every figure carries its source. 6,167 people, 294 seats, four elections, and an honest account of what has not been verified.',
     type: 'website',
     locale: 'en_IN',
-    siteName: 'WB Votes',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'WB Votes',
-    description: 'Voter information tool for West Bengal Assembly Elections.',
+    siteName: 'MANDATE',
   },
   robots: { index: true, follow: true },
 };
@@ -45,19 +50,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           rel="stylesheet"
         />
       </head>
-      <body className="font-sans antialiased bg-slate-950 text-gray-100">
-        <LanguageProvider>
-          <Disclaimer />
-          <Header />
-          {/* pb-16 reserves space for the fixed bottom nav on mobile */}
-          <main className="min-h-[calc(100vh-56px)] pb-16 md:pb-0">
-            {children}
-          </main>
-          <Footer />
-          <BottomNav />
-          <Analytics />
-        </LanguageProvider>
-      </body>
+      {/* The canvas lives here rather than in a stylesheet: body used to carry Tailwind's
+          bg-slate-950, that class went down to (legacy), and a body with no background flashes
+          white on both trees. Two tokens are not worth a third stylesheet. */}
+      <body style={{ background: '#0c0a11', color: '#f2f0f7', margin: 0 }}>{children}</body>
     </html>
   );
 }

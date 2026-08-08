@@ -22,7 +22,7 @@ import type { Anomaly } from "../../core/citation/index.ts";
 import { blockingKeys, detectScript } from "../../core/indic/index.ts";
 import { candidacyId, contentId, contestId, slug } from "../../core/ids.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
-import { coverageFailures, fieldCoverage, formatCoverage, type CoverageRow } from "../field-coverage.ts";
+import { coverageFailures, fieldCoverage, formatCoverage, seedShapeFailures, type CoverageRow } from "../field-coverage.ts";
 
 const PARSER_VERSION = "wb-static@1";
 const EPOCH_ID = "delim-2008";
@@ -184,12 +184,22 @@ const DATA_DIR = fileURLToPath(new URL("../../../../../data/seed/", import.meta.
  *  A file with no entry has no date, exactly as a header with no date had none, and still becomes
  *  a `no_header_date` anomaly rather than a guess. */
 function provenance(dir: string): Record<string, string> {
+  const path = dir + "provenance.json";
+  let text: string;
   try {
-    return JSON.parse(readFileSync(dir + "provenance.json", "utf8")) as Record<string, string>;
-  } catch {
-    // ponytail: a missing provenance file dates every module to the run clock and says so via the
-    // per-module anomaly. Upgrade to a hard failure if the seed ever ships without it.
-    return {};
+    text = readFileSync(path, "utf8");
+  } catch (cause) {
+    // ponytail: a MISSING provenance file dates every module to the run clock and says so via the
+    // per-module no_header_date anomaly. Upgrade to a hard failure if the seed ever ships without it.
+    if ((cause as { code?: string }).code === "ENOENT") return {};
+    throw cause;
+  }
+  // A MALFORMED file is not the same case: swallowing a SyntaxError voided all seven retrieval dates
+  // at once and stamped source.retrieved_at with the run clock, i.e. reported a guess as a fact.
+  try {
+    return JSON.parse(text) as Record<string, string>;
+  } catch (cause) {
+    throw new Error(`${path} is not valid JSON: ${(cause as Error).message}`);
   }
 }
 
@@ -1714,6 +1724,12 @@ function ingest(
   // anomaly list because that is what `mandate ingest` prints, and it FAILS the run on an
   // unexplained drop — a gate you have to remember to look at is not a gate.
   const coverage = checkCoverage ? fieldCoverage(db, b) : [];
+  // The other half of what the JSON move gave away: a row missing a required key, or a value outside
+  // one of src/types/index.ts's string-literal unions. `raw as Candidate[]` checks neither, and an
+  // annotation cannot (tsc widens a JSON literal), so an override that drops `age` or spells gender
+  // "M" used to pass both TypeScript gates AND this one — the input and registry counts fall
+  // together — and render as undefined on /candidate/[id].
+  const shapeBroken = checkCoverage ? seedShapeFailures(b) : [];
   if (coverage.length > 0) {
     // First in the list, not last: `mandate ingest` prints the first 20 anomalies and this run has
     // 121, so a pushed coverage table would be reported as "… 101 more in ingest_run" — the same
@@ -1760,6 +1776,12 @@ function ingest(
           .map((r) => `${r.module}.${r.field} (${r.input} in, ${r.registry ?? "-"} out)`)
           .join(", ") +
         `\n\n${coverageBroken.join("\n")}\n\n${formatCoverage(coverage)}`,
+    );
+  }
+  if (shapeBroken.length > 0) {
+    throw new Error(
+      `seed shape gate: ${shapeBroken.length} row(s) do not satisfy src/types/index.ts — ` +
+        `the old app's interfaces are the contract data/seed/*.json has to keep.\n\n${shapeBroken.join("\n")}`,
     );
   }
 

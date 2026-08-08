@@ -6,7 +6,8 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { migrate, open } from "../db/index.ts";
+import { open } from "../db/index.ts";
+import { migrate } from "../db/migrate.ts";
 import { runIngest } from "./index.ts";
 import type { StaticBundle } from "./index.ts";
 import { THRESHOLD_PCT, diff, reconstruct } from "./export.ts";
@@ -45,18 +46,22 @@ function fixture(): StaticBundle {
         age: 57, gender: "Male", education: "Graduate", criminalCases: 0,
         totalAssets: 1021356, totalLiabilities: 0, movableAssets: 500000,
         affidavitUrl: "https://myneta.info/x?candidate_id=1", occupation: "Social Work",
+        // The two fields cycle 4 recovered, plus the boolean the seed derives from the second.
+        photoUrl: "https://myneta.info/photo/1.jpg", incumbentYears: 5, isIncumbent: true,
       },
       {
         id: "wb26_2", name: "Kamal Kumar Roy", partyId: UNMATCHED, constituencyId: "c0001",
         age: 61, gender: "Male", education: "Graduate", criminalCases: 3,
         totalAssets: 900, totalLiabilities: 100,
         affidavitUrl: "https://myneta.info/x?candidate_id=2",
+        photoUrl: "https://myneta.info/photo/2.jpg", isIncumbent: false,
       },
       {
         id: "wb26_3", name: "Paritosh Das", partyId: "BJP", constituencyId: "c0002",
         age: 44, education: "Post Graduate", criminalCases: 0,
         totalAssets: 5000, totalLiabilities: 0,
         affidavitUrl: "https://myneta.info/x?candidate_id=3",
+        photoUrl: "https://myneta.info/photo/3.jpg", isIncumbent: false,
       },
     ],
     historicalResults: [
@@ -142,10 +147,6 @@ test("the registry rebuilds one row per seed row for every module it ingests", a
       "demographics.json": 1,
       "cabinet.json": 1,
       "wbmps.json": 1,
-      "provenance.json": 8,
-      // Geometry is never ingested, so the round trip has to report zero rather than pretend.
-      "wb-ac-paths.json": 0,
-      "wb-districts.json": 0,
     },
   );
   db.close();
@@ -181,9 +182,8 @@ test("an unresolvable party label comes back verbatim, and derived values come b
 test("a field the schema cannot hold is 'not reconstructable', a wrong value is a difference", async () => {
   const db = await ingested();
   const b = fixture();
-  const withPhoto = {
+  const doctored = {
     ...seedOf(b),
-    "candidates.json": b.candidates.map((c) => ({ ...c, photoUrl: "https://x/y.jpg" })) as Row[],
     // A party colour has no column anywhere in the 35 tables; a wrong name is a different failure.
     "parties.json": b.parties.map((p, i) => ({
       ...p,
@@ -191,14 +191,44 @@ test("a field the schema cannot hold is 'not reconstructable', a wrong value is 
       ...(i === 0 ? { name: "Trinamool" } : {}),
     })) as Row[],
   };
-  const r = diff(withPhoto, reconstruct(db));
-  assert.equal(field(mod(r.modules, "candidates.json"), "photoUrl").notStored, 3);
-  assert.equal(field(mod(r.modules, "candidates.json"), "photoUrl").diff, 0);
+  const r = diff(doctored, reconstruct(db));
   const parties = mod(r.modules, "parties.json");
   assert.equal(field(parties, "color").notStored, 2);
   assert.equal(field(parties, "name").diff, 1);
   assert.equal(field(parties, "name").exact, 1);
   db.close();
+});
+
+test("photoUrl and incumbentYears come back — 'not reconstructable' cannot name a stored field", async () => {
+  // The regression this guards: both were on NOT_STORED while 2,920 and 157 cited claims held them,
+  // so the report told a reader the cycle's own recovered fields were unrecoverable, and the ratchet
+  // was set 3.4pp below what the registry can give back.
+  const db = await ingested();
+  const cands = mod(diff(seedOf(fixture()), reconstruct(db)).modules, "candidates.json");
+  for (const [f, exact] of [["photoUrl", 3], ["incumbentYears", 1], ["isIncumbent", 3]] as const) {
+    assert.equal(field(cands, f).exact, exact, f);
+    assert.equal(field(cands, f).notStored, 0, f);
+    assert.equal(field(cands, f).diff, 0, f);
+  }
+  db.close();
+});
+
+test("a rebuilt row with no seed row is counted, not ignored", () => {
+  // diff() used to walk only the seed, so a rebuild could invent unlimited rows and still score
+  // 100%: one real row plus 999 fabricated keys read 'values 2/2 exact 100%'.
+  const seed = { "demographics.json": [{ constituencyId: "c0001", population: 1 }] };
+  const rebuilt = {
+    "demographics.json": [
+      { constituencyId: "c0001", population: 1 },
+      ...Array.from({ length: 9 }, (_, i) => ({ constituencyId: `bogus${i}`, population: 2 })),
+    ],
+  };
+  const m = mod(diff(seed, rebuilt).modules, "demographics.json");
+  assert.equal(m.inventedRows, 9);
+  assert.ok(m.pct < 100, `an invented row must cost the percentage, got ${m.pct}`);
+  // 2 real values exact, plus 2 leaves per invented row counted against it.
+  assert.equal(m.exact, 2);
+  assert.equal(m.values, 20);
 });
 
 test("a name resolution left two candidates for is ambiguous, never quietly guessed", async () => {

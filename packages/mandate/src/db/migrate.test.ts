@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { DatabaseSync } from "node:sqlite";
-import { all, get, insertMany, migrate, open } from "./index.ts";
+import { all, get, insertMany, open } from "./index.ts";
+// Not via the barrel: migrate() reads ops/migrations/ at call time, which webpack cannot resolve.
+import { migrate } from "./migrate.ts";
 
 const NOW = "2026-08-07T00:00:00.000Z";
 

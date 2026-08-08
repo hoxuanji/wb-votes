@@ -6,10 +6,14 @@
 // cited?" and not one of them asked "did we write everything?". That is the hole this file closes.
 //
 // One rule per input field. Either a SQL probe counting the registry rows that carry the datum, or
-// an allowlist entry saying why the registry does not model it. Three ways to fail:
+// an allowlist entry saying why the registry does not model it. Four ways to fail:
 //   · a field in the input with no rule                      — a new seed field cannot arrive unseen
 //   · a probe that counts 0, or fewer rows than the input with no `partial` reason
 //   · an allowlist entry that no longer matches the input     — the list cannot rot
+//   · an allowlist entry whose `assertAbsent` finds rows      — "not modelled" cannot be a lie
+// A probe must also be SCOPED TO ITS MODULE, enforced structurally by the test that no two modules
+// share one: three modules once shared `person_alias WHERE kind='press'`, so 42 MP names could go
+// missing while the probe counted 1,041 MLA and minister aliases and called it carried.
 // The gate runs inside `runIngest` against the real seed, so `mandate ingest` and CI both hit it.
 
 import type { DatabaseSync } from "node:sqlite";
@@ -17,24 +21,37 @@ import type { DatabaseSync } from "node:sqlite";
 import type { ModuleKey, StaticBundle } from "./sources/wb-static.ts";
 
 type Rule =
-  /** `probe` counts registry rows carrying this datum. `partial` explains a legitimate shortfall;
-   *  without one, registry < input fails. */
+  /** `probe` counts registry rows carrying this datum. It must be SCOPED TO THIS MODULE: a probe
+   *  that counts a table three modules write to (`person_alias WHERE kind='press'`) can never fall
+   *  below one module's input, so it cannot detect that module losing the field entirely.
+   *  `partial` explains a legitimate shortfall; without one, registry < input fails. */
   | { probe: string; partial?: string }
-  /** Deliberately not modelled. Fails when no input row carries the field — nothing left to drop. */
-  | { drop: string }
+  /** Deliberately not modelled. Fails when no input row carries the field — nothing left to drop —
+   *  and, where the registry has a slot the datum could plausibly land in, when `assertAbsent`
+   *  finds rows in it. Without that second direction the allowlist is an unguarded escape hatch:
+   *  moving a carried field here and writing a plausible reason silenced the gate AND printed
+   *  "not-modelled" for something the registry was holding 2,920 rows of. */
+  | { drop: string; assertAbsent?: string }
   /** Named in the ingest's own row type but never populated in the seed. Fails the day one is. */
-  | { absent: string };
+  | { absent: string; assertAbsent?: string };
 
 /** Every field of every seed module. `winner.votes` / `portfolios.ministry` are nested one level:
- *  a nested field is still a field, and the 2026 vote_share lives in one. */
-const RULES: Record<ModuleKey, Record<string, Rule>> = {
+ *  a nested field is still a field, and the 2026 vote_share lives in one.
+ *  Exported for the structural test that no two modules share a probe. */
+export const RULES: Record<ModuleKey, Record<string, Rule>> = {
   constituencies: {
     id: { drop: "the seed's own row key; place ids are derived from assemblyNumber (wb.ac.NNN) and every row it keys is persisted under that id" },
     assemblyNumber: { probe: "SELECT COUNT(*) AS n FROM place_version WHERE number IS NOT NULL" },
     name: { probe: "SELECT COUNT(*) AS n FROM place WHERE kind = 'ac'" },
-    nameBn: { drop: "byte-identical to `name` in all 294 rows — the seed's Bengali seat names are Latin copies, so place.names has nothing to hold. jsonNames() writes a bn only when it differs" },
+    nameBn: {
+      drop: "byte-identical to `name` in all 294 rows — the seed's Bengali seat names are Latin copies, so place.names has nothing to hold. jsonNames() writes a bn only when it differs",
+      assertAbsent: `SELECT COUNT(*) AS n FROM place WHERE kind = 'ac' AND names LIKE '%"bn"%'`,
+    },
     district: { probe: "SELECT COUNT(*) AS n FROM place WHERE kind = 'ac' AND parent_id IS NOT NULL" },
-    districtBn: { drop: "byte-identical to `district` in all 294 rows, same as nameBn" },
+    districtBn: {
+      drop: "byte-identical to `district` in all 294 rows, same as nameBn",
+      assertAbsent: `SELECT COUNT(*) AS n FROM place WHERE kind = 'district' AND names LIKE '%"bn"%'`,
+    },
     reservation: { probe: "SELECT COUNT(*) AS n FROM place_version WHERE reservation IS NOT NULL" },
   },
   parties: {
@@ -48,8 +65,20 @@ const RULES: Record<ModuleKey, Record<string, Rule>> = {
   },
   candidates: {
     id: { probe: "SELECT COUNT(*) AS n FROM person_identifier WHERE scheme = 'myneta_id'" },
-    name: { probe: "SELECT COUNT(*) AS n FROM person_alias WHERE kind = 'affidavit'" },
-    nameBn: { absent: "the seed carries no Bengali candidate names at all; person.names would hold one the moment it did" },
+    name: {
+      // Joined to the myneta_id identifier so the probe answers only for THIS module: if the
+      // candidates loop stopped writing names, no affidavit alias would be left and this reads 0.
+      // ponytail: one name produces ~2.7 alias rows (blocking variants) and `mandate resolve`
+      // collapses 2,920 nominations onto 2,620 persons, so there is no per-row count to compare
+      // against — this detects the field's total loss, not a partial one. It becomes exact the day
+      // ADR 0004's `candidacy.name_as_declared` lands, which is the same column that ends the 289
+      // ambiguous names in the round trip.
+      probe: "SELECT COUNT(*) AS n FROM person_alias a JOIN person_identifier i ON i.person_id = a.person_id AND i.scheme = 'myneta_id' WHERE a.kind = 'affidavit'",
+    },
+    nameBn: {
+      absent: "the seed carries no Bengali candidate names at all; person.names would hold one the moment it did",
+      assertAbsent: `SELECT COUNT(*) AS n FROM person p JOIN person_identifier i ON i.person_id = p.id AND i.scheme = 'myneta_id' WHERE p.names LIKE '%"bn"%'`,
+    },
     partyId: { probe: "SELECT COUNT(*) AS n FROM candidacy WHERE party_version_id IS NOT NULL OR party_raw IS NOT NULL" },
     constituencyId: { probe: "SELECT COUNT(*) AS n FROM candidacy c JOIN contest ct ON ct.id = c.contest_id WHERE ct.election_id = 'wb-assembly-2026'" },
     photoUrl: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'photo_url_declared'" },
@@ -85,11 +114,14 @@ const RULES: Record<ModuleKey, Record<string, Rule>> = {
     "runnerUp.partyAbbr": { probe: 'SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" = 2 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)', partial: "a second spelling of partyId; 40 duplicate rows discarded" },
     "runnerUp.votes": { probe: 'SELECT COUNT(*) AS n FROM result WHERE "rank" = 2', partial: "40 duplicate (year, constituency) rows discarded" },
     "runnerUp.voteShare": { probe: 'SELECT COUNT(*) AS n FROM result WHERE "rank" = 2 AND vote_share IS NOT NULL', partial: "40 duplicate (year, constituency) rows discarded" },
-    "topContestants.name": { probe: "SELECT COUNT(*) AS n FROM result" },
-    "topContestants.partyId": { probe: "SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL" },
-    "topContestants.partyAbbr": { probe: "SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL" },
-    "topContestants.votes": { probe: "SELECT COUNT(*) AS n FROM result" },
-    "topContestants.voteShare": { probe: "SELECT COUNT(*) AS n FROM result WHERE vote_share IS NOT NULL" },
+    // COUNT(*) FROM result counted the winner and runner-up rows too, so every topContestants
+    // value could vanish and the probe would still read 4,357. A contest whose field the seed
+    // publishes (every topContestants array in the seed holds at least 3) has a rank>=3 row.
+    "topContestants.name": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
+    "topContestants.partyId": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" >= 3 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
+    "topContestants.partyAbbr": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" >= 3 AND (c.party_raw IS NOT NULL OR EXISTS (SELECT 1 FROM party_version pv JOIN party pt ON pt.id = pv.party_id WHERE pv.id = c.party_version_id AND pt.short_name IS NOT NULL))', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
+    "topContestants.votes": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3 AND r.votes IS NOT NULL', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
+    "topContestants.voteShare": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3 AND r.vote_share IS NOT NULL', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
     turnoutPct: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'turnout_pct'", partial: "40 duplicate (year, constituency) rows discarded" },
     marginVotes: { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1 AND margin IS NOT NULL", partial: "40 duplicate (year, constituency) rows discarded" },
     marginPct: { drop: "derived: marginVotes / totalVotes, both of which the registry stores. A stored ratio is a second copy of a number that can disagree with its operands" },
@@ -98,7 +130,7 @@ const RULES: Record<ModuleKey, Record<string, Rule>> = {
   },
   currentMLAs: {
     constituencyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'mla_term' AND json_extract(object_value, '$.placeId') IS NOT NULL" },
-    name: { probe: "SELECT COUNT(*) AS n FROM person_alias WHERE kind = 'press'" },
+    name: { probe: "SELECT COUNT(DISTINCT a.person_id) AS n FROM person_alias a JOIN claim c ON c.subject_ref = 'person:' || a.person_id WHERE a.kind = 'press' AND c.predicate = 'mla_term'" },
     partyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'mla_term' AND json_extract(object_value, '$.partyId') IS NOT NULL" },
     term: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'mla_term' AND as_of IS NOT NULL" },
     marginVotes: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'mla_margin_votes'" },
@@ -117,16 +149,19 @@ const RULES: Record<ModuleKey, Record<string, Rule>> = {
     scPct: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'demographics.scPct'" },
     stPct: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'demographics.stPct'" },
     urbanPct: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'demographics.urbanPct'" },
-    sourceYear: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'demographics.%' AND as_of IS NOT NULL" },
+    sourceYear: { probe: "SELECT COUNT(DISTINCT subject_ref) AS n FROM claim WHERE predicate LIKE 'demographics.%' AND as_of IS NOT NULL" },
     sourceNote: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'demographics.source_note'" },
   },
   cabinet: {
     id: { drop: "the seed's own row key; a minister is a person row keyed by name and seat, and the ministry is in the predicate" },
-    name: { probe: "SELECT COUNT(*) AS n FROM person_alias WHERE kind = 'press'" },
+    name: { probe: "SELECT COUNT(DISTINCT a.person_id) AS n FROM person_alias a JOIN claim c ON c.subject_ref = 'person:' || a.person_id WHERE a.kind = 'press' AND c.predicate LIKE 'cabinet_portfolio:%'" },
     partyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%' AND json_extract(object_value, '$.partyId') IS NOT NULL" },
     constituencyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%' AND json_extract(object_value, '$.constituencyId') IS NOT NULL" },
-    lat: { drop: "a map pin for the old app's cabinet map. The registry locates a minister by placeId; a pair of floats with no geometry_ref is not a place" },
-    lng: { drop: "as lat" },
+    lat: {
+      drop: "a map pin for the old app's cabinet map. The registry locates a minister by placeId; a pair of floats with no geometry_ref is not a place",
+      assertAbsent: "SELECT COUNT(*) AS n FROM place_version WHERE geometry_ref IS NOT NULL",
+    },
+    lng: { drop: "as lat", assertAbsent: "SELECT COUNT(*) AS n FROM place_version WHERE geometry_ref IS NOT NULL" },
     "portfolios.ministry": { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%'" },
     "portfolios.rank": { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%' AND json_extract(object_value, '$.rank') IS NOT NULL" },
     "portfolios.from": { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%' AND as_of IS NOT NULL" },
@@ -139,10 +174,13 @@ const RULES: Record<ModuleKey, Record<string, Rule>> = {
   },
   mps: {
     id: { drop: "the seed's own row key; the MP is a person row keyed by seat and name" },
-    name: { probe: "SELECT COUNT(*) AS n FROM person_alias WHERE kind = 'press'" },
+    name: { probe: "SELECT COUNT(DISTINCT a.person_id) AS n FROM person_alias a JOIN claim c ON c.subject_ref = 'person:' || a.person_id WHERE a.kind = 'press' AND c.predicate = 'ls_seat_won'" },
     partyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'ls_seat_won' AND json_extract(object_value, '$.partyId') IS NOT NULL" },
     lsConstituency: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'ls_seat_won' AND json_extract(object_value, '$.constituency') IS NOT NULL" },
-    lsNumber: { drop: "the Lok Sabha seat number. This registry has no LS place row for it to number — the seat travels as its name inside ls_seat_won, and a number with no place is unjoinable" },
+    lsNumber: {
+      drop: "the Lok Sabha seat number. This registry has no LS place row for it to number — the seat travels as its name inside ls_seat_won, and a number with no place is unjoinable",
+      assertAbsent: "SELECT COUNT(*) AS n FROM place WHERE kind = 'pc'",
+    },
     margin: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'ls_seat_won' AND json_extract(object_value, '$.margin') IS NOT NULL" },
     electedOn: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'ls_seat_won' AND as_of IS NOT NULL" },
     sourceUrl: {
@@ -217,17 +255,27 @@ export function fieldCoverage(db: DatabaseSync, bundle: StaticBundle): CoverageR
         });
         continue;
       }
-      if ("drop" in rule) {
+      if ("drop" in rule || "absent" in rule) {
+        const reason = "drop" in rule ? rule.drop : rule.absent;
+        const wrongDirection =
+          "drop" in rule
+            ? n === 0
+              ? `${at}: allowlisted as not modelled, but no input row carries it any more. Delete the entry — an allowlist that outlives its field hides the next real drop.`
+              : null
+            : n === 0
+              ? null
+              : `${at}: allowlisted as empty in the seed, but ${n} rows now carry a value. Model it and give it a probe.`;
+        // The other direction: an entry that claims the registry does not hold the datum, while the
+        // registry holds it. Moving a live field onto the allowlist with a plausible reason is the
+        // first thing anyone reaches for when this gate goes red, and it used to be free.
+        const held = rule.assertAbsent === undefined ? null : count(rule.assertAbsent);
         out.push({
-          module, field, input: n, registry: null, verdict: "not-modelled", reason: rule.drop,
-          failure: n > 0 ? null : `${at}: allowlisted as not modelled, but no input row carries it any more. Delete the entry — an allowlist that outlives its field hides the next real drop.`,
-        });
-        continue;
-      }
-      if ("absent" in rule) {
-        out.push({
-          module, field, input: n, registry: null, verdict: "not-modelled", reason: rule.absent,
-          failure: n === 0 ? null : `${at}: allowlisted as empty in the seed, but ${n} rows now carry a value. Model it and give it a probe.`,
+          module, field, input: n, registry: held, verdict: "not-modelled", reason,
+          failure:
+            wrongDirection ??
+            (held !== null && held > 0
+              ? `${at}: allowlisted as not modelled, but ${held} registry rows carry it. Delete the entry and give the field a probe — the reason is false. (assertAbsent: ${rule.assertAbsent ?? ""})`
+              : null),
         });
         continue;
       }
@@ -278,4 +326,121 @@ export function formatCoverage(rows: readonly CoverageRow[]): string {
   const line = (c: readonly string[]): string =>
     c.map((v, i) => (i === c.length - 1 ? v : v.padEnd(w[i] ?? 0))).join("  ").trimEnd();
   return [line(head), line(w.map((n) => "-".repeat(n))), ...cells.map(line)].join("\n");
+}
+
+// ─── the shape contract the JSON import gave away ────────────────────────────
+// src/data/*.ts used to be `export const candidates: Candidate[] = [ ...literals ]`, so tsc checked
+// every row against src/types/index.ts: a missing `age` was TS2741 and `gender: "Wombat"` was TS2322.
+// The rows are JSON now and the shims say `raw as Candidate[]`, which checks neither. An annotation
+// cannot replace the cast: TypeScript WIDENS a JSON literal, so `reservation: "SC"` arrives as
+// `string` and a correct row fails too (verified with this repo's tsc). So the two error classes the
+// annotation caught are checked here instead, at ingest, against the same interfaces.
+//
+// ponytail: required keys and string/number unions only — the two classes that reach a page as
+// `undefined` or as an unhandled branch. A wrong primitive type still errors at build via the cast
+// (TS2352). Widen this to full per-field validation the day the seed gains a field the app parses.
+
+type Shape = {
+  /** Non-optional keys of the module's interface. Dotted for a nested object or array of objects:
+   *  `winner.name`, `portfolios.ministry`. Presence, not truthiness — `isNational: false`,
+   *  `criminalCases: 0` and `marginVotes: null` are declared values. */
+  required: readonly string[];
+  /** Field -> the interface's string/number literal union. Checked only when a value is present. */
+  enums?: Record<string, readonly (string | number)[]>;
+};
+
+const RESERVATION = ["General", "SC", "ST"] as const;
+const GENDER = ["Male", "Female", "Other"] as const;
+const TERM = ["2021-2026", "2026-2031"] as const;
+const MINISTRY_RANK = ["CM", "Cabinet", "MoS-Independent", "MoS"] as const;
+const ELECTION_YEAR = [2011, 2016, 2021, 2026] as const;
+
+const SHAPES: Record<ModuleKey, Shape> = {
+  constituencies: {
+    required: ["id", "name", "nameBn", "district", "districtBn", "reservation", "assemblyNumber"],
+    enums: { reservation: RESERVATION },
+  },
+  parties: { required: ["id", "name", "nameBn", "abbreviation", "color", "isNational"] },
+  candidates: {
+    required: [
+      "id", "name", "partyId", "constituencyId", "age", "education", "criminalCases",
+      "totalAssets", "totalLiabilities", "isIncumbent",
+    ],
+    enums: { gender: GENDER },
+  },
+  historicalResults: {
+    required: [
+      "constituencyId", "year", "turnoutPct", "marginVotes", "marginPct", "totalVotes",
+      "winner.name", "winner.partyId", "winner.partyAbbr", "winner.votes", "winner.voteShare",
+      "runnerUp.name", "runnerUp.partyId", "runnerUp.partyAbbr", "runnerUp.votes", "runnerUp.voteShare",
+      "topContestants.name", "topContestants.partyId", "topContestants.partyAbbr",
+      "topContestants.votes", "topContestants.voteShare",
+    ],
+    enums: { year: ELECTION_YEAR },
+  },
+  currentMLAs: {
+    required: [
+      "constituencyId", "name", "partyId", "term", "marginVotes", "voteShare", "candidateId",
+      "sourceUrl",
+    ],
+    enums: { term: TERM },
+  },
+  demographics: { required: ["constituencyId", "sourceYear"] },
+  cabinet: {
+    required: [
+      "id", "name", "partyId", "portfolios", "inducted", "sourceUrl",
+      "portfolios.ministry", "portfolios.rank", "portfolios.from",
+    ],
+    enums: { "portfolios.rank": MINISTRY_RANK },
+  },
+  mps: {
+    required: ["id", "name", "partyId", "lsConstituency", "lsNumber", "margin", "electedOn", "sourceUrl"],
+  },
+};
+
+/** Every object a dotted path's last segment could live on: `winner` -> the winner object (or
+ *  nothing, when the row has no winner), `portfolios` -> every portfolio in the array. An absent
+ *  optional container (`runnerUp`) yields no parents, so its own required keys are not demanded. */
+function parentsAt(value: unknown, segments: readonly string[]): Record<string, unknown>[] {
+  if (value == null || typeof value !== "object") return [];
+  if (Array.isArray(value)) return value.flatMap((v) => parentsAt(v, segments));
+  if (segments.length === 0) return [value as Record<string, unknown>];
+  return parentsAt((value as Record<string, unknown>)[segments[0] as string], segments.slice(1));
+}
+
+/** One line per violated row, capped: an override that drops a key usually drops it everywhere, and
+ *  2,920 identical lines is not more information than 5. */
+export function seedShapeFailures(bundle: StaticBundle): string[] {
+  const out: string[] = [];
+  for (const module of Object.keys(SHAPES) as ModuleKey[]) {
+    const shape = SHAPES[module];
+    const rows = bundle[module] as readonly unknown[];
+    const say = (msg: string): void => {
+      if (out.length < 40) out.push(`${module}: ${msg}`);
+    };
+    rows.forEach((row, i) => {
+      const where = `row ${i}${typeof (row as Record<string, unknown>)?.["id"] === "string" ? ` (${String((row as Record<string, unknown>)["id"])})` : ""}`;
+      for (const path of shape.required) {
+        const segments = path.split(".");
+        const leaf = segments[segments.length - 1] as string;
+        for (const parent of parentsAt(row, segments.slice(0, -1))) {
+          if (!Object.hasOwn(parent, leaf) || parent[leaf] === undefined) {
+            say(`${where} has no \`${path}\`, which src/types/index.ts declares non-optional. The old app renders it as undefined.`);
+          }
+        }
+      }
+      for (const [path, allowed] of Object.entries(shape.enums ?? {})) {
+        const segments = path.split(".");
+        const leaf = segments[segments.length - 1] as string;
+        for (const parent of parentsAt(row, segments.slice(0, -1))) {
+          const v = parent[leaf];
+          if (v == null) continue;
+          if (!(allowed as readonly unknown[]).includes(v)) {
+            say(`${where} has \`${path}\` = ${JSON.stringify(v)}, which is not one of ${allowed.map((a) => JSON.stringify(a)).join(" | ")}.`);
+          }
+        }
+      }
+    });
+  }
+  return out;
 }

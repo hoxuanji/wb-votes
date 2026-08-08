@@ -9,6 +9,7 @@ import type {
   Sex,
 } from "../core/index.ts";
 import { UNPARSEABLE_KEY, blockingKeys } from "../core/index.ts";
+import { normaliseName, toLatin } from "../core/indic/index.ts";
 import { all, get } from "../db/index.ts";
 import type { SourceRef } from "./index.ts";
 import { loadSources, marks, read, yearOf } from "./index.ts";
@@ -84,6 +85,10 @@ export type PersonRow = {
   /** P2 for a list row: the result row's source, or the source that first recorded the name.
    *  Never null in a migrated registry — every alias carries a source. */
   sourceId: string | null;
+  /** Which tier matched. "name" means one of this person's recorded names contains the term;
+   *  "sounds-like" means only the phonetic index matched, which over-collides by design and must be
+   *  presented as a suggestion rather than a result. Absent outside search. */
+  match?: "name" | "sounds-like";
 };
 
 type PersonRowSql = {
@@ -280,16 +285,50 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
 }
 
 /**
- * Name search through the entity-resolution blocking index. Unions EVERY key blockingKeys()
- * emits — matching only the first would miss the surname-first/given-name-first pair the blocking
- * design exists to catch — and drops the UNPARSEABLE_KEY bucket, which is a junk drawer, not a match.
+ * Name search, in two tiers, ranked.
  *
- * One correlated subquery picks the newest candidacy per person, so a list row costs no extra round
- * trip, and each row carries its own source id (P2: a name that leaves this process is cited).
+ * Tier 1 — **the name contains what you typed.** The term is transliterated to Latin first, so a
+ * Bengali query substring-matches Latin records: মমতা becomes "mamata" and finds "Mamata Banerjee".
+ * Tier 2 — **the name sounds like what you typed**, through the entity-resolution blocking index.
+ * That is what catches Momota, Bishwas for Biswas, and Md Salim for Mohammed Salim.
+ *
+ * The tiers exist because the first version of this function was tier 2 alone, and using the
+ * resolution blocking index as a search index is a category error that produced two visible failures
+ * the moment a UI was pointed at it:
+ *
+ *   · `মমতা` did not find Mamata Banerjee. A one-word query emits the bare token key `mt`, while a
+ *     two-word record emits `bnrj|mt`, `mtbnrj` and a surname-only `bnrj` — never a given-name-only
+ *     key. There was no overlap to find, so the single most obvious query in the dataset missed.
+ *   · `zzzznobody` returned a person. Under our own phonetic rules z→j and vowels drop, so
+ *     "zzzznobody" and "JHUNU BAIDYA" both key to `jnbd`. A real collision, correctly produced.
+ *
+ * Neither is a bug in `blockingKeys`. Blocking deliberately over-collides because it buys recall and
+ * a *scorer* pays for precision afterwards — and search had no scorer. `match` is that missing
+ * signal, carried out to the caller so a surface can rank a sounds-like hit below a real one and say
+ * which it is, rather than presenting a phonetic collision as a result.
  */
 export function searchPersons(db: DatabaseSync, term: string, limit = 20): PersonRow[] {
   const keys = blockingKeys(term).filter((k) => k !== UNPARSEABLE_KEY);
-  if (keys.length === 0) return [];
+  // Latin form of whatever script was typed, for the substring tier. Two characters would match
+  // half the registry, so the tier is off below three.
+  const latin = toLatin(normaliseName(term)).toLowerCase();
+  // LIKE wildcards in a user term are an injection into the *pattern*, not the SQL: without this a
+  // search for "%" returns the whole registry.
+  const escaped = latin.replace(/[\\%_]/g, (c) => `\\${c}`);
+  const like = latin.length >= 3 ? `%${escaped}%` : null;
+
+  if (keys.length === 0 && like === null) return [];
+  // A term with no phonetic key still gets its substring tier, and vice versa, so neither branch may
+  // assume the other produced anything.
+  const keyClause =
+    keys.length > 0
+      ? `p.id IN (SELECT person_id FROM person_alias WHERE norm_key IN (${marks(keys.length)}))`
+      : "0";
+  const likeClause =
+    like === null
+      ? "0"
+      : `p.id IN (SELECT person_id FROM person_alias WHERE lower(name) LIKE ? ESCAPE '\\')`;
+
   return read(() =>
     all<PersonListSql>(
       db,
@@ -298,6 +337,15 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
               (SELECT a.source_id FROM person_alias a
                  WHERE a.person_id = p.id AND a.source_id IS NOT NULL
                  ORDER BY a.source_id LIMIT 1) AS name_source_id,
+              (SELECT MAX(r4.is_winner) FROM candidacy c4
+                 JOIN result r4 ON r4.candidacy_id = c4.id AND r4.revision = 0
+                WHERE c4.person_id = p.id) AS ever_won,
+              ${
+                like === null
+                  ? "0"
+                  : `(SELECT MAX(CASE WHEN lower(a3.name) LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)
+                        FROM person_alias a3 WHERE a3.person_id = p.id)`
+              } AS name_match,
               latest.election_id, latest.place_name, latest.party_short_name,
               latest.status, latest.votes, latest.vote_share, latest.is_winner,
               latest.result_source_id
@@ -316,10 +364,23 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
              LEFT JOIN party pt ON pt.id = pver.party_id
              LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
          ) latest ON latest.person_id = p.id AND latest.rn = 1
-        WHERE p.id IN (SELECT person_id FROM person_alias WHERE norm_key IN (${marks(keys.length)}))
-        ORDER BY p.id
+        WHERE ${keyClause} OR ${likeClause}
+        ORDER BY name_match DESC,
+                 -- Prominence, as far as this registry can honestly measure it. "Has ever won a
+                 -- seat" is stable; "won the most recent one" is not — Mamata Banerjee did not win
+                 -- her latest recorded contest, so ranking on that pushed a winning namesake above
+                 -- the Chief Minister. There is no attention or news signal here, so no better
+                 -- proxy exists, and ties fall to a deterministic case-insensitive name order
+                 -- rather than to whatever order sqlite happened to scan.
+                 ever_won DESC,
+                 candidacy_count DESC,
+                 lower(p.canonical_name),
+                 p.id
         LIMIT ?`,
+      // Bind order follows the SELECT, then the WHERE, then the LIMIT.
+      ...(like === null ? [] : [like]),
       ...keys,
+      ...(like === null ? [] : [like]),
       Math.min(Math.max(limit, 1), 200),
     ).map(toPersonRow),
   );
@@ -340,6 +401,8 @@ type PersonListSql = {
   is_winner: number | null;
   result_source_id: string | null;
   name_source_id: string | null;
+  /** 1 when a recorded name contains the search term. Absent for non-search callers. */
+  name_match?: number | null;
 };
 
 function toPersonRow(r: PersonListSql): PersonRow {
@@ -358,6 +421,10 @@ function toPersonRow(r: PersonListSql): PersonRow {
     isWinner: r.is_winner === 1,
     candidacyCount: r.candidacy_count,
     sourceId: r.result_source_id ?? r.name_source_id,
+    // Only search sets name_match; a brief row leaves `match` undefined rather than claiming a tier.
+    ...(r.name_match === undefined || r.name_match === null
+      ? {}
+      : { match: r.name_match === 1 ? ("name" as const) : ("sounds-like" as const) }),
   };
 }
 
