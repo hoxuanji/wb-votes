@@ -239,7 +239,8 @@ function Room({ s }: { s: Situation }) {
           the rest are recorded as asserted by their publisher, and every figure drawn from them is
           marked provisional wherever it appears.{' '}
           <strong>{IN.format(s.corpus.pendingMerges)}</strong> possible duplicate people are still
-          waiting on human review, so the people count is an upper bound.{' '}
+          waiting on human review, so the people count is an upper bound —{' '}
+          <Link href="/review/merges">review a pair</Link> and it becomes a measurement.{' '}
           <Link href="/mandate">How this was built</Link>.
         </p>
       </section>
