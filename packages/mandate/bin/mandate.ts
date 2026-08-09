@@ -210,9 +210,12 @@ try {
       const report = diffAgainstSeed(db);
       db.close();
       console.log(formatReport(report));
-      if (report.pct < THRESHOLD_PCT) {
+      // The ratchet gates the INGESTED figure. The whole-seed figure includes two modules
+      // nothing ingests, so it can never reach the floor and gating on it would make the
+      // gate permanently red — which is how a gate gets ignored.
+      if (report.ingestedPct < THRESHOLD_PCT) {
         fail(
-          `reconstructability ${report.pct.toFixed(1)}% is below the ${THRESHOLD_PCT}% floor — ` +
+          `reconstructability ${report.ingestedPct.toFixed(1)}% is below the ${THRESHOLD_PCT}% floor — ` +
             `the registry gives back less of data/seed/ than it did. The floor is a ratchet: raise ` +
             `it in the commit that raises the number, never lower it to make this pass.`,
         );

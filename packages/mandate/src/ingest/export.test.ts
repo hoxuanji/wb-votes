@@ -4,13 +4,14 @@
 // instead of guessed, and a field the schema cannot hold is counted separately from a wrong value.
 
 import assert from "node:assert/strict";
+import { readdirSync } from "node:fs";
 import test from "node:test";
 
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { runIngest } from "./index.ts";
 import type { StaticBundle } from "./index.ts";
-import { THRESHOLD_PCT, diff, reconstruct } from "./export.ts";
+import { THRESHOLD_PCT, diff, readSeed, reconstruct } from "./export.ts";
 import type { ModuleStat, Row, Seed } from "./export.ts";
 
 const NOW = "2026-08-07T00:00:00Z";
@@ -266,4 +267,48 @@ test("the gate is a ratchet that can actually be green today", () => {
   const same = diff({ "demographics.json": [{ constituencyId: "c0001", population: 1 }] },
     { "demographics.json": [{ constituencyId: "c0001", population: 1 }] });
   assert.equal(mod(same.modules, "demographics.json").pct, 100);
+});
+
+// ── the report cannot shrink its own denominator ─────────────────────────────────────────────────
+// This exists because the overall figure went 85.9% -> 94.1% in one commit, and only part of that
+// was earned. candidates.json genuinely improved (photoUrl and incumbentYears were wrongly declared
+// unstorable). The rest came from deleting wb-ac-paths.json and wb-districts.json — 1,546 values at
+// 0% — from the module list, which removed them from the denominator AND from the report, so nothing
+// said they had gone. A percentage that can be raised by dropping the hard cases is not a measure of
+// anything, so the module list is pinned here by name.
+test("every seed file on disk appears in the report", async () => {
+  const dir = new URL("../../../../data/seed/", import.meta.url);
+  const onDisk = readdirSync(dir)
+    .filter((f) => f.endsWith(".json"))
+    // provenance.json is registry bookkeeping, not seed content: scoring it compared 8 rebuilt rows
+    // against 7 seed rows and called the round trip 100%. That exclusion is a bug fix and is the ONLY
+    // permitted one.
+    .filter((f) => f !== "provenance.json")
+    .sort();
+
+  const db = await ingested();
+  const reported = diff(readSeed(), reconstruct(db)).modules.map((m) => m.file).sort();
+  db.close();
+
+  assert.deepEqual(
+    reported,
+    onDisk,
+    "a seed module is missing from the report — the percentage would silently exclude it",
+  );
+});
+
+test("the two figures are on different bases and the gate uses the ingested one", async () => {
+  const db = await ingested();
+  const r = diff(readSeed(), reconstruct(db));
+  db.close();
+
+  // Geometry is reported at 0%, so the whole-seed figure MUST be the lower of the two. If they are
+  // equal, the not-ingested modules have stopped being counted.
+  assert.ok(r.values > r.ingestedValues, "whole-seed denominator does not exceed the ingested one");
+  assert.ok(r.pct < r.ingestedPct, `whole seed ${r.pct} is not below ingested ${r.ingestedPct}`);
+  assert.equal(r.exact, r.ingestedExact, "a not-ingested module reconstructed something");
+
+  // No threshold assertion here on purpose: `ingested()` builds a five-row fixture, so its figure is
+  // ~0.08% and a floor check would only be measuring the fixture. The ratchet is enforced against the
+  // real registry by `mandate export --diff`, and by the ratchet test above.
 });
