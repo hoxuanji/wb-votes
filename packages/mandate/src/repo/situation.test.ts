@@ -16,6 +16,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { openRead, DEV_DB_PATH } from "../db/open.ts";
+import { all } from "../db/index.ts";
 import { getSituation, partyMomentum, slug, MARGINAL_PP } from "./situation.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
@@ -133,5 +134,59 @@ test("a year with real vote counts does produce shares", opts, () => {
   assert.ok(
     m.every((p) => p.seatsContested !== null && p.seatsContested >= p.seatsWon),
     "2021 has losing rows, so seats contested is knowable and must be at least seats won",
+  );
+});
+
+// ── the bug that loading a second election kind created ──────────────────────────────────────────
+// "The previous election" was the previous YEAR with data. Adding Lok Sabha 2024 made that the 2024
+// parliamentary result rather than the 2021 assembly, so the Situation Room reported BJP's previous
+// seats as 12 — its Lok Sabha total in this state — instead of 76, and printed "BJP +180". Every
+// party-footprint flag disappeared at the same time, for the same reason. An assembly result is only
+// comparable to another assembly result.
+test("the previous election is the previous election OF THE SAME KIND", opts, () => {
+  const db = openRead();
+  const kinds = all<{ kind: string; n: number }>(
+    db,
+    "SELECT kind, count(*) AS n FROM election GROUP BY kind",
+  );
+  assert.ok(
+    kinds.length >= 2,
+    `only ${kinds.length} election kind(s) loaded — this test cannot detect the cross-kind bug it exists for`,
+  );
+
+  const s = getSituation(db);
+  assert.ok(s !== null);
+  const top = s.momentum.find((p) => p.prevSeatsWon !== null);
+  assert.ok(top !== undefined, "no party has a previous-election figure to check");
+
+  // The comparison baseline must be an election of the latest election's own kind. The assembly has
+  // 294 seats and this state returns 42 MPs, so a parliamentary baseline is detectable by size: no
+  // party can hold more than 42 seats in a Lok Sabha comparison for West Bengal.
+  const assemblyTotal = s.seatsDecided;
+  const prevMax = Math.max(...s.momentum.map((p) => p.prevSeatsWon ?? 0));
+  assert.ok(
+    prevMax > 42,
+    `the largest previous-election seat count is ${prevMax}, which is within Lok Sabha range — the ` +
+      "baseline is almost certainly the wrong election kind",
+  );
+  assert.ok(prevMax <= assemblyTotal + 1, `previous seats ${prevMax} exceeds the seats available`);
+
+  // Both sides of the delta must reconcile, whatever the baseline turns out to be.
+  for (const p of s.momentum) {
+    if (p.prevSeatsWon === null) continue;
+    assert.equal(p.deltaSeats, p.seatsWon - p.prevSeatsWon, `${p.short} delta does not reconcile`);
+  }
+
+  // And asking for a kind that exists must not silently fall back to another one.
+  const general = partyMomentum(db, 2024, "general");
+  assert.ok(general.length > 0, "no parties in the 2024 general election");
+  assert.ok(
+    general.every((p) => p.seatsWon <= 42),
+    "a general-election momentum row reports more seats than this state sends to the Lok Sabha",
+  );
+  assert.equal(
+    general.reduce((n, p) => n + p.seatsWon, 0),
+    42,
+    "the general election's seats won must sum to this state's 42 parliamentary seats",
   );
 });

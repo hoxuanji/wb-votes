@@ -78,7 +78,15 @@ export function placeHref(p: {
   if (p.kind === "state") return `/pl/${p.id}`;
   const parent = p.parentId ?? "";
   if (p.kind === "district") return `/pl/${parent}/${parent === "" ? p.id : p.id.slice(parent.length + 1)}`;
-  const state = parent.split(".")[0] ?? "wb";
+  // `?? "wb"` used to sit here and read as a West Bengal default. It was dead — String.split always
+  // returns at least one element — but an empty parent still produced `/pl///seat`, a URL with two
+  // empty segments that resolves to nothing. A seat with no district has no place path, so say so.
+  const state = parent.split(".")[0] ?? "";
+  // A seat needs a state AND a district to have a four-segment path. Missing either used to produce
+  // `/pl///seat` — a URL with empty segments that resolves to nothing — because a dead `?? "wb"` here
+  // read as a West Bengal default while String.split can never return undefined. Fall back up the tree
+  // instead of emitting a broken link.
+  if (state === "" || parent === state) return state === "" ? "/pl" : `/pl/${state}`;
   const districtSeg = parent.slice(state.length + 1);
   return `/pl/${state}/${districtSeg}/${slugOf(p.canonicalName)}`;
 }
@@ -458,6 +466,9 @@ export function analysisCards(a: PlaceAnalysis): Card[] {
   const cards: Card[] = [];
   const seat = a.place.canonicalName;
   const district = a.place.districtName ?? "its district";
+  // Never a literal: the state baseline is computed per state, so labelling it "West Bengal"
+  // would silently mislabel every other state's chart rather than fail loudly.
+  const stateLabel = a.place.stateName ?? "state";
 
   const turnout = asc(a.turnoutSeries);
   const years = turnout.map((p) => String(p.year));
@@ -478,7 +489,7 @@ export function analysisCards(a: PlaceAnalysis): Card[] {
       series: [
         { key: "seat", label: seat, values: turnout.map((p) => p.turnoutPct) },
         { key: "district", label: district, values: turnout.map((p) => p.districtTurnoutPct) },
-        { key: "state", label: "West Bengal", values: turnout.map((p) => p.stateTurnoutPct) },
+        { key: "state", label: stateLabel, values: turnout.map((p) => p.stateTurnoutPct) },
       ],
       format: percent,
     }),

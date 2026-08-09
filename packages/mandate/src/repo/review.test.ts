@@ -221,10 +221,16 @@ test("the live queue is reviewable and its pairs carry real evidence", live, () 
   );
   const prog = progress(db);
   assert.equal(prog.length, BANDS.length);
+  // Against a live COUNT, not a literal: this asserted 8,683 and broke the moment the Lok Sabha load
+  // gave 42 MPs candidacies, which made the resolver score 20 more pairs. The invariant is that the
+  // bands tile the queue, not that the queue is a particular size.
+  const queued =
+    (openRead().prepare(`SELECT count(*) AS n FROM person_merge_candidate
+                          WHERE score >= ? AND score < ?`).get(QUEUE_AT, AUTO_MERGE_AT) as { n: number }).n;
   assert.equal(
     prog.reduce((n, b) => n + b.size, 0),
-    8683,
-    "the bands no longer cover the whole pending queue",
+    queued,
+    "the bands no longer cover every pair between the queue floor and the auto-merge line",
   );
   assert.ok(prog.every((b) => b.target <= TARGET_PER_BAND));
 });

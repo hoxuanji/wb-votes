@@ -104,8 +104,7 @@ function Room({ s }: { s: Situation }) {
   return (
     <>
       <p className="sr-eyebrow">
-        Situation room · West Bengal · {s.latestYear} assembly, {IN.format(s.seatsDecided)} seats
-        decided
+        Situation room · {s.latestYear} · {IN.format(s.seatsDecided)} seats decided
       </p>
       <h1 className="sr-answer">{s.headline}</h1>
       <p className="sr-sub">
@@ -246,7 +245,8 @@ function Room({ s }: { s: Situation }) {
       </section>
 
       <p className="sr-foot">
-        Assembly seats: <Link href="/pl/wb">West Bengal by district</Link>. API:{' '}
+        Places: <Link href="/pl/wb">West Bengal by district</Link> — the one state loaded.{' '}
+        API:{' '}
         <Link href="/v1/entity/person/mamata-banerjee-4a681f">an entity with its sources</Link>.
         <br />
         Older WB Votes tools, still running: <Link href="/classic">home</Link>,{' '}

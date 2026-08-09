@@ -98,6 +98,10 @@ type ContestSql = {
   place_id: string;
   ac_name: string;
   district: string;
+  /** The state segment of the place path, from the place tree rather than from a literal. */
+  state_id: string;
+  /** The jurisdiction the election was held in, for the headline. */
+  jurisdiction: string;
   election_id: string;
   votes_cast: number | null;
   margin: number | null;
@@ -130,6 +134,8 @@ function contestRows(db: DatabaseSync): ContestSql[] {
     `SELECT pv.place_id                         AS place_id,
             ac.canonical_name                   AS ac_name,
             d.canonical_name                    AS district,
+            COALESCE(st.id, d.parent_id, '')     AS state_id,
+            COALESCE(j.canonical_name, st.canonical_name, 'this jurisdiction') AS jurisdiction,
             c.election_id                        AS election_id,
             t.voters                             AS votes_cast,
             w.margin                             AS margin,
@@ -143,6 +149,9 @@ function contestRows(db: DatabaseSync): ContestSql[] {
        JOIN place_version pv ON pv.id = c.place_version_id
        JOIN place ac         ON ac.id = pv.place_id
        LEFT JOIN place d     ON d.id = ac.parent_id
+       LEFT JOIN place st    ON st.id = d.parent_id
+       JOIN election el      ON el.id = c.election_id
+       LEFT JOIN place j     ON j.id = el.jurisdiction_place_id
        JOIN result w         ON w.contest_id = c.id AND w.is_winner = 1 AND w.revision = 0
        JOIN candidacy cand   ON cand.id = w.candidacy_id
        LEFT JOIN person per  ON per.id = cand.person_id
@@ -167,9 +176,11 @@ export function slug(name: string): string {
     .replace(/^-+|-+$/g, "");
 }
 
-function href(district: string | null, ac: string): string | null {
-  if (district === null) return null;
-  return `/pl/wb/${slug(district)}/${slug(ac)}`;
+/** The place path, with the state taken from the place tree. It was `/pl/wb/...` as a literal, which
+ *  would have pointed every other state's seats at West Bengal instead of failing. */
+function href(stateId: string, district: string | null, ac: string): string | null {
+  if (district === null || stateId === "") return null;
+  return `/pl/${stateId}/${slug(district)}/${slug(ac)}`;
 }
 
 export function getSituation(db: DatabaseSync): Situation | null {
@@ -206,7 +217,7 @@ export function getSituation(db: DatabaseSync): Situation | null {
       placeId,
       name: latest.ac_name,
       district: latest.district ?? "—",
-      href: href(latest.district, latest.ac_name) ?? "/pl/wb",
+      href: href(latest.state_id, latest.district, latest.ac_name) ?? "/pl",
       year: latestYear,
       winnerParty: latest.winner_party,
       winnerName: latest.winner_name,
@@ -229,12 +240,20 @@ export function getSituation(db: DatabaseSync): Situation | null {
     .slice(0, TOP_N);
 
   const under = withMargin.filter((s) => (s.marginPct ?? 0) < MARGINAL_PP).length;
+  // The jurisdiction comes from election.jurisdiction_place_id, not from this file. "West Bengal" was
+  // written in here, which is fine while one state is loaded and a lie the moment a second one is.
+  const where = rows.find((r) => yearOf(r.election_id) === latestYear)?.jurisdiction ?? "this jurisdiction";
   const headline =
     under === 0
-      ? `Every seat in the ${latestYear} West Bengal assembly election was decided by more than ${MARGINAL_PP} percentage points.`
+      ? `Every seat in the ${latestYear} ${where} election was decided by more than ${MARGINAL_PP} percentage points.`
       : `${under} of ${withMargin.length} seats were decided by under ${MARGINAL_PP} percentage points in ${latestYear}.`;
 
-  const momentum = partyMomentum(db, latestYear);
+  // The kind is read off the latest election, not assumed: whichever election is newest defines what
+  // "the previous election" may be compared against.
+  const latestKind =
+    get<{ kind: string }>(db, `SELECT kind FROM election WHERE id = ?`, latestElectionId)?.kind ??
+    "assembly";
+  const momentum = partyMomentum(db, latestYear, latestKind);
 
   return {
     latestYear,
@@ -245,7 +264,7 @@ export function getSituation(db: DatabaseSync): Situation | null {
     marginal,
     volatile,
     momentum,
-    flags: flags(db, seats),
+    flags: flags(db, seats, latestKind),
     corpus: corpus(db),
     sources: loadSources(
       db,
@@ -277,7 +296,16 @@ type MomentumSql = {
  *    comparison holds here because the seat set is identical across these four elections (294 every
  *    time). It stops holding the moment a delimitation lands, which is what `boundary_epoch` is for.
  */
-export function partyMomentum(db: DatabaseSync, latestYear: number): PartyMomentum[] {
+export function partyMomentum(
+  db: DatabaseSync,
+  latestYear: number,
+  kind = "assembly",
+): PartyMomentum[] {
+  // Scoped to ONE election kind, and that is not a refinement — it is a correctness fix. Loading Lok
+  // Sabha 2024 made "the previous election" resolve to 2024 instead of the 2021 assembly, so this
+  // function reported BJP's previous seats as 12 (its Lok Sabha total in this state) rather than 76,
+  // and the Situation Room printed "BJP +180". An assembly result is only comparable to another
+  // assembly result: different body, different seat count, different electorate.
   const rows = all<MomentumSql>(
     db,
     `SELECT p.id                             AS party_id,
@@ -288,11 +316,13 @@ export function partyMomentum(db: DatabaseSync, latestYear: number): PartyMoment
             sum(CASE WHEN r.is_winner = 1 THEN 1 ELSE 0 END) AS won
        FROM result r
        JOIN contest c        ON c.id = r.contest_id
+       JOIN election e       ON e.id = c.election_id
        JOIN candidacy cand   ON cand.id = r.candidacy_id
        JOIN party_version pv ON pv.id = cand.party_version_id
        JOIN party p          ON p.id = pv.party_id
-      WHERE r.revision = 0
+      WHERE r.revision = 0 AND e.kind = ?
       GROUP BY p.id, c.election_id`,
+    kind,
   );
   if (rows.length === 0) return [];
 
@@ -312,8 +342,11 @@ export function partyMomentum(db: DatabaseSync, latestYear: number): PartyMoment
   const losersInLatest =
     get<{ n: number }>(
       db,
-      `SELECT count(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id
-        WHERE r.revision = 0 AND r.is_winner = 0 AND c.election_id LIKE ?`,
+      `SELECT count(*) AS n FROM result r
+         JOIN contest c ON c.id = r.contest_id
+         JOIN election e ON e.id = c.election_id
+        WHERE r.revision = 0 AND r.is_winner = 0 AND e.kind = ? AND c.election_id LIKE ?`,
+      kind,
       `%${latestYear}%`,
     )?.n ?? 0;
 
@@ -343,7 +376,7 @@ export function partyMomentum(db: DatabaseSync, latestYear: number): PartyMoment
  *  reader can disagree with it. */
 const TURNOUT_DEVIATION_PP = 6;
 
-function flags(db: DatabaseSync, seats: readonly SeatRow[]): Flag[] {
+function flags(db: DatabaseSync, seats: readonly SeatRow[], kind: string): Flag[] {
   const out: Flag[] = [];
 
   // Rule 1 — a seat's turnout departs from its district's mean.
@@ -371,16 +404,20 @@ function flags(db: DatabaseSync, seats: readonly SeatRow[]): Flag[] {
 
   // Rule 2 — a party contests far fewer seats than it did last time. Not misconduct: a seat-sharing
   // deal looks exactly like this, which is why the flag says "review", not "withdrew".
+  // Same kind only. Unscoped, this compared 2026 assembly contest counts against Lok Sabha 2024 and
+  // every party looked like it had halved its footprint, so all five real flags disappeared.
   const contest = all<{ party_id: string; short: string | null; election_id: string; n: number }>(
     db,
     `SELECT p.id AS party_id, p.short_name AS short, c.election_id AS election_id, count(*) AS n
        FROM result r
        JOIN contest c        ON c.id = r.contest_id
+       JOIN election e       ON e.id = c.election_id
        JOIN candidacy cand   ON cand.id = r.candidacy_id
        JOIN party_version pv ON pv.id = cand.party_version_id
        JOIN party p          ON p.id = pv.party_id
-      WHERE r.revision = 0
+      WHERE r.revision = 0 AND e.kind = ?
       GROUP BY p.id, c.election_id`,
+    kind,
   );
   const years = [...new Set(contest.map((r) => yearOf(r.election_id)))].sort((a, b) => a - b);
   const latest = years.at(-1);

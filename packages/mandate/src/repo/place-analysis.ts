@@ -113,6 +113,10 @@ export type PlaceAnalysis = {
     canonicalName: string;
     districtId: string | null;
     districtName: string | null;
+    /** The state this seat sits in. Carried because the Analysis floor draws a state baseline and
+     *  used to label that series "West Bengal" as a literal, which would have mislabelled the
+     *  series rather than failed once a second state loaded. */
+    stateName: string | null;
     stateId: string | null;
     number: number | null;
     reservation: Reservation | null;
@@ -144,6 +148,7 @@ type PlaceSql = {
   canonical_name: string;
   parent_id: string | null;
   district_name: string | null;
+  state_name: string | null;
   state_id: string | null;
   number: number | null;
   reservation: Reservation | null;
@@ -206,9 +211,11 @@ export function getPlaceAnalysis(
       db,
       `SELECT pl.id, pl.canonical_name, pl.parent_id,
               d.canonical_name AS district_name, d.parent_id AS state_id,
+              st.canonical_name AS state_name,
               pv.number, pv.reservation, pv.epoch_id, be.name AS epoch_name
          FROM place pl
          LEFT JOIN place d ON d.id = pl.parent_id
+         LEFT JOIN place st ON st.id = d.parent_id
          LEFT JOIN place_version pv ON pv.place_id = pl.id
          LEFT JOIN boundary_epoch be ON be.id = pv.epoch_id
         WHERE pl.kind = 'ac' AND (pl.id = ? OR LOWER(pl.canonical_name) = LOWER(?))
@@ -291,6 +298,7 @@ export function getPlaceAnalysis(
         canonicalName: p.canonical_name,
         districtId: p.parent_id,
         districtName: p.district_name,
+        stateName: p.state_name,
         stateId: p.state_id,
         number: p.number,
         reservation: p.reservation,

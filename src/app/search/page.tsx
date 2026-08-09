@@ -187,9 +187,9 @@ export default function SearchPage({
 
         {q !== '' && rows.length === 0 && !unavailable && (
           <p className="sr-corpus">
-            The registry holds West Bengal assembly candidates and sitting members only — 2011, 2016,
-            2021 and 2026. Someone who has never contested one of those seats is genuinely not here,
-            and this page will not guess.
+            The registry holds West Bengal only: assembly candidates for 2011, 2016, 2021 and 2026,
+            and the 42 members this state sends to the Lok Sabha. Someone who has never contested one of
+            those is genuinely not here, and this page will not guess.
           </p>
         )}
 
