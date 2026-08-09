@@ -142,7 +142,7 @@ function fixture(): StaticBundle {
     mps: [
       {
         name: "Jagadish Basunia", partyId: "AITC", lsConstituency: "Cooch Behar",
-        margin: 39250, electedOn: "2024-06-04",
+        lsNumber: 1, margin: 39250, electedOn: "2024-06-04",
         sourceUrl: "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal",
       },
     ],
@@ -261,8 +261,36 @@ test("the census vintage survives onto the claim and the source", async () => {
 
 test("boundary epoch, place versions and contests line up on delim-2008 (P4)", async () => {
   const { db, report } = await ingested();
-  assert.equal(report.elections, 4);
-  assert.equal(report.contests, 8, "2 seats x 4 elections");
+  // 4 state assembly elections + 1 union general election. The count is 5 because the registry now
+  // holds two election KINDS at two LEVELS, which is the thing that makes "national" a fact about the
+  // data rather than about the CHECK constraints.
+  assert.equal(report.elections, 5);
+  assert.equal(report.contests, 9, "2 assembly seats x 4 elections, + 1 parliamentary seat");
+  assert.deepEqual(
+    db
+      .prepare("SELECT kind, level, jurisdiction_place_id AS j FROM election ORDER BY id")
+      .all()
+      .map((r) => `${r.kind}/${r.level}/${r.j}`),
+    [
+      "general/union/in",
+      "assembly/state/wb",
+      "assembly/state/wb",
+      "assembly/state/wb",
+      "assembly/state/wb",
+    ],
+    "the union election must hang off the nation, not the state",
+  );
+  // The place tree has a root above the state, and a PC alongside the ACs.
+  assert.equal(
+    db.prepare("SELECT parent_id FROM place WHERE id = 'wb'").get()?.parent_id,
+    "in",
+    "West Bengal is still a root place, so nothing national can point at a jurisdiction",
+  );
+  assert.deepEqual(
+    db.prepare("SELECT kind, COUNT(*) AS n FROM place GROUP BY kind ORDER BY kind").all()
+      .map((r) => `${r.kind}=${r.n}`),
+    ["ac=2", "district=1", "nation=1", "pc=1", "state=1"],
+  );
   const epoch = db.prepare("SELECT effective_from, effective_to FROM boundary_epoch WHERE id = 'delim-2008'").get();
   assert.equal(epoch?.effective_from, "2008-02-19");
   assert.equal(epoch?.effective_to, null);
@@ -273,7 +301,13 @@ test("boundary epoch, place versions and contests line up on delim-2008 (P4)", a
     )
     .get();
   assert.equal(Number(crossEpoch?.n), 0);
-  assert.equal(Number(db.prepare("SELECT COUNT(*) AS n FROM place_version").get()?.n), 2);
+  // 2 assembly seats + 1 parliamentary seat. PC versions are offset by 1,000 because place_version.id
+  // is the seat number and PC 1 would otherwise collide with AC 1.
+  assert.equal(Number(db.prepare("SELECT COUNT(*) AS n FROM place_version").get()?.n), 3);
+  assert.equal(
+    Number(db.prepare("SELECT id FROM place_version WHERE place_id = 'wb.pc.01'").get()?.id),
+    1001,
+  );
   const pv = db.prepare("SELECT number, reservation FROM place_version WHERE place_id = 'wb.ac.001'").get();
   assert.deepEqual([pv?.number, pv?.reservation], [1, "sc"]);
   db.close();

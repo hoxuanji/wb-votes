@@ -254,7 +254,9 @@ const MAP = {
     contestId: "req",
     candidacyId: "req",
     revision: "req",
-    votes: "req",
+    // 007 dropped the NOT NULL: two sources report a winner and a margin with no counts, and the old
+    // constraint was satisfied with a fabricated 0. This assertion is what forced the type to follow.
+    votes: "null",
     postalVotes: "null",
     evmVotes: "null",
     voteShare: "null",

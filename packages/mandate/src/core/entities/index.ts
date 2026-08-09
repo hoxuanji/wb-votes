@@ -365,7 +365,12 @@ export type Result = {
   /** A revised figure is a new row with a higher revision; the old row stays readable because the
    *  correction ledger depends on it. */
   revision: number;
-  votes: number;
+  /** NULL means the source reported no count; 0 means it reported none. Migration 007 removed the
+   *  NOT NULL, because two sources in a row (WB assembly 2026 and Lok Sabha 2024) report a winner and
+   *  a margin with no vote totals, and the old constraint was satisfied with a fabricated 0 that then
+   *  had to be defended against all the way out to the read path. `result_has_a_figure` still requires
+   *  one of votes / margin / voteShare, so a row that says nothing is rejected. */
+  votes: number | null;
   /** Nullable, and NULL for every row cycle 1 writes: a historical total does not split postal/EVM.
    *  Typing these non-null is what made `row.postalVotes.toLocaleString()` throw on real data. */
   postalVotes: number | null;

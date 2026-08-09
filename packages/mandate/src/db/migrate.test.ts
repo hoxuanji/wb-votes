@@ -28,6 +28,7 @@ const EXPECTED_TABLES = [
 const MIGRATIONS = [
   "001_registry.sql", "002_facts.sql", "003_provenance.sql",
   "004_resolve_queue.sql", "005_provenance_honesty.sql", "006_merge_queue_survives_merge.sql",
+  "007_votes_may_be_unknown.sql",
 ];
 
 function migrated(): DatabaseSync {

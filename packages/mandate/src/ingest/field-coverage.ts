@@ -177,10 +177,10 @@ export const RULES: Record<ModuleKey, Record<string, Rule>> = {
     name: { probe: "SELECT COUNT(DISTINCT a.person_id) AS n FROM person_alias a JOIN claim c ON c.subject_ref = 'person:' || a.person_id WHERE a.kind = 'press' AND c.predicate = 'ls_seat_won'" },
     partyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'ls_seat_won' AND json_extract(object_value, '$.partyId') IS NOT NULL" },
     lsConstituency: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'ls_seat_won' AND json_extract(object_value, '$.constituency') IS NOT NULL" },
-    lsNumber: {
-      drop: "the Lok Sabha seat number. This registry has no LS place row for it to number — the seat travels as its name inside ls_seat_won, and a number with no place is unjoinable",
-      assertAbsent: "SELECT COUNT(*) AS n FROM place WHERE kind = 'pc'",
-    },
+    // Was allowlisted with the reason "this registry has no LS place row for it to number". True when
+    // written, false the moment 42 `pc` places landed — and `assertAbsent` named the exact query that
+    // would prove it false, which is how the gate caught the change rather than blessing it.
+    lsNumber: { probe: "SELECT COUNT(*) AS n FROM place_version pv JOIN place p ON p.id = pv.place_id WHERE p.kind = 'pc' AND pv.number IS NOT NULL" },
     margin: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'ls_seat_won' AND json_extract(object_value, '$.margin') IS NOT NULL" },
     electedOn: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'ls_seat_won' AND as_of IS NOT NULL" },
     sourceUrl: {

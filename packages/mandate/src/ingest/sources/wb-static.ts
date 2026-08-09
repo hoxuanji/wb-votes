@@ -32,6 +32,15 @@ const EPOCH_ID = "delim-2008";
 // no 1976 boundary data in the repo and inventing an epoch is worse than having one.
 const EPOCH_FROM = "2008-02-19";
 const STATE_PLACE = "wb";
+/** India. The registry had no `nation` row: `wb` was a root with no parent, which made "national
+ *  platform" true of the DDL and false of the data. A Lok Sabha election's jurisdiction is the union,
+ *  so it needs somewhere to point. */
+const NATION_PLACE = "in";
+/** place_version.id is the seat NUMBER, unique only within one kind and one epoch (see the note by the
+ *  assembly rows). Parliamentary constituencies are numbered 1-42 in this state and would collide head
+ *  on with assembly seats 1-42, so they are offset. A second epoch needs the same treatment. */
+const PC_VERSION_OFFSET = 1000;
+const LS_ELECTION = "ls-2024";
 const YEARS = [2011, 2016, 2021, 2026];
 /** The one open-ended party version this dataset can honestly assert; also its natural key. */
 const PARTY_VALID_FROM = "2011-01-01";
@@ -130,6 +139,10 @@ type MPRow = {
   name: string;
   partyId: string;
   lsConstituency: string;
+  /** The state's own PC numbering, 1-42 here. Present on all 42 seed rows and simply never read until
+   *  now, which is why `mandate export --diff` reported lsNumber as "not reconstructable": the field
+   *  was not unstorable, the ingest's own row type did not declare it. */
+  lsNumber?: number | null;
   margin?: number | null;
   electedOn?: string;
   sourceUrl: string;
@@ -603,7 +616,10 @@ function ingest(
   }
 
   // ── boundary epoch, places, place versions ─────────────────────────────────
-  placeRows.push([STATE_PLACE, "state", null, "West Bengal", "{}", null, null]);
+  // A nation, and a state that hangs off it. `place.kind` has permitted 'nation' and 'pc' since 001 —
+  // the DDL was national from the start and nothing had ever exercised it.
+  placeRows.push([NATION_PLACE, "nation", null, "India", '{"hi":"भारत"}', null, null]);
+  placeRows.push([STATE_PLACE, "state", NATION_PLACE, "West Bengal", '{"bn":"পশ্চিমবঙ্গ"}', null, null]);
   const districtPlace = new Map<string, string>();
   for (const c of b.constituencies) {
     const dId = `${STATE_PLACE}.${slug(c.district)}`;
@@ -1218,28 +1234,40 @@ function ingest(
         if (nomination) nomination[7] = "elected";
       }
 
-      // margin: the declared figure for the winner, the deficit to the winner for everyone else.
+      // 0 in this source means "not reported", not "polled nothing": historical-results records the
+      // 2026 winner and margin and never backfilled the tallies, so all 293 declared seats arrive at
+      // votes 0 / voteShare 0. Writing that 0 through was only possible while result.votes was
+      // NOT NULL; migration 007 removed that, so absence is stored as absence. Verified against the
+      // registry before changing it: there was not one genuine votes = 0 row in 4,357.
+      const votes = c.votes === 0 ? null : c.votes;
+      const share = c.voteShare === 0 || c.voteShare == null ? null : c.voteShare;
+
+      // margin: the declared figure for the winner, the deficit to the winner for everyone else. A
+      // deficit needs two counts, so it is null when either side is unreported rather than 0 - 0.
       const runnerUp = ranked[1];
+      const runnerUpVotes = runnerUp?.[1].votes ?? 0;
       const margin = isWinner
-        ? (h.marginVotes ?? (runnerUp ? c.votes - runnerUp[1].votes : null))
-        : c.votes - winnerVotes;
-      const fact = factOf(c.votes, c.voteShare ?? null, i + 1, isWinner ? 1 : 0, margin);
+        ? (h.marginVotes ?? (votes !== null && runnerUpVotes > 0 ? votes - runnerUpVotes : null))
+        : votes !== null && winnerVotes > 0
+          ? votes - winnerVotes
+          : null;
+      const fact = factOf(votes, share, i + 1, isWinner ? 1 : 0, margin);
       contestFacts.set(candId, fact);
       contestResults.push([
         contest,
         candId,
         0, // placeholder: the revision is a property of the CONTEST and is filled in below
-        c.votes,
+        votes,
         null,
         null,
-        c.voteShare ?? null,
+        share,
         i + 1,
         isWinner ? 1 : 0,
         margin,
         src("historicalResults"),
         now,
       ]);
-      if (c.votes === 0) zeroVoteResults++;
+      if (votes === null) zeroVoteResults++;
     });
     const revision = revisionFor(contest, contestFacts);
     for (const row of contestResults) {
@@ -1276,7 +1304,7 @@ function ingest(
     anomalies.push({
       kind: "zero_vote_result",
       ref: `election:${electionId(2026)}`,
-      detail: `${zeroVoteResults} result rows carry votes=0 because historical-results.ts records the 2026 winner and margin but never backfilled the tallies. Recorded as declared (never invented) — these rows will fail the §19 dbt test "vote_share sums to 100 +/- 0.5 per contest revision" until the counts land. They also break §19's "winner margin equals rank-1 minus rank-2 votes": each is the only row in its contest and asserts a margin with no tallies behind it, so that invariant cannot be evaluated for these contests at all.`,
+      detail: `${zeroVoteResults} result rows carry votes=NULL — no reported count — because historical-results.json records the 2026 winner and margin but never backfilled the tallies. They were written as votes=0 until migration 007 let absence be stored as absence. Recorded as declared (never invented) — these rows will fail the §19 dbt test "vote_share sums to 100 +/- 0.5 per contest revision" until the counts land. They also break §19's "winner margin equals rank-1 minus rank-2 votes": each is the only row in its contest and asserts a margin with no tallies behind it, so that invariant cannot be evaluated for these contests at all.`,
     });
   }
   const seenResults = new Set(b.historicalResults.map((h) => `${h.year}:${h.constituencyId}`));
@@ -1391,7 +1419,51 @@ function ingest(
     }
   }
 
+  // ── Lok Sabha 2024: the registry's second election KIND and second place KIND ───────────────
+  //
+  // These 42 rows have been in the seed since before the registry existed and were ingested as a
+  // person plus one `ls_seat_won` claim, with a comment conceding that "a Lok Sabha seat has no place
+  // row in this registry". That made the national claim structural rather than actual: one nation
+  // place did not exist, no parliamentary constituency existed, and every election was kind=assembly
+  // at level=state. A model that has only ever held one election type is not a national model, it is a
+  // state model with roomy CHECK constraints.
+  //
+  // So they now load as facts: a `general`/`union` election whose jurisdiction is India, 42 `pc` places
+  // under West Bengal, a contest each, a candidacy for the winner, and a result carrying the declared
+  // margin. The claim stays too — it is what resolve/ scores an MP on, and deleting an input because a
+  // better representation arrived is how corroboration silently weakens.
+  //
+  // What is deliberately NOT invented: vote counts (the source has none, so votes is NULL under 007),
+  // turnout, runners-up, and the other 501 seats of the 2024 general election. This is West Bengal's 42
+  // of 543, and `mandate coverage` says so rather than letting a reader assume otherwise.
   const mpsDay = moduleDate("mps");
+  // Guarded on lsNumber, not on row count: a seat number is what makes a PC place, and without one
+  // there is no contest to hold. An election row with no contests is an empty frame, which this
+  // project does not ship — so if no MP row carries a number, the election is not created at all.
+  if (b.mps.some((m) => m.lsNumber != null)) {
+    // counting_on is a real date from the source (electedOn), not a guess: the last declaration wins,
+    // because a general election's count finishes when its slowest seat does.
+    const countedOn = b.mps.reduce<string | null>(
+      (latest, m) => (m.electedOn != null && (latest === null || m.electedOn > latest) ? m.electedOn : latest),
+      null,
+    );
+    electionRows.push([
+      LS_ELECTION,
+      "general",
+      "union",
+      "direct",
+      NATION_PLACE,
+      EPOCH_ID,
+      "Indian general election, 2024",
+      "declared",
+      null,
+      null,
+      countedOn,
+      null,
+      null,
+    ]);
+  }
+
   for (const m of b.mps) {
     const source = urlSource(m.sourceUrl, mpsDay, "mps", `mp:${m.lsConstituency}`);
     const personId = addPerson({
@@ -1402,6 +1474,50 @@ function ingest(
       sourceId: source,
       firstSeen: mpsDay,
     });
+
+    // A PC number is only meaningful with a state: 'Cooch Behar' is PC 1 in West Bengal and nothing in
+    // Bihar. lsNumber is the state's own numbering, which is why the place id is scoped to the state.
+    if (m.lsNumber != null) {
+      const pcId = `${STATE_PLACE}.pc.${String(m.lsNumber).padStart(2, "0")}`;
+      const versionId = PC_VERSION_OFFSET + m.lsNumber;
+      placeRows.push([pcId, "pc", STATE_PLACE, m.lsConstituency, "{}", null, String(m.lsNumber)]);
+      // reservation is NULL, not 'general': the source does not say, and 'general' would be a guess
+      // that a reader could not distinguish from a fact.
+      placeVersionRows.push([versionId, pcId, EPOCH_ID, m.lsNumber, null, null, null]);
+
+      const contest = contestId(LS_ELECTION, `${slug(m.lsConstituency)}-${String(m.lsNumber).padStart(2, "0")}`);
+      contestRows.push([contest, LS_ELECTION, versionId, null, 1, "declared", m.electedOn ?? null]);
+
+      const party = resolveParty(m.partyId);
+      const candId = candidacyId(contest, personId);
+      candidacyRows.set(candId, [
+        candId,
+        contest,
+        personId,
+        partyVersionId(party.id),
+        null,
+        null,
+        null,
+        "elected",
+        null,
+        null,
+        party.raw,
+      ]);
+      resultRows.push([
+        contest,
+        candId,
+        0,
+        null, // votes: the source reports a margin and no tallies. 007 lets that be absent.
+        null,
+        null,
+        null,
+        1,
+        1,
+        m.margin ?? null,
+        source,
+        now,
+      ]);
+    }
     claim(
       `person:${personId}`,
       "ls_seat_won",

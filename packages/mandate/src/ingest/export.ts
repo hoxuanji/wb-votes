@@ -67,6 +67,18 @@ const httpUrl = (u: string | null | undefined): string | undefined =>
 // candidates.json is the one to notice: photoUrl, incumbentYears and isIncumbent were on this list
 // while the registry held a cited claim for each (2,920 / 157 / derived from the second), which broke
 // rule 1 above and understated that module's ceiling by 14.3pp.
+/** Report-path fields whose seed encoding of "not reported" is the number 0. See the comparison below.
+ *  Verified before adding: all 293 affected rows are 2026 winners, and there is not one genuine
+ *  votes = 0 in the registry's 4,357 result rows. */
+const ABSENCE_AS_ZERO: ReadonlySet<string> = new Set([
+  "winner.votes",
+  "winner.voteShare",
+  "runnerUp.votes",
+  "runnerUp.voteShare",
+  "topContestants[].votes",
+  "topContestants[].voteShare",
+]);
+
 const NOT_STORED: Record<string, readonly string[]> = {
   "constituencies.json": ["nameBn", "districtBn"],
   "parties.json": ["color"],
@@ -381,6 +393,13 @@ function historicalResults(db: DatabaseSync, reg: Registry): Row[] {
        JOIN candidacy cy ON cy.id = r.candidacy_id
        LEFT JOIN party_version pv ON pv.id = cy.party_version_id
        LEFT JOIN party pt ON pt.id = pv.party_id
+       JOIN election e ON e.id = ct.election_id
+      -- historical-results.json is an ASSEMBLY results file, keyed (year, assembly constituency).
+      -- Without this filter the 42 Lok Sabha 2024 contests reconstructed into it as 42 rows the seed
+      -- has no key for, which the report correctly counted as 462 invented values and which dropped
+      -- the round-trip figure by 0.9pp. The registry gaining an election KIND must not make an
+      -- unrelated module look wrong.
+      WHERE e.kind = 'assembly'
       ORDER BY r.contest_id, r.revision, r."rank"`,
   )) {
     const cur = byContest.get(r.contest_id);
@@ -542,7 +561,18 @@ function cabinet(_db: DatabaseSync, reg: Registry): Row[] {
   });
 }
 
-function mps(_db: DatabaseSync, reg: Registry): Row[] {
+function mps(db: DatabaseSync, reg: Registry): Row[] {
+  // Seat number by constituency name, from the `pc` places the Lok Sabha ingest now creates. Before
+  // those existed this field was allowlisted as unstorable; it was only ever unread.
+  const pcNumber = new Map<string, number>();
+  for (const r of all<{ name: string; number: number | null }>(
+    db,
+    `SELECT p.canonical_name AS name, pv.number AS number
+       FROM place p JOIN place_version pv ON pv.place_id = p.id
+      WHERE p.kind = 'pc'`,
+  )) {
+    if (r.number !== null) pcNumber.set(r.name, r.number);
+  }
   const out: Row[] = [];
   for (const [key, list] of reg.claims) {
     if (!key.endsWith("|ls_seat_won")) continue;
@@ -558,6 +588,7 @@ function mps(_db: DatabaseSync, reg: Registry): Row[] {
         name,
         partyId: v.party ?? undefined,
         lsConstituency: v.constituency ?? undefined,
+        lsNumber: v.constituency === undefined ? undefined : (pcNumber.get(v.constituency) ?? undefined),
         margin: v.margin ?? null,
         electedOn: c.as_of ?? undefined,
         sourceUrl: httpUrl(c.url) ?? undefined,
@@ -722,7 +753,19 @@ export function diff(seed: Seed, rebuilt: Seed): DiffReport {
           );
           continue;
         }
-        if (want === have) bump(field, "exact");
+        // Absence in two encodings is agreement, not a difference. historical-results.json records the
+        // 2026 winners' votes and voteShare as 0 — the source reports no tallies and the seed had
+        // nowhere to say so — while the registry now stores NULL for exactly those rows (migration
+        // 007). Counting that as a mismatch would mean the round-trip figure FELL by 0.3pp because the
+        // registry stopped repeating its input's fabricated zero, and the ratchet would then block the
+        // honesty fix. A gate that punishes telling the truth is a broken gate.
+        //
+        // Deliberately narrow: only these two fields, only where the seed says 0 and the registry says
+        // nothing. A registry 0 against a seed 0 is still exact, and a registry NULL against a seed
+        // 4,231 is still a difference.
+        if (want === 0 && (have === undefined || have === null) && ABSENCE_AS_ZERO.has(field))
+          bump(field, "exact");
+        else if (want === have) bump(field, "exact");
         else bump(field, "diff", { row: k, seed: show(want), got: show(have) });
       }
     }
@@ -776,7 +819,8 @@ export function diffAgainstSeed(db: DatabaseSync, dir?: string): DiffReport {
 }
 
 /**
- * The gate. 94.0 is TODAY'S MEASURED VALUE floored to a tenth (measured 94.07% on 2026-08-09,
+ * The gate. 94.1 is TODAY'S MEASURED VALUE floored to a tenth (measured 94.11% on 2026-08-09, after
+ * the Lok Sabha load made wbmps.json 100% by giving lsNumber somewhere to live,
  * .data/registry.db after migrate + ingest + resolve). It was 85.8 for one commit, over eleven
  * "modules" — two of which nothing ingests and one of which was registry bookkeeping scoring a false
  * 100%, with photoUrl and incumbentYears wrongly declared unstorable. Not 100: cycle 1 shipped an
@@ -784,7 +828,7 @@ export function diffAgainstSeed(db: DatabaseSync, dir?: string): DiffReport {
  * This one is a RATCHET — it only ever goes up, and it goes up in the commit that makes the number
  * go up. What blocks 100% is in ADR 0004.
  */
-export const THRESHOLD_PCT = 94.0;
+export const THRESHOLD_PCT = 94.1;
 
 export function formatReport(r: DiffReport): string {
   const out: string[] = [];
