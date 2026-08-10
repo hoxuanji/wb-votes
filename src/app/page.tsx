@@ -11,6 +11,8 @@ import {
 import type { CloseFight, Dated, Standing, Swing } from '../../packages/mandate/src/repo/elections.ts';
 import { getCoverage, jurisdictions, INDIA } from '../../packages/mandate/src/repo/coverage.ts';
 import type { Coverage, JurisdictionState } from '../../packages/mandate/src/repo/coverage.ts';
+import { IndiaMap } from './india-map.tsx';
+import type { MapState } from './india-map.tsx';
 import { Nav } from './nav.tsx';
 import './iei.css';
 
@@ -86,8 +88,68 @@ function Governs({ rows, all }: { rows: readonly Standing[]; all: readonly Juris
     n: rows.filter((r) => r.leaderKey === key).length,
   }));
   const other = rows.filter((r) => r.leaderKey !== null && !hues.has(r.leaderKey)).length;
+  const mapStates: MapState[] = all.map((j) => {
+    const s = byId.get(j.id);
+    return {
+      id: j.id,
+      label: s?.leaderLabel ?? null,
+      fill: s?.leaderKey == null ? null : (hues.get(s.leaderKey) ?? NEUTRAL),
+      seats: s?.leaderSeats ?? 0,
+      of: s?.seatsContested ?? 0,
+      year: s?.year ?? null,
+    };
+  });
+  const nameOf = (id: string): string => all.find((j) => j.id === id)?.name ?? id;
   return (
     <>
+      <div className="iei-map-split">
+        <IndiaMap states={mapStates} nameOf={nameOf} />
+        <div>
+          <ul className="iei-swatches iei-swatches-stack">
+            {legend.map((l) => (
+              <li key={l.label}>
+                <span style={{ background: l.fill }} />
+                {l.label} <b>{l.n}</b>
+              </li>
+            ))}
+            {other > 0 ? (
+              <li>
+                <span style={{ background: NEUTRAL }} />
+                other <b>{other}</b>
+              </li>
+            ) : null}
+            <li>
+              <span style={{ background: '#1d1b26', borderColor: '#2f2b3d' }} />
+              no data <b>{all.length - rows.length}</b>
+            </li>
+          </ul>
+          <table className="iei-t iei-t-tight">
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.jurisdictionId}>
+                  <td>
+                    <Link href={`/pl/${r.jurisdictionId}`}>{r.jurisdictionName}</Link>
+                  </td>
+                  <td className="iei-n">{r.year}</td>
+                  <td>
+                    <span
+                      className="iei-chip"
+                      style={{ color: r.leaderKey === null ? undefined : (hues.get(r.leaderKey) ?? NEUTRAL) }}
+                    >
+                      {r.leaderLabel}
+                    </span>
+                  </td>
+                  <td className="iei-n">
+                    {r.leaderSeats}/{r.seatsContested}
+                    {r.majority ? '' : '*'}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="iei-rule">* no outright majority of the seats contested</p>
+        </div>
+      </div>
       <ul className="iei-tiles">
         {all.map((j) => {
           const s = byId.get(j.id);
@@ -116,20 +178,6 @@ function Governs({ rows, all }: { rows: readonly Standing[]; all: readonly Juris
             </li>
           );
         })}
-      </ul>
-      <ul className="iei-swatches">
-        {legend.map((l) => (
-          <li key={l.label}>
-            <span style={{ background: l.fill }} />
-            {l.label} {l.n}
-          </li>
-        ))}
-        {other > 0 ? (
-          <li>
-            <span style={{ background: NEUTRAL }} />
-            other {other}
-          </li>
-        ) : null}
       </ul>
     </>
   );

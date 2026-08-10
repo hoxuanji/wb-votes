@@ -58,6 +58,37 @@ export function Nav({ here, states }: { here: Section; states?: readonly JumpTar
         <span className="iei-mark-a">INDIA</span>
         <span className="iei-mark-b">ELECTION INTELLIGENCE</span>
       </Link>
+      <div className="iei-controls">
+        <form className="iei-cmd" action="/search" method="get" role="search">
+          <label htmlFor="iei-q" className="iei-sr">
+            Search candidates, seats and parties
+          </label>
+          {/* The placeholder used to carry three worked examples. Instruction-as-placeholder is the wrong
+              place for it: it is unreadably low-contrast by design, vanishes the moment anyone types, and
+              reads as clutter in the chrome. One word here; the examples live on /search, where there is room
+              to show them properly. */}
+          <input id="iei-q" name="q" type="search" placeholder="Search" autoComplete="off" />
+        </form>
+        {states === undefined || states.length === 0 ? null : (
+          <form className="iei-jump" action="/pl" method="get">
+            <label htmlFor="iei-state" className="iei-sr">
+              Go to a state or union territory
+            </label>
+            <select id="iei-state" name="to" defaultValue="">
+              <option value="" disabled>
+                State / UT
+              </option>
+              {states.map((s) => (
+                <option key={s.id} value={s.id} disabled={!s.hasData}>
+                  {s.name}
+                  {s.hasData ? '' : ' — not loaded'}
+                </option>
+              ))}
+            </select>
+            <button type="submit">Go</button>
+          </form>
+        )}
+      </div>
       <nav className="iei-nav" aria-label="Sections">
         {DESTINATIONS.map((d) =>
           d.href === null ? (
@@ -76,39 +107,6 @@ export function Nav({ here, states }: { here: Section; states?: readonly JumpTar
           ),
         )}
       </nav>
-      {/* A jurisdiction picker, not a menu of links: 36 destinations do not belong in a nav bar, and a
-          native select needs no JavaScript, is keyboard- and screen-reader-native on every platform, and
-          submits on its own button. The options come from the registry, so a state appears here the moment
-          its data is loaded. */}
-      {states === undefined || states.length === 0 ? null : (
-        <form className="iei-jump" action="/pl" method="get">
-          <label htmlFor="iei-state" className="iei-sr">
-            Go to a state or union territory
-          </label>
-          <select id="iei-state" name="to" defaultValue="">
-            <option value="" disabled>
-              State / UT
-            </option>
-            {states.map((s) => (
-              <option key={s.id} value={s.id} disabled={!s.hasData}>
-                {s.name}
-                {s.hasData ? '' : ' — not loaded'}
-              </option>
-            ))}
-          </select>
-          <button type="submit">Go</button>
-        </form>
-      )}
-      <form className="iei-cmd" action="/search" method="get" role="search">
-        <label htmlFor="iei-q" className="iei-sr">
-          Search candidates, seats and parties
-        </label>
-        {/* The placeholder used to carry three worked examples. Instruction-as-placeholder is the wrong
-            place for it: it is unreadably low-contrast by design, vanishes the moment anyone types, and
-            reads as clutter in the chrome. One word here; the examples live on /search, where there is room
-            to show them properly. */}
-        <input id="iei-q" name="q" type="search" placeholder="Search" autoComplete="off" />
-      </form>
     </header>
   );
 }

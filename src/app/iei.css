@@ -54,21 +54,117 @@
   white-space: nowrap;
 }
 
-/* ---------- top strip: wordmark, §24 nav, §19 command input ---------- */
+/* ---------- top strip: wordmark, controls, §24 nav ----------
+   The controls were a search box pinned hard left of the nav and a state picker pinned hard right, two
+   strays in the chrome with a hundred pixels of nothing between them. They are one cluster now, sitting
+   directly after the wordmark where a reader looks first, and the nav takes the remaining room. */
 
 .iei-top {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto auto 1fr;
   align-items: center;
-  gap: 20px;
+  gap: 8px 18px;
   padding: 0 16px;
-  height: 46px;
+  min-height: 46px;
   border-bottom: 1px solid var(--iei-line);
   background: var(--iei-panel);
   position: sticky;
   top: 0;
   z-index: 10;
 }
+
+/* One bordered group: type a name, or pick a jurisdiction. Two ways into the same registry, read as one
+   control rather than two accidents. */
+.iei-controls {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  border: 1px solid var(--iei-line-2);
+  border-bottom-width: 2px;
+  border-radius: 4px;
+  background: var(--iei-raised);
+  overflow: hidden;
+}
+
+.iei-controls form {
+  display: flex;
+  align-items: stretch;
+}
+
+.iei-controls input,
+.iei-controls select,
+.iei-controls button {
+  background: transparent;
+  border: 0;
+  color: var(--iei-ink);
+  font-family: var(--iei-mono);
+  font-size: 12px;
+  padding: 7px 10px;
+}
+
+.iei-controls input {
+  width: 232px;
+  max-width: 30vw;
+}
+
+.iei-controls input::placeholder {
+  color: var(--iei-ink-3);
+}
+
+.iei-controls select {
+  border-left: 1px solid var(--iei-line-2);
+  color: var(--iei-ink-2);
+  max-width: 150px;
+  cursor: pointer;
+}
+
+.iei-controls button {
+  border-left: 1px solid var(--iei-line-2);
+  color: var(--iei-ink-2);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 10px;
+  cursor: pointer;
+}
+
+.iei-controls button:hover,
+.iei-controls select:hover {
+  color: var(--iei-ink);
+}
+
+/* Focus is shown on the GROUP, so the joined control never looks broken apart. */
+.iei-controls:focus-within {
+  border-color: var(--iei-line-2);
+  border-bottom-color: var(--iei-accent);
+  background: var(--iei-panel);
+}
+
+.iei-controls input:focus-visible,
+.iei-controls select:focus-visible,
+.iei-controls button:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+}
+
+@media (max-width: 900px) {
+  .iei-controls input {
+    width: 120px;
+    max-width: 34vw;
+  }
+
+  .iei-controls select {
+    max-width: 104px;
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-controls:focus-within {
+    outline: 2px solid CanvasText;
+    outline-offset: 1px;
+  }
+}
+
+/* ---------- superseded: the old three-column strip ---------- */
 
 .iei-mark {
   display: flex;
@@ -648,6 +744,87 @@
   .iei-foot a:focus-visible {
     outline: 2px solid CanvasText;
     outline-offset: 2px;
+  }
+}
+
+/* ---------- the map of India ---------- */
+
+.iei-map-split {
+  display: grid;
+  grid-template-columns: minmax(300px, 0.95fr) 1.05fr;
+  gap: 8px 28px;
+  align-items: start;
+}
+
+.iei-india {
+  margin: 0;
+}
+
+.iei-india svg {
+  width: 100%;
+  height: auto;
+  max-height: 620px;
+  display: block;
+}
+
+.iei-india path {
+  stroke: #0b0a10;
+  stroke-width: 0.6;
+  transition: none;
+}
+
+.iei-india a:hover path {
+  stroke: var(--iei-ink);
+  stroke-width: 1.6;
+}
+
+.iei-india a:focus-visible {
+  outline: none;
+}
+
+.iei-india a:focus-visible path {
+  stroke: var(--iei-accent);
+  stroke-width: 2;
+}
+
+.iei-india-off {
+  stroke: #16151f;
+}
+
+.iei-india figcaption {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+  margin-top: 6px;
+}
+
+.iei-swatches-stack {
+  gap: 4px 16px;
+  margin: 0 0 12px;
+}
+
+.iei-swatches-stack b {
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink);
+}
+
+/* A dense variant: the standings table beside the map has 31 rows and must not scroll the page twice. */
+.iei-t-tight td {
+  padding: 3px 10px 3px 0;
+  font-size: 12px;
+}
+
+.iei-chip {
+  font-family: var(--iei-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+@media (max-width: 900px) {
+  .iei-map-split {
+    grid-template-columns: 1fr;
   }
 }
 
