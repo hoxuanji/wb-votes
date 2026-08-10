@@ -1,0 +1,652 @@
+/* INDIA ELECTION INTELLIGENCE — the shell.
+   §33 visual language, §34 typography, §21 dashboard density.
+
+   Rules this file enforces rather than suggests:
+   · §21 no giant hero, no decorative cards, no gradients. Sections are separated by rules, not by
+     floating panels, and every block answers a question named in its own header.
+   · §34 every NUMBER and every piece of metadata is monospace. Prose is not. That single split is what
+     makes a dense table readable, and it was missing entirely.
+   · §33 colour carries MEANING: alert / developing / confirmed / informational. Party colour is
+     contextual (the map) and never structural.
+   · Focus is never an outline. Each control states its own treatment; forced-colors gets a real one. */
+
+:root {
+  --iei-bg: #08070c;
+  --iei-panel: #0f0e15;
+  --iei-raised: #16151f;
+  --iei-line: #221f2d;
+  --iei-line-2: #2f2b3d;
+  --iei-ink: #f4f3f8;
+  --iei-ink-2: #a7a2b8;
+  --iei-ink-3: #7c7690;
+  --iei-accent: #a98bf2;
+  --iei-accent-2: #6d4fcc;
+
+  /* §33 semantic status. Each is used ONLY for its meaning. */
+  --iei-alert: #e8927c;
+  --iei-developing: #e0b458;
+  --iei-confirmed: #7fd4a8;
+  --iei-info: #6fb3e0;
+
+  --iei-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  --iei-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.iei {
+  background: var(--iei-bg);
+  color: var(--iei-ink);
+  font-family: var(--iei-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  min-height: 100vh;
+}
+
+.iei * {
+  box-sizing: border-box;
+}
+
+.iei-sr {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* ---------- top strip: wordmark, §24 nav, §19 command input ---------- */
+
+.iei-top {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 20px;
+  padding: 0 16px;
+  height: 46px;
+  border-bottom: 1px solid var(--iei-line);
+  background: var(--iei-panel);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.iei-mark {
+  display: flex;
+  gap: 6px;
+  align-items: baseline;
+  text-decoration: none;
+  font-family: var(--iei-mono);
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  white-space: nowrap;
+}
+
+.iei-mark-a {
+  color: var(--iei-ink);
+  font-weight: 700;
+}
+
+.iei-mark-b {
+  color: var(--iei-ink-3);
+}
+
+.iei-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 14px;
+  align-items: center;
+  min-width: 0;
+}
+
+.iei-nav a,
+.iei-off {
+  font-family: var(--iei-mono);
+  font-size: 11px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--iei-ink-2);
+  padding: 4px 0 3px;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+}
+
+.iei-nav a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-nav a:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-accent);
+}
+
+.iei-on {
+  color: var(--iei-ink) !important;
+  border-bottom-color: var(--iei-accent-2) !important;
+}
+
+/* An unbuilt destination is legible and obviously inert. Not hidden: the IA is the product's shape. */
+.iei-off {
+  color: #4c4760;
+  cursor: help;
+  border-bottom: 2px dotted #332e42;
+}
+
+.iei-cmd input {
+  width: 260px;
+  max-width: 34vw;
+  background: var(--iei-raised);
+  border: 1px solid var(--iei-line-2);
+  border-bottom: 2px solid var(--iei-line-2);
+  border-radius: 3px;
+  color: var(--iei-ink);
+  font-family: var(--iei-mono);
+  font-size: 12px;
+  padding: 6px 9px;
+}
+
+.iei-cmd input::placeholder {
+  color: var(--iei-ink-3);
+}
+
+.iei-cmd input:focus-visible {
+  outline: none;
+  border-bottom-color: var(--iei-accent);
+  background: var(--iei-panel);
+}
+
+/* ---------- page frame ---------- */
+
+.iei-body {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 16px 64px;
+}
+
+/* §25 status line: the first thing, and it is a strip rather than a hero. */
+.iei-status {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0 28px;
+  align-items: baseline;
+  border-bottom: 1px solid var(--iei-line);
+  padding: 12px 0;
+  font-family: var(--iei-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-3);
+}
+
+.iei-status b {
+  color: var(--iei-ink);
+  font-weight: 600;
+}
+
+.iei-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 6px;
+  vertical-align: 1px;
+  background: var(--iei-ink-3);
+}
+
+.iei-dot-live {
+  background: var(--iei-alert);
+}
+
+.iei-dot-idle {
+  background: var(--iei-info);
+}
+
+/* KPI strip: §21 allows these only when each answers a question. Four numbers, no cards. */
+.iei-kpi {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-kpi > div {
+  padding: 14px 18px 14px 0;
+}
+
+.iei-kpi dt {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+  margin: 0 0 4px;
+}
+
+.iei-kpi dd {
+  margin: 0;
+  font-family: var(--iei-mono);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-kpi small {
+  display: block;
+  font-family: var(--iei-sans);
+  font-size: 11px;
+  font-weight: 400;
+  color: var(--iei-ink-3);
+  letter-spacing: 0;
+  margin-top: 3px;
+}
+
+/* ---------- sections ---------- */
+
+.iei-sec {
+  border-bottom: 1px solid var(--iei-line);
+  padding: 22px 0;
+}
+
+.iei-sec:last-of-type {
+  border-bottom: none;
+}
+
+.iei-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 14px;
+  margin: 0 0 12px;
+}
+
+.iei-h h2 {
+  font-family: var(--iei-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--iei-ink-2);
+  margin: 0;
+}
+
+/* The one-sentence answer under a section header. Replaces the paragraphs of methodology that used to
+   sit here: the reasoning lives in the code and the method links to /coverage. */
+.iei-h p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--iei-ink-3);
+  text-align: right;
+}
+
+.iei-h a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  border-bottom: 2px solid transparent;
+}
+
+.iei-h a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-h a:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-accent);
+}
+
+.iei-two {
+  display: grid;
+  grid-template-columns: 1.15fr 1fr;
+  gap: 26px;
+  align-items: start;
+}
+
+/* ---------- tables: dense, monospace numerals, no zebra ---------- */
+
+.iei-t {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.iei-t th {
+  text-align: left;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+  padding: 0 10px 6px 0;
+  border-bottom: 1px solid var(--iei-line-2);
+  white-space: nowrap;
+}
+
+.iei-t td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--iei-line);
+  vertical-align: baseline;
+}
+
+.iei-t tr:last-child td {
+  border-bottom: none;
+}
+
+/* §34: numbers are monospace and tabular, always. */
+.iei-n {
+  font-family: var(--iei-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--iei-ink);
+}
+
+.iei-t a {
+  color: var(--iei-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-t a:hover {
+  border-bottom-color: var(--iei-accent);
+}
+
+.iei-t a:focus-visible {
+  outline: none;
+  border-bottom: 2px solid var(--iei-accent);
+}
+
+.iei-sub {
+  display: block;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-3);
+  text-transform: uppercase;
+}
+
+.iei-na {
+  color: var(--iei-ink-3);
+  font-family: var(--iei-mono);
+  font-size: 11px;
+}
+
+/* in-cell magnitude bar: the value and its length never separate */
+.iei-bar {
+  display: block;
+  height: 6px;
+  border-radius: 3px;
+  background: var(--iei-accent-2);
+  min-width: 2px;
+}
+
+.iei-track {
+  width: 20%;
+  min-width: 60px;
+}
+
+/* ---------- §16 confidence vocabulary ---------- */
+
+.iei-badge {
+  display: inline-block;
+  font-family: var(--iei-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 2px 6px;
+  border-radius: 2px;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+
+.iei-confirmed {
+  color: var(--iei-confirmed);
+}
+
+.iei-reported {
+  color: var(--iei-info);
+}
+
+.iei-developing {
+  color: var(--iei-developing);
+}
+
+.iei-unverified {
+  color: var(--iei-ink-3);
+}
+
+/* ---------- signals (§15/§18) ---------- */
+
+.iei-signals {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.iei-signals li {
+  display: grid;
+  grid-template-columns: 78px 1fr;
+  gap: 12px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-signals li:last-child {
+  border-bottom: none;
+}
+
+.iei-when {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-3);
+  padding-top: 2px;
+}
+
+.iei-sig-h {
+  font-size: 13px;
+  color: var(--iei-ink);
+}
+
+.iei-sig-h a {
+  color: var(--iei-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-sig-h a:hover {
+  border-bottom-color: var(--iei-accent);
+}
+
+.iei-sig-h a:focus-visible {
+  outline: none;
+  border-bottom: 2px solid var(--iei-accent);
+}
+
+.iei-sig-d {
+  font-size: 12px;
+  color: var(--iei-ink-2);
+  margin-top: 2px;
+}
+
+/* the rule that produced a signal, in mono because it is metadata (§34) */
+.iei-rule {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  color: var(--iei-ink-3);
+  margin-top: 3px;
+}
+
+/* ---------- embedded map (§5 map-first) ---------- */
+
+.iei-map {
+  border: 1px solid var(--iei-line);
+  background: var(--iei-panel);
+  padding: 10px;
+}
+
+.iei-map svg {
+  width: 100%;
+  height: auto;
+  max-height: 460px;
+  display: block;
+}
+
+.iei-map svg a:hover path {
+  stroke: var(--iei-ink);
+  stroke-width: 1.2;
+}
+
+.iei-map svg a:focus-visible {
+  outline: none;
+}
+
+.iei-map svg a:focus-visible path {
+  stroke: var(--iei-accent);
+  stroke-width: 1.6;
+}
+
+.iei-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-2);
+}
+
+.iei-swatches li {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.iei-swatches span {
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  border: 1px solid var(--iei-line-2);
+}
+
+.iei-modes {
+  display: flex;
+  gap: 4px;
+}
+
+.iei-modes a {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--iei-ink-2);
+  background: var(--iei-raised);
+  border: 1px solid var(--iei-line-2);
+  border-bottom: 2px solid var(--iei-line-2);
+  border-radius: 2px;
+  padding: 4px 8px;
+}
+
+.iei-modes a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-modes a:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-accent);
+}
+
+.iei-mode-on {
+  color: var(--iei-ink) !important;
+  border-bottom-color: var(--iei-accent-2) !important;
+}
+
+/* ---------- footer ---------- */
+
+.iei-foot {
+  border-top: 1px solid var(--iei-line);
+  margin-top: 8px;
+  padding-top: 14px;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-3);
+}
+
+.iei-foot a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.iei-foot a:hover {
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-line-2);
+}
+
+.iei-foot a:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom: 2px solid var(--iei-accent);
+}
+
+/* ---------- §36: a different hierarchy, not a shrunk desktop ---------- */
+
+@media (max-width: 900px) {
+  .iei-two {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+
+  .iei-top {
+    grid-template-columns: 1fr auto;
+    height: auto;
+    padding: 8px 12px;
+    row-gap: 8px;
+  }
+
+  .iei-nav {
+    order: 3;
+    grid-column: 1 / -1;
+    overflow-x: auto;
+    /* horizontal scroll beats wrapping to three rows and pushing content off the first screen */
+    flex-wrap: nowrap;
+    gap: 14px;
+    padding-bottom: 2px;
+  }
+
+  .iei-cmd input {
+    width: 150px;
+    max-width: 40vw;
+  }
+
+  .iei-drop {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iei * {
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-nav a:focus-visible,
+  .iei-cmd input:focus-visible,
+  .iei-t a:focus-visible,
+  .iei-modes a:focus-visible,
+  .iei-map svg a:focus-visible path,
+  .iei-foot a:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+}

@@ -25,18 +25,18 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   title: {
-    default: 'MANDATE — Election Intelligence',
-    template: '%s · MANDATE',
+    default: 'India Election Intelligence',
+    template: '%s · India Election Intelligence',
   },
   description:
     'A canonical registry of Indian politicians, parties and places, with every figure carrying the source it came from.',
   openGraph: {
-    title: 'MANDATE — Election Intelligence',
+    title: 'India Election Intelligence',
     description:
       'Every figure carries its source. 6,167 people, 294 seats, four elections, and an honest account of what has not been verified.',
     type: 'website',
     locale: 'en_IN',
-    siteName: 'MANDATE',
+    siteName: 'India Election Intelligence',
   },
   robots: { index: true, follow: true },
 };
