@@ -17,6 +17,8 @@ import { rmSync } from "node:fs";
 import { blockingKeys } from "../src/core/indic/index.ts";
 import { DEV_DB_PATH, all, get, open, openRead } from "../src/db/index.ts";
 import { migrate } from "../src/db/migrate.ts";
+import { JURISDICTIONS } from "../src/ingest/india.ts";
+import { downloadUrl, fetchState, importLokdhaba, localFile } from "../src/ingest/sources/lokdhaba.ts";
 import { countUncited, runIngest } from "../src/ingest/index.ts";
 import { THRESHOLD_PCT, diffAgainstSeed, formatReport } from "../src/ingest/export.ts";
 import { auditSample, resolvePersons, unmerge } from "../src/ingest/resolve/index.ts";
@@ -25,6 +27,11 @@ const argv = process.argv.slice(2);
 const cmd = argv[0] ?? "";
 const args = argv.slice(1).filter((a) => !a.startsWith("--"));
 const has = (name: string): boolean => argv.includes(`--${name}`);
+/** `--name=value`, or undefined. There was only a numeric reader; `import` needs string flags. */
+const arg = (name: string): string | undefined => {
+  const hit = argv.find((a) => a.startsWith(`--${name}=`));
+  return hit === undefined ? undefined : hit.slice(name.length + 3);
+};
 const num = (name: string, fallback: number): number => {
   const hit = argv.find((a) => a.startsWith(`--${name}=`));
   const n = hit === undefined ? NaN : Number(hit.slice(name.length + 3));
@@ -42,6 +49,9 @@ const USAGE = `mandate <command>
 
   migrate                      apply pending migrations
   ingest [--fresh]             ingest data/seed/*.json (--fresh: drop the db first)
+  import --state=<id> [--type=AE|GE] [--file=<path>] [--refresh]
+                               fetch and load a state's election history from Lokdhaba/TCPD
+                               e.g. mandate import --state=br   (br = Bihar, see --state=list)
   resolve [--dry-run]          resolve person duplicates
   audit [--n=200] [--seed=1]   audit a reproducible sample of merges
   unmerge --id=<n>             reverse person_merge <n> and restore the absorbed person
@@ -107,6 +117,63 @@ try {
       db.close();
       // P2 is the one property the product cannot ship without: make CI notice.
       if (r.uncitedValues > 0) fail(`${r.uncitedValues} uncited values — P2 violation`);
+      break;
+    }
+
+    case "import": {
+      const wanted = arg("state");
+      if (wanted === "list" || wanted === undefined) {
+        console.log(
+          wanted === undefined ? "import: --state is required. Available:\n" : "jurisdictions:\n",
+        );
+        table(JURISDICTIONS.map((j) => [`${j.id}  ${j.name}`, j.assemblySeats ?? "no assembly"]));
+        break;
+      }
+      const j = JURISDICTIONS.find((x) => x.id === wanted);
+      if (j === undefined) {
+        console.error(`import: unknown jurisdiction '${wanted}'. Try: mandate import --state=list`);
+        process.exitCode = 1;
+        break;
+      }
+      const type = (arg("type") ?? "AE").toUpperCase() === "GE" ? "GE" : "AE";
+      const stateFile = j.name.replace(/\s+/g, "_");
+      console.log(`import: ${j.name} ${type} from lokdhaba.ashoka.edu.in`);
+      const url = downloadUrl(stateFile, type);
+      const given = arg("file");
+      let file;
+      try {
+        file = given === undefined ? await fetchState(stateFile, type, { refresh: has("refresh") }) : localFile(given, url);
+      } catch (cause) {
+        // Node's fetch does not use proxy environment variables, so on a proxied machine curl reaches
+        // Lokdhaba and this does not. Rather than fail with a bare message, print the command that works.
+        console.error(
+          `import: could not read ${stateFile}_${type}.csv.gz — ${(cause as Error).message}\n\n` +
+            "If that was a connection failure, download it with a tool that honours your proxy and\n" +
+            "pass the file in:\n\n" +
+            `  curl -o /tmp/${stateFile}_${type}.csv.gz "${url}"\n` +
+            `  mandate import --state=${wanted} --type=${type} --file=/tmp/${stateFile}_${type}.csv.gz\n`,
+        );
+        process.exitCode = 1;
+        break;
+      }
+      console.log(
+        `  ${file.cached ? "cached" : "fetched"} ${file.bytes.length.toLocaleString("en-IN")} bytes  sha256 ${file.sha256.slice(0, 16)}…`,
+      );
+      const db = open();
+      const rep = importLokdhaba(db, { jurisdictionId: j.id, type, file, nowIso });
+      db.close();
+      table([
+        ["rows read", rep.rowsRead],
+        ["elections", rep.elections],
+        ["contests", rep.contests],
+        ["candidacies", rep.candidacies],
+        ["results", rep.results],
+        ["persons", rep.persons],
+        ["with a TCPD id", rep.tcpdIds],
+        ["parties", rep.parties],
+        ["delimitations", rep.epochs],
+      ]);
+      for (const s of rep.skipped) console.log(`  skipped ${s.count}: ${s.reason}`);
       break;
     }
 

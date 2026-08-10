@@ -30,6 +30,7 @@ const MIGRATIONS = [
   "004_resolve_queue.sql", "005_provenance_honesty.sql", "006_merge_queue_survives_merge.sql",
   "007_votes_may_be_unknown.sql",
   "008_place_geometry.sql",
+  "009_tcpd_person_id.sql",
 ];
 
 function migrated(): DatabaseSync {
