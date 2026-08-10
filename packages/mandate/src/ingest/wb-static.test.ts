@@ -296,7 +296,27 @@ test("boundary epoch, place versions and contests line up on delim-2008 (P4)", a
   assert.deepEqual(
     db.prepare("SELECT kind, COUNT(*) AS n FROM place GROUP BY kind ORDER BY kind").all()
       .map((r) => `${r.kind}=${r.n}`),
-    ["ac=2", "district=1", "nation=1", "pc=1", "state=1"],
+    // All 36 jurisdictions load regardless of whether any data sits beneath them: a state with no
+    // results is still a real place and the honest denominator behind "1 of 36". Only West Bengal has
+    // children here, which the next assertion checks.
+    ["ac=2", "district=1", "nation=1", "pc=1", "state=28", "ut=8"],
+  );
+  assert.equal(
+    Number(
+      db
+        .prepare(
+          `SELECT COUNT(DISTINCT s.id) AS n FROM place s JOIN place c ON c.parent_id = s.id
+            WHERE s.kind IN ('state','ut')`,
+        )
+        .get()?.n,
+    ),
+    1,
+    "exactly one jurisdiction should have anything beneath it in this fixture",
+  );
+  assert.equal(
+    Number(db.prepare("SELECT COUNT(*) AS n FROM place WHERE kind IN ('state','ut') AND lgd_code IS NULL").get()?.n),
+    0,
+    "every jurisdiction must carry its LGD code — it is the join key for government datasets",
   );
   const epoch = db.prepare("SELECT effective_from, effective_to FROM boundary_epoch WHERE id = 'delim-2008'").get();
   assert.equal(epoch?.effective_from, "2008-02-19");

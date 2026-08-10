@@ -24,6 +24,9 @@ import { candidacyId, contentId, contestId, slug } from "../../core/ids.ts";
 // One table for both directions of the district name disagreement; a leaf module, because
 // defining it here and importing it in the exporter made a cycle that left it undefined.
 import { DISTRICT_ALIAS } from "../districts.ts";
+// India's 36 jurisdictions as reference data. Written so the place tree is national in fact and
+// not only in shape: "1 of 36 states" was a hardcoded denominator with nothing behind it.
+import { JURISDICTIONS } from "../india.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
 import { coverageFailures, fieldCoverage, formatCoverage, seedShapeFailures, type CoverageRow } from "../field-coverage.ts";
 
@@ -656,7 +659,13 @@ function ingest(
   // A nation, and a state that hangs off it. `place.kind` has permitted 'nation' and 'pc' since 001 —
   // the DDL was national from the start and nothing had ever exercised it.
   placeRows.push([NATION_PLACE, "nation", null, "India", '{"hi":"भारत"}', null, null]);
-  placeRows.push([STATE_PLACE, "state", NATION_PLACE, "West Bengal", '{"bn":"পশ্চিমবঙ্গ"}', null, null]);
+  // All 36 jurisdictions, not just the one with data. A state with no results is still a real place and
+  // an honest denominator; loading only West Bengal is what made "1 of 36" unverifiable. lgd_code is the
+  // key every Indian government dataset joins on, so it is stored now rather than backfilled later.
+  for (const j of JURISDICTIONS) {
+    const names = j.id === STATE_PLACE ? '{"bn":"পশ্চিমবঙ্গ"}' : "{}";
+    placeRows.push([j.id, j.kind, NATION_PLACE, j.name, names, j.lgd, null]);
+  }
   const districtPlace = new Map<string, string>();
   for (const c of b.constituencies) {
     const dId = `${STATE_PLACE}.${slug(c.district)}`;

@@ -6,8 +6,8 @@ import { fillFor, getMap, seatTitle } from '../../packages/mandate/src/repo/map.
 import type { MapMode, MapView } from '../../packages/mandate/src/repo/map.ts';
 import { calendar, changeLog } from '../../packages/mandate/src/repo/room.ts';
 import type { CalendarEntry, ChangeEntry } from '../../packages/mandate/src/repo/room.ts';
-import { getCoverage, INDIA } from '../../packages/mandate/src/repo/coverage.ts';
-import type { Coverage } from '../../packages/mandate/src/repo/coverage.ts';
+import { getCoverage, jurisdictions, INDIA } from '../../packages/mandate/src/repo/coverage.ts';
+import type { Coverage, JurisdictionState } from '../../packages/mandate/src/repo/coverage.ts';
 import { Nav } from './nav.tsx';
 import './iei.css';
 
@@ -36,6 +36,50 @@ const MODES: { key: MapMode; label: string }[] = [
 /** §16's vocabulary as a component, so the four words are never improvised per surface. */
 function Badge({ kind }: { kind: 'CONFIRMED' | 'REPORTED' | 'DEVELOPING' | 'UNVERIFIED' }) {
   return <span className={`iei-badge iei-${kind.toLowerCase()}`}>{kind}</span>;
+}
+
+/** The whole result in one row. §21: a chart that needs a caption is not doing its job, so the segments
+ *  carry their own labels and there is no legend. Party colour is contextual here, as on the map. */
+const SHARE_HUES = ['#a98bf2', '#5ec8c8', '#e0a458'];
+function SeatShare({ s }: { s: Situation }) {
+  const total = s.momentum.reduce((n, p) => n + p.seatsWon, 0);
+  if (total === 0) return null;
+  const top = s.momentum.slice(0, 3);
+  const rest = s.momentum.slice(3).reduce((n, p) => n + p.seatsWon, 0);
+  const seg = (label: string, seats: number, fill: string) => (
+    <span key={label} style={{ background: fill, flexBasis: `${(100 * seats) / total}%` }}>
+      {(100 * seats) / total > 6 ? `${label} ${seats}` : ''}
+    </span>
+  );
+  return (
+    <div className="iei-share" role="img" aria-label={top.map((p) => `${p.short} ${p.seatsWon}`).join(', ')}>
+      {top.map((p, i) => seg(p.short, p.seatsWon, SHARE_HUES[i] ?? '#4a4459'))}
+      {rest > 0 ? seg('OTH', rest, '#4a4459') : null}
+    </div>
+  );
+}
+
+/** 36 cells, one per jurisdiction. This is the pan-India picture: a ratio said in a sentence is an
+ *  assertion, a grid with one cell lit is a fact you can count. */
+function National({ rows }: { rows: readonly JurisdictionState[] }) {
+  return (
+    <ul className="iei-grid">
+      {rows.map((j) => (
+        <li
+          key={j.id}
+          className={j.hasData ? 'iei-has' : j.seats === null ? 'iei-none' : undefined}
+          title={
+            j.seats === null
+              ? `${j.name} — no legislative assembly`
+              : `${j.name} — ${j.loaded} of ${j.seats} seats loaded`
+          }
+        >
+          <b>{j.id.toUpperCase()}</b>
+          {j.seats === null ? 'no assy' : `${j.loaded}/${j.seats}`}
+        </li>
+      ))}
+    </ul>
+  );
 }
 
 function SeatTable({ rows, widest }: { rows: readonly SeatRow[]; widest: number }) {
@@ -86,12 +130,14 @@ function Room({
   cal,
   log,
   cov,
+  nat,
 }: {
   s: Situation;
   view: MapView | null;
   cal: CalendarEntry[];
   log: ChangeEntry[];
   cov: Coverage | null;
+  nat: JurisdictionState[];
 }) {
   const widest = Math.max(MARGINAL_PP, ...s.marginal.map((r) => r.marginPct ?? 0));
   const underCut = s.marginal.filter((r) => (r.marginPct ?? 99) < MARGINAL_PP).length;
@@ -122,6 +168,8 @@ function Room({
           </b>
         </span>
       </div>
+
+      <SeatShare s={s} />
 
       <dl className="iei-kpi">
         <div>
@@ -159,8 +207,7 @@ function Room({
         <div className="iei-h">
           <h2>What changed</h2>
           <p>
-            Registry change log — no political event feed exists yet.{' '}
-            <Link href="/coverage">Why</Link>
+            Registry, not news. <Link href="/coverage">Why</Link>
           </p>
         </div>
         <table className="iei-t">
@@ -198,8 +245,7 @@ function Room({
         <div className="iei-h">
           <h2>Battlegrounds</h2>
           <p>
-            Last margin as a share of votes cast. No composite index, so no unjustifiable weights.{' '}
-            <Link href="/coverage">Method</Link>
+            Margin as a share of votes cast. <Link href="/coverage">Method</Link>
           </p>
         </div>
         <div className="iei-two">
@@ -209,7 +255,7 @@ function Room({
           <div>
             <div className="iei-h">
               <h2>Changed hands most</h2>
-              <p>Party changes across four elections</p>
+              <p>Party changes, four elections</p>
             </div>
             <SeatTable rows={s.volatile.slice(0, 6)} widest={widest} />
           </div>
@@ -264,7 +310,7 @@ function Room({
             <div id="signals">
               <div className="iei-h">
                 <h2>Signals</h2>
-                <p>Computed leads, never findings</p>
+                <p>Computed leads</p>
               </div>
               <ul className="iei-signals">
                 {s.flags.slice(0, 7).map((f) => (
@@ -287,11 +333,22 @@ function Room({
         )}
       </section>
 
+      {/* ── pan-India: the denominator, with structure behind it ────────────────────────────── */}
+      <section className="iei-sec" id="national">
+        <div className="iei-h">
+          <h2>India · {nat.filter((j) => j.hasData).length} of {nat.length} jurisdictions loaded</h2>
+          <p>
+            {IN.format(INDIA.assemblySeats)} assembly seats · {INDIA.lokSabhaSeats} Lok Sabha
+          </p>
+        </div>
+        <National rows={nat} />
+      </section>
+
       {/* ── §26 ELECTION CALENDAR ───────────────────────────────────────────────────────────── */}
       <section className="iei-sec" id="calendar">
         <div className="iei-h">
           <h2>Election calendar</h2>
-          <p>Dates only where a source recorded one. Nothing is estimated</p>
+          <p>Recorded dates only, never estimated</p>
         </div>
         <table className="iei-t">
           <thead>
@@ -348,6 +405,7 @@ export default function Home() {
   let cal: CalendarEntry[] = [];
   let log: ChangeEntry[] = [];
   let cov: Coverage | null = null;
+  let nat: JurisdictionState[] = [];
   try {
     const db = openRead();
     s = getSituation(db);
@@ -355,6 +413,7 @@ export default function Home() {
     cal = calendar(db);
     log = changeLog(db, 5);
     cov = getCoverage(db);
+    nat = jurisdictions(db);
   } catch {
     s = null;
   }
@@ -375,7 +434,7 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <Room s={s} view={view} cal={cal} log={log} cov={cov} />
+          <Room s={s} view={view} cal={cal} log={log} cov={cov} nat={nat} />
         )}
       </main>
     </div>

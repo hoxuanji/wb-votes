@@ -13,8 +13,9 @@
 // have to be fetched — a factual disclosure of scope, not a promise about a future release.
 
 import type { DatabaseSync } from "node:sqlite";
-import { get } from "../db/index.ts";
+import { all, get } from "../db/index.ts";
 import { read } from "./index.ts";
+import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
 
 /**
  * `no-model` — nothing in the schema can hold this yet.
@@ -243,7 +244,50 @@ export function verticals(db: DatabaseSync): VerticalState[] {
  * every state and UT assembly — the figure moves with delimitation, which is exactly why the number
  * lives next to a `boundary_epoch` model rather than inside a page.
  */
-export const INDIA = { states: 36, lokSabhaSeats: 543, assemblySeats: 4123 } as const;
+export const INDIA = {
+  states: INDIA_TOTALS.jurisdictions,
+  lokSabhaSeats: INDIA_TOTALS.lokSabhaSeats,
+  assemblySeats: INDIA_TOTALS.assemblySeats,
+} as const;
+
+export type JurisdictionState = {
+  id: string;
+  name: string;
+  kind: "state" | "ut";
+  /** Elected assembly strength, null where there is no assembly. */
+  seats: number | null;
+  /** Constituencies actually loaded for it. */
+  loaded: number;
+  hasData: boolean;
+};
+
+/**
+ * All 36 jurisdictions with what is loaded for each. This is the pan-India picture as a fact rather than
+ * a ratio: a grid of 36 cells, one lit, says in one glance what "1 of 36" took a sentence to say badly.
+ */
+export function jurisdictions(db: DatabaseSync): JurisdictionState[] {
+  return read(() => {
+    const loaded = new Map<string, number>();
+    for (const r of all<{ state_id: string; n: number }>(
+      db,
+      `SELECT COALESCE(d.parent_id, p.parent_id) AS state_id, count(*) AS n
+         FROM place p
+         LEFT JOIN place d ON d.id = p.parent_id
+        WHERE p.kind = 'ac'
+        GROUP BY state_id`,
+    )) {
+      if (r.state_id !== null) loaded.set(r.state_id, r.n);
+    }
+    return JURISDICTIONS.map((j) => ({
+      id: j.id,
+      name: j.name,
+      kind: j.kind,
+      seats: j.assemblySeats,
+      loaded: loaded.get(j.id) ?? 0,
+      hasData: (loaded.get(j.id) ?? 0) > 0,
+    }));
+  });
+}
 
 export type Geography = {
   statesLoaded: number;
