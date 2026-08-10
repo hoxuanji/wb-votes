@@ -242,7 +242,7 @@ export function getPlaceAnalysis(
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
         WHERE pv.place_id = ?
-        ORDER BY c.election_id DESC, r.rank, r.candidacy_id`,
+        ORDER BY substr(c.election_id, -4) DESC, c.election_id, r.rank, r.candidacy_id`,
       p.id,
     );
 
@@ -263,7 +263,7 @@ export function getPlaceAnalysis(
          JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
         WHERE dist.parent_id = ?
         GROUP BY c.election_id
-        ORDER BY c.election_id DESC`,
+        ORDER BY substr(c.election_id, -4) DESC, c.election_id`,
       p.parent_id,
       p.parent_id,
       p.state_id,

@@ -166,7 +166,9 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
               AND r.revision = (SELECT MAX(r2.revision) FROM result r2 WHERE r2.candidacy_id = ca.id)
          LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
         WHERE ca.person_id = ?
-        ORDER BY c.election_id DESC, c.id`,
+        -- newest first is by YEAR, not by id (see repo/index.ts yearOf): a career spanning
+        -- 'ls-2019' and 'up-assembly-2017' came back as two separately-descending runs.
+        ORDER BY substr(c.election_id, -4) DESC, c.election_id, c.id`,
       slug,
     );
 
@@ -192,7 +194,8 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
          LEFT JOIN affidavit_field f ON f.affidavit_id = a.id
         WHERE ca.person_id = ?
         GROUP BY a.id
-        ORDER BY c.election_id, a.filed_on, a.id`,
+        -- oldest first, by YEAR (see repo/index.ts yearOf)
+        ORDER BY substr(c.election_id, -4), c.election_id, a.filed_on, a.id`,
       slug,
     );
 
@@ -355,7 +358,7 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
                   pt.short_name AS party_short_name, ca.status,
                   r.votes, r.vote_share, r.is_winner, r.source_id AS result_source_id,
                   ROW_NUMBER() OVER (PARTITION BY ca.person_id
-                                     ORDER BY c.election_id DESC, c.id) AS rn
+                                     ORDER BY substr(c.election_id, -4) DESC, c.election_id, c.id) AS rn
              FROM candidacy ca
              JOIN contest c ON c.id = ca.contest_id
              JOIN place_version pv ON pv.id = c.place_version_id

@@ -121,7 +121,13 @@ export function loadSources(
 }
 
 /** Election year. `election` has no year column and counting_on is NULL for every historical row,
- *  so the id ('wb-assembly-2011') is the only carrier. */
+ *  so the id ('wb-assembly-2011') is the only carrier.
+ *
+ *  Its SQL counterpart is `substr(election_id, -4)`: all 1,188 ids in the registry end in '-YYYY',
+ *  so the last four characters ARE the year and compare correctly as text. `ORDER BY election_id
+ *  DESC` is NOT chronological and must never be used for "newest first" — 'wb-bypoll-ae-2021' sorts
+ *  above 'wb-assembly-2026', which reordered the history of 1,489 of 5,093 places, and a career
+ *  spanning a Lok Sabha and an assembly election came back as two separately-descending runs. */
 export function yearOf(electionId: string): number {
   const m = /(\d{4})/.exec(electionId);
   return m?.[1] === undefined ? 0 : Number(m[1]);

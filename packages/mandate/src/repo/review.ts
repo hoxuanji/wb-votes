@@ -126,7 +126,7 @@ function loadCandidate(db: DatabaseSync, id: string): Candidate {
        LEFT JOIN party pt ON pt.id = pver.party_id
        LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
       WHERE ca.person_id = ?
-      ORDER BY c.election_id DESC`,
+      ORDER BY substr(c.election_id, -4) DESC, c.election_id`,
     id,
   );
   return {

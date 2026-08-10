@@ -101,7 +101,7 @@ export function sittingMemberForLegacyId(db: DatabaseSync, legacyId: string): st
            JOIN result r         ON r.contest_id = c.id AND r.is_winner = 1 AND r.revision = 0
            JOIN candidacy ca     ON ca.id = r.candidacy_id
           WHERE pv.number = ?
-          ORDER BY c.election_id DESC
+          ORDER BY substr(c.election_id, -4) DESC, c.election_id
           LIMIT 1`,
         n,
       )?.person_id ?? null,
