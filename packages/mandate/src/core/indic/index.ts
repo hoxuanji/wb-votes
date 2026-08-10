@@ -287,13 +287,21 @@ export function blockingKeys(s: string): string[] {
   const raw = tokensOfRaw(s).map(tokenKey).filter((k) => k !== '');
   if (raw.length > keys.length) out.add([...raw].sort().join('|'));
 
-  // Surname-only, for the dropped-honorific case. Guarded: a skeleton under 3 chars
-  // ("Roy" → "r") would bucket thousands of unrelated people together, so qualify it
-  // with the leading token's initial instead of emitting a near-universal key.
+  // The surname key, for the dropped-honorific and initialled cases: "Md. Salim" reduces to one token
+  // and must still meet "Mohammed Salim"; "A Banerjee" must still meet "Abhishek Banerjee".
+  //
+  // ALWAYS qualified by the leading token's initial, never emitted bare. A bare surname key is not a
+  // blocking key in an Indian corpus — measured on the national registry, bare "sng" (Singh) held 39,816
+  // aliases and that one bucket implied a billion pairs, so it was dropped for exceeding the bucket cap
+  // and every Singh silently became unmatchable to every other Singh. Qualifying takes the worst bucket
+  // to 5,477. The guard for short skeletons ("Roy" → "r") was already doing exactly this; the only change
+  // is that long surnames stop being the exception.
+  //
+  // The initial comes from the PHONETIC key, not the raw name, so it inherits the folding this module
+  // already does: "Vikash Singh" and "Bikash Singh" both key under 'b', as do "Suvendu" / "Shubhendu".
   const significant = keys.filter((k) => k.length > 1);
   const surname = significant[significant.length - 1] ?? keys[keys.length - 1] ?? '';
-  if (surname.length >= 3) out.add(surname);
-  else if (surname !== '') out.add((keys[0] ?? '').slice(0, 1) + ':' + surname);
+  if (surname !== '') out.add((keys[0] ?? '').slice(0, 1) + ':' + surname);
 
   return [...out];
 }

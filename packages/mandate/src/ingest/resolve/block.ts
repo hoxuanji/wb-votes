@@ -25,15 +25,37 @@ import { all } from "../../db/index.ts";
 import { UNPARSEABLE_KEY, blockingKeys, normaliseName, phoneticKey, toLatin, tokenKeys } from "../../core/indic/index.ts";
 
 /**
- * A bucket larger than this is dropped, not expanded. It exists so one pathological key cannot
- * make the run quadratic: the real corpus's largest bucket is 404 ("mndl" — Mandal) before resolution
- * and 350 after, so this is ~1.24x headroom over observed. That is thinner than it looks — every
- * dropped bucket is reported, and `oversizedBuckets > 0` is the signal to raise the cap rather than a
- * silent loss of recall.
- * ponytail: a flat cap, not adaptive re-blocking on a second key — revisit when a real bucket
- * exceeds it and the report says so.
+ * A safety valve on the WORK one bucket may cost, not on its size.
+ *
+ * The old rule capped bucket size at 500 and dropped anything larger, which on the national registry
+ * dropped 92 buckets and with them about a billion pairs of recall — silently, in the name of not being
+ * quadratic. Expansion is no longer quadratic (see blockPairs), so a large bucket is only expensive when
+ * it also contains many UNRESOLVED persons, and that product is what this bounds. On the live registry
+ * the worst bucket costs about 5,477 x its unresolved members, so this never fires; it exists so a future
+ * corpus cannot make the run unbounded without saying so in the report.
+ */
+export const MAX_BUCKET_WORK = 1_000_000;
+
+/**
+ * Kept for the callers and tests that name it: the largest bucket this will expand at all. Nothing is
+ * dropped for being this big any more — the work cap above is what governs.
  */
 export const MAX_BUCKET = 500;
+
+/**
+ * Identifier schemes under which a value IS identity, within the source that published it.
+ *
+ * TCPD assigns a `pid` per person per file and never reuses one, so two persons carrying pids from the
+ * same file are asserted distinct BY THE PUBLISHER and comparing them cannot do anything but produce a
+ * false positive. 440,708 of the registry's 448,035 persons carry one. That is what makes blocking
+ * tractable at this scale: the resolver's job is the 7,327 who do not.
+ *
+ * Note what this does NOT claim: pids are scoped to a file, so the same politician in a state's assembly
+ * file and its parliamentary file has two of them and is a genuine merge candidate. Those pairs are
+ * withheld today and counted in the report as `pairsWithheldBothPublished`, because linking one house to
+ * the other is a different job (§00-model's tenure spine) from de-duplicating the seed.
+ */
+const PUBLISHED_IDENTITY = ["tcpd_pid"] as const;
 
 export type Candidacy = {
   contestId: string;
@@ -73,11 +95,17 @@ export type Pair = { a: string; b: string; via: "name" | "district" | "party" };
 
 export type BlockReport = {
   persons: number;
+  /** Persons carrying a published identifier, and therefore only comparable to the rest. */
+  publishedIdentity: number;
+  unresolved: number;
   /** Buckets with >=2 members that were actually expanded. */
   buckets: number;
   maxBucket: number;
-  /** Buckets skipped for exceeding MAX_BUCKET. */
+  /** Buckets skipped for exceeding MAX_BUCKET_WORK. Nothing is skipped for size alone. */
   oversizedBuckets: number;
+  /** Pairs a bucket contained but which were not emitted because BOTH sides carry a published id from
+   *  the same file. Reported rather than invisible: this is the cross-house linking job, deferred. */
+  pairsWithheldBothPublished: number;
   /** Term claims loadPersons could not parse. Those claims are the ONLY history a sitting MLA with
    *  no candidacy row has, so swallowing one silently recreates the bug the terms block was added to
    *  fix: the person can then never reach any merge threshold. */
@@ -91,6 +119,25 @@ export type BlockReport = {
 function electionYear(electionId: string): number {
   const m = /(\d{4})/.exec(electionId);
   return m === null ? 0 : Number(m[1]);
+}
+
+/**
+ * Pairs inside one bucket where both sides are published AND published by DIFFERENT files — the same
+ * politician in a state's assembly file and its parliamentary file. Counted, not emitted. Arithmetic per
+ * file rather than enumeration, so a 39,816-member bucket costs a few dozen operations.
+ */
+function crossFilePairs(members: readonly string[], publishedBy: ReadonlyMap<string, string>): number {
+  const perFile = new Map<string, number>();
+  let published = 0;
+  for (const id of members) {
+    const file = publishedBy.get(id);
+    if (file === undefined) continue;
+    published += 1;
+    perFile.set(file, (perFile.get(file) ?? 0) + 1);
+  }
+  let sameFile = 0;
+  for (const n of perFile.values()) sameFile += (n * (n - 1)) / 2;
+  return (published * (published - 1)) / 2 - sameFile;
 }
 
 /**
@@ -121,8 +168,8 @@ export function loadPersons(db: DatabaseSync): Map<string, PersonRec> {
   // became 793 ms, 0 of 231,242 scores changed).
   const seenAlias = new Set<string>();
   const addAlias = (p: PersonRec, name: string): void => {
-    if (seenAlias.has(`${p.id}\u0000${name}`)) return;
-    seenAlias.add(`${p.id}\u0000${name}`);
+    if (seenAlias.has(`${p.id} ${name}`)) return;
+    seenAlias.add(`${p.id} ${name}`);
     p.aliases.push(name);
     p.latin.push(toLatin(normaliseName(name)));
     const k = phoneticKey(name);
@@ -250,6 +297,19 @@ export function blockPairs(
     s.add(r.norm_key);
   }
 
+  // Which persons the publisher has already identified, and in which file. Same file on both sides means
+  // the pair is asserted-distinct; different files means a genuine candidate this pass withholds and
+  // counts rather than scores.
+  const publishedBy = new Map<string, string>();
+  for (const r of all<{ person_id: string; source_id: string }>(
+    db,
+    `SELECT person_id, source_id FROM person_identifier
+      WHERE scheme IN (${PUBLISHED_IDENTITY.map(() => "?").join(",")})`,
+    ...PUBLISHED_IDENTITY,
+  )) {
+    publishedBy.set(r.person_id, r.source_id);
+  }
+
   const buckets = new Map<string, string[]>();
   const via = new Map<string, Pair["via"]>();
   for (const p of persons.values()) {
@@ -265,20 +325,28 @@ export function blockPairs(
   let expanded = 0;
   let oversized = 0;
   let maxBucket = 0;
+  let withheld = 0;
   for (const [key, membersRaw] of buckets) {
     // keysFor() returns a Map, so a person is pushed into a given bucket at most once.
     const members = membersRaw.sort();
     if (members.length < 2) continue;
     maxBucket = Math.max(maxBucket, members.length);
-    if (members.length > MAX_BUCKET) {
+    // Every pair this bucket implies between two published persons is either asserted-distinct (same
+    // file) or the deferred cross-house case. Counted either way, emitted neither way.
+    withheld += crossFilePairs(members, publishedBy);
+    const free = members.filter((id) => !publishedBy.has(id));
+    if (free.length === 0) continue;
+    if (free.length * members.length > MAX_BUCKET_WORK) {
       oversized += 1;
       continue;
     }
     expanded += 1;
     const family = via.get(key) ?? "name";
-    for (let i = 0; i < members.length; i += 1) {
-      for (let j = i + 1; j < members.length; j += 1) {
-        const pk = `${members[i]}\u0000${members[j]}`;
+    for (const a of free) {
+      for (const b of members) {
+        if (a === b) continue;
+        const [lo, hi] = a < b ? [a, b] : [b, a];
+        const pk = `${lo} ${hi}`;
         // A name-block pair beats a co-* pair for reporting: it is the stronger provenance.
         if (family === "name" || !seen.has(pk)) seen.set(pk, family);
       }
@@ -288,7 +356,7 @@ export function blockPairs(
   const pairs: Pair[] = [];
   for (const [pk, family] of seen) {
     // Two ids joined two lines above, so both halves are always there.
-    const [a, b] = pk.split("\u0000") as [string, string];
+    const [a, b] = pk.split(" ") as [string, string];
     pairs.push({ a, b, via: family });
   }
   pairs.sort((x, y) => (x.a === y.a ? (x.b < y.b ? -1 : 1) : x.a < y.a ? -1 : 1));
@@ -309,9 +377,12 @@ export function blockPairs(
     pairs,
     report: {
       persons: n,
+      publishedIdentity: publishedBy.size,
+      unresolved: n - publishedBy.size,
       buckets: expanded,
       maxBucket,
       oversizedBuckets: oversized,
+      pairsWithheldBothPublished: withheld,
       unparseableTerms,
       pairs: pairs.length,
       naivePairs,
