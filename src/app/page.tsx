@@ -256,7 +256,8 @@ function Room({ s }: { s: Situation }) {
       </section>
 
       <p className="sr-foot">
-        Places: <Link href="/pl/wb">West Bengal by district</Link> — the one state loaded.{' '}
+        <Link href="/map">All 294 seats as a map</Link> · <Link href="/pl/wb">by district</Link> — the
+        one state loaded.{' '}
         API:{' '}
         <Link href="/v1/entity/person/mamata-banerjee-4a681f">an entity with its sources</Link>.
         <br />
@@ -310,6 +311,7 @@ export default function SituationRoom() {
       <div className="sr">
         <nav className="sr-nav">
           <span className="sr-mark">MANDATE</span>
+          <Link href="/map">Map</Link>
           <Link href="/pl/wb">Places</Link>
           <Link href="/search">People</Link>
           <Link href="/review/merges">Review</Link>
