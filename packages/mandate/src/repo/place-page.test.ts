@@ -250,9 +250,14 @@ test("placeView: Mekliganj renders six tiles, each cited, census vintage in the 
   assert.match(pop?.note ?? "", /Cooch Behar-wide, not this seat's/);
 });
 
-// Bishnupur is the registry's only duplicated AC name: wb.ac.154 (South 24 Parganas) and
-// wb.ac.266 (Bankura). The district page links both by slug, so the district in the path — not the
-// lower id — has to decide which one the name means.
+// Bishnupur is a duplicated AC name: wb.ac.146 (South 24 Parganas, which the source spells
+// 'BISHNUPUR(SC)') and wb.ac.266 (Bankura). The district page links both by slug, so the district in
+// the path — not the lower id — has to decide which one the name means.
+//
+// It was wb.ac.154 before the electoral-geography repair. That was the SEED's numbering, which runs 1-307
+// across a 294-seat assembly and disagrees with ECI's from seat 100 on; wb.ac.154 holds Behala Paschim's
+// results and Partha Chatterjee's 2021 win, and is now named accordingly. The seat did not move — the
+// registry stopped using a numbering no authority uses. docs/model/electoral-geography.md §4.
 test("placeView: a duplicated AC name resolves by the district in the path", { skip }, async () => {
   const bankura = await placeView(["wb", "bankura", "bishnupur"], {});
   assert.equal(bankura.kind, "ac");
@@ -262,7 +267,7 @@ test("placeView: a duplicated AC name resolves by the district in the path", { s
   const south = await placeView(["wb", "south-24-parganas", "bishnupur"], {});
   assert.equal(south.kind, "ac");
   if (south.kind !== "ac") return;
-  assert.equal(south.brief.place.id, "wb.ac.154");
+  assert.equal(south.brief.place.id, "wb.ac.146");
 
   // A name that exists, but not in the named district, is still not-found.
   assert.equal((await placeView(["wb", "kolkata", "bishnupur"], {})).kind, "not-found");

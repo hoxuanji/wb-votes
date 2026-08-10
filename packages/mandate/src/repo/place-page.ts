@@ -747,23 +747,55 @@ export async function placeView(segments: readonly string[], search: Search): Pr
     db = r.read(() => sql.openRead());
     const idA = target.ids.at(0) ?? "";
     const idB = target.ids.at(1) ?? idA;
+    // A CONSTITUENCY IS RESOLVED THROUGH ITS VERSION, not through `place`.
+    //
+    // `place.canonical_name` is a legacy seat-number grouping and its name is whichever delimitation
+    // created the row (migrations 011/012). Arunachal's ar.ac.001 is LUMLA on both of its versions and
+    // TAWANG-I on the place row, so matching `place` made /pl/ar/tawang/lumla a 404 while
+    // /pl/ar/tawang/tawang-i resolved to a page the rest of the code correctly titles LUMLA. Found by
+    // repo/smoke.test.ts, which is the whole reason that suite exists.
+    //
+    // Newest epoch first, so a name means the seat that carries it NOW. Ancestry narrows on the version's
+    // district, because district membership changes with delimitation too.
     const place = r.read(() =>
       sql.get<PlaceRow>(
         db as DatabaseSync,
-        `SELECT id, kind, canonical_name, parent_id
-           FROM place
-          WHERE kind = ?
-            AND (id = ? OR id = ? OR LOWER(canonical_name) = ? OR LOWER(REPLACE(canonical_name, ' ', '-')) = ?)
-            -- The path asserts an ancestry, and it must narrow the match BEFORE the LIMIT: two ACs
-            -- are named Bishnupur, and the lower id is in the other district.
-            AND (? IS NULL OR parent_id = ?)
-          ORDER BY CASE WHEN id = ? THEN 0 WHEN id = ? THEN 1 ELSE 2 END, id
-          LIMIT 1`,
+        target.level === "ac"
+          ? `SELECT pl.id, pv.kind, pv.canonical_name, COALESCE(pv.district_place_id, pl.parent_id) AS parent_id
+               FROM place_version pv
+               JOIN place pl ON pl.id = pv.place_id
+               JOIN boundary_epoch be ON be.id = pv.epoch_id
+              WHERE pv.kind = ?
+                AND (pl.id = ? OR pl.id = ? OR LOWER(pv.canonical_name) = ?
+                     OR LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ?
+                     -- The source appends the reservation to the name — 'BISHNUPUR(SC)', 'KHANAPUR(ST)',
+                     -- 102 of 16,785 versions — so a name-based URL for one of those never resolved. The
+                     -- marker is stripped for MATCHING only; canonical_name keeps whatever the source
+                     -- wrote, and pv.reservation is where the reservation is actually read from. (For 25 of
+                     -- them the name carries a marker the column does not: a data-quality note, recorded
+                     -- rather than reconciled here.)
+                     OR REPLACE(REPLACE(REPLACE(REPLACE(UPPER(pv.canonical_name),
+                        '(SC)', ''), '(ST)', ''), ' ', ''), '-', '') = ?)
+                -- The path asserts an ancestry, and it must narrow the match BEFORE the LIMIT: two ACs
+                -- are named Bishnupur, and the lower id is in the other district.
+                AND (? IS NULL OR COALESCE(pv.district_place_id, pl.parent_id) = ?)
+              ORDER BY CASE WHEN pl.id = ? THEN 0 WHEN pl.id = ? THEN 1 ELSE 2 END,
+                       be.effective_from DESC, pl.id
+              LIMIT 1`
+          : `SELECT id, kind, canonical_name, parent_id
+               FROM place
+              WHERE kind = ?
+                AND (id = ? OR id = ? OR LOWER(canonical_name) = ? OR LOWER(REPLACE(canonical_name, ' ', '-')) = ?
+                     OR REPLACE(REPLACE(UPPER(canonical_name), ' ', ''), '-', '') = ?)
+                AND (? IS NULL OR parent_id = ?)
+              ORDER BY CASE WHEN id = ? THEN 0 WHEN id = ? THEN 1 ELSE 2 END, id
+              LIMIT 1`,
         target.level,
         idA,
         idB,
         target.name,
         target.name.replace(/\s+/g, "-"),
+        target.name.toUpperCase().replace(/[^A-Z0-9]/g, ""),
         target.parentId,
         target.parentId,
         idA,
