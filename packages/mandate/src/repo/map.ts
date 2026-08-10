@@ -95,14 +95,17 @@ export function getMap(db: DatabaseSync, mode: MapMode): MapView | null {
     const rows = all<Row>(
       db,
       `WITH latest AS (
-         SELECT pv.place_id AS place_id, MAX(c.election_id) AS election_id
-           FROM contest c
-           JOIN election e       ON e.id = c.election_id AND e.kind = 'assembly'
-           JOIN place_version pv ON pv.id = c.place_version_id
-          GROUP BY pv.place_id
+         SELECT place_id, election_id FROM (
+           SELECT pv.place_id AS place_id, c.election_id AS election_id,
+                  row_number() OVER (PARTITION BY pv.place_id
+                                     ORDER BY substr(c.election_id, -4) DESC, c.election_id DESC) AS rn
+             FROM contest c
+             JOIN election e       ON e.id = c.election_id AND e.kind = 'assembly'
+             JOIN place_version pv ON pv.id = c.place_version_id)
+          WHERE rn = 1
        )
        SELECT p.id                AS place_id,
-              p.canonical_name    AS name,
+              pv.canonical_name   AS name,
               d.canonical_name    AS district,
               d.parent_id         AS state_id,
               pv.number           AS number,
@@ -118,7 +121,7 @@ export function getMap(db: DatabaseSync, mode: MapMode): MapView | null {
          FROM place_geometry g
          JOIN place_version pv ON pv.id = g.place_version_id
          JOIN place p          ON p.id = pv.place_id AND p.kind = 'ac'
-         LEFT JOIN place d     ON d.id = p.parent_id
+         LEFT JOIN place d     ON d.id = COALESCE(pv.district_place_id, p.parent_id)
          LEFT JOIN latest l    ON l.place_id = p.id
          LEFT JOIN contest c   ON c.election_id = l.election_id AND c.place_version_id = pv.id
          LEFT JOIN result r    ON r.contest_id = c.id AND r.is_winner = 1 AND r.revision = 0
@@ -134,7 +137,8 @@ export function getMap(db: DatabaseSync, mode: MapMode): MapView | null {
     const year = Math.max(
       ...all<{ y: string }>(
         db,
-        `SELECT id AS y FROM election WHERE kind = 'assembly' ORDER BY id DESC LIMIT 1`,
+        `SELECT id AS y FROM election WHERE kind = 'assembly'
+          ORDER BY substr(id, -4) DESC, id DESC LIMIT 1`,
       ).map((r) => Number(/(\d{4})/.exec(r.y)?.[1] ?? 0)),
     );
 

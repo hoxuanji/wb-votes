@@ -59,6 +59,7 @@ export type PlaceBrief = {
 
 type PlaceSql = {
   id: string;
+  place_version_id: number;
   canonical_name: string;
   names: string;
   parent_id: string | null;
@@ -95,20 +96,29 @@ type ContestSql = {
  * `slug` is the place id ('wb.ac.001') or the constituency name ('Mekliganj'), case-insensitive.
  * ponytail: no separate slug column; two candidate matches on an indexed PK and a name is cheaper
  * than a migration. Add one when a name collides across states.
+ *
+ * SCOPED TO ONE DELIMITATION, deliberately. The name and the history both come from the newest
+ * `place_version` for the seat, not from `place`: a place is keyed by seat number, and a seat number is
+ * not an identity across delimitation. Reading the history as `WHERE pv.place_id = ?` returned every
+ * election ever held under that NUMBER — sixteen of them for Mekliganj, spanning four different sets of
+ * boundaries — presented as one seat's record. Karnataka's parliamentary seat 1 was Bidar until 2008 and
+ * Chikkodi after it; those are not one constituency with a long history, and a page that adds their
+ * results together is asserting a continuity no source supports. Matching a name resolves in the same
+ * scope, so 'Mekliganj' means the seat that carries the name now.
  */
 export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null {
   return read(() => {
     const p = get<PlaceSql>(
       db,
-      `SELECT pl.id, pl.canonical_name, pl.names, pl.parent_id,
+      `SELECT pl.id, pv.id AS place_version_id, pv.canonical_name, pl.names, pl.parent_id,
               d.canonical_name AS district_name,
               pv.number, pv.reservation, pv.epoch_id, be.name AS epoch_name,
               pv.electors_at_creation
-         FROM place pl
-         LEFT JOIN place d ON d.id = pl.parent_id
-         LEFT JOIN place_version pv ON pv.place_id = pl.id
+         FROM place_version pv
+         JOIN place pl ON pl.id = pv.place_id
+         LEFT JOIN place d ON d.id = COALESCE(pv.district_place_id, pl.parent_id)
          LEFT JOIN boundary_epoch be ON be.id = pv.epoch_id
-        WHERE pl.kind = 'ac' AND (pl.id = ? OR LOWER(pl.canonical_name) = LOWER(?))
+        WHERE pv.kind = 'ac' AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
         ORDER BY be.effective_from DESC, pv.id DESC
         LIMIT 1`,
       slug,
@@ -126,16 +136,15 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
               pt.short_name AS party_short_name
          FROM contest c
          JOIN election e ON e.id = c.election_id
-         JOIN place_version pv ON pv.id = c.place_version_id
          LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
          LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank <= 2
          LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
          LEFT JOIN person per ON per.id = ca.person_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
-        WHERE pv.place_id = ?
+        WHERE c.place_version_id = ?
         ORDER BY substr(c.election_id, -4) DESC, c.election_id, r.rank, r.candidacy_id`,
-      p.id,
+      p.place_version_id,
     );
 
     const demoRows = demographicClaims(db, p.id);

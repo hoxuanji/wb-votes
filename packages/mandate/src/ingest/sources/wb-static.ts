@@ -693,16 +693,27 @@ function ingest(
     ]);
     // ponytail: place_version.id = the assembly number, unique inside delim-2008. A second epoch
     // needs an offset (or the UNIQUE (place_id, epoch_id) lookup) — add it with the epoch.
+    // The seat NAME lives here, on the version, not on the place: a place is keyed by seat number and a
+    // seat number means nothing across delimitations (migration 011). The seed describes only delim-2008,
+    // but writing the name at the right level is what stops a second epoch inheriting this one's.
     placeVersionRows.push([
       c.assemblyNumber,
       acId,
+      STATE_PLACE,
+      "ac",
       EPOCH_ID,
       c.assemblyNumber,
+      c.name,
+      dId,
       c.reservation.toLowerCase(),
       // geometry_ref points at place_geometry's key, which is this version id. Null here for 336 rows
       // is what hid 294 outlines in the seed for eight cycles.
       String(c.assemblyNumber),
       null,
+      null,
+      src("constituencies"),
+      0,
+      "[]",
     ]);
   }
 
@@ -1522,7 +1533,7 @@ function ingest(
     }
     const versionId = DISTRICT_VERSION_OFFSET + districtGeoIndex(dId);
     const source = src("districtPaths");
-    placeVersionRows.push([versionId, dId, EPOCH_ID, null, null, String(versionId), null]);
+    placeVersionRows.push([versionId, dId, STATE_PLACE, "district", EPOCH_ID, null, g.name, null, null, String(versionId), null, null, source, 0, "[]"]);
     placeGeometryRows.push([versionId, g.path, g.centroid.x, g.centroid.y, VIEW_BOX, source]);
   }
 
@@ -1585,7 +1596,7 @@ function ingest(
       placeRows.push([pcId, "pc", STATE_PLACE, m.lsConstituency, "{}", null, String(m.lsNumber)]);
       // reservation is NULL, not 'general': the source does not say, and 'general' would be a guess
       // that a reader could not distinguish from a fact.
-      placeVersionRows.push([versionId, pcId, EPOCH_ID, m.lsNumber, null, null, null]);
+      placeVersionRows.push([versionId, pcId, STATE_PLACE, "pc", EPOCH_ID, m.lsNumber, m.lsConstituency, null, null, null, null, null, src("mps"), 0, "[]"]);
 
       const contest = contestId(LS_ELECTION, `${slug(m.lsConstituency)}-${String(m.lsNumber).padStart(2, "0")}`);
       contestRows.push([contest, LS_ELECTION, versionId, null, 1, "declared", m.electedOn ?? null]);
@@ -1738,7 +1749,7 @@ function ingest(
   w("source", ["id","kind","publisher","title","url","archived_url","retrieved_at","published_on","doc_hash","page_count","licence","hash_kind","retrieval_kind"], ["id"], [...sourceRows.values()]);
   w("boundary_epoch", ["id","name","effective_from","effective_to","source_id"], ["id"], [[EPOCH_ID, "Delimitation of Parliamentary and Assembly Constituencies Order, 2008", EPOCH_FROM, null, src("constituencies")]]);
   w("place", ["id","kind","parent_id","canonical_name","names","lgd_code","eci_code"], ["id"], placeRows);
-  w("place_version", ["id","place_id","epoch_id","number","reservation","geometry_ref","electors_at_creation"], ["id"], placeVersionRows);
+  w("place_version", ["id","place_id","jurisdiction_id","kind","epoch_id","number","canonical_name","district_place_id","reservation","geometry_ref","electors_at_creation","source_constituency_key","name_source_id","name_conflict","name_variants"], ["id"], placeVersionRows);
   // After place_version: place_geometry references it, and writing first failed the foreign key.
   w("place_geometry", ["place_version_id","path","centroid_x","centroid_y","view_box","source_id"], ["place_version_id"], placeGeometryRows);
   w("election", ["id","kind","level","electorate_kind","jurisdiction_place_id","epoch_id","name","lifecycle","announced_on","notified_on","counting_on","forecast_gate_from","forecast_gate_to"], ["id"], electionRows);

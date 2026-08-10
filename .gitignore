@@ -42,3 +42,6 @@ Thumbs.db
 .next/
 tsconfig.tsbuildinfo
 .next-verify
+
+# Subagent worktrees: local scaffolding, never part of a commit.
+.claude/worktrees/

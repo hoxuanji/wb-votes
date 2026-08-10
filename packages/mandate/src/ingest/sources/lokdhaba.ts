@@ -434,6 +434,13 @@ export function importLokdhaba(
   )) {
     placeFromDb.set(`${r.id.split(".")[0]} ${r.kind} ${r.eci_code}`, { id: r.id, name: r.canonical_name });
   }
+  // Every place id already in the registry. A district has no eci_code, so placeFromDb cannot see it,
+  // and `w()` is an upsert on id: the district block below rewrote all 19 of West Bengal's curated
+  // district rows with TCPD's spelling — "Cooch Behar" became "COOCH BEHAR", their Bengali names became
+  // "{}" and their LGD codes became NULL. The same mistake as the one that reduced "All India Trinamool
+  // Congress" to the four characters AITC. An existing row is reference data this file did not create and
+  // must not overwrite.
+  const placeIdsInDb = new Set(all<{ id: string }>(db, "SELECT id FROM place").map((r) => r.id));
   const adoptedVersion = new Map<string, number>();
   for (const r of all<{ id: number; place_id: string; epoch_id: string }>(
     db,
@@ -508,7 +515,10 @@ export function importLokdhaba(
       const dId = `${j.id}.${DISTRICT_ALIAS[sl] ?? sl}`;
       if (!districtOf.has(dId)) {
         districtOf.set(dId, districtName);
-        placeRows.set(dId, [dId, "district", j.id, districtName, "{}", null, null]);
+        // Created only when absent — see placeIdsInDb.
+        if (!placeIdsInDb.has(dId)) {
+          placeRows.set(dId, [dId, "district", j.id, districtName, "{}", null, null]);
+        }
       }
       parentOf.set(placeId, dId);
     }
@@ -530,14 +540,30 @@ export function importLokdhaba(
     const adoptedV = adoptedVersion.get(vKey);
     const vId = adoptedV ?? versionId(stateIdx, delimId, seatNo, kind);
     if (adoptedV === undefined) {
+      // THE NAME GOES ON THE VERSION, NOT THE PLACE. `place` is keyed by seat number, and a seat number
+      // means nothing across delimitations: Karnataka's parliamentary seat 1 is BIDAR under the 1976 order
+      // and CHIKKODI under the 2008 one. Writing the name onto the place — which the first version of this
+      // importer did, and only on create — gave 52,875 of 63,288 contests a name from somebody else's
+      // delimitation, and put Chikkodi's 2019 winner beside the word Bidar. Migration 011 moved identity
+      // here and 012 made the name mandatory, so this row now carries the name THIS delimitation's file
+      // gives it, with the district it sat in and the source that said so.
       versionRows.set(vId, [
         vId,
         placeId,
+        j.id,
+        kind,
         epochId,
         seatNo,
+        seatName,
+        parentOf.get(placeId) ?? null,
         reservation === "gen" ? "general" : reservation === "" ? null : reservation,
         null,
         null,
+        // The source's own identity for this seat, verbatim, so the mapping stays auditable.
+        `${r["State_Name"] ?? ""}|${r["Election_Type"] ?? ""}|${delimId}|${seatNo}`,
+        sourceId,
+        0,
+        "[]",
       ]);
       // Remembered so the next row for the same seat and epoch reuses it, rather than re-deriving an id
       // that is only the same by luck of the allocation scheme.
@@ -763,7 +789,14 @@ export function importLokdhaba(
     w("source", ["id", "kind", "publisher", "title", "url", "archived_url", "retrieved_at", "published_on", "doc_hash", "hash_kind", "retrieval_kind"], ["id"], sourceRows);
     w("boundary_epoch", ["id", "name", "effective_from", "effective_to"], ["id"], epochRows.values());
     w("place", ["id", "kind", "parent_id", "canonical_name", "names", "lgd_code", "eci_code"], ["id"], placeRows.values());
-    w("place_version", ["id", "place_id", "epoch_id", "number", "reservation", "geometry_ref", "electors_at_creation"], ["id"], versionRows.values());
+    w(
+      "place_version",
+      ["id", "place_id", "jurisdiction_id", "kind", "epoch_id", "number", "canonical_name",
+       "district_place_id", "reservation", "geometry_ref", "electors_at_creation",
+       "source_constituency_key", "name_source_id", "name_conflict", "name_variants"],
+      ["id"],
+      versionRows.values(),
+    );
     w("election", ["id", "kind", "level", "electorate_kind", "jurisdiction_place_id", "epoch_id", "name", "lifecycle", "announced_on", "notified_on", "counting_on", "forecast_gate_from", "forecast_gate_to"], ["id"], electionRows.values());
     w("contest", ["id", "election_id", "place_version_id", "phase_n", "seats_available", "lifecycle", "declared_at"], ["id"], contestRows.values());
     w("person", ["id", "canonical_name", "canonical_name_script", "names", "sex", "birth_year", "birth_year_confidence", "review_state", "created_at"], ["id"], personRows.values());

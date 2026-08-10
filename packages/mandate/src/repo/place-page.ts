@@ -854,9 +854,27 @@ function ids(rows: readonly { source_ids: string | null }[]): string[] {
  * placeholder saying there will be.
  */
 function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow): PlaceView {
+  // The latest assembly election IN THIS JURISDICTION, by year.
+  //
+  // This was `SELECT MAX(election_id) FROM contest`, which was survivable while the registry held one
+  // state and became wrong the moment it held thirty-one: ids sort lexically, so the maximum is whichever
+  // state's name happens to sort last, and a West Bengal district asked for its seats' results in an
+  // election held somewhere else — returning nothing at all. The year is the last four characters of every
+  // election id (see repo/index.ts yearOf) and `place_version.jurisdiction_id` is what scopes it.
+  const jurisdiction = place.kind === "district" ? (place.parent_id ?? place.id) : place.id;
   const election =
     repo.read(() =>
-      sql.get<{ id: string | null }>(db, `SELECT MAX(election_id) AS id FROM contest`),
+      sql.get<{ id: string | null }>(
+        db,
+        `SELECT c.election_id AS id
+           FROM contest c
+           JOIN place_version pv ON pv.id = c.place_version_id
+           JOIN election e ON e.id = c.election_id AND e.kind = 'assembly'
+          WHERE pv.jurisdiction_id = ?
+          ORDER BY substr(c.election_id, -4) DESC, c.election_id DESC
+          LIMIT 1`,
+        jurisdiction,
+      ),
     )?.id ?? null;
   const year = election === null ? "" : repo.yearOf(election);
 
@@ -865,7 +883,7 @@ function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow
     const rows = repo.read(() =>
       sql.all<DistrictChildSql>(
         db,
-        `SELECT pl.id, pl.canonical_name, pv.number, pv.reservation,
+        `SELECT pl.id, pv.canonical_name, pv.number, pv.reservation,
                 t.voters, t.electors, r.margin,
                 per.canonical_name AS person_name,
                 COALESCE(pt.short_name, ca.party_raw) AS party,
@@ -880,7 +898,7 @@ function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow
            LEFT JOIN party_version pver ON pver.id = ca.party_version_id
            LEFT JOIN party pt ON pt.id = pver.party_id
           WHERE pl.parent_id = ? AND pl.kind = 'ac'
-          ORDER BY pv.number, pl.canonical_name`,
+          ORDER BY pv.number, pv.canonical_name`,
         election ?? "",
         place.id,
       ),

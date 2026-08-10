@@ -145,6 +145,7 @@ export type PlaceAnalysis = {
 
 type PlaceSql = {
   id: string;
+  place_version_id: number;
   canonical_name: string;
   parent_id: string | null;
   district_name: string | null;
@@ -209,16 +210,19 @@ export function getPlaceAnalysis(
   return read(() => {
     const p = get<PlaceSql>(
       db,
-      `SELECT pl.id, pl.canonical_name, pl.parent_id,
+      // Named from the VERSION, and scoped to it: a seat number is not an identity across
+      // delimitation, so both the name and the analysis belong to one set of boundaries. See
+      // docs/model/electoral-geography.md.
+      `SELECT pl.id, pv.id AS place_version_id, pv.canonical_name, pl.parent_id,
               d.canonical_name AS district_name, d.parent_id AS state_id,
               st.canonical_name AS state_name,
               pv.number, pv.reservation, pv.epoch_id, be.name AS epoch_name
-         FROM place pl
-         LEFT JOIN place d ON d.id = pl.parent_id
+         FROM place_version pv
+         JOIN place pl ON pl.id = pv.place_id
+         LEFT JOIN place d ON d.id = COALESCE(pv.district_place_id, pl.parent_id)
          LEFT JOIN place st ON st.id = d.parent_id
-         LEFT JOIN place_version pv ON pv.place_id = pl.id
          LEFT JOIN boundary_epoch be ON be.id = pv.epoch_id
-        WHERE pl.kind = 'ac' AND (pl.id = ? OR LOWER(pl.canonical_name) = LOWER(?))
+        WHERE pv.kind = 'ac' AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
         ORDER BY be.effective_from DESC, pv.id DESC
         LIMIT 1`,
       slug,
@@ -241,9 +245,9 @@ export function getPlaceAnalysis(
          LEFT JOIN person per ON per.id = ca.person_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
-        WHERE pv.place_id = ?
+        WHERE c.place_version_id = ?
         ORDER BY substr(c.election_id, -4) DESC, c.election_id, r.rank, r.candidacy_id`,
-      p.id,
+      p.place_version_id,
     );
 
     // The two baselines §6.5 asks for, in one grouped pass over the same turnout rows. Aggregated

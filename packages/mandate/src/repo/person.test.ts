@@ -118,7 +118,8 @@ test("affidavit trail orders a real two-filing series oldest-first", () => {
     INSERT INTO boundary_epoch (id,name,effective_from) VALUES ('e','Delim 2008','2008-01-01');
     INSERT INTO place (id,kind,canonical_name) VALUES ('wb','state','West Bengal');
     INSERT INTO place (id,kind,parent_id,canonical_name) VALUES ('wb.ac.001','ac','wb','Testpur');
-    INSERT INTO place_version (id,place_id,epoch_id,number,reservation) VALUES (1,'wb.ac.001','e',1,'general');
+    INSERT INTO place_version (id,place_id,jurisdiction_id,kind,epoch_id,number,canonical_name,reservation)
+      VALUES (1,'wb.ac.001','wb','ac','e',1,'Testpur','general');
     INSERT INTO person (id,canonical_name,review_state,created_at) VALUES ('t-p','Test Person','auto','2026-01-01T00:00:00Z');
     INSERT INTO person_alias (person_id,name,script,norm_key,kind) VALUES ('t-p','Test Person','latn','tstprsn','affidavit');
     INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle)

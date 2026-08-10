@@ -21,6 +21,8 @@ const EXPECTED_TABLES = [
   "source_page", "claim", "citation", "ingest_run", "correction",
   // 004 resolve queue + undo tape
   "person_merge_candidate", "person_merge_undo",
+  // 011 constituency identity: cross-delimitation links, nominal only unless a source is cited
+  "place_version_link",
   // the runner's own ledger
   "schema_migration",
 ];
@@ -32,6 +34,8 @@ const MIGRATIONS = [
   "008_place_geometry.sql",
   "009_tcpd_person_id.sql",
   "010_reservation_bl.sql",
+  "011_place_version_identity.sql",
+  "012_place_version_name_required.sql",
 ];
 
 function migrated(): DatabaseSync {
@@ -48,8 +52,8 @@ function seed(db: DatabaseSync): void {
     INSERT INTO boundary_epoch (id, name, effective_from)
       VALUES ('delim-2008', 'Delimitation 2008', '2008-02-19');
     INSERT INTO place (id, kind, canonical_name) VALUES ('wb', 'state', 'West Bengal');
-    INSERT INTO place_version (id, place_id, epoch_id, number, reservation)
-      VALUES (1, 'wb', 'delim-2008', 1, 'general');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+      VALUES (1, 'wb', 'wb', 'state', 'delim-2008', 1, 'West Bengal', 'general');
     INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle)
       VALUES ('wb-assembly-2026', 'assembly', 'state', 'wb', 'delim-2008', 'WB 2026', 'declared');
     INSERT INTO contest (id, election_id, place_version_id, lifecycle)

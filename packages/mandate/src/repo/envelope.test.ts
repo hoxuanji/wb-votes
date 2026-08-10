@@ -68,8 +68,8 @@ function buildFixture(): string {
     INSERT INTO place (id,kind,parent_id,canonical_name) VALUES
       ('wb.coochbehar','district','wb','Cooch Behar'),
       ('${AC}','ac','wb.coochbehar','Mekliganj');
-    INSERT INTO place_version (id,place_id,epoch_id,number,reservation,electors_at_creation)
-      VALUES (1,'${AC}','delim-2008',1,'sc',224413);
+    INSERT INTO place_version (id,place_id,jurisdiction_id,kind,epoch_id,number,canonical_name,district_place_id,reservation,electors_at_creation)
+      VALUES (1,'${AC}','wb','ac','delim-2008',1,'Mekliganj','wb.coochbehar','sc',224413);
     INSERT INTO party (id,name,short_name,kind) VALUES ('tmc','All India Trinamool Congress','TMC','state');
     INSERT INTO party_version (id,party_id,valid_from,name) VALUES (1,'tmc','2011-01-01','All India Trinamool Congress');
     INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle) VALUES
@@ -187,10 +187,32 @@ async function assertContract(where: string, searchTerm: string): Promise<void> 
   } else {
     assert.equal(line, undefined, `${where}: every source was fetched, so there is nothing to caveat`);
   }
-  assert.ok(
-    person.meta.caveats.some((c) => /\d+ of \d+ claims .*provisional/.test(c)),
-    `${where}: a response built from provisional claims says so`,
-  );
+  // The provisional-claims caveat is the same biconditional, for the same reason.
+  //
+  // This assertion was unconditional, which was right while every person in the registry was a 2026
+  // affidavit filer with five person-level claims each. It is no longer: of 448,035 persons, most come from
+  // TCPD's result files and have NO person-level claims at all — MAMATA (BALA) ADHIKARY has zero, while
+  // Mamata Banerjee has five. §20 requires a response BUILT from provisional claims to say so; a response
+  // built from none has nothing to declare, and demanding the caveat anyway would force the envelope to
+  // print "0 of 0 claims are provisional", which is noise dressed as rigour. So: provisional claims
+  // present → the caveat; none → no caveat. Counted from the registry the reply was built from, so the
+  // test cannot pass by reading the caveat it is checking.
+  const db = openRead(process.env["MANDATE_DB_PATH"]);
+  const provisionalClaims =
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM claim
+          WHERE subject_ref = ? AND confidence = 'provisional'`,
+      )
+      .get(`person:${person.data.person.id}`) as { n: number } | undefined;
+  db.close();
+  const n = provisionalClaims?.n ?? 0;
+  const provisional = person.meta.caveats.find((c) => /\d+ of \d+ claims .*provisional/.test(c));
+  if (n > 0) {
+    assert.ok(provisional !== undefined, `${where}: a response built from ${n} provisional claim(s) says so`);
+  } else {
+    assert.equal(provisional, undefined, `${where}: no provisional claims, so nothing to caveat`);
+  }
 
   // §6.5: the census vintage AND the census geography travel in meta
   const years = new Set(place.data.demographics.map((d) => d.value.sourceYear));

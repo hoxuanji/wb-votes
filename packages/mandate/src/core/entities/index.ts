@@ -165,16 +165,61 @@ export type BoundaryEpoch = {
 export const RESERVATIONS = ["general", "sc", "st", "bl"] as const;
 export type Reservation = (typeof RESERVATIONS)[number];
 
+/**
+ * A constituency as of one delimitation — and, for `ac` and `pc`, the constituency ITSELF.
+ *
+ * A seat number is not an identity across delimitation: Karnataka's parliamentary seat 1 is BIDAR under
+ * the 1976 order and CHIKKODI under the 2008 one. So the name, the district, the source's own identity for
+ * the seat and the provenance of the name all live here, per epoch — not on `place`, which for a
+ * constituency is a legacy seat-number grouping retained for audit only. Migrations 011 and 012;
+ * docs/model/electoral-geography.md.
+ */
 export type PlaceVersion = {
   id: number;
+  /** Audit only for a constituency. Never read a name or a history through it. */
   placeId: string;
+  jurisdictionId: string;
+  kind: PlaceKind;
   epochId: string;
   /** Constituency number in that epoch. */
   number: number | null;
+  /** The name this constituency had in THIS delimitation. */
+  canonicalName: string;
+  /** District as of this delimitation; district membership changes when boundaries do. */
+  districtPlaceId: string | null;
   reservation: Reservation | null;
   /** Tile feature key; geometry lives in PMTiles, never in the registry. */
   geometryRef: string | null;
   electorsAtCreation: number | null;
+  /** The source's own identity for the seat, verbatim. */
+  sourceConstituencyKey: string | null;
+  nameSourceId: string | null;
+  /** 1 when another cited source names this same slot differently. Recorded, not resolved. */
+  nameConflict: number;
+  /** JSON: every spelling observed, with the years and row counts behind it. */
+  nameVariants: string;
+};
+
+/** A relationship between constituencies in different delimitations. Anything stronger than a name match
+ *  requires a cited source — the schema enforces it, so a fabricated succession cannot be stored. */
+export const PLACE_VERSION_LINK_KINDS = [
+  "name_match",
+  "renamed_to",
+  "successor",
+  "predecessor",
+  "split_into",
+  "merged_from",
+  "boundary_changed",
+] as const;
+export type PlaceVersionLinkKind = (typeof PLACE_VERSION_LINK_KINDS)[number];
+
+export type PlaceVersionLink = {
+  fromPlaceVersionId: number;
+  toPlaceVersionId: number;
+  kind: PlaceVersionLinkKind;
+  /** How the link was established, in words. */
+  basis: string;
+  sourceId: string | null;
 };
 
 export const CROSSWALK_METHODS = ["areal", "booth_reassignment", "official_order"] as const;

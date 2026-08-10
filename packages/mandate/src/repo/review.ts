@@ -116,7 +116,7 @@ function loadCandidate(db: DatabaseSync, id: string): Candidate {
     age_declared: number | null;
   }>(
     db,
-    `SELECT c.election_id, pl.canonical_name AS place, pt.short_name AS party, ca.status,
+    `SELECT c.election_id, pv.canonical_name AS place, pt.short_name AS party, ca.status,
             r.is_winner, ca.age_declared
        FROM candidacy ca
        JOIN contest c ON c.id = ca.contest_id

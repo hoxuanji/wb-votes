@@ -22,6 +22,8 @@ import { downloadUrl, fetchState, importLokdhaba, localFile, lokdhabaState } fro
 import { countUncited, runIngest } from "../src/ingest/index.ts";
 import { THRESHOLD_PCT, diffAgainstSeed, formatReport } from "../src/ingest/export.ts";
 import { auditSample, resolvePersons, unmerge } from "../src/ingest/resolve/index.ts";
+import { backfillGeography } from "../src/ingest/geography/backfill.ts";
+import { validateGeography } from "../src/ingest/geography/validate.ts";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0] ?? "";
@@ -57,6 +59,8 @@ const USAGE = `mandate <command>
   unmerge --id=<n>             reverse person_merge <n> and restore the absorbed person
   query person <term>          find people by name / blocking key
   coverage                     per-table row counts and citation coverage
+  geography validate           ten checks on constituency identity, with before/after metrics
+  geography backfill [--apply] restore each constituency's own name per delimitation, from source
   export                       rebuild the seed from the registry and report what differs`;
 
 /** Two columns, right-aligned values. Every subcommand prints through this so output is one shape. */
@@ -335,6 +339,69 @@ try {
         ["uncited values", countUncited(db)],
       ]);
       db.close();
+      break;
+    }
+
+    case "geography": {
+      // Constituency identity: a seat number means nothing across delimitations, so the name lives on
+      // place_version and is reconstructed from the source files. docs/model/electoral-geography.md.
+      const sub = argv[1] ?? "";
+      if (sub === "validate") {
+        const db = open();
+        const v = validateGeography(db);
+        for (const c of v.checks) {
+          const verdict = c.skipped ? "SKIPPED" : c.violations === 0 ? "pass" : `${c.violations} VIOLATIONS`;
+          console.log(`${String(c.n).padStart(2)}. ${c.name.padEnd(52)} ${verdict}`);
+          if (c.skipped) console.log(`      not asked: ${c.why ?? "no reason given"}`);
+          for (const ex of c.examples) console.log(`      ${ex}`);
+        }
+        console.log("\nmetrics");
+        table([
+          ["contests", v.metrics.contests],
+          [
+            "contests misnamed, before → after",
+            v.metrics.misnamedBefore === null
+              ? "not measurable without the source cache"
+              : `${v.metrics.misnamedBefore} → ${v.metrics.misnamedAfter}`,
+          ],
+          ["versions with >1 source spelling", v.metrics.ambiguous],
+          ["versions with two sources disagreeing", v.metrics.conflicts],
+          ["versions not in any source file", v.metrics.unreconstructed],
+          ["name_match links", v.metrics.nameMatchLinks],
+          ["crosswalk rows (quantitative succession)", v.metrics.crosswalkRows],
+          ["asserted succession links", v.metrics.succession],
+        ]);
+        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        db.close();
+        if (!v.ok) process.exit(1);
+        break;
+      }
+      if (sub === "backfill") {
+        const apply = argv.includes("--apply");
+        const db = open();
+        const r = backfillGeography(db, { apply });
+        table([
+          ["mode", apply ? "applied" : "dry run — pass --apply to write"],
+          ["versions considered", r.versions],
+          ["corrected", r.buckets.corrected],
+          ["already correct", r.buckets.already_correct],
+          ["conflict, owning source kept", r.buckets.conflict_kept_owner],
+          ["no source row, existing name kept", r.buckets.unreconstructed],
+          ["not a constituency", r.buckets.not_a_constituency],
+          ["source carries >1 spelling", r.ambiguousNames],
+          ["left unnamed", r.unnamed],
+          ["name_match links written", r.nameMatchLinks],
+          ["audit", r.reportPath ?? "none"],
+        ]);
+        const notable = Object.entries(r.byJurisdiction).filter(([, v]) => v.conflict > 0 || v.unreconstructed > 0);
+        if (notable.length > 0) {
+          console.log("\nunresolved, by jurisdiction");
+          table(notable.map(([k, v]): [string, unknown] => [k, `${v.conflict} conflicts, ${v.unreconstructed} not in source`]));
+        }
+        db.close();
+        break;
+      }
+      fail("geography <validate|backfill>");
       break;
     }
 

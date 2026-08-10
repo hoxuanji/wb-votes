@@ -107,7 +107,13 @@ function fixture(people: readonly Fix[] = PEOPLE): DatabaseSync {
   const pvOf = new Map<string, number>();
   for (const ac of acs) {
     run("INSERT INTO place (id, kind, parent_id, canonical_name) VALUES (?, 'ac', ?, ?)", `ac.${ac}`, DISTRICTS[ac] ?? "d1", `AC ${ac}`);
-    run("INSERT INTO place_version (id, place_id, epoch_id, number) VALUES (?, ?, 'e1', ?)", pvId, `ac.${ac}`, Number(ac));
+    run(
+      "INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name) VALUES (?, ?, 'wb', 'ac', 'e1', ?, ?)",
+      pvId,
+      `ac.${ac}`,
+      Number(ac),
+      `AC ${ac}`,
+    );
     pvOf.set(ac, pvId);
     pvId += 1;
   }

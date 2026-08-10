@@ -132,7 +132,7 @@ function contestRows(db: DatabaseSync): ContestSql[] {
   return all<ContestSql>(
     db,
     `SELECT pv.place_id                         AS place_id,
-            ac.canonical_name                   AS ac_name,
+            pv.canonical_name                   AS ac_name,
             d.canonical_name                    AS district,
             COALESCE(st.id, d.parent_id, '')     AS state_id,
             COALESCE(j.canonical_name, st.canonical_name, 'this jurisdiction') AS jurisdiction,

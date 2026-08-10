@@ -131,14 +131,37 @@ things that genuinely need it — the ⌘K command bar and the evidence drawer.
 
 ## Known red, and why
 
-11 tests. Three families, none cosmetic:
+**1 test.** Down from 11, and nine of those turned out to be right about a defect rather than out of date —
+see `docs/model/electoral-geography.md` §8 for the classification of each.
 
-- **place-page window expectations (8).** Tests asserting four elections against seats that now have
-  sixteen, and a turnout floor that 1962's real 47.2% falsifies. Expectations, not defects — but each
-  needs a decision about what a seat page should show.
-- **person surfaces (2).** `searchPersons` homonyms and `getPersonBrief` at 60× the people. One is fallout
-  from running `resolve`: 1,202 persons were merged away and a test still names an absorbed id.
-- **§20's provisional-claims caveat (1).** A TCPD-derived person has no provisional claims to caveat.
+- **`searchPersons`: surname-first and given-name-first meet.** Real, and out of scope where it was found.
+  "Md Salim" and "Salim Md" do reach the same person — both emit the order-independent key `md|slm` — but
+  "Md Salim" also emits the bare token key `slm`, which matches every Salim in the registry, and the exact
+  match is not ranked above them, so the overlap falls outside the top 50. Person-search ranking, not
+  electoral geography.
+
+`mandate geography validate` also holds one check red on purpose: **Bihar held two assembly elections in
+2005**, February and October, and an election id is `(jurisdiction, house, YEAR)`, which cannot tell them
+apart — so 34 seats carry two winners. A year is no more an identity for an election than a seat number is
+for a constituency. It is the same defect one level up, it is not fixed, and the regression test asserts it
+has not grown.
+
+## The electoral-geography repair, 2026-08-11
+
+The registry identified a constituency as `(jurisdiction, house, seat number)` and wrote its name only when
+creating the row, so whichever delimitation was imported first won the name for all the others. Karnataka's
+parliamentary seat 1 is BIDAR under the 1976 order and CHIKKODI under the 2008 one; the registry called it
+Bidar in both and put Chikkodi's 2019 winner beside the wrong name. **51,702 of 63,288 contests named a seat
+from another delimitation; after the repair, 900 do, and all 900 are a recorded West Bengal conflict rather
+than an unknown.**
+
+A constituency is now a `place_version`: `(jurisdiction, house, epoch, number)` with its own name, district,
+source identity and provenance, under `UNIQUE (jurisdiction_id, kind, epoch_id, number)`. All 62 source
+files were re-fetched and every one is byte-identical to the sha256 recorded at import, so every corrected
+name comes from the same document that produced the row it corrects. Two more defects surfaced on the way:
+the importer was overwriting curated district rows (`Cooch Behar` → `COOCH BEHAR`, Bengali names to `{}`),
+and Bihar 2005 above. Full account, including the West Bengal numbering conflict that is deliberately *not*
+resolved and why a 278-of-294 fuzzy name match was refused, in `docs/model/electoral-geography.md`.
 
 ## How to keep this file honest
 

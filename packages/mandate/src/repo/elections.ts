@@ -42,7 +42,7 @@ const TERM_YEARS = 5;
 const INSIDE = `
        JOIN place_version pvv ON pvv.id = c.place_version_id
        JOIN place pl          ON pl.id = pvv.place_id
-       LEFT JOIN place dis    ON dis.id = pl.parent_id`;
+       LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)`;
 /** Binds the jurisdiction id TWICE, once per depth. */
 const IN_SCOPE = `(pl.parent_id = ? OR dis.parent_id = ?)`;
 
@@ -374,7 +374,7 @@ export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): Cl
     if (ids.length === 0) return [];
     return all<CloseFight>(
       db,
-      `SELECT pl.canonical_name AS placeName, pl.id AS placeId,
+      `SELECT plv.canonical_name AS placeName, pl.id AS placeId,
               substr(pl.id, 1, instr(pl.id, '.') - 1) AS jurisdictionId,
               ${LABEL_SQL} AS winner,
               -- Two decimals, because the closest seats in India are decided by tens of votes and one
@@ -588,7 +588,7 @@ export function seatResults(db: DatabaseSync, electionId: string, jurisdictionId
   return read(() =>
     all<SeatSql>(
       db,
-      `SELECT pl.id AS placeId, pl.canonical_name AS placeName,
+      `SELECT pl.id AS placeId, pvv.canonical_name AS placeName,
               pl.parent_id AS parentId, dis.kind AS parentKind, dis.canonical_name AS districtName,
               pvv.number AS number, pvv.reservation AS reservation,
               t.voters AS voters, t.electors AS electors,
@@ -605,7 +605,7 @@ export function seatResults(db: DatabaseSync, electionId: string, jurisdictionId
          LEFT JOIN party_version pv ON pv.id = cd.party_version_id
          LEFT JOIN party pt         ON pt.id = pv.party_id
         WHERE c.election_id = ? AND ${IN_SCOPE}
-        ORDER BY pvv.number, pl.canonical_name`,
+        ORDER BY pvv.number, pvv.canonical_name`,
       electionId,
       jurisdictionId,
       jurisdictionId,
