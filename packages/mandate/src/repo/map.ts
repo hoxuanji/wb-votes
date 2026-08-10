@@ -98,7 +98,7 @@ export function getMap(db: DatabaseSync, mode: MapMode): MapView | null {
          SELECT place_id, election_id FROM (
            SELECT pv.place_id AS place_id, c.election_id AS election_id,
                   row_number() OVER (PARTITION BY pv.place_id
-                                     ORDER BY substr(c.election_id, -4) DESC, c.election_id DESC) AS rn
+                                     ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC) AS rn
              FROM contest c
              JOIN election e       ON e.id = c.election_id AND e.kind = 'assembly'
              JOIN place_version pv ON pv.id = c.place_version_id)
@@ -138,7 +138,7 @@ export function getMap(db: DatabaseSync, mode: MapMode): MapView | null {
       ...all<{ y: string }>(
         db,
         `SELECT id AS y FROM election WHERE kind = 'assembly'
-          ORDER BY substr(id, -4) DESC, id DESC LIMIT 1`,
+          ORDER BY year DESC, polling_month DESC, occurrence DESC LIMIT 1`,
       ).map((r) => Number(/(\d{4})/.exec(r.y)?.[1] ?? 0)),
     );
 

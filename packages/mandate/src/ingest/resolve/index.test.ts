@@ -121,10 +121,11 @@ function fixture(people: readonly Fix[] = PEOPLE): DatabaseSync {
   const years = [...new Set(people.flatMap((p) => p.cands.map((c) => c.year)))].sort();
   for (const y of years) {
     run(
-      `INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle)
-         VALUES (?, 'assembly', 'state', 'wb', 'e1', ?, 'declared')`,
+      `INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+         VALUES (?, 'assembly', 'state', 'wb', 'e1', ?, 'declared', 'ac', ?, 1)`,
       `wb-assembly-${y}`,
       `WB ${y}`,
+      y,
     );
     for (const ac of acs) {
       run(

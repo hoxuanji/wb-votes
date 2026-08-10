@@ -72,9 +72,9 @@ function buildFixture(): string {
       VALUES (1,'${AC}','wb','ac','delim-2008',1,'Mekliganj','wb.coochbehar','sc',224413);
     INSERT INTO party (id,name,short_name,kind) VALUES ('tmc','All India Trinamool Congress','TMC','state');
     INSERT INTO party_version (id,party_id,valid_from,name) VALUES (1,'tmc','2011-01-01','All India Trinamool Congress');
-    INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle) VALUES
-      ('wb-assembly-2021','assembly','state','wb','delim-2008','West Bengal Assembly 2021','declared'),
-      ('wb-assembly-2026','assembly','state','wb','delim-2008','West Bengal Assembly 2026','declared');
+    INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle,house,year,occurrence) VALUES
+      ('wb-assembly-2021','assembly','state','wb','delim-2008','West Bengal Assembly 2021','declared','ac',2021,1),
+      ('wb-assembly-2026','assembly','state','wb','delim-2008','West Bengal Assembly 2026','declared','ac',2026,1);
     INSERT INTO contest (id,election_id,place_version_id,lifecycle) VALUES
       ('wb-assembly-2021:ac001','wb-assembly-2021',1,'declared'),
       ('wb-assembly-2026:ac001','wb-assembly-2026',1,'declared');

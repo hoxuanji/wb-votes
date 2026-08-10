@@ -168,7 +168,7 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
         WHERE ca.person_id = ?
         -- newest first is by YEAR, not by id (see repo/index.ts yearOf): a career spanning
         -- 'ls-2019' and 'up-assembly-2017' came back as two separately-descending runs.
-        ORDER BY substr(c.election_id, -4) DESC, c.election_id, c.id`,
+        ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, c.id`,
       slug,
     );
 
@@ -191,11 +191,12 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
          FROM affidavit a
          JOIN candidacy ca ON ca.id = a.candidacy_id
          JOIN contest c ON c.id = ca.contest_id
+         JOIN election e ON e.id = c.election_id
          LEFT JOIN affidavit_field f ON f.affidavit_id = a.id
         WHERE ca.person_id = ?
         GROUP BY a.id
-        -- oldest first, by YEAR (see repo/index.ts yearOf)
-        ORDER BY substr(c.election_id, -4), c.election_id, a.filed_on, a.id`,
+        -- oldest first, by real chronology: election.year / polling_month / occurrence (migration 013)
+        ORDER BY e.year, e.polling_month, e.occurrence, a.filed_on, a.id`,
       slug,
     );
 
@@ -358,9 +359,10 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
                   pt.short_name AS party_short_name, ca.status,
                   r.votes, r.vote_share, r.is_winner, r.source_id AS result_source_id,
                   ROW_NUMBER() OVER (PARTITION BY ca.person_id
-                                     ORDER BY substr(c.election_id, -4) DESC, c.election_id, c.id) AS rn
+                                     ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, c.id) AS rn
              FROM candidacy ca
              JOIN contest c ON c.id = ca.contest_id
+             JOIN election e ON e.id = c.election_id
              JOIN place_version pv ON pv.id = c.place_version_id
              JOIN place pl ON pl.id = pv.place_id
              LEFT JOIN party_version pver ON pver.id = ca.party_version_id

@@ -238,6 +238,7 @@ export function getPlaceAnalysis(
               per.canonical_name AS person_name,
               pt.id AS party_id, pt.short_name AS party_short_name, ca.party_raw
          FROM contest c
+         JOIN election e ON e.id = c.election_id
          JOIN place_version pv ON pv.id = c.place_version_id
          LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
          LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0
@@ -246,7 +247,7 @@ export function getPlaceAnalysis(
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
         WHERE c.place_version_id = ?
-        ORDER BY substr(c.election_id, -4) DESC, c.election_id, r.rank, r.candidacy_id`,
+        ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, r.rank, r.candidacy_id`,
       p.place_version_id,
     );
 
@@ -261,13 +262,14 @@ export function getPlaceAnalysis(
               SUM(t.electors) AS s_electors,
               GROUP_CONCAT(DISTINCT t.source_id) AS source_ids
          FROM contest c
+         JOIN election e ON e.id = c.election_id
          JOIN place_version pv ON pv.id = c.place_version_id
          JOIN place pl ON pl.id = pv.place_id AND pl.kind = 'ac'
          JOIN place dist ON dist.id = pl.parent_id
          JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
         WHERE dist.parent_id = ?
         GROUP BY c.election_id
-        ORDER BY substr(c.election_id, -4) DESC, c.election_id`,
+        ORDER BY MAX(e.year) DESC, MAX(e.polling_month) DESC, MAX(e.occurrence) DESC`,
       p.parent_id,
       p.parent_id,
       p.state_id,

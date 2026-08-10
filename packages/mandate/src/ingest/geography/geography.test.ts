@@ -294,30 +294,22 @@ test("reconstruct: one seat number, two delimitations, two names", { skip: false
   assert.equal(seats.find((s) => s.kind === "pc" && s.number === 7)?.canonicalName, "BIDAR");
 });
 
-test("the ten checks pass on the live registry, bar the classified one", { skip: skip || skipSource }, () => {
+test("all ten checks pass on the live registry", { skip: skip || skipSource }, () => {
   const d = db();
   const v = validateGeography(d);
   const byN = new Map(v.checks.map((c) => [c.n, c]));
 
-  // Every geography check must be clean.
-  for (const n of [1, 2, 3, 4, 5, 6, 8, 9, 10]) {
+  // Check 7 was the one known red here, and it is now green: it was reporting 34 Bihar seats with two
+  // declared winners, which was never a geography defect. Bihar held TWO assembly elections in 2005 and the
+  // election id was (jurisdiction, house, year), so both collapsed into one. Migration 013 and
+  // `mandate elections repair` split them; docs/model/election-identity.md. This test asserts all ten,
+  // including 7, rather than preserving a red it used to excuse.
+  for (const n of [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]) {
     const c = byN.get(n);
     assert.ok(c !== undefined, `check ${n} ran`);
     assert.equal(c.skipped, false, `check ${n} was actually asked`);
     assert.equal(c.violations, 0, `check ${n} (${c.name}): ${c.examples.join(" | ")}`);
   }
-
-  // Check 7 is red for a defect one level up, and it is named rather than filtered: Bihar held two
-  // assembly elections in 2005 and the election id is (jurisdiction, house, YEAR), which cannot tell them
-  // apart, so 34 seats carry two winners. A year is no more an identity for an election than a seat number
-  // is for a constituency. Tracked in docs/model/electoral-geography.md; this asserts it has not GROWN.
-  const seven = byN.get(7);
-  assert.ok(seven !== undefined);
-  assert.ok(seven.violations <= 35, `check 7 regressed past the known 35: ${seven.violations}`);
-  assert.ok(
-    seven.examples.some((e) => e.includes("br-assembly-2005")),
-    "the known check-7 violations are the Bihar 2005 double election",
-  );
 
   // The headline: essentially every contest now names its own delimitation's seat. What remains is the
   // recorded West Bengal numbering conflict, which is counted separately and not silently absorbed.

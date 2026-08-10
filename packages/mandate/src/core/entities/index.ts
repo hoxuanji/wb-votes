@@ -274,8 +274,21 @@ export const ELECTION_LIFECYCLES = [
 ] as const;
 export type ElectionLifecycle = (typeof ELECTION_LIFECYCLES)[number];
 
+/** Which house an election fills. 'none' for one that fills neither — municipal, panchayat, presidential,
+ *  biennial Rajya Sabha — and a real value rather than NULL so the UNIQUE identity stays total. */
+export const ELECTION_HOUSES = ["ac", "pc", "none"] as const;
+export type ElectionHouse = (typeof ELECTION_HOUSES)[number];
+
+/**
+ * An election is an EVENT, not a year.
+ *
+ * Identity is (jurisdiction, kind, house, year, occurrence). Bihar held two assembly elections in 2005 —
+ * its 13th assembly in February, its 14th in November — and a (jurisdiction, house, year) key collapsed
+ * them into one id, losing 618 candidate rows and leaving 34 seats with two winners. Migration 013;
+ * docs/model/election-identity.md.
+ */
 export type Election = {
-  /** 'ls-2024', 'wb-assembly-2026'. */
+  /** 'ls-2024', 'wb-assembly-2026', 'br-assembly-2005-02'. */
   id: string;
   kind: ElectionKind;
   level: ElectionLevel;
@@ -284,6 +297,18 @@ export type Election = {
   epochId: string;
   name: string;
   lifecycle: ElectionLifecycle;
+  house: ElectionHouse;
+  year: number;
+  /** Earliest polling month the source gives. NULL on by-elections, whose rows carry none. Never part of
+   *  identity: polling is phased, so one election legitimately spans two months. */
+  pollingMonth: number | null;
+  /** TCPD's Assembly_No — which assembly or Lok Sabha this election constituted. */
+  houseOrdinal: number | null;
+  /** 0 for a general election, 1..n for a by-election round. */
+  pollNo: number | null;
+  /** 1-based, chronological within (jurisdiction, kind, house, year). */
+  occurrence: number;
+  sourceId: string | null;
   announcedOn: ISODate | null;
   notifiedOn: ISODate | null;
   countingOn: ISODate | null;

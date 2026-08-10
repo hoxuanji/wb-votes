@@ -140,11 +140,29 @@ see `docs/model/electoral-geography.md` §8 for the classification of each.
   match is not ranked above them, so the overlap falls outside the top 50. Person-search ranking, not
   electoral geography.
 
-`mandate geography validate` also holds one check red on purpose: **Bihar held two assembly elections in
-2005**, February and October, and an election id is `(jurisdiction, house, YEAR)`, which cannot tell them
-apart — so 34 seats carry two winners. A year is no more an identity for an election than a seat number is
-for a constituency. It is the same defect one level up, it is not fixed, and the regression test asserts it
-has not grown.
+Both validators are now fully green: `mandate geography validate` **10 of 10** and
+`mandate elections validate` **5 of 5**. Geography's check 7 — the 34 Bihar seats with two winners — was
+fixed by the election-identity repair below, not excused.
+
+## The election-identity repair, 2026-08-11
+
+An election's identity was `(jurisdiction, house, year)`, held in an id string. **Bihar held two assembly
+elections in 2005** — its 13th assembly in February, its 14th in November, 243 seats each — and both became
+`br-assembly-2005`. `contest` is UNIQUE on (election, place version), so 486 contests became 243; a
+candidacy id derives from (contest, person), so the **618 candidates who stood in the same seat at both
+elections** collided and one row overwrote the other. 34 seats declared two winners.
+
+An election is now an event: `house`, `year`, `polling_month`, `house_ordinal` (the source's Assembly_No),
+`poll_no` and `occurrence`, under `UNIQUE (jurisdiction, kind, house, year, occurrence)`. The key is the
+source's own `(Assembly_No, Poll_No)` — **not** the month, because polling is phased and 2019's Lok Sabha
+election spans April and May. **Results went 557,645 → 558,263: exactly +618, the rows the collapse had
+destroyed.** Contests with more winners than seats: 35 → 0.
+
+Scanned all 62 files rather than assuming Bihar was alone: 1 general collision, 13 by-election-round
+collisions, and a third defect the new constraint exposed — **the house an election fills was never
+modelled**, so 145 assembly/parliamentary by-election pairs were told apart by nothing but their id text.
+`substr(election_id, -4)` at 17 sites is gone: after the split it is actively wrong, since
+`'br-assembly-2005-02'` ends in `'5-02'`. Full account in `docs/model/election-identity.md`.
 
 ## The electoral-geography repair, 2026-08-11
 

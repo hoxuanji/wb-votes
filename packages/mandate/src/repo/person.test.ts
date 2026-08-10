@@ -122,9 +122,9 @@ test("affidavit trail orders a real two-filing series oldest-first", () => {
       VALUES (1,'wb.ac.001','wb','ac','e',1,'Testpur','general');
     INSERT INTO person (id,canonical_name,review_state,created_at) VALUES ('t-p','Test Person','auto','2026-01-01T00:00:00Z');
     INSERT INTO person_alias (person_id,name,script,norm_key,kind) VALUES ('t-p','Test Person','latn','tstprsn','affidavit');
-    INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle)
-      VALUES ('wb-assembly-2016','assembly','state','wb','e','WB 2016','declared'),
-             ('wb-assembly-2021','assembly','state','wb','e','WB 2021','declared');
+    INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle,house,year,occurrence)
+      VALUES ('wb-assembly-2016','assembly','state','wb','e','WB 2016','declared','ac',2016,1),
+             ('wb-assembly-2021','assembly','state','wb','e','WB 2021','declared','ac',2021,1);
     INSERT INTO contest (id,election_id,place_version_id,lifecycle) VALUES
       ('wb-assembly-2016:t','wb-assembly-2016',1,'declared'),
       ('wb-assembly-2021:t','wb-assembly-2021',1,'declared');

@@ -871,7 +871,7 @@ function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow
            JOIN place_version pv ON pv.id = c.place_version_id
            JOIN election e ON e.id = c.election_id AND e.kind = 'assembly'
           WHERE pv.jurisdiction_id = ?
-          ORDER BY substr(c.election_id, -4) DESC, c.election_id DESC
+          ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC
           LIMIT 1`,
         jurisdiction,
       ),

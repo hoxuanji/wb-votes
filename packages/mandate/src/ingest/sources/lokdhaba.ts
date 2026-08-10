@@ -40,6 +40,7 @@ import { all, insertMany } from "../../db/index.ts";
 import { slug } from "../../core/ids.ts";
 import { DISTRICT_ALIAS } from "../districts.ts";
 import { JURISDICTIONS } from "../india.ts";
+import { eventKey, int, planFromRows } from "../elections/event.ts";
 
 export type ElectionType = "AE" | "GE";
 
@@ -474,12 +475,22 @@ export function importLokdhaba(
    *  never be downgraded back to the state by an older row that happens to be processed later. */
   const parentOf = new Map<string, string>();
 
+  // ONE PASS FIRST, to resolve election-event identity. Whether an id needs a suffix depends on how many
+  // events its year holds, which is not knowable row by row: Bihar 2005 holds two assembly elections and
+  // every other year holds one. planFromRows folds the file into events keyed by
+  // (jurisdiction, house, year, Assembly_No, Poll_No) and hands back the id and occurrence for each.
+  const plannedEvents = planFromRows(j.id, rows, sourceId);
+
   for (const r of rows) {
     const year = num(r["Year"]);
     const seatNo = num(r["Constituency_No"]);
     const delimId = num(r["DelimID"]);
     const position = num(r["Position"]);
     const pollNo = num(r["Poll_No"]) ?? 0;
+    // The house this row's election fills, and which assembly/Lok Sabha it constituted. Both are columns
+    // the importer never read: Assembly_No is what separates two elections held in one year.
+    const house = input.type === "AE" ? "ac" : "pc";
+    const houseOrdinal = int(r["Assembly_No"]);
     const name = r["Candidate"] ?? "";
     const pid = r["pid"] ?? "";
 
@@ -582,12 +593,27 @@ export function importLokdhaba(
     //
     // A by-poll id names the house too: an assembly by-election and a parliamentary one in the same state
     // and year are two different elections, and 'wb-bypoll-1969' cannot be both.
+    // AN ELECTION IS AN EVENT, NOT A YEAR. The id used to be (jurisdiction, house, year), and Bihar held
+    // TWO assembly elections in 2005 — its 13th assembly in February and its 14th in November, 243 seats
+    // each. Both became 'br-assembly-2005': UNIQUE (election_id, place_version_id) turned 486 contests into
+    // 243, and because a candidacy id derives from (contest, person), the 618 candidates who stood in the
+    // same seat at both elections collided and one row silently overwrote the other. 34 seats ended up with
+    // two declared winners.
+    //
+    // The event key is the source's own — (jurisdiction, house, year, Assembly_No, Poll_No) — resolved by
+    // `eventsOfFile` in one pass before this loop, because whether an id needs a suffix depends on how many
+    // events the year holds. Assembly_No, not month: polling is phased, so 2019's Lok Sabha election spans
+    // April and May and keying on the month would split one election per phase.
+    // docs/model/election-identity.md.
     const isBypoll = pollNo > 0;
-    const electionId = isBypoll
-      ? `${j.id}-bypoll-${input.type === "AE" ? "ae" : "ge"}-${year}`
-      : input.type === "AE"
-        ? `${j.id}-assembly-${year}`
-        : `ls-${year}`;
+    const plannedEvent = plannedEvents.get(
+      eventKey({ jurisdictionId: j.id, house, year, houseOrdinal, pollNo }),
+    );
+    if (plannedEvent === undefined) {
+      skip(`row names an election event the pre-pass did not find (year ${year}, Assembly_No ${houseOrdinal ?? "?"}, Poll_No ${pollNo})`);
+      continue;
+    }
+    const electionId = plannedEvent.id;
     electionRows.set(electionId, [
       electionId,
       isBypoll ? "bypoll" : input.type === "AE" ? "assembly" : "general",
@@ -596,11 +622,18 @@ export function importLokdhaba(
       input.type === "AE" || isBypoll ? j.id : "in",
       epochId,
       isBypoll
-        ? `${j.name} by-elections, ${year}`
+        ? `${j.name} by-elections, ${year}${plannedEvent.suffixNote}`
         : input.type === "AE"
-          ? `${j.name} Legislative Assembly election, ${year}`
+          ? `${j.name} Legislative Assembly election, ${year}${plannedEvent.suffixNote}`
           : `Indian general election, ${year}`,
       "declared",
+      house,
+      year,
+      plannedEvent.month,
+      houseOrdinal,
+      pollNo,
+      plannedEvent.occurrence,
+      sourceId,
       null,
       null,
       null,
@@ -797,7 +830,14 @@ export function importLokdhaba(
       ["id"],
       versionRows.values(),
     );
-    w("election", ["id", "kind", "level", "electorate_kind", "jurisdiction_place_id", "epoch_id", "name", "lifecycle", "announced_on", "notified_on", "counting_on", "forecast_gate_from", "forecast_gate_to"], ["id"], electionRows.values());
+    w(
+      "election",
+      ["id", "kind", "level", "electorate_kind", "jurisdiction_place_id", "epoch_id", "name", "lifecycle",
+       "house", "year", "polling_month", "house_ordinal", "poll_no", "occurrence", "source_id",
+       "announced_on", "notified_on", "counting_on", "forecast_gate_from", "forecast_gate_to"],
+      ["id"],
+      electionRows.values(),
+    );
     w("contest", ["id", "election_id", "place_version_id", "phase_n", "seats_available", "lifecycle", "declared_at"], ["id"], contestRows.values());
     w("person", ["id", "canonical_name", "canonical_name_script", "names", "sex", "birth_year", "birth_year_confidence", "review_state", "created_at"], ["id"], personRows.values());
     w("person_identifier", ["person_id", "scheme", "value", "source_id"], ["scheme", "value"], identifierRows.values());

@@ -158,7 +158,7 @@ function contestRows(db: DatabaseSync): ContestSql[] {
        LEFT JOIN party_version pvv ON pvv.id = cand.party_version_id
        LEFT JOIN party p     ON p.id = pvv.party_id
        LEFT JOIN turnout t   ON t.contest_id = c.id AND t.scope = 'contest'
-      ORDER BY pv.place_id, substr(c.election_id, -4), c.election_id`,
+      ORDER BY pv.place_id, el.year, el.polling_month, el.occurrence`,
   );
 }
 

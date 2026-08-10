@@ -120,13 +120,14 @@ function loadCandidate(db: DatabaseSync, id: string): Candidate {
             r.is_winner, ca.age_declared
        FROM candidacy ca
        JOIN contest c ON c.id = ca.contest_id
+       JOIN election e ON e.id = c.election_id
        JOIN place_version pv ON pv.id = c.place_version_id
        JOIN place pl ON pl.id = pv.place_id
        LEFT JOIN party_version pver ON pver.id = ca.party_version_id
        LEFT JOIN party pt ON pt.id = pver.party_id
        LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
       WHERE ca.person_id = ?
-      ORDER BY substr(c.election_id, -4) DESC, c.election_id`,
+      ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC`,
     id,
   );
   return {

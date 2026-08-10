@@ -143,7 +143,7 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
         WHERE c.place_version_id = ?
-        ORDER BY substr(c.election_id, -4) DESC, c.election_id, r.rank, r.candidacy_id`,
+        ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, r.rank, r.candidacy_id`,
       p.place_version_id,
     );
 

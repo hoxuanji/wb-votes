@@ -422,7 +422,8 @@ export function recent(db: DatabaseSync, limit = 6): Dated[] {
       // alphabetical by state and returned nothing but West Bengal — the most recent elections in India
       // were, according to that ordering, four West Bengal elections in a row.
       `SELECT id, name, kind, jurisdiction_place_id FROM election
-        WHERE kind <> 'bypoll' ORDER BY substr(id, -4) DESC, jurisdiction_place_id LIMIT ?`,
+        WHERE kind <> 'bypoll'
+        ORDER BY year DESC, polling_month DESC, occurrence DESC, jurisdiction_place_id LIMIT ?`,
       limit,
     ).map((e) => {
       const { parties } = standings(db, e.id);
@@ -484,7 +485,7 @@ export function bypolls(db: DatabaseSync, limit = 8): Dated[] {
     all<{ id: string; name: string; jurisdiction_place_id: string }>(
       db,
       `SELECT id, name, jurisdiction_place_id FROM election WHERE kind = 'bypoll'
-        ORDER BY substr(id, -4) DESC, jurisdiction_place_id LIMIT ?`,
+        ORDER BY year DESC, polling_month DESC, occurrence DESC, jurisdiction_place_id LIMIT ?`,
       limit,
     ).map((e) => {
       const { parties } = standings(db, e.id);

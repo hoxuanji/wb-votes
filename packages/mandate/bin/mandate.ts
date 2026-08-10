@@ -24,6 +24,8 @@ import { THRESHOLD_PCT, diffAgainstSeed, formatReport } from "../src/ingest/expo
 import { auditSample, resolvePersons, unmerge } from "../src/ingest/resolve/index.ts";
 import { backfillGeography } from "../src/ingest/geography/backfill.ts";
 import { validateGeography } from "../src/ingest/geography/validate.ts";
+import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
+import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0] ?? "";
@@ -61,6 +63,9 @@ const USAGE = `mandate <command>
   coverage                     per-table row counts and citation coverage
   geography validate           ten checks on constituency identity, with before/after metrics
   geography backfill [--apply] restore each constituency's own name per delimitation, from source
+  elections validate           checks on election-event identity
+  elections backfill [--apply] write year / month / house / occurrence onto every election, from source
+  elections repair [--apply]   split elections that collapsed two events into one id
   export                       rebuild the seed from the registry and report what differs`;
 
 /** Two columns, right-aligned values. Every subcommand prints through this so output is one shape. */
@@ -339,6 +344,100 @@ try {
         ["uncited values", countUncited(db)],
       ]);
       db.close();
+      break;
+    }
+
+    case "elections": {
+      // An election is an EVENT, not a year: Bihar held two assembly elections in 2005 and both collapsed
+      // into one id. docs/model/election-identity.md.
+      const sub = argv[1] ?? "";
+      const apply = argv.includes("--apply");
+      if (sub === "validate") {
+        const db = open();
+        const v = validateElections(db);
+        for (const c of v.checks) {
+          console.log(
+            `${String(c.n).padStart(2)}. ${c.name.padEnd(56)} ` +
+              (c.skipped ? "SKIPPED" : c.violations === 0 ? "pass" : `${c.violations} VIOLATIONS`),
+          );
+          if (c.skipped) console.log(`      not asked: ${c.why ?? ""}`);
+          for (const ex of c.examples) console.log(`      ${ex}`);
+        }
+        console.log("\nmetrics");
+        table([
+          ["election events", v.metrics.events],
+          ["years holding several events", v.metrics.multiEventYears],
+          ["events with no year", v.metrics.withoutYear],
+          ["events with no source", v.metrics.withoutSource],
+          ["contests", v.metrics.contests],
+          ["results", v.metrics.results],
+          ["in the source, missing here", v.metrics.missingFromRegistry],
+          ["here, not in any source file", v.metrics.notInSource],
+          ["contests with too many winners", v.metrics.duplicateWinnerContests],
+        ]);
+        console.log("\nmost recent events");
+        table(perEvent(db).map((e): [string, unknown] => [e.id, `${e.contests} contests, ${e.results} results`]));
+        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        db.close();
+        if (!v.ok) process.exit(1);
+        break;
+      }
+      if (sub === "backfill") {
+        const db = open();
+        const r = backfillElections(db, { apply });
+        table([
+          ["mode", apply ? "applied" : "dry run — pass --apply to write"],
+          ["events in the source", r.events],
+          ["elections updated in place", r.updated],
+          ["events the registry lacks", r.missing.length],
+          ["registry elections no source describes", r.unmatched.length],
+          ["years holding several events", r.collisions.length],
+        ]);
+        for (const c of r.collisions) console.log(`  collision  ${c.group} -> ${c.ids.join(", ")}`);
+        for (const m of r.missing) console.log(`  missing    ${m.id} (was ${m.from ?? "?"}) ${m.seats} seats, ${m.rows} rows`);
+        db.close();
+        break;
+      }
+      if (sub === "repair") {
+        const db = open();
+        if (!apply) {
+          const plans = repairPlan(db);
+          table([["mode", "dry run — pass --apply to write"], ["collapsed elections", plans.length]]);
+          for (const p2 of plans) {
+            console.log(
+              `  ${p2.collapsedId} -> ${p2.replacements.join(" + ")}  ` +
+                `(holds ${p2.contests} contests, ${p2.candidacies} candidacies, ${p2.results} results; ` +
+                `the source has ${p2.sourceRows} rows for the group)`,
+            );
+          }
+          db.close();
+          break;
+        }
+        const results = repairElections(db, {
+          apply: true,
+          nowIso,
+          reimport: (jurisdictionId, _sourceId, path) => {
+            const url = downloadUrl(lokdhabaState(jurisdictionId) ?? jurisdictionId, path.includes("_GE.") ? "GE" : "AE");
+            const rep = importLokdhaba(db, {
+              jurisdictionId,
+              type: path.includes("_GE.") ? "GE" : "AE",
+              file: localFile(path, url),
+              nowIso,
+            });
+            return { contests: rep.contests, candidacies: rep.candidacies, results: rep.results };
+          },
+        });
+        for (const r of results) {
+          console.log(`${r.collapsedId} -> ${r.replacements.join(" + ")}`);
+          table([
+            ["deleted", Object.entries(r.deleted).map(([k, v]) => `${k} ${v}`).join(", ") || "nothing"],
+            ["re-imported", r.imported === null ? "NOT DONE" : `${r.imported.contests} contests, ${r.imported.candidacies} candidacies, ${r.imported.results} results`],
+          ]);
+        }
+        db.close();
+        break;
+      }
+      fail("elections <validate|backfill|repair>");
       break;
     }
 

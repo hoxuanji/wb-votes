@@ -859,6 +859,9 @@ function ingest(
 
   // ── elections and contests: 294 seats x 4 elections ────────────────────────
   for (const y of YEARS) {
+    // house / year / occurrence are identity, not decoration: an election is an event, and a year alone
+    // cannot identify one (migration 013). The seed describes one assembly election per year, so each is
+    // occurrence 1; it gives no polling month, so that stays NULL rather than being guessed.
     electionRows.push([
       electionId(y),
       "assembly",
@@ -868,6 +871,13 @@ function ingest(
       EPOCH_ID,
       `West Bengal Legislative Assembly election, ${y}`,
       "declared",
+      "ac",
+      y,
+      null,
+      null,
+      0,
+      1,
+      src("historicalResults"),
       null,
       null,
       null,
@@ -1569,6 +1579,13 @@ function ingest(
       EPOCH_ID,
       "Indian general election, 2024",
       "declared",
+      "pc",
+      2024,
+      null,
+      18,
+      0,
+      1,
+      src("mps"),
       null,
       null,
       countedOn,
@@ -1752,7 +1769,7 @@ function ingest(
   w("place_version", ["id","place_id","jurisdiction_id","kind","epoch_id","number","canonical_name","district_place_id","reservation","geometry_ref","electors_at_creation","source_constituency_key","name_source_id","name_conflict","name_variants"], ["id"], placeVersionRows);
   // After place_version: place_geometry references it, and writing first failed the foreign key.
   w("place_geometry", ["place_version_id","path","centroid_x","centroid_y","view_box","source_id"], ["place_version_id"], placeGeometryRows);
-  w("election", ["id","kind","level","electorate_kind","jurisdiction_place_id","epoch_id","name","lifecycle","announced_on","notified_on","counting_on","forecast_gate_from","forecast_gate_to"], ["id"], electionRows);
+  w("election", ["id","kind","level","electorate_kind","jurisdiction_place_id","epoch_id","name","lifecycle","house","year","polling_month","house_ordinal","poll_no","occurrence","source_id","announced_on","notified_on","counting_on","forecast_gate_from","forecast_gate_to"], ["id"], electionRows);
   w("contest", ["id","election_id","place_version_id","phase_n","seats_available","lifecycle","declared_at"], ["id"], contestRows);
   w("person", ["id","canonical_name","canonical_name_script","names","sex","birth_year","birth_year_confidence","review_state","created_at"], ["id"], personRows);
   w("person_alias", ["person_id","name","script","norm_key","kind","first_seen","source_id"], ["person_id","name","script","norm_key"], aliasRows);

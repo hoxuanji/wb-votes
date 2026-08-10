@@ -58,8 +58,10 @@ export function currentEpochs(db: DatabaseSync): Map<string, string> {
     `SELECT jurisdiction_id, kind, epoch_id FROM (
        SELECT v.jurisdiction_id, v.kind, v.epoch_id,
               row_number() OVER (PARTITION BY v.jurisdiction_id, v.kind
-                                 ORDER BY substr(c.election_id, -4) DESC) AS rn
-         FROM contest c JOIN place_version v ON v.id = c.place_version_id
+                                 ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC) AS rn
+         FROM contest c
+         JOIN election e ON e.id = c.election_id
+         JOIN place_version v ON v.id = c.place_version_id
         WHERE v.kind IN ('ac','pc'))
       WHERE rn = 1`,
   );
@@ -125,8 +127,10 @@ export function validateGeography(db: DatabaseSync, opts?: { manifestPath?: stri
     const byElection = epochByElection([...bySlot.values()]);
     const rows = all<{ cid: string; jurisdiction_id: string; kind: string; epoch_id: string; number: number; y: string }>(
       db,
-      `SELECT c.id AS cid, v.jurisdiction_id, v.kind, v.epoch_id, v.number, substr(c.election_id, -4) AS y
-         FROM contest c JOIN place_version v ON v.id = c.place_version_id WHERE v.kind IN ('ac','pc')`,
+      `SELECT c.id AS cid, v.jurisdiction_id, v.kind, v.epoch_id, v.number, e.year AS y
+         FROM contest c
+         JOIN election e ON e.id = c.election_id
+         JOIN place_version v ON v.id = c.place_version_id WHERE v.kind IN ('ac','pc')`,
     );
     const wrongEpoch = rows
       .map((r) => ({ r, want: byElection.get(`${r.jurisdiction_id} ${r.kind} ${r.number} ${Number(r.y)}`) }))
