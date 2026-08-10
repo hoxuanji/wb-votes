@@ -25,6 +25,8 @@ import type { DatabaseSync } from "node:sqlite";
 
 import { contentId, slug } from "../core/ids.ts";
 import { all } from "../db/index.ts";
+// One table for both directions of the district name disagreement — see districts.ts.
+import { censusName } from "./districts.ts";
 
 export type Row = Record<string, unknown>;
 export type Seed = Record<string, Row[]>;
@@ -122,7 +124,10 @@ const KEY: Record<string, (r: Row) => string> = {
 const MODULES = Object.keys(KEY);
 
 /** Reported, not hidden — see above. Excluded from the INGESTED figure, never from the report. */
-const NOT_INGESTED = new Set(["wb-ac-paths.json", "wb-districts.json"]);
+// Empty since migration 008 gave geometry a table: both modules are ingested and reconstructable, so
+// the two figures below now differ only by rows the ingest drops, not by whole modules nothing reads.
+// Kept as a mechanism rather than deleted — the next unreadable module should land here, reported.
+const NOT_INGESTED = new Set<string>([]);
 
 // ─── reading the seed ────────────────────────────────────────────────────────
 
@@ -228,6 +233,8 @@ export function reconstruct(db: DatabaseSync): Seed {
     "demographics.json": demographics(db, reg),
     "cabinet.json": cabinet(db, reg),
     "wbmps.json": mps(db, reg),
+    "wb-ac-paths.json": geometry(db, "ac"),
+    "wb-districts.json": geometry(db, "district"),
   };
 }
 
@@ -561,6 +568,41 @@ function cabinet(_db: DatabaseSync, reg: Registry): Row[] {
   });
 }
 
+/** Outlines back out of place_geometry, in the seed's own shape. Both modules were 0% and allowlisted
+ *  as unstorable until migration 008 gave them a table. */
+function geometry(db: DatabaseSync, kind: "ac" | "district"): Row[] {
+  return all<{ name: string; number: number | null; path: string; cx: number; cy: number }>(
+    db,
+    `SELECT p.canonical_name AS name, pv.number AS number, g.path AS path,
+            g.centroid_x AS cx, g.centroid_y AS cy
+       FROM place_geometry g
+       JOIN place_version pv ON pv.id = g.place_version_id
+       JOIN place p          ON p.id = pv.place_id
+      WHERE p.kind = ?
+      ORDER BY pv.number, p.canonical_name`,
+    kind,
+  ).map((r) =>
+    kind === "ac"
+      ? {
+          // The seed keys constituency outlines by the old app's cXXXX id, which is a function of the
+          // seat number — the same correspondence the redirects use, measured at 294/294.
+          id: `c${String(r.number ?? 0).padStart(4, "0")}`,
+          acNo: r.number,
+          path: r.path,
+          centroid: { x: r.cx, y: r.cy },
+        }
+      : {
+          // The seed spells districts the census way and the place tree spells them the ECI way — the
+          // disagreement the ingest's DISTRICT_ALIAS exists to bridge. Reconstruction has to spell them
+          // back the seed's way or 9 of 19 rows look invented; the map is imported rather than restated
+          // so the two directions cannot drift apart.
+          name: censusName(r.name),
+          path: r.path,
+          centroid: { x: r.cx, y: r.cy },
+        },
+  );
+}
+
 function mps(db: DatabaseSync, reg: Registry): Row[] {
   // Seat number by constituency name, from the `pc` places the Lok Sabha ingest now creates. Before
   // those existed this field was allowlisted as unstorable; it was only ever unread.
@@ -856,7 +898,7 @@ export function formatReport(r: DiffReport): string {
   out.push("");
   out.push(
     `ingested modules  ${r.ingestedExact}/${r.ingestedValues} values exact  ${pct(r.ingestedPct)}   ambiguous ${r.ambiguous}`,
-    `whole seed        ${r.exact}/${r.values} values exact  ${pct(r.pct)}   (the gap is geometry, which no table holds)`,
+    `whole seed        ${r.exact}/${r.values} values exact  ${pct(r.pct)}`,
   );
   out.push(`threshold ${pct(THRESHOLD_PCT)} — ratchet up only, never down`);
   return out.join("\n");

@@ -146,6 +146,13 @@ function fixture(): StaticBundle {
         sourceUrl: "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal",
       },
     ],
+    acPaths: [
+      { id: "c0001", acNo: 1, path: "M10,10 L20,10 L20,20 Z", centroid: { x: 15, y: 15 } },
+      { id: "c0002", acNo: 2, path: "M30,10 L40,10 L40,20 Z", centroid: { x: 35, y: 15 } },
+    ],
+    // "Kochbihar", the census spelling, because that is what wb-districts.json actually uses — the
+    // disagreement districts.ts bridges. A fixture using the ECI spelling tests the wrong thing.
+    districtPaths: [{ name: "Kochbihar", path: "M5,5 L50,5 L50,50 Z", centroid: { x: 27, y: 27 } }],
   };
 }
 
@@ -301,9 +308,20 @@ test("boundary epoch, place versions and contests line up on delim-2008 (P4)", a
     )
     .get();
   assert.equal(Number(crossEpoch?.n), 0);
-  // 2 assembly seats + 1 parliamentary seat. PC versions are offset by 1,000 because place_version.id
-  // is the seat number and PC 1 would otherwise collide with AC 1.
-  assert.equal(Number(db.prepare("SELECT COUNT(*) AS n FROM place_version").get()?.n), 3);
+  // 2 assembly seats + 1 parliamentary seat + 1 district, which gets a synthetic version purely to hang
+  // its outline off. PC versions are offset by 1,000 and district versions by 2,000, because
+  // place_version.id is the seat number and PC 1 would otherwise collide with AC 1.
+  assert.equal(Number(db.prepare("SELECT COUNT(*) AS n FROM place_version").get()?.n), 4);
+  assert.equal(
+    Number(db.prepare("SELECT COUNT(*) AS n FROM place_geometry").get()?.n),
+    3,
+    "2 constituency outlines + 1 district outline should be stored",
+  );
+  assert.equal(
+    Number(db.prepare("SELECT COUNT(*) AS n FROM place_version WHERE geometry_ref IS NOT NULL").get()?.n),
+    3,
+    "geometry_ref must point at the stored shape, not stay null as it did for eight cycles",
+  );
   assert.equal(
     Number(db.prepare("SELECT id FROM place_version WHERE place_id = 'wb.pc.01'").get()?.id),
     1001,

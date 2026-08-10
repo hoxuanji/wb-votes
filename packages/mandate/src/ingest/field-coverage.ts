@@ -157,11 +157,22 @@ export const RULES: Record<ModuleKey, Record<string, Rule>> = {
     name: { probe: "SELECT COUNT(DISTINCT a.person_id) AS n FROM person_alias a JOIN claim c ON c.subject_ref = 'person:' || a.person_id WHERE a.kind = 'press' AND c.predicate LIKE 'cabinet_portfolio:%'" },
     partyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%' AND json_extract(object_value, '$.partyId') IS NOT NULL" },
     constituencyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%' AND json_extract(object_value, '$.constituencyId') IS NOT NULL" },
+    // The original reason was "no place has a geometry_ref", and migration 008 made that false for 313
+    // rows — the gate caught it, correctly. But the fix is not to store these: place_geometry holds
+    // PROJECTED SVG coordinates in a 400x580 viewBox, and these are WGS84 (22.5195, 88.3373 is central
+    // Kolkata). A geodetic pin cannot go into a projected store without a projection nobody recorded.
+    // So the tripwire now watches for the thing that WOULD make them storable — a geometry row that
+    // claims a real coordinate reference system — instead of watching an unrelated column.
     lat: {
-      drop: "a map pin for the old app's cabinet map. The registry locates a minister by placeId; a pair of floats with no geometry_ref is not a place",
-      assertAbsent: "SELECT COUNT(*) AS n FROM place_version WHERE geometry_ref IS NOT NULL",
+      drop: "a WGS84 map pin for the old app's cabinet map. The registry locates a minister by placeId, and its only geometry store is projected SVG with no recorded CRS, so a lat/long pair has nowhere correct to go",
+      assertAbsent:
+        "SELECT COUNT(*) AS n FROM place_geometry WHERE lower(view_box) LIKE '%epsg%' OR lower(view_box) LIKE '%wgs%' OR lower(view_box) LIKE '%4326%'",
     },
-    lng: { drop: "as lat", assertAbsent: "SELECT COUNT(*) AS n FROM place_version WHERE geometry_ref IS NOT NULL" },
+    lng: {
+      drop: "as lat",
+      assertAbsent:
+        "SELECT COUNT(*) AS n FROM place_geometry WHERE lower(view_box) LIKE '%epsg%' OR lower(view_box) LIKE '%wgs%' OR lower(view_box) LIKE '%4326%'",
+    },
     "portfolios.ministry": { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%'" },
     "portfolios.rank": { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%' AND json_extract(object_value, '$.rank') IS NOT NULL" },
     "portfolios.from": { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%' AND as_of IS NOT NULL" },
@@ -187,6 +198,26 @@ export const RULES: Record<ModuleKey, Record<string, Rule>> = {
       probe: "SELECT COUNT(DISTINCT ci.source_id) AS n FROM citation ci JOIN claim c ON c.id = ci.claim_id WHERE c.predicate = 'ls_seat_won'",
       partial: "one source row per distinct URL: all 42 MP rows name the same page",
     },
+  },
+
+  // Geometry, ingested by migration 008. Every field gets a probe: these two modules were the last 0%
+  // in the round-trip report, and their absence is why the product had no map for eight cycles.
+  acPaths: {
+    id: { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'ac'" },
+    acNo: {
+      probe:
+        "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id WHERE pv.number IS NOT NULL",
+      partial: "district outlines share this table and have no seat number",
+    },
+    path: { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'ac' AND length(g.path) > 0" },
+    "centroid.x": { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'ac' AND g.centroid_x IS NOT NULL" },
+    "centroid.y": { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'ac' AND g.centroid_y IS NOT NULL" },
+  },
+  districtPaths: {
+    name: { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'district'" },
+    path: { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'district' AND length(g.path) > 0" },
+    "centroid.x": { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'district' AND g.centroid_x IS NOT NULL" },
+    "centroid.y": { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'district' AND g.centroid_y IS NOT NULL" },
   },
 };
 
@@ -356,6 +387,8 @@ const MINISTRY_RANK = ["CM", "Cabinet", "MoS-Independent", "MoS"] as const;
 const ELECTION_YEAR = [2011, 2016, 2021, 2026] as const;
 
 const SHAPES: Record<ModuleKey, Shape> = {
+  acPaths: { required: ["id", "acNo", "path", "centroid"] },
+  districtPaths: { required: ["name", "path", "centroid"] },
   constituencies: {
     required: ["id", "name", "nameBn", "district", "districtBn", "reservation", "assemblyNumber"],
     enums: { reservation: RESERVATION },

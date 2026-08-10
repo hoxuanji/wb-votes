@@ -11,6 +11,7 @@ import test from "node:test";
 import type { DatabaseSync } from "node:sqlite";
 
 import { open } from "../db/index.ts";
+import { MODULE_KEYS } from "./index.ts";
 import { migrate } from "../db/migrate.ts";
 import { RULES, coverageFailures, fieldCoverage, formatCoverage, inputFieldCounts, seedShapeFailures } from "./field-coverage.ts";
 import { loadStaticBundle, runIngest } from "./index.ts";
@@ -31,12 +32,13 @@ function ingested(): Promise<{ db: DatabaseSync; bundle: StaticBundle; anomalyKi
   return shared;
 }
 
-test("every field of all eight seed modules is either carried or explained", async () => {
+test("every field of every seed module is either carried or explained", async () => {
   const { db, bundle } = await ingested();
   const rows = fieldCoverage(db, bundle);
   assert.deepEqual(coverageFailures(rows), [], `\n${formatCoverage(rows)}`);
   // The table covers the whole seed, not a corner of it: eight modules, every field of each.
-  assert.equal(new Set(rows.map((r) => r.module)).size, 8);
+  // Derived, not 8: two geometry modules joined the seed and a hardcoded count hides the new ones.
+  assert.equal(new Set(rows.map((r) => r.module)).size, MODULE_KEYS.length);
   assert.ok(rows.length > 80, `${rows.length} fields is too few to be the whole seed`);
 });
 

@@ -9,7 +9,7 @@ const NOW = "2026-08-07T00:00:00.000Z";
 
 const EXPECTED_TABLES = [
   // 001 registry (+ the provenance root every ring-1 table cites)
-  "source", "boundary_epoch", "place", "place_version", "place_crosswalk",
+  "source", "boundary_epoch", "place", "place_version", "place_crosswalk", "place_geometry",
   "person", "person_alias", "person_identifier", "person_merge",
   "symbol", "party", "party_version", "party_lineage",
   "alliance", "alliance_version", "alliance_member",
@@ -29,6 +29,7 @@ const MIGRATIONS = [
   "001_registry.sql", "002_facts.sql", "003_provenance.sql",
   "004_resolve_queue.sql", "005_provenance_honesty.sql", "006_merge_queue_survives_merge.sql",
   "007_votes_may_be_unknown.sql",
+  "008_place_geometry.sql",
 ];
 
 function migrated(): DatabaseSync {

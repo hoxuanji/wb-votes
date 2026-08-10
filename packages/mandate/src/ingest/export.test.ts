@@ -9,7 +9,7 @@ import test from "node:test";
 
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { runIngest } from "./index.ts";
+import { MODULE_KEYS, runIngest } from "./index.ts";
 import type { StaticBundle } from "./index.ts";
 import { THRESHOLD_PCT, diff, readSeed, reconstruct } from "./export.ts";
 import type { ModuleStat, Row, Seed } from "./export.ts";
@@ -17,17 +17,13 @@ import type { ModuleStat, Row, Seed } from "./export.ts";
 const NOW = "2026-08-07T00:00:00Z";
 const UNMATCHED = "JATIYA UNNAYAN PARTY";
 
+// Derived from MODULE_KEYS, not written out: this list was hardcoded and silently went stale the moment
+// two geometry modules were added, so the fixture built a bundle the ingest could not read.
 const docs = Object.fromEntries(
-  [
-    "constituencies",
-    "parties",
-    "candidates",
-    "historicalResults",
-    "currentMLAs",
-    "demographics",
-    "cabinet",
-    "mps",
-  ].map((k, i) => [k, { file: `${k}.json`, retrievedOn: "2026-04-25", docHash: String(i).repeat(64) }]),
+  MODULE_KEYS.map((k, i) => [
+    k,
+    { file: `${k}.json`, retrievedOn: "2026-04-25", docHash: String(i).repeat(64) },
+  ]),
 ) as StaticBundle["docs"];
 
 function fixture(): StaticBundle {
@@ -105,6 +101,13 @@ function fixture(): StaticBundle {
         sourceUrl: "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal",
       },
     ],
+    acPaths: [
+      { id: "c0001", acNo: 1, path: "M10,10 L20,10 L20,20 Z", centroid: { x: 15, y: 15 } },
+      { id: "c0002", acNo: 2, path: "M30,10 L40,10 L40,20 Z", centroid: { x: 35, y: 15 } },
+    ],
+    // "Kochbihar", the census spelling, because that is what wb-districts.json actually uses — the
+    // disagreement districts.ts bridges. A fixture using the ECI spelling tests the wrong thing.
+    districtPaths: [{ name: "Kochbihar", path: "M5,5 L50,5 L50,50 Z", centroid: { x: 27, y: 27 } }],
   };
 }
 
@@ -119,6 +122,8 @@ function seedOf(b: StaticBundle): Seed {
     "demographics.json": b.demographics as unknown as Row[],
     "cabinet.json": b.cabinet as unknown as Row[],
     "wbmps.json": b.mps as unknown as Row[],
+    "wb-ac-paths.json": b.acPaths as unknown as Row[],
+    "wb-districts.json": b.districtPaths as unknown as Row[],
   };
 }
 
@@ -148,6 +153,8 @@ test("the registry rebuilds one row per seed row for every module it ingests", a
       "demographics.json": 1,
       "cabinet.json": 1,
       "wbmps.json": 1,
+      "wb-ac-paths.json": 2,
+      "wb-districts.json": 1,
     },
   );
   db.close();
@@ -297,18 +304,31 @@ test("every seed file on disk appears in the report", async () => {
   );
 });
 
-test("the two figures are on different bases and the gate uses the ingested one", async () => {
+test("the whole-seed figure excludes nothing, and says so if that changes", async () => {
   const db = await ingested();
-  const r = diff(readSeed(), reconstruct(db));
+  // seedOf(fixture()), not readSeed(): readSeed reads the real 294-seat data/seed/ while this database
+  // holds a two-seat fixture, so comparing them scores everything at ~0% and says nothing.
+  const r = diff(seedOf(fixture()), reconstruct(db));
   db.close();
 
-  // Geometry is reported at 0%, so the whole-seed figure MUST be the lower of the two. If they are
-  // equal, the not-ingested modules have stopped being counted.
-  assert.ok(r.values > r.ingestedValues, "whole-seed denominator does not exceed the ingested one");
-  assert.ok(r.pct < r.ingestedPct, `whole seed ${r.pct} is not below ingested ${r.ingestedPct}`);
-  assert.equal(r.exact, r.ingestedExact, "a not-ingested module reconstructed something");
+  // This test used to assert whole-seed < ingested, because wb-ac-paths and wb-districts were 1,546
+  // values at 0% that nothing could store. Migration 008 gave geometry a table and both round-trip at
+  // 100%, so NOT_INGESTED is empty and the two bases are now the same number. That is the honest state
+  // and it is what is asserted — but the mechanism stays, so if a module is ever excluded again the
+  // strict inequality below must come back rather than the exclusion going unreported.
+  assert.equal(r.values, r.ingestedValues, "a module is excluded from the whole-seed denominator");
+  assert.equal(r.exact, r.ingestedExact);
+  assert.equal(
+    Math.round(r.pct * 100),
+    Math.round(r.ingestedPct * 100),
+    "the two figures diverged, which means something left the denominator without saying so",
+  );
 
-  // No threshold assertion here on purpose: `ingested()` builds a five-row fixture, so its figure is
-  // ~0.08% and a floor check would only be measuring the fixture. The ratchet is enforced against the
-  // real registry by `mandate export --diff`, and by the ratchet test above.
+  // Geometry specifically: it was the last 0% and must not silently return to it.
+  const geo = ["wb-ac-paths.json", "wb-districts.json"];
+  for (const f of geo) {
+    const m = r.modules.find((x) => x.file === f);
+    assert.ok(m !== undefined, `${f} is missing from the report`);
+    assert.ok((m?.pct ?? 0) > 99, `${f} reconstructs at ${m?.pct?.toFixed(1)}%, expected ~100`);
+  }
 });

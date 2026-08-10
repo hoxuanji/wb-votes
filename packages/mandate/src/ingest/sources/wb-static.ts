@@ -21,6 +21,9 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Anomaly } from "../../core/citation/index.ts";
 import { blockingKeys, detectScript } from "../../core/indic/index.ts";
 import { candidacyId, contentId, contestId, slug } from "../../core/ids.ts";
+// One table for both directions of the district name disagreement; a leaf module, because
+// defining it here and importing it in the exporter made a cycle that left it undefined.
+import { DISTRICT_ALIAS } from "../districts.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
 import { coverageFailures, fieldCoverage, formatCoverage, seedShapeFailures, type CoverageRow } from "../field-coverage.ts";
 
@@ -41,6 +44,10 @@ const NATION_PLACE = "in";
  *  on with assembly seats 1-42, so they are offset. A second epoch needs the same treatment. */
 const PC_VERSION_OFFSET = 1000;
 const LS_ELECTION = "ls-2024";
+/** District outlines need a place_version to hang off and districts are not delimitation-versioned
+ *  here, so they get synthetic ids clear of AC numbers (1-294) and the PC offset (1001-1042). */
+const DISTRICT_VERSION_OFFSET = 2000;
+
 const YEARS = [2011, 2016, 2021, 2026];
 /** The one open-ended party version this dataset can honestly assert; also its natural key. */
 const PARTY_VALID_FROM = "2011-01-01";
@@ -135,6 +142,11 @@ type CabinetRow = {
   portfolios: { ministry: string; rank?: string; from?: string }[];
   sourceUrl: string;
 };
+/** A rendered outline. `path` is SVG path data in the projected space `centroid` shares; no CRS was
+ *  recorded upstream, so none is claimed here. */
+type AcPathRow = { id: string; acNo: number; path: string; centroid: { x: number; y: number } };
+type DistrictPathRow = { name: string; path: string; centroid: { x: number; y: number } };
+
 type MPRow = {
   name: string;
   partyId: string;
@@ -159,6 +171,12 @@ export const MODULE_KEYS = [
   "demographics",
   "cabinet",
   "mps",
+  // The two geometry modules. Loaded last because nothing else depends on them, and loaded AT ALL
+  // because `place_version.geometry_ref` had been null for all 336 rows since 001: 294 constituency
+  // outlines and 19 district outlines sat in data/seed/ unread, which is why the round-trip reported
+  // 1,546 values as unreconstructable and why the product had no map.
+  "acPaths",
+  "districtPaths",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
 
@@ -171,6 +189,8 @@ const MODULE_FILES: Record<ModuleKey, string> = {
   demographics: "demographics.json",
   cabinet: "cabinet.json",
   mps: "wbmps.json",
+  acPaths: "wb-ac-paths.json",
+  districtPaths: "wb-districts.json",
 };
 
 /** `retrievedOn` is null when data/seed/provenance.json has no entry for the file — that becomes
@@ -188,6 +208,8 @@ export type StaticBundle = {
   demographics: readonly DemographicsRow[];
   cabinet: readonly CabinetRow[];
   mps: readonly MPRow[];
+  acPaths: readonly AcPathRow[];
+  districtPaths: readonly DistrictPathRow[];
 };
 
 const DATA_DIR = fileURLToPath(new URL("../../../../../data/seed/", import.meta.url));
@@ -256,6 +278,8 @@ export async function loadStaticBundle(dir: string = DATA_DIR): Promise<StaticBu
     demographics: rows.demographics as readonly DemographicsRow[],
     cabinet: rows.cabinet as readonly CabinetRow[],
     mps: rows.mps as readonly MPRow[],
+    acPaths: rows.acPaths as readonly AcPathRow[],
+    districtPaths: rows.districtPaths as readonly DistrictPathRow[],
   };
 }
 
@@ -476,6 +500,18 @@ function ingest(
       title: "West Bengal Lok Sabha MPs, 2024 (repo module)",
       licence: null,
     },
+    acPaths: {
+      kind: "static_module",
+      publisher: null,
+      title: "WB assembly constituency outlines, projected SVG (repo module)",
+      licence: null,
+    },
+    districtPaths: {
+      kind: "static_module",
+      publisher: null,
+      title: "WB district outlines, projected SVG (repo module)",
+      licence: null,
+    },
   };
 
   const moduleSource: Record<string, string> = {};
@@ -549,6 +585,7 @@ function ingest(
   // ── row accumulators ───────────────────────────────────────────────────────
   const placeRows: Param[][] = [];
   const placeVersionRows: Param[][] = [];
+  const placeGeometryRows: Param[][] = [];
   const symbolRows: Param[][] = [];
   const partyRows: Param[][] = [];
   const partyVersionRows: Param[][] = [];
@@ -653,7 +690,9 @@ function ingest(
       EPOCH_ID,
       c.assemblyNumber,
       c.reservation.toLowerCase(),
-      null,
+      // geometry_ref points at place_geometry's key, which is this version id. Null here for 336 rows
+      // is what hid 294 outlines in the seed for eight cycles.
+      String(c.assemblyNumber),
       null,
     ]);
   }
@@ -1436,6 +1475,60 @@ function ingest(
   // What is deliberately NOT invented: vote counts (the source has none, so votes is NULL under 007),
   // turnout, runners-up, and the other 501 seats of the 2024 general election. This is West Bengal's 42
   // of 543, and `mandate coverage` says so rather than letting a reader assume otherwise.
+  // ── geometry: the shapes that have been in the seed since the first commit ──────────────────
+  //
+  // One row per place_version, keyed by the version rather than the place, because an outline belongs
+  // to a delimitation: the same seat has a different shape in a different epoch, which is the whole
+  // reason place_version exists. geometry_ref is set to the version id so the pointer 001 designed is
+  // actually populated rather than left null with the data hidden in a side table.
+  const VIEW_BOX = "0 0 400 580";
+  const districtVersionOf = new Map<string, number>();
+  const districtGeoIndex = (dId: string): number => {
+    const seen = districtVersionOf.get(dId);
+    if (seen !== undefined) return seen;
+    const next = districtVersionOf.size + 1;
+    districtVersionOf.set(dId, next);
+    return next;
+  };
+  for (const g of b.acPaths) {
+    const acNo = Number(String(g.id).replace(/^c0*/, ""));
+    if (!Number.isFinite(acNo) || acNo < 1) continue;
+    // No per-row URL: the outline's provenance IS the module artefact, so cite that rather than
+    // synthesising a link that resolves to nothing.
+    const source = src("acPaths");
+    placeGeometryRows.push([acNo, g.path, g.centroid.x, g.centroid.y, VIEW_BOX, source]);
+  }
+  const districtPlaceIds = new Set(placeRows.filter((r) => r[1] === "district").map((r) => String(r[0])));
+  const unmatchedDistricts: string[] = [];
+  for (const g of b.districtPaths) {
+    // Districts have no place_version — only constituencies are versioned by delimitation here — so
+    // their outline attaches to a synthetic version id offset well clear of both AC numbers and the
+    // PC offset. Documented rather than clever: a district shape that cannot be stored is a district
+    // shape that silently disappears, which is how these got to 0% in the first place.
+    const raw = slug(g.name);
+    const dId = `${STATE_PLACE}.${DISTRICT_ALIAS[raw] ?? raw}`;
+    if (!districtPlaceIds.has(dId)) {
+      unmatchedDistricts.push(g.name);
+      continue;
+    }
+    const versionId = DISTRICT_VERSION_OFFSET + districtGeoIndex(dId);
+    const source = src("districtPaths");
+    placeVersionRows.push([versionId, dId, EPOCH_ID, null, null, String(versionId), null]);
+    placeGeometryRows.push([versionId, g.path, g.centroid.x, g.centroid.y, VIEW_BOX, source]);
+  }
+
+  if (unmatchedDistricts.length > 0) {
+    anomalies.push({
+      kind: "geometry_unmatched_district",
+      ref: "registry",
+      detail:
+        `${unmatchedDistricts.length} district outline(s) name a district that constituencies.json does ` +
+        `not: ${unmatchedDistricts.join(", ")}. Their shape is not stored, so a district map would be ` +
+        `missing them. Add the spelling to DISTRICT_ALIAS in this file after confirming it is the same ` +
+        `district and not a new one.`,
+    });
+  }
+
   const mpsDay = moduleDate("mps");
   // Guarded on lsNumber, not on row count: a seat number is what makes a PC place, and without one
   // there is no contest to hold. An election row with no contests is an empty frame, which this
@@ -1637,6 +1730,8 @@ function ingest(
   w("boundary_epoch", ["id","name","effective_from","effective_to","source_id"], ["id"], [[EPOCH_ID, "Delimitation of Parliamentary and Assembly Constituencies Order, 2008", EPOCH_FROM, null, src("constituencies")]]);
   w("place", ["id","kind","parent_id","canonical_name","names","lgd_code","eci_code"], ["id"], placeRows);
   w("place_version", ["id","place_id","epoch_id","number","reservation","geometry_ref","electors_at_creation"], ["id"], placeVersionRows);
+  // After place_version: place_geometry references it, and writing first failed the foreign key.
+  w("place_geometry", ["place_version_id","path","centroid_x","centroid_y","view_box","source_id"], ["place_version_id"], placeGeometryRows);
   w("election", ["id","kind","level","electorate_kind","jurisdiction_place_id","epoch_id","name","lifecycle","announced_on","notified_on","counting_on","forecast_gate_from","forecast_gate_to"], ["id"], electionRows);
   w("contest", ["id","election_id","place_version_id","phase_n","seats_available","lifecycle","declared_at"], ["id"], contestRows);
   w("person", ["id","canonical_name","canonical_name_script","names","sex","birth_year","birth_year_confidence","review_state","created_at"], ["id"], personRows);
