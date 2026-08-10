@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { openRead } from '../../packages/mandate/src/db/open.ts';
 import { getSituation, MARGINAL_PP } from '../../packages/mandate/src/repo/situation.ts';
+import { INDIA } from '../../packages/mandate/src/repo/coverage.ts';
 import type { Situation, SeatRow } from '../../packages/mandate/src/repo/situation.ts';
 import '../app/p/mandate.css';
 import './situation.css';
@@ -110,6 +111,16 @@ function Room({ s }: { s: Situation }) {
       <p className="sr-sub">
         Ranked from the registry at the moment you loaded this page — {IN.format(s.corpus.claims)}{' '}
         claims, each carrying the source it came from. Nothing here was chosen by an editor.
+      </p>
+      {/* The frame. Without it this page is a set of margin tables with no stated subject, which is
+          exactly how it read: elections are one of eighteen subject areas, four of which hold data,
+          and a reader should not have to infer that from an absence. */}
+      <p className="sr-frame">
+        Elections are one vertical of a political intelligence platform, not its subject. Of eighteen
+        subject areas — legislative activity, budgets, constituency funds, schemes, promises, funding,
+        court records and the rest — <strong>four hold data today</strong>, and one state of{' '}
+        {INDIA.states} is loaded. <Link href="/coverage">See exactly what is and is not here</Link>{' '}
+        before trusting anything on this page.
       </p>
 
       <form className="sr-find" action="/search" method="get" role="search">
@@ -301,7 +312,8 @@ export default function SituationRoom() {
           <span className="sr-mark">MANDATE</span>
           <Link href="/pl/wb">Places</Link>
           <Link href="/search">People</Link>
-          <Link href="/mandate">Build</Link>
+          <Link href="/review/merges">Review</Link>
+          <Link href="/coverage">Coverage</Link>
           <Link href="/classic">WB Votes</Link>
         </nav>
         {s === null ? <NotBuilt /> : <Room s={s} />}

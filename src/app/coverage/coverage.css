@@ -1,0 +1,151 @@
+/* Coverage ledger. Tokens and focus rules come from mandate.css and situation.css; this adds only the
+   three-state row treatment and the wide table's layout. */
+
+.cv-geo {
+  max-width: 520px;
+}
+
+.cv-table th[scope='row'] {
+  text-align: left;
+  font-weight: 400;
+  padding-right: 14px;
+  min-width: 190px;
+}
+
+.cv-label {
+  display: block;
+  color: var(--text);
+  font-weight: 600;
+  font-size: 14px;
+}
+
+/* The question is the point of the row: a subject area is defined by what a reader would open it to
+   find out, not by its table name. */
+.cv-q {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.45;
+  margin-top: 2px;
+  max-width: 34ch;
+}
+
+.cv-status {
+  white-space: nowrap;
+  color: var(--text-2);
+  font-size: 13px;
+}
+
+/* Colour is the third carrier, after the words and the row's own left border. A greyscale print or a
+   forced-colors palette still reads correctly. */
+.cv-dot {
+  display: inline-block;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  margin-right: 7px;
+  vertical-align: 1px;
+  background: var(--muted);
+}
+
+.cv-present th[scope='row'] {
+  border-left: 3px solid #7fd4a8;
+  padding-left: 10px;
+}
+
+.cv-present .cv-dot {
+  background: #7fd4a8;
+}
+
+.cv-empty th[scope='row'] {
+  border-left: 3px solid var(--ink-600);
+  padding-left: 10px;
+}
+
+.cv-empty .cv-dot {
+  background: var(--ink-400);
+}
+
+.cv-no-model th[scope='row'] {
+  border-left: 3px solid var(--line);
+  padding-left: 10px;
+}
+
+.cv-unit {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.cv-scope,
+.cv-source {
+  color: var(--text-2);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.cv-scope {
+  max-width: 40ch;
+}
+
+.cv-source {
+  max-width: 24ch;
+}
+
+.cv-notes {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 1px;
+}
+
+.cv-notes li {
+  border-top: 1px solid var(--line);
+  padding: 12px 0;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-2);
+  max-width: 78ch;
+}
+
+.cv-notes strong {
+  color: var(--text);
+  font-weight: 600;
+}
+
+/* A five-column table with two prose columns cannot narrow gracefully, so on a phone the two prose
+   columns stack under the subject instead of being dropped — the scope line is the honest part and
+   hiding it would defeat the page. */
+@media (max-width: 780px) {
+  .cv-table thead {
+    display: none;
+  }
+
+  .cv-table tr {
+    display: block;
+    border-bottom: 1px solid var(--line);
+    padding: 12px 0;
+  }
+
+  .cv-table th[scope='row'],
+  .cv-table td {
+    display: block;
+    border: none;
+    padding: 0 0 4px;
+    text-align: left;
+  }
+
+  .cv-table .n {
+    text-align: left;
+  }
+
+  .cv-scope,
+  .cv-source {
+    max-width: none;
+  }
+
+  .cv-source::before {
+    content: 'Source: ';
+    color: var(--muted);
+  }
+}
