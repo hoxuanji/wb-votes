@@ -46,7 +46,12 @@ const DESTINATIONS: readonly Dest[] = [
   { key: 'research', label: 'Research', href: '/coverage' },
 ];
 
-export function Nav({ here }: { here: Section }) {
+/** A jurisdiction, as the picker needs it. Structural only — the nav does not query the registry itself,
+ *  because a component that opens a database cannot be rendered on a page that has already closed it. */
+export type JumpTarget = { id: string; name: string; hasData: boolean };
+
+export function Nav({ here, states }: { here: Section; states?: readonly JumpTarget[] }) {
+
   return (
     <header className="iei-top">
       <Link className="iei-mark" href="/">
@@ -71,13 +76,38 @@ export function Nav({ here }: { here: Section }) {
           ),
         )}
       </nav>
-      {/* §19 wants a command bar on CMD+K. This is the honest placeholder for it: a real form that
-          works with no JavaScript, labelled with the shortcut it does not yet implement. */}
+      {/* A jurisdiction picker, not a menu of links: 36 destinations do not belong in a nav bar, and a
+          native select needs no JavaScript, is keyboard- and screen-reader-native on every platform, and
+          submits on its own button. The options come from the registry, so a state appears here the moment
+          its data is loaded. */}
+      {states === undefined || states.length === 0 ? null : (
+        <form className="iei-jump" action="/pl" method="get">
+          <label htmlFor="iei-state" className="iei-sr">
+            Go to a state or union territory
+          </label>
+          <select id="iei-state" name="to" defaultValue="">
+            <option value="" disabled>
+              State / UT
+            </option>
+            {states.map((s) => (
+              <option key={s.id} value={s.id} disabled={!s.hasData}>
+                {s.name}
+                {s.hasData ? '' : ' — not loaded'}
+              </option>
+            ))}
+          </select>
+          <button type="submit">Go</button>
+        </form>
+      )}
       <form className="iei-cmd" action="/search" method="get" role="search">
         <label htmlFor="iei-q" className="iei-sr">
           Search candidates, seats and parties
         </label>
-        <input id="iei-q" name="q" type="search" placeholder="Search  মমতা · Mamata · Mekliganj" autoComplete="off" />
+        {/* The placeholder used to carry three worked examples. Instruction-as-placeholder is the wrong
+            place for it: it is unreadably low-contrast by design, vanishes the moment anyone types, and
+            reads as clutter in the chrome. One word here; the examples live on /search, where there is room
+            to show them properly. */}
+        <input id="iei-q" name="q" type="search" placeholder="Search" autoComplete="off" />
       </form>
     </header>
   );

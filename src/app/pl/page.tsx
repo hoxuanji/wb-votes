@@ -10,6 +10,8 @@
 // and a count query here bought one more DatabaseSync handle to leak. Delete the whole file when the
 // new shell (§5) has real navigation.
 
+import { redirect } from "next/navigation";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
@@ -58,7 +60,16 @@ const surfaces: { href: string; label: string; floor: string; replaces: string }
   },
 ];
 
-export default function MandateIndex() {
+/**
+ * The jurisdiction picker in the chrome submits here as a plain GET (`/pl?to=wb`), because a native
+ * <select> with no JavaScript cannot navigate on its own. Turning that parameter into a real URL is this
+ * route's job; an unknown or absent value just renders the index rather than erroring, so a hand-edited
+ * query string cannot produce a broken page.
+ */
+export default function MandateIndex({ searchParams }: { searchParams?: { to?: string } }) {
+  const to = searchParams?.to;
+  if (to !== undefined && /^[a-z]{2}$/.test(to)) redirect(`/pl/${to}`);
+
   return (
     <article className="wrap">
       <p className="eyebrow">Mandate · build index</p>

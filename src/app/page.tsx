@@ -1,121 +1,203 @@
 import Link from 'next/link';
 import { openRead } from '../../packages/mandate/src/db/open.ts';
-import { getSituation, MARGINAL_PP } from '../../packages/mandate/src/repo/situation.ts';
-import type { Situation, SeatRow } from '../../packages/mandate/src/repo/situation.ts';
-import { fillFor, getMap, seatTitle } from '../../packages/mandate/src/repo/map.ts';
-import type { MapMode, MapView } from '../../packages/mandate/src/repo/map.ts';
-import { calendar, changeLog } from '../../packages/mandate/src/repo/room.ts';
-import type { CalendarEntry, ChangeEntry } from '../../packages/mandate/src/repo/room.ts';
+import {
+  bypolls,
+  closeFights,
+  currentStandings,
+  due,
+  recent,
+  swings,
+} from '../../packages/mandate/src/repo/elections.ts';
+import type { CloseFight, Dated, Standing, Swing } from '../../packages/mandate/src/repo/elections.ts';
 import { getCoverage, jurisdictions, INDIA } from '../../packages/mandate/src/repo/coverage.ts';
 import type { Coverage, JurisdictionState } from '../../packages/mandate/src/repo/coverage.ts';
 import { Nav } from './nav.tsx';
 import './iei.css';
 
 /**
- * `/` — the National Situation Room (§25).
+ * `/` — the national front door.
  *
- * Section order is the brief's: LIVE STATUS, WHAT CHANGED, BATTLEGROUNDS, MAP, SIGNALS, ELECTION
- * CALENDAR. MOST WATCHED is absent because it needs attention telemetry that does not exist, and LATEST
- * ANALYSIS is folded into the research strip rather than padded out with links to this page.
+ * WHAT THIS IS NOT ANY MORE: West Bengal's results with a national frame drawn around them. One state was
+ * the hero because one state was the data; 31 states and 1,188 elections later the front page's job is to
+ * be a place to choose from, not a place to read one result.
  *
- * What this deliberately is NOT, per §21: a hero, a wall of KPI cards, or a page of methodology. The
- * previous version opened with a 30px sentence and nine explanatory paragraphs — ~350 words of reasoning
- * that belongs in code comments, which is where it now lives. Each method is one link to /coverage.
+ * Every section is a SELECT over the registry at request time, and every section is the same component
+ * shape applied to a different slice — see repo/elections.ts, where nothing knows whether it is holding a
+ * state assembly, a Lok Sabha election or a by-poll. Adding Kerala's history to the registry adds Kerala
+ * to this page; there is no list of states in this file, and there must never be one.
+ *
+ * TWO THINGS DELIBERATELY ABSENT, because the honest version of each needs data we do not hold:
+ *  · A choropleth of India. place_geometry holds 313 outlines and all of them are West Bengal, so a
+ *    national map would be an empty country with one state in it. The 36-tile grid below is the same
+ *    information without the pretence, and the map appears when the boundaries are acquired.
+ *  · Exit polls. There is no model, no source and no rows. A section header with nothing behind it is
+ *    worse than its absence.
  */
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 const IN = new Intl.NumberFormat('en-IN');
-const MODES: { key: MapMode; label: string }[] = [
-  { key: 'party', label: 'Winner' },
-  { key: 'margin', label: 'Margin' },
-  { key: 'turnout', label: 'Turnout' },
-];
 
-/** §16's vocabulary as a component, so the four words are never improvised per surface. */
-function Badge({ kind }: { kind: 'CONFIRMED' | 'REPORTED' | 'DEVELOPING' | 'UNVERIFIED' }) {
-  return <span className={`iei-badge iei-${kind.toLowerCase()}`}>{kind}</span>;
+/**
+ * Party colour, assigned in fixed order to the parties that govern the most states, with everything else
+ * neutral. Five hues rather than the three the rest of the product caps at: every tile here is directly
+ * labelled with its party's abbreviation, so colour is reinforcement rather than the only channel, which
+ * is the condition that makes more hues safe. The order is by states governed, so a party's colour does
+ * not move when one state's row is filtered out of some other view.
+ */
+const PARTY_HUES = ['#a98bf2', '#5ec8c8', '#e0a458', '#e8927c', '#6fb3e0'];
+const NEUTRAL = '#4a4459';
+
+function hueMap(rows: readonly Standing[]): Map<string, string> {
+  const byParty = new Map<string, number>();
+  for (const r of rows) if (r.leaderKey !== null) byParty.set(r.leaderKey, (byParty.get(r.leaderKey) ?? 0) + 1);
+  const ranked = [...byParty.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return new Map(ranked.slice(0, PARTY_HUES.length).map(([k], i) => [k, PARTY_HUES[i] as string]));
 }
 
-/** The whole result in one row. §21: a chart that needs a caption is not doing its job, so the segments
- *  carry their own labels and there is no legend. Party colour is contextual here, as on the map. */
-const SHARE_HUES = ['#a98bf2', '#5ec8c8', '#e0a458'];
-function SeatShare({ s }: { s: Situation }) {
-  const total = s.momentum.reduce((n, p) => n + p.seatsWon, 0);
-  if (total === 0) return null;
-  const top = s.momentum.slice(0, 3);
-  const rest = s.momentum.slice(3).reduce((n, p) => n + p.seatsWon, 0);
-  const seg = (label: string, seats: number, fill: string) => (
-    <span key={label} style={{ background: fill, flexBasis: `${(100 * seats) / total}%` }}>
-      {(100 * seats) / total > 6 ? `${label} ${seats}` : ''}
-    </span>
-  );
+function Section({
+  title,
+  note,
+  children,
+}: {
+  title: string;
+  note?: React.ReactNode;
+  children: React.ReactNode;
+}) {
   return (
-    <div className="iei-share" role="img" aria-label={top.map((p) => `${p.short} ${p.seatsWon}`).join(', ')}>
-      {top.map((p, i) => seg(p.short, p.seatsWon, SHARE_HUES[i] ?? '#4a4459'))}
-      {rest > 0 ? seg('OTH', rest, '#4a4459') : null}
-    </div>
+    <section className="iei-sec">
+      <div className="iei-h">
+        <h2>{title}</h2>
+        {note === undefined ? null : <p>{note}</p>}
+      </div>
+      {children}
+    </section>
   );
 }
 
-/** 36 cells, one per jurisdiction. This is the pan-India picture: a ratio said in a sentence is an
- *  assertion, a grid with one cell lit is a fact you can count. */
-function National({ rows }: { rows: readonly JurisdictionState[] }) {
+/** WHO GOVERNS: one tile per jurisdiction, coloured by the party leading its most recent assembly. */
+function Governs({ rows, all }: { rows: readonly Standing[]; all: readonly JurisdictionState[] }) {
+  const hues = hueMap(rows);
+  const byId = new Map(rows.map((r) => [r.jurisdictionId, r]));
+  const legend = [...hues.entries()].map(([key, fill]) => ({
+    fill,
+    label: rows.find((r) => r.leaderKey === key)?.leaderLabel ?? key,
+    n: rows.filter((r) => r.leaderKey === key).length,
+  }));
+  const other = rows.filter((r) => r.leaderKey !== null && !hues.has(r.leaderKey)).length;
   return (
-    <ul className="iei-grid">
-      {rows.map((j) => (
-        <li
-          key={j.id}
-          className={j.hasData ? 'iei-has' : j.seats === null ? 'iei-none' : undefined}
-          title={
-            j.seats === null
-              ? `${j.name} — no legislative assembly`
-              : `${j.name} — ${j.loaded} of ${j.seats} seats loaded`
-          }
-        >
-          <b>{j.id.toUpperCase()}</b>
-          {j.seats === null ? 'no assy' : `${j.loaded}/${j.seats}`}
-        </li>
-      ))}
-    </ul>
+    <>
+      <ul className="iei-tiles">
+        {all.map((j) => {
+          const s = byId.get(j.id);
+          const fill = s?.leaderKey == null ? null : (hues.get(s.leaderKey) ?? NEUTRAL);
+          return (
+            <li key={j.id} className={s === undefined ? 'iei-tile iei-tile-off' : 'iei-tile'}>
+              <span className="iei-tile-id">{j.id.toUpperCase()}</span>
+              {s === undefined ? (
+                <span className="iei-tile-none">{j.seats === null ? 'no assembly' : 'not loaded'}</span>
+              ) : (
+                <>
+                  <b style={{ color: fill ?? 'inherit' }}>{s.leaderLabel}</b>
+                  <span className="iei-tile-n">
+                    {s.leaderSeats}/{s.seatsContested} · {s.year}
+                  </span>
+                  <span className="iei-tile-bar" aria-hidden="true">
+                    <i
+                      style={{
+                        width: `${Math.min(100, (100 * s.leaderSeats) / Math.max(1, s.seatsContested))}%`,
+                        background: fill ?? NEUTRAL,
+                      }}
+                    />
+                  </span>
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <ul className="iei-swatches">
+        {legend.map((l) => (
+          <li key={l.label}>
+            <span style={{ background: l.fill }} />
+            {l.label} {l.n}
+          </li>
+        ))}
+        {other > 0 ? (
+          <li>
+            <span style={{ background: NEUTRAL }} />
+            other {other}
+          </li>
+        ) : null}
+      </ul>
+    </>
   );
 }
 
-function SeatTable({ rows, widest }: { rows: readonly SeatRow[]; widest: number }) {
+/** One card shape for any dated election — upcoming, held, or a by-poll. */
+function ElectionRows({ rows, kind }: { rows: readonly Dated[]; kind: 'due' | 'held' }) {
+  if (rows.length === 0) return <p className="iei-na">Nothing to show yet.</p>;
+  return (
+    <table className="iei-t">
+      <tbody>
+        {rows.map((r) => (
+          <tr key={`${r.id}-${r.year}-${r.jurisdictionId}`}>
+            <td className="iei-n">{r.year}</td>
+            <td>
+              <Link href={`/pl/${r.jurisdictionId}`}>{r.jurisdictionName}</Link>
+              <span className="iei-sub">{r.kind === 'bypoll' ? 'by-election' : r.kind}</span>
+            </td>
+            {kind === 'held' ? (
+              <>
+                <td>{r.leaderLabel ?? <span className="iei-na">—</span>}</td>
+                <td className="iei-n">
+                  {r.leaderSeats}/{r.seatsContested}
+                </td>
+              </>
+            ) : (
+              <td className="iei-n" colSpan={2}>
+                <span className="iei-badge iei-unverified">TERM ENDS</span>
+              </td>
+            )}
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function Fights({ rows }: { rows: readonly CloseFight[] }) {
+  if (rows.length === 0) return <p className="iei-na">No margins are computable yet.</p>;
+  const worst = Math.max(...rows.map((r) => r.marginPct), 0.01);
   return (
     <table className="iei-t">
       <thead>
         <tr>
           <th>Seat</th>
-          <th className="iei-drop">District</th>
-          <th className="iei-track">Margin</th>
-          <th className="iei-n">pp</th>
-          <th className="iei-n">Votes</th>
-          <th className="iei-n">Held by</th>
-          <th className="iei-n iei-drop">Changed</th>
+          <th>State</th>
+          <th>Won by</th>
+          <th className="iei-n">Margin</th>
+          <th className="iei-track">&nbsp;</th>
         </tr>
       </thead>
       <tbody>
         {rows.map((r) => (
           <tr key={r.placeId}>
             <td>
-              <Link href={r.href}>{r.name}</Link>
+              <Link href={`/pl/${r.placeId.split('.').join('/')}`}>{r.placeName}</Link>
             </td>
-            <td className="iei-drop">
-              <span className="iei-sub">{r.district}</span>
+            <td className="iei-n">{r.jurisdictionId.toUpperCase()}</td>
+            <td>{r.winner}</td>
+            <td className="iei-n">
+              {r.marginPct}%
+              {r.marginVotes === null ? null : <span className="iei-sub">{IN.format(r.marginVotes)} votes</span>}
             </td>
             <td className="iei-track">
               <span
                 className="iei-bar"
-                style={{ width: `${Math.min(100, ((r.marginPct ?? 0) / widest) * 100).toFixed(1)}%` }}
+                style={{ width: `${Math.max(2, (100 * r.marginPct) / worst)}%`, background: '#e8927c' }}
               />
-            </td>
-            <td className="iei-n">{r.marginPct === null ? '—' : r.marginPct.toFixed(2)}</td>
-            <td className="iei-n">{r.marginVotes === null ? '—' : IN.format(r.marginVotes)}</td>
-            <td className="iei-n">{r.winnerParty ?? <span className="iei-na">n/r</span>}</td>
-            <td className="iei-n iei-drop">
-              {r.flips}/{Math.max(0, r.contests - 1)}
             </td>
           </tr>
         ))}
@@ -124,319 +206,152 @@ function SeatTable({ rows, widest }: { rows: readonly SeatRow[]; widest: number 
   );
 }
 
-function Room({
-  s,
-  view,
-  cal,
-  log,
-  cov,
-  nat,
-}: {
-  s: Situation;
-  view: MapView | null;
-  cal: CalendarEntry[];
-  log: ChangeEntry[];
-  cov: Coverage | null;
-  nat: JurisdictionState[];
-}) {
-  const widest = Math.max(MARGINAL_PP, ...s.marginal.map((r) => r.marginPct ?? 0));
-  const underCut = s.marginal.filter((r) => (r.marginPct ?? 99) < MARGINAL_PP).length;
-  const latest = cal[0];
-
+/** Vote share now against last time. The sign is the story, so it leads the cell. */
+function Swings({ rows }: { rows: readonly Swing[] }) {
+  if (rows.length === 0) return <p className="iei-na">No jurisdiction has counts on both sides yet.</p>;
   return (
-    <>
-      {/* ── §25 LIVE STATUS ─────────────────────────────────────────────────────────────────── */}
-      <div className="iei-status">
-        <span>
-          <span className="iei-dot iei-dot-idle" />
-          STATUS <b>NO ACTIVE ELECTION</b>
-        </span>
-        <span>
-          LAST DECLARED{' '}
-          <b>{latest === undefined ? 'NONE' : `${latest.kind.toUpperCase()} ${latest.year}`}</b>
-        </span>
-        <span>
-          COVERAGE{' '}
-          <b>
-            1 OF {INDIA.states} STATES
-          </b>
-        </span>
-        <span>
-          SOURCES VERIFIED{' '}
-          <b>
-            {s.corpus.fetched} OF {IN.format(s.corpus.sources)}
-          </b>
-        </span>
-      </div>
-
-      <SeatShare s={s} />
-
-      <dl className="iei-kpi">
-        <div>
-          <dt>Seats decided</dt>
-          <dd>
-            {IN.format(s.seatsDecided)}
-            <small>{s.latestYear} assembly · West Bengal</small>
-          </dd>
+    <div className="iei-swings">
+      {rows.map((s) => (
+        <div key={s.nowId} className="iei-swing">
+          <h3>
+            <Link href={`/pl/${s.jurisdictionId}`}>{s.jurisdictionName}</Link>
+            <span className="iei-sub">
+              {s.thenYear} → {s.year}
+            </span>
+          </h3>
+          <table className="iei-t">
+            <tbody>
+              {s.rows.map((r) => (
+                <tr key={r.key}>
+                  <td>{r.label}</td>
+                  <td className="iei-n">{r.nowPct === null ? '—' : `${r.nowPct}%`}</td>
+                  <td className={`iei-n ${r.changePp === null ? '' : r.changePp >= 0 ? 'iei-up' : 'iei-down'}`}>
+                    {r.changePp === null ? (
+                      <span className="iei-na">n/a</span>
+                    ) : (
+                      `${r.changePp > 0 ? '+' : ''}${r.changePp}`
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <div>
-          <dt>Closest of eight</dt>
-          <dd>
-            {underCut}
-            <small>under {MARGINAL_PP}pp in the shortlist below</small>
-          </dd>
-        </div>
-        <div>
-          <dt>People</dt>
-          <dd>
-            {IN.format(s.corpus.persons)}
-            <small>{IN.format(s.corpus.pendingMerges)} possible duplicates unreviewed</small>
-          </dd>
-        </div>
-        <div>
-          <dt>Cited claims</dt>
-          <dd>
-            {IN.format(s.corpus.claims)}
-            <small>every figure carries its source</small>
-          </dd>
-        </div>
-      </dl>
-
-      {/* ── §25 WHAT CHANGED ────────────────────────────────────────────────────────────────── */}
-      <section className="iei-sec" id="changed">
-        <div className="iei-h">
-          <h2>What changed</h2>
-          <p>
-            Registry, not news. <Link href="/coverage">Why</Link>
-          </p>
-        </div>
-        <table className="iei-t">
-          <thead>
-            <tr>
-              <th>When</th>
-              <th>Pipeline</th>
-              <th className="iei-n">Rows in</th>
-              <th className="iei-n">Rows out</th>
-              <th className="iei-n">Anomalies</th>
-              <th className="iei-n">Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {log.map((e) => (
-              <tr key={e.at}>
-                <td>
-                  <span className="iei-sub">{e.at.replace('T', ' ').slice(0, 16)}Z</span>
-                </td>
-                <td>{e.pipeline}</td>
-                <td className="iei-n">{e.rowsIn === null ? '—' : IN.format(e.rowsIn)}</td>
-                <td className="iei-n">{e.rowsOut === null ? '—' : IN.format(e.rowsOut)}</td>
-                <td className="iei-n">{e.anomalies === 0 ? '—' : e.anomalies}</td>
-                <td className="iei-n">
-                  <Badge kind={e.status === 'ok' ? 'CONFIRMED' : 'DEVELOPING'} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      {/* ── §14/§25 BATTLEGROUNDS ───────────────────────────────────────────────────────────── */}
-      <section className="iei-sec" id="battlegrounds">
-        <div className="iei-h">
-          <h2>Battlegrounds</h2>
-          <p>
-            Margin as a share of votes cast. <Link href="/coverage">Method</Link>
-          </p>
-        </div>
-        <div className="iei-two">
-          <div>
-            <SeatTable rows={s.marginal} widest={widest} />
-          </div>
-          <div>
-            <div className="iei-h">
-              <h2>Changed hands most</h2>
-              <p>Party changes, four elections</p>
-            </div>
-            <SeatTable rows={s.volatile.slice(0, 6)} widest={widest} />
-          </div>
-        </div>
-      </section>
-
-      {/* ── §5/§23 the map is in the workspace, not on a page of its own ───────────────────── */}
-      <section className="iei-sec" id="map">
-        <div className="iei-h">
-          <h2>Map · {view === null ? 'unavailable' : view.finding}</h2>
-          <div className="iei-modes">
-            {MODES.map((m) => (
-              <Link
-                key={m.key}
-                href={`/map?by=${m.key}`}
-                className={view?.mode === m.key ? 'iei-mode-on' : undefined}
-              >
-                {m.label}
-              </Link>
-            ))}
-          </div>
-        </div>
-        {view === null ? (
-          <p className="iei-na">No constituency outlines are stored.</p>
-        ) : (
-          <div className="iei-two">
-            <div className="iei-map">
-              <svg viewBox={view.viewBox} role="img" aria-label={view.finding}>
-                {view.seats.map((seat) => (
-                  <a key={seat.placeId} href={seat.href}>
-                    <title>{seatTitle(view, seat)}</title>
-                    <path
-                      d={seat.path}
-                      fill={fillFor(view, seat)}
-                      stroke="#08070c"
-                      strokeWidth={0.6}
-                    />
-                  </a>
-                ))}
-              </svg>
-              <ul className="iei-swatches">
-                {view.legend.map((l) => (
-                  <li key={l.label}>
-                    <span style={{ background: l.fill }} aria-hidden="true" />
-                    {l.label}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {/* ── §15/§18 SIGNALS, beside the map so a lead and its place are read together ── */}
-            <div id="signals">
-              <div className="iei-h">
-                <h2>Signals</h2>
-                <p>Computed leads</p>
-              </div>
-              <ul className="iei-signals">
-                {s.flags.slice(0, 7).map((f) => (
-                  <li key={`${f.rule}-${f.subject}`}>
-                    <span className="iei-when">
-                      <Badge kind="REPORTED" />
-                    </span>
-                    <div>
-                      <p className="iei-sig-h">
-                        {f.href === null ? f.subject : <Link href={f.href}>{f.subject}</Link>}
-                      </p>
-                      <p className="iei-sig-d">{f.detail}</p>
-                      <p className="iei-rule">rule · {f.rule}</p>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        )}
-      </section>
-
-      {/* ── pan-India: the denominator, with structure behind it ────────────────────────────── */}
-      <section className="iei-sec" id="national">
-        <div className="iei-h">
-          <h2>India · {nat.filter((j) => j.hasData).length} of {nat.length} jurisdictions loaded</h2>
-          <p>
-            {IN.format(INDIA.assemblySeats)} assembly seats · {INDIA.lokSabhaSeats} Lok Sabha
-          </p>
-        </div>
-        <National rows={nat} />
-      </section>
-
-      {/* ── §26 ELECTION CALENDAR ───────────────────────────────────────────────────────────── */}
-      <section className="iei-sec" id="calendar">
-        <div className="iei-h">
-          <h2>Election calendar</h2>
-          <p>Recorded dates only, never estimated</p>
-        </div>
-        <table className="iei-t">
-          <thead>
-            <tr>
-              <th>Election</th>
-              <th>Type</th>
-              <th className="iei-drop">Level</th>
-              <th className="iei-n">Seats</th>
-              <th className="iei-n">Counted</th>
-              <th className="iei-n">Confidence</th>
-            </tr>
-          </thead>
-          <tbody>
-            {cal.map((e) => (
-              <tr key={e.id}>
-                <td>{e.name}</td>
-                <td>
-                  <span className="iei-sub">{e.kind}</span>
-                </td>
-                <td className="iei-drop">
-                  <span className="iei-sub">{e.level}</span>
-                </td>
-                <td className="iei-n">{e.seats}</td>
-                <td className="iei-n">
-                  {e.countingOn ?? <span className="iei-na">no date on record</span>}
-                </td>
-                <td className="iei-n">
-                  <Badge kind={e.confidence} />
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-
-      <p className="iei-foot">
-        {cov === null
-          ? null
-          : `${cov.present} of ${cov.total} subject areas hold data · ${cov.noModel} have no model yet · `}
-        <Link href="/coverage">Coverage and method</Link> · <Link href="/map">Full map</Link> ·{' '}
-        <Link href="/search">Search people</Link> · <Link href="/review/merges">Merge review</Link> ·{' '}
-        <Link href="/classic">WB Votes, the previous app</Link>
-        <br />
-        Elections are one vertical of a political intelligence platform. Most of the others are not built,
-        and the coverage page states exactly which.
-      </p>
-    </>
+      ))}
+    </div>
   );
 }
 
 export default function Home() {
-  let s: Situation | null = null;
-  let view: MapView | null = null;
-  let cal: CalendarEntry[] = [];
-  let log: ChangeEntry[] = [];
-  let cov: Coverage | null = null;
-  let nat: JurisdictionState[] = [];
+  const db = openRead();
+  let standings: Standing[] = [];
+  let held: Dated[] = [];
+  let upcoming: Dated[] = [];
+  let overdue: Dated[] = [];
+  let fights: CloseFight[] = [];
+  let shifts: Swing[] = [];
+  let polls: Dated[] = [];
+  let coverage: Coverage | null = null;
+  let states: JurisdictionState[] = [];
   try {
-    const db = openRead();
-    s = getSituation(db);
-    view = getMap(db, 'party');
-    cal = calendar(db);
-    log = changeLog(db, 5);
-    cov = getCoverage(db);
-    nat = jurisdictions(db);
-  } catch {
-    s = null;
+    standings = currentStandings(db);
+    held = recent(db, 8);
+    const nextUp = due(db, THIS_YEAR);
+    upcoming = nextUp.upcoming;
+    overdue = nextUp.overdue;
+    fights = closeFights(db, 'assembly', 10);
+    shifts = swings(db, 'assembly', 6);
+    polls = bypolls(db, 6);
+    coverage = getCoverage(db);
+    states = jurisdictions(db);
+  } finally {
+    db.close();
   }
 
+  const g = coverage?.geography;
   return (
     <div className="iei">
-      <Nav here="home" />
+      <Nav here="home" states={states} />
       <main className="iei-body">
-        {s === null ? (
-          <div className="iei-sec">
-            <div className="iei-h">
-              <h2>Registry not built</h2>
-            </div>
-            <p className="iei-na">
-              Every figure here is computed from <code>.data/registry.db</code>, which is gitignored.
-              Build it with <code>npm run registry:migrate</code>,{' '}
-              <code>npm run registry:ingest</code>, <code>npm run registry:resolve</code>.
-            </p>
-          </div>
-        ) : (
-          <Room s={s} view={view} cal={cal} log={log} cov={cov} nat={nat} />
-        )}
+        <div className="iei-status">
+          <span>
+            <span className="iei-dot iei-dot-idle" />
+            {standings.length} of {INDIA.states} jurisdictions have results
+          </span>
+          <span>
+            assembly seats <b>{IN.format(g?.assemblySeatsLoaded ?? 0)}</b> of {IN.format(INDIA.assemblySeats)}
+          </span>
+          <span>
+            Lok Sabha <b>{IN.format(g?.parliamentarySeatsLoaded ?? 0)}</b> of {IN.format(INDIA.lokSabhaSeats)}
+          </span>
+          <span>
+            most recent <b>{held[0] === undefined ? '—' : `${held[0].jurisdictionName} ${held[0].year}`}</b>
+          </span>
+          <span>
+            <Link href="/coverage">what is and is not loaded</Link>
+          </span>
+        </div>
+
+        <Section
+          title="Who governs"
+          note={<>Leading party in each jurisdiction&rsquo;s most recent assembly election</>}
+        >
+          <Governs rows={standings} all={states} />
+        </Section>
+
+        <div className="iei-two">
+          <Section
+            title="Next due"
+            note={
+              <>
+                Five-year term from the last election &mdash; <b>derived, not announced</b>
+              </>
+            }
+          >
+            <ElectionRows rows={upcoming} kind="due" />
+            {overdue.length === 0 ? null : (
+              <p className="iei-rule">
+                {overdue.length} more terms ended before {THIS_YEAR} in our data &mdash; the registry stops at
+                2022 for most states. <Link href="/coverage">Coverage</Link>
+              </p>
+            )}
+          </Section>
+          <Section title="Recent results" note={<>Newest first, any house</>}>
+            <ElectionRows rows={held} kind="held" />
+          </Section>
+        </div>
+
+        <Section
+          title="Close fights across states"
+          note={<>Margin as a share of votes polled, most recent election of each jurisdiction</>}
+        >
+          <Fights rows={fights} />
+        </Section>
+
+        <Section
+          title="Vote share against last time"
+          note={<>Percentage points gained or lost, same house, consecutive elections</>}
+        >
+          <Swings rows={shifts} />
+        </Section>
+
+        <Section title="By-elections" note={<>A separate kind of election, and its own signal</>}>
+          <ElectionRows rows={polls} kind="held" />
+        </Section>
+
+        <footer className="iei-foot">
+          <p>
+            Every figure on this page is computed from the registry when the page is requested. Sources,
+            methods and the gaps are at <Link href="/coverage">/coverage</Link>.
+          </p>
+        </footer>
       </main>
     </div>
   );
 }
+
+/**
+ * The year the page reasons about. A constant rather than `new Date()` so a term-expiry list cannot change
+ * under a test, and so the one place that needs updating is visible instead of scattered through the SQL.
+ */
+const THIS_YEAR = 2026;

@@ -651,6 +651,177 @@
   }
 }
 
+/* ---------- WHO GOVERNS: one tile per jurisdiction (the stand-in for a choropleth) ----------
+   A tile carries four facts — the code, the party, the seats, and a bar for the share of the house — so
+   colour is never the only channel. That is what lets this use five hues where a chart legend would be
+   held to three. */
+
+.iei-tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iei-tile {
+  border: 1px solid var(--iei-line);
+  background: var(--iei-panel);
+  padding: 7px 8px 8px;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  line-height: 1.4;
+  min-height: 62px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+
+.iei-tile-id {
+  color: var(--iei-ink-3);
+  letter-spacing: 0.1em;
+}
+
+.iei-tile b {
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  /* A long party name must not push the tile wider than its neighbours. */
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.iei-tile-n {
+  color: var(--iei-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-tile-none {
+  color: #4c4760;
+}
+
+.iei-tile-off {
+  border-style: dashed;
+}
+
+.iei-tile-bar {
+  display: block;
+  height: 3px;
+  margin-top: auto;
+  background: var(--iei-line-2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.iei-tile-bar i {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+}
+
+/* ---------- vote share against last time ---------- */
+
+.iei-swings {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 8px 26px;
+}
+
+.iei-swing h3 {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0 0 4px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.iei-swing h3 a {
+  color: var(--iei-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-swing h3 a:hover {
+  border-bottom-color: var(--iei-accent);
+}
+
+.iei-swing h3 a:focus-visible {
+  outline: none;
+  border-bottom: 2px solid var(--iei-accent);
+}
+
+.iei-swing .iei-sub {
+  display: inline;
+}
+
+/* Direction is semantic here, so it is a colour with a meaning and a sign in the text. */
+.iei-up {
+  color: var(--iei-confirmed);
+}
+
+.iei-down {
+  color: var(--iei-alert);
+}
+
+/* ---------- the jurisdiction picker in the chrome ---------- */
+
+.iei-jump {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.iei-jump select,
+.iei-jump button {
+  background: var(--iei-raised);
+  border: 1px solid var(--iei-line-2);
+  border-bottom: 2px solid var(--iei-line-2);
+  border-radius: 3px;
+  color: var(--iei-ink);
+  font-family: var(--iei-mono);
+  font-size: 11px;
+  padding: 5px 7px;
+}
+
+.iei-jump select {
+  max-width: 168px;
+}
+
+.iei-jump button {
+  cursor: pointer;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--iei-ink-2);
+}
+
+.iei-jump button:hover {
+  color: var(--iei-ink);
+}
+
+.iei-jump select:focus-visible,
+.iei-jump button:focus-visible {
+  outline: none;
+  border-bottom-color: var(--iei-accent);
+}
+
+@media (max-width: 900px) {
+  .iei-jump select {
+    max-width: 120px;
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-jump select:focus-visible,
+  .iei-jump button:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+}
+
 /* ---------- seat-share bar: the whole result in one row, no words ---------- */
 
 .iei-share {
