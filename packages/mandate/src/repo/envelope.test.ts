@@ -173,11 +173,20 @@ async function assertContract(where: string, searchTerm: string): Promise<void> 
   const search = assertEnvelope(`${where} search`, await searchReply(searchTerm, 5));
   assert.ok(search.data.count > 0, `${where}: search count`);
 
-  // caveats are generated from the rows the response actually cites
+  // Caveats are generated from the rows the response actually cites, so the assertion is the
+  // BICONDITIONAL: a response citing unfetched sources says so, and one whose sources were all genuinely
+  // fetched does not claim otherwise. Asserting the caveat unconditionally was only ever right while
+  // every source in the registry was a publisher assertion; the Lokdhaba import made "all fetched" a
+  // reachable state, and a person whose whole record comes from a hashed file must not be told a document
+  // was never retrieved.
   const unfetched = person.sources.filter((s) => s.retrievalKind !== "fetched").length;
   const line = person.meta.caveats.find((c) => c.includes("never fetched"));
-  assert.ok(line !== undefined, `${where}: a response citing unfetched sources says so`);
-  assert.ok(line.includes(`${unfetched} of ${person.sources.length}`), `${where}: real counts: ${line}`);
+  if (unfetched > 0) {
+    assert.ok(line !== undefined, `${where}: a response citing ${unfetched} unfetched source(s) says so`);
+    assert.ok(line.includes(`${unfetched} of ${person.sources.length}`), `${where}: real counts: ${line}`);
+  } else {
+    assert.equal(line, undefined, `${where}: every source was fetched, so there is nothing to caveat`);
+  }
   assert.ok(
     person.meta.caveats.some((c) => /\d+ of \d+ claims .*provisional/.test(c)),
     `${where}: a response built from provisional claims says so`,

@@ -31,6 +31,7 @@ const MIGRATIONS = [
   "007_votes_may_be_unknown.sql",
   "008_place_geometry.sql",
   "009_tcpd_person_id.sql",
+  "010_reservation_bl.sql",
 ];
 
 function migrated(): DatabaseSync {

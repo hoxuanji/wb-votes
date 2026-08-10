@@ -161,7 +161,8 @@ export type BoundaryEpoch = {
   sourceId: string | null;
 };
 
-export const RESERVATIONS = ["general", "sc", "st"] as const;
+/** 'bl' is Sikkim's Bhutia-Lepcha reservation — 12 of its 32 seats, by statute. See migration 010. */
+export const RESERVATIONS = ["general", "sc", "st", "bl"] as const;
 export type Reservation = (typeof RESERVATIONS)[number];
 
 export type PlaceVersion = {

@@ -18,7 +18,7 @@ import { blockingKeys } from "../src/core/indic/index.ts";
 import { DEV_DB_PATH, all, get, open, openRead } from "../src/db/index.ts";
 import { migrate } from "../src/db/migrate.ts";
 import { JURISDICTIONS } from "../src/ingest/india.ts";
-import { downloadUrl, fetchState, importLokdhaba, localFile } from "../src/ingest/sources/lokdhaba.ts";
+import { downloadUrl, fetchState, importLokdhaba, localFile, lokdhabaState } from "../src/ingest/sources/lokdhaba.ts";
 import { countUncited, runIngest } from "../src/ingest/index.ts";
 import { THRESHOLD_PCT, diffAgainstSeed, formatReport } from "../src/ingest/export.ts";
 import { auditSample, resolvePersons, unmerge } from "../src/ingest/resolve/index.ts";
@@ -136,7 +136,7 @@ try {
         break;
       }
       const type = (arg("type") ?? "AE").toUpperCase() === "GE" ? "GE" : "AE";
-      const stateFile = j.name.replace(/\s+/g, "_");
+      const stateFile = lokdhabaState(j.id) ?? j.name.replace(/\s+/g, "_");
       console.log(`import: ${j.name} ${type} from lokdhaba.ashoka.edu.in`);
       const url = downloadUrl(stateFile, type);
       const given = arg("file");
@@ -173,6 +173,14 @@ try {
         ["parties", rep.parties],
         ["delimitations", rep.epochs],
       ]);
+      // Non-zero only where another source built this state's places first: those rows are attached to,
+      // never duplicated, so the seat page the app already renders is the one that gains the history.
+      if (rep.adoptedVersions > 0 || rep.adoptedContests > 0) {
+        table([
+          ["adopted seats", rep.adoptedVersions],
+          ["adopted contests", rep.adoptedContests],
+        ]);
+      }
       for (const s of rep.skipped) console.log(`  skipped ${s.count}: ${s.reason}`);
       break;
     }

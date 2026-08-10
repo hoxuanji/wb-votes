@@ -17,6 +17,9 @@ import { all, get } from "../db/index.ts";
 import { read } from "./index.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
 
+/** The delimitation in force. Every seat count comparable to today's totals is scoped to it. */
+export const CURRENT_EPOCH = "delim-2008";
+
 /**
  * `no-model` — nothing in the schema can hold this yet.
  * `empty`    — a table models it and holds zero rows.
@@ -296,14 +299,47 @@ export type Geography = {
   statePct: number;
   assemblyPct: number;
   parliamentaryPct: number;
+  /** Seats that exist ONLY in an earlier delimitation. Not a gap and not double-counted: history. */
+  historicalSeatsLoaded: number;
 };
 
+/**
+ * How much of India's geography the registry holds, against the seat counts India has TODAY.
+ *
+ * Counted from EACH JURISDICTION'S MOST RECENT ELECTION, which is the only denominator that compares
+ * like with like. Two earlier attempts did not:
+ *   every place row      109% of assembly seats — undivided Andhra Pradesh numbered 294 and undivided
+ *                        Bihar 324, and those seats are real, just not current.
+ *   the current epoch    103% — even inside delimitation 2008, Andhra Pradesh's 2009 and 2014 elections
+ *                        precede Telangana, and Jammu & Kashmir's precede Ladakh.
+ * The seats that no longer exist are reported separately rather than dropped, because a percentage that
+ * can exceed 100 is not a measurement.
+ */
 export function geography(db: DatabaseSync): Geography {
   return read(() => {
-    const n = (sql: string): number => Number(get<{ n: number }>(db, sql)?.n ?? 0);
+    const n = (sql: string, ...p: string[]): number => Number(get<{ n: number }>(db, sql, ...p)?.n ?? 0);
     const states = n("SELECT count(*) AS n FROM place WHERE kind IN ('state','ut')");
-    const acs = n("SELECT count(*) AS n FROM place WHERE kind = 'ac'");
-    const pcs = n("SELECT count(*) AS n FROM place WHERE kind = 'pc'");
+    // The latest election per jurisdiction, then the seats contested in it. A general election is one row
+    // for the whole union, so the same query serves both houses.
+    const seatsNow = (kind: string): number =>
+      n(
+        `SELECT count(*) AS n FROM (
+           SELECT DISTINCT c.place_version_id
+             FROM election e
+             JOIN contest c ON c.election_id = e.id
+            WHERE e.kind = ?
+              AND e.id IN (
+                SELECT id FROM (
+                  SELECT e2.id AS id,
+                         row_number() OVER (PARTITION BY e2.jurisdiction_place_id ORDER BY e2.id DESC) AS rn
+                    FROM election e2 WHERE e2.kind = ?
+                ) WHERE rn = 1))`,
+        kind,
+        kind,
+      );
+    const acs = seatsNow("assembly");
+    const pcs = seatsNow("general");
+    const everyAcAndPc = n("SELECT count(*) AS n FROM place WHERE kind IN ('ac','pc')");
     return {
       statesLoaded: states,
       assemblySeatsLoaded: acs,
@@ -311,6 +347,7 @@ export function geography(db: DatabaseSync): Geography {
       statePct: (100 * states) / INDIA.states,
       assemblyPct: (100 * acs) / INDIA.assemblySeats,
       parliamentaryPct: (100 * pcs) / INDIA.lokSabhaSeats,
+      historicalSeatsLoaded: everyAcAndPc - acs - pcs,
     };
   });
 }

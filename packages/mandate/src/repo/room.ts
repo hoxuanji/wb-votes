@@ -77,6 +77,14 @@ export type CalendarEntry = {
   confidence: "CONFIRMED" | "REPORTED";
 };
 
+/**
+ * The election calendar: the most recent election per jurisdiction, newest first.
+ *
+ * ONE PER JURISDICTION is the whole point. Unfiltered this returned every election in the registry,
+ * which was 5 rows when the registry held West Bengal and 1,188 the moment 1962-2022 arrived for the
+ * whole country — a calendar nobody can read, on the front page. What a reader wants from a calendar is
+ * where each state stands now; sixty years of Kerala is what the state's own page is for.
+ */
 export function calendar(db: DatabaseSync): CalendarEntry[] {
   return read(() =>
     all<{
@@ -95,6 +103,17 @@ export function calendar(db: DatabaseSync): CalendarEntry[] {
               (SELECT count(*) FROM result r JOIN contest c2 ON c2.id = r.contest_id
                 WHERE c2.election_id = e.id AND r.source_id IS NOT NULL) AS cited
          FROM election e
+        WHERE e.id IN (
+          SELECT id FROM (
+            SELECT e2.id AS id,
+                   row_number() OVER (
+                     PARTITION BY e2.jurisdiction_place_id, e2.kind ORDER BY e2.id DESC
+                   ) AS rn
+              FROM election e2
+             -- A by-election is not where a state stands; its assembly election is.
+             WHERE e2.kind <> 'bypoll'
+          ) WHERE rn = 1
+        )
         ORDER BY e.id DESC`,
     ).map((r) => ({
       id: r.id,

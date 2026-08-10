@@ -36,8 +36,9 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../db/index.ts";
-import { insertMany } from "../../db/index.ts";
+import { all, insertMany } from "../../db/index.ts";
 import { slug } from "../../core/ids.ts";
+import { DISTRICT_ALIAS } from "../districts.ts";
 import { JURISDICTIONS } from "../india.ts";
 
 export type ElectionType = "AE" | "GE";
@@ -83,10 +84,17 @@ const DELIMITATIONS: Record<string, { id: string; name: string; from: string }> 
 const BASE = "https://lokdhaba.ashoka.edu.in/downloads";
 const CACHE_DIR = ".data/cache/lokdhaba";
 
+/** The name Lokdhaba publishes a state's files under, where it differs from this project's. */
+const LOKDHABA_NAME: Record<string, string> = {
+  // Every other state is its own name with underscores. J&K keeps the ampersand, and a request for
+  // Jammu_and_Kashmir is a 404.
+  jk: "Jammu_&_Kashmir",
+};
+
 /** State_Name as Lokdhaba spells it, from our jurisdiction id. */
 export function lokdhabaState(id: string): string | null {
   const j = JURISDICTIONS.find((x) => x.id === id);
-  return j === undefined ? null : j.name.replace(/ and /g, " and ").replace(/\s+/g, "_");
+  return j === undefined ? null : (LOKDHABA_NAME[id] ?? j.name.replace(/\s+/g, "_"));
 }
 
 export type Fetched = {
@@ -204,19 +212,27 @@ export function parseCsv(text: string): string[][] {
   return rows;
 }
 
-/** The columns this importer reads. The file has 47; naming the ones we use keeps the mapping auditable. */
+/**
+ * The columns this importer cannot work without. The file has 45-47; naming the ones we use keeps the
+ * mapping auditable.
+ *
+ * Assembly and parliamentary files are NOT the same schema. The AE files carry 47 columns including
+ * `District_Name` and `Age`; the GE files carry 45 and have neither. Both are listed in OPTIONAL_COLUMNS
+ * rather than dropped from the check, because a column that vanishes from the AE files is a change worth
+ * failing on, while its absence in a GE file is just what a GE file is. Every read of them already
+ * handles an empty value: District_Name is blank before about 2009 even in the AE files, and Age is how
+ * birth_year gets its 'approx'.
+ */
 export const REQUIRED_COLUMNS = [
   "State_Name",
   "Year",
   "Constituency_No",
   "Constituency_Name",
   "Constituency_Type",
-  "District_Name",
   "DelimID",
   "Position",
   "Candidate",
   "Sex",
-  "Age",
   "Party",
   "Party_ID",
   "Votes",
@@ -228,6 +244,9 @@ export const REQUIRED_COLUMNS = [
   "pid",
   "Election_Type",
 ] as const;
+
+/** Read when present, absent from the parliamentary files. */
+export const OPTIONAL_COLUMNS = ["District_Name", "Age"] as const;
 
 export type Row = Record<string, string>;
 
@@ -279,14 +298,20 @@ const num = (v: string | undefined): number | null => {
  * The existing West Bengal rows use the seat number directly (1-294), with parliamentary seats offset by
  * 1,000 and district outlines by 2,000. That scheme cannot survive a second state — Bihar's seat 1 and
  * West Bengal's seat 1 both want id 1 — so imported rows are allocated above 1,000,000 from
- * (jurisdiction, delimitation, seat), which is deterministic so re-running an import updates rows rather
- * than duplicating them. West Bengal's low ids are grandfathered: they are referenced by contest and
- * place_geometry rows and renumbering them is a migration, not an importer's business.
+ * (jurisdiction, delimitation, seat, kind), which is deterministic so re-running an import updates rows
+ * rather than duplicating them. West Bengal's low ids are grandfathered: they are referenced by contest
+ * and place_geometry rows and renumbering them is a migration, not an importer's business.
+ *
+ * `kind` is in the key because an assembly and a parliamentary file for the same state both number their
+ * seats from 1. Without the offset, Uttar Pradesh's AC 5 and PC 5 in the same delimitation compute the
+ * same id, the upsert repoints one row to the other's place, and every contest on the losing seat
+ * silently follows it. The largest assembly is 403 seats and the largest parliamentary delegation 80, so
+ * 500 separates them with room to spare.
  */
-export function versionId(stateIdx: number, delimId: number, seatNo: number): number {
-  if (seatNo < 1 || seatNo > 999) throw new Error(`seat number ${seatNo} outside 1-999`);
+export function versionId(stateIdx: number, delimId: number, seatNo: number, kind: "ac" | "pc" = "ac"): number {
+  if (seatNo < 1 || seatNo > 499) throw new Error(`seat number ${seatNo} outside 1-499`);
   if (delimId < 0 || delimId > 19) throw new Error(`delimitation id ${delimId} outside 0-19`);
-  return 1_000_000 + stateIdx * 20_000 + delimId * 1_000 + seatNo;
+  return 1_000_000 + stateIdx * 20_000 + delimId * 1_000 + (kind === "pc" ? 500 : 0) + seatNo;
 }
 
 export type ImportReport = {
@@ -305,6 +330,12 @@ export type ImportReport = {
   tcpdIds: number;
   parties: number;
   epochs: number;
+  /** Seats and contests this import attached to rows another source had already created. Non-zero only
+   *  for a state the registry already held — West Bengal, whose seed built it. */
+  adoptedVersions: number;
+  adoptedContests: number;
+  /** Seats whose place row already existed and was therefore left exactly as another source wrote it. */
+  adoptedPlaces: number;
   skipped: { reason: string; count: number }[];
 };
 
@@ -377,6 +408,65 @@ export function importLokdhaba(
   const districtOf = new Map<string, string>();
   const notaVotes = new Map<string, number | null>();
 
+  // ── adoption: a state this registry already holds under another source ──────────────────────
+  //
+  // West Bengal came from the seed, so `wb.ac.001` already exists, already has a place_version in
+  // delim-2008, and that version already has contests for 2011/2016/2021/2026. `place_version` is
+  // UNIQUE (place_id, epoch_id) and `contest` is UNIQUE (election_id, place_version_id), so a parallel
+  // row is not merely undesirable — the schema refuses it, which is how this was found. Adopting the
+  // existing ids is also the only outcome worth having: the point of importing West Bengal from TCPD is
+  // that the seat page the app already renders gains sixty years of history, not that a second West
+  // Bengal appears beside the first.
+  //
+  // An adopted row is never rewritten. The seed's version rows carry geometry_ref and
+  // electors_at_creation that this file has no value for, and upserting would blank them.
+  //
+  // Places are adopted by their NATURAL key, not their id: the seed numbers West Bengal's parliamentary
+  // seats `wb.pc.01` and this importer would write `wb.pc.001`, which is the same seat under a different
+  // id — and `place` is UNIQUE (kind, eci_code, parent_id), so the second one is refused rather than
+  // silently duplicated. The key is (jurisdiction, kind, seat number); the parent is deliberately not in
+  // it, because a seat's parent moves from the state to its district the moment a row carries a district
+  // name, and that must not make the same seat look like a new place.
+  const placeFromDb = new Map<string, { id: string; name: string }>();
+  for (const r of all<{ id: string; kind: string; eci_code: string; canonical_name: string }>(
+    db,
+    "SELECT id, kind, eci_code, canonical_name FROM place WHERE eci_code IS NOT NULL",
+  )) {
+    placeFromDb.set(`${r.id.split(".")[0]} ${r.kind} ${r.eci_code}`, { id: r.id, name: r.canonical_name });
+  }
+  const adoptedVersion = new Map<string, number>();
+  for (const r of all<{ id: number; place_id: string; epoch_id: string }>(
+    db,
+    "SELECT id, place_id, epoch_id FROM place_version",
+  )) {
+    adoptedVersion.set(`${r.place_id} ${r.epoch_id}`, r.id);
+  }
+  const adoptedContest = new Map<string, string>();
+  for (const r of all<{ id: string; election_id: string; place_version_id: number }>(
+    db,
+    "SELECT id, election_id, place_version_id FROM contest",
+  )) {
+    adoptedContest.set(`${r.election_id} ${r.place_version_id}`, r.id);
+  }
+  /** Contests that already carry a result from some other source. Their candidate rows are not this
+   *  import's to restate — see the note at the point of use. */
+  const reportedElsewhere = new Set(
+    all<{ contest_id: string }>(db, "SELECT DISTINCT contest_id FROM result").map((r) => r.contest_id),
+  );
+  const partyFromDb = new Set(all<{ id: string }>(db, "SELECT id FROM party").map((r) => r.id));
+  const adoptedPlaces = new Set<string>();
+  // Which keys came from the DATABASE, captured before the loop starts adding its own. Without this the
+  // second candidate row for a seat looks like an adoption, and the first Sikkim import duly reported 291
+  // adopted contests in a state that had none.
+  const preexisting = new Set([...adoptedVersion.keys(), ...adoptedContest.keys()]);
+  let adoptedVersions = 0;
+  let adoptedContests = 0;
+  const countedVersions = new Set<string>();
+  const countedContests = new Set<string>();
+  /** Seat → best parent seen. District_Name is only filled from about 2009, so a seat's parent must
+   *  never be downgraded back to the state by an older row that happens to be processed later. */
+  const parentOf = new Map<string, string>();
+
   for (const r of rows) {
     const year = num(r["Year"]);
     const seatNo = num(r["Constituency_No"]);
@@ -405,32 +495,57 @@ export function importLokdhaba(
     if (!epochRows.has(epochId)) epochRows.set(epochId, [epochId, delim.name, delim.from, null]);
 
     const seatName = r["Constituency_Name"] ?? `Seat ${seatNo}`;
+    const kind = input.type === "AE" ? "ac" : "pc";
+    const already = placeFromDb.get(`${j.id} ${kind} ${seatNo}`);
+    const placeId = already?.id ?? `${j.id}.${kind}.${String(seatNo).padStart(3, "0")}`;
     const districtName = r["District_Name"] ?? "";
-    let parentId = j.id;
     if (districtName !== "") {
-      const dId = `${j.id}.${slug(districtName)}`;
+      // DISTRICT_ALIAS exists because two sources spell nine West Bengal districts differently. TCPD
+      // uses the census-side spellings ("Maldah", "Barddhaman", "Hugli"), so without the map an import
+      // creates a second place for a district the registry already holds — the exact drift that table
+      // was written to stop.
+      const sl = slug(districtName);
+      const dId = `${j.id}.${DISTRICT_ALIAS[sl] ?? sl}`;
       if (!districtOf.has(dId)) {
         districtOf.set(dId, districtName);
         placeRows.set(dId, [dId, "district", j.id, districtName, "{}", null, null]);
       }
-      parentId = dId;
+      parentOf.set(placeId, dId);
     }
-    const kind = input.type === "AE" ? "ac" : "pc";
-    const placeId = `${j.id}.${kind}.${String(seatNo).padStart(3, "0")}`;
-    placeRows.set(placeId, [placeId, kind, parentId, seatName, "{}", null, String(seatNo)]);
+    // An existing place is LEFT ALONE, not upserted. This row has a name and a seat number and nothing
+    // else; the registry's row may carry a Bengali name in `names`, an LGD code, and a district parent —
+    // and an upsert from here wrote "{}" and null over all three. The same mistake against `party`
+    // replaced "All India Trinamool Congress", its Bengali name, its abbreviation TMC and its national
+    // status with the four characters "AITC".
+    if (already === undefined) {
+      placeRows.set(placeId, [placeId, kind, parentOf.get(placeId) ?? j.id, seatName, "{}", null, String(seatNo)]);
+    } else {
+      adoptedPlaces.add(placeId);
+    }
 
-    const vId = versionId(stateIdx, delimId, seatNo);
-    // Constituency_Type is GEN / SC / ST, which is exactly the reservation column's vocabulary.
+    // Constituency_Type is GEN / SC / ST — plus BL in Sikkim, whose assembly reserves twelve seats for
+    // the Bhutia-Lepcha communities. Migration 010 put that value in the schema's vocabulary.
     const reservation = (r["Constituency_Type"] ?? "").toLowerCase();
-    versionRows.set(vId, [
-      vId,
-      placeId,
-      epochId,
-      seatNo,
-      reservation === "gen" ? "general" : reservation === "" ? null : reservation,
-      null,
-      null,
-    ]);
+    const vKey = `${placeId} ${epochId}`;
+    const adoptedV = adoptedVersion.get(vKey);
+    const vId = adoptedV ?? versionId(stateIdx, delimId, seatNo, kind);
+    if (adoptedV === undefined) {
+      versionRows.set(vId, [
+        vId,
+        placeId,
+        epochId,
+        seatNo,
+        reservation === "gen" ? "general" : reservation === "" ? null : reservation,
+        null,
+        null,
+      ]);
+      // Remembered so the next row for the same seat and epoch reuses it, rather than re-deriving an id
+      // that is only the same by luck of the allocation scheme.
+      adoptedVersion.set(vKey, vId);
+    } else if (preexisting.has(vKey) && !countedVersions.has(vKey)) {
+      countedVersions.add(vKey);
+      adoptedVersions += 1;
+    }
 
     // ── election and contest ─────────────────────────────────────────────────────────────────
     // Poll_No is not a re-poll counter. In Bihar 1,358 rows carry Poll_No = 1 but only 10 (year, seat)
@@ -438,9 +553,12 @@ export function importLokdhaba(
     // poll of the same contest. Modelling it as a separate election of kind 'bypoll' is what the schema's
     // vocabulary already says, keeps the by-poll's winner from overwriting the general election's, and is
     // what stopped `UNIQUE (election_id, place_version_id)` failing.
+    //
+    // A by-poll id names the house too: an assembly by-election and a parliamentary one in the same state
+    // and year are two different elections, and 'wb-bypoll-1969' cannot be both.
     const isBypoll = pollNo > 0;
     const electionId = isBypoll
-      ? `${j.id}-bypoll-${year}`
+      ? `${j.id}-bypoll-${input.type === "AE" ? "ae" : "ge"}-${year}`
       : input.type === "AE"
         ? `${j.id}-assembly-${year}`
         : `ls-${year}`;
@@ -464,8 +582,42 @@ export function importLokdhaba(
       null,
     ]);
 
-    const contestId = `${electionId}:s${String(seatNo).padStart(3, "0")}`;
-    contestRows.set(contestId, [contestId, electionId, vId, null, 1, "declared", null]);
+    // The seed's contest ids carry the seat name ('wb-assembly-2011:alipurduars-012'); this file's do
+    // not, deliberately. Where the registry already has a contest for this election and seat, its id is
+    // the one every existing candidacy, result and claim already points at — so adopt it, and do not
+    // rewrite the row.
+    //
+    // An assembly election id already names its state, but a general election's does not: every state
+    // numbers its parliamentary seats from 1, so 'ls-2024:s001' is Uttar Pradesh's first seat and West
+    // Bengal's, and the second import to run would repoint the first one's contest at its own seat. The
+    // jurisdiction goes in the id.
+    const cKey = `${electionId} ${vId}`;
+    const adoptedC = adoptedContest.get(cKey);
+    const seatSuffix = `${input.type === "GE" && !isBypoll ? `${j.id}-` : ""}s${String(seatNo).padStart(3, "0")}`;
+    const contestId = adoptedC ?? `${electionId}:${seatSuffix}`;
+    if (adoptedC === undefined) {
+      contestRows.set(contestId, [contestId, electionId, vId, null, 1, "declared", null]);
+      adoptedContest.set(cKey, contestId);
+    } else if (preexisting.has(cKey) && !countedContests.has(cKey)) {
+      countedContests.add(cKey);
+      adoptedContests += 1;
+    }
+
+    // A contest ANOTHER SOURCE HAS ALREADY REPORTED is left exactly as it is. Without this the import
+    // wrote a second candidate set into West Bengal's 2011, 2016 and 2021 contests — the seat pages then
+    // carried two winners each — and its `turnout` upsert replaced the seed's hand-checked electors and
+    // votes-polled for 281 of 294 seats with TCPD's ELECTORS and VALID VOTES, which is a different
+    // measure (Amta: 82.4% became 87.7%).
+    //
+    // The cost is real and is counted below, not waved away: for those years the seed holds only the
+    // leading contestants, so the fuller TCPD field is declined along with the duplicate. Choosing which
+    // source supersedes the other for one contest — and re-pointing the affidavits that hang off the
+    // seed's candidacies when it does — is the merge problem this project has a resolver for, and it
+    // deserves a design pass rather than being settled by whichever import ran last.
+    if (adoptedC !== undefined && reportedElsewhere.has(contestId)) {
+      skip("contest already reported by another source — its candidate rows were left untouched");
+      continue;
+    }
 
     if (isNota(name, r["Party"] ?? "")) {
       notaVotes.set(contestId, num(r["Votes"]));
@@ -515,15 +667,19 @@ export function importLokdhaba(
     const partyKey = partyLabel === "" ? null : partyLabel.toUpperCase();
     let partyVersionKey: string | null = null;
     if (partyKey !== null) {
-      partyRows.set(partyKey, [
-        partyKey,
-        partyLabel,
-        "{}",
-        partyLabel,
-        r["Party_Type_TCPD"] === "National Party" ? "national" : "state",
-        null,
-        null,
-      ]);
+      // Same rule as places: a party the registry already holds keeps its own row. TCPD's label is only
+      // an abbreviation, and writing it over a curated row is a loss, not an update.
+      if (!partyFromDb.has(partyKey)) {
+        partyRows.set(partyKey, [
+          partyKey,
+          partyLabel,
+          "{}",
+          partyLabel,
+          r["Party_Type_TCPD"] === "National Party" ? "national" : "state",
+          null,
+          null,
+        ]);
+      }
       partyVersionKey = partyKey;
       partyVersionRows.set(partyKey, [partyKey, "1900-01-01", null, partyLabel, null]);
     }
@@ -585,54 +741,69 @@ export function importLokdhaba(
   }
 
   // ── write, parents before children ─────────────────────────────────────────────────────────
+  // One savepoint around all thirteen tables. Sikkim's first import failed on place_version — a
+  // reservation value the schema had never seen — and left the source, epoch and place rows behind,
+  // because every insertMany owned its own transaction and nothing owned the import. A half-imported
+  // state is worse than an unimported one: it looks loaded.
   const w = (table: string, cols: readonly string[], key: readonly string[], rows: Iterable<Param[]>): number => {
     const list = [...rows];
     return list.length === 0 ? 0 : insertMany(db, upsert(table, cols, key), list);
   };
-
-  w("source", ["id", "kind", "publisher", "title", "url", "archived_url", "retrieved_at", "published_on", "doc_hash", "hash_kind", "retrieval_kind"], ["id"], sourceRows);
-  w("boundary_epoch", ["id", "name", "effective_from", "effective_to"], ["id"], epochRows.values());
-  w("place", ["id", "kind", "parent_id", "canonical_name", "names", "lgd_code", "eci_code"], ["id"], placeRows.values());
-  w("place_version", ["id", "place_id", "epoch_id", "number", "reservation", "geometry_ref", "electors_at_creation"], ["id"], versionRows.values());
-  w("election", ["id", "kind", "level", "electorate_kind", "jurisdiction_place_id", "epoch_id", "name", "lifecycle", "announced_on", "notified_on", "counting_on", "forecast_gate_from", "forecast_gate_to"], ["id"], electionRows.values());
-  w("contest", ["id", "election_id", "place_version_id", "phase_n", "seats_available", "lifecycle", "declared_at"], ["id"], contestRows.values());
-  w("person", ["id", "canonical_name", "canonical_name_script", "names", "sex", "birth_year", "birth_year_confidence", "review_state", "created_at"], ["id"], personRows.values());
-  w("person_identifier", ["person_id", "scheme", "value", "source_id"], ["scheme", "value"], identifierRows.values());
-  w("person_alias", ["person_id", "name", "script", "norm_key", "kind", "first_seen", "source_id"], ["person_id", "name", "script", "norm_key"], aliasRows.values());
-  w("party", ["id", "name", "names", "short_name", "kind", "registered_on", "dissolved_on"], ["id"], partyRows.values());
-
-  // party_version has an autoincrement id, so it is inserted then read back to resolve candidacies.
-  for (const [partyId, row] of partyVersionRows) {
-    insertMany(
-      db,
-      `INSERT INTO party_version (party_id, valid_from, valid_to, name, symbol_id)
-         VALUES (?,?,?,?,?)
-         ON CONFLICT DO NOTHING`,
-      [[partyId, row[1] ?? null, row[2] ?? null, row[3] ?? null, row[4] ?? null]],
-    );
-  }
-  const pvByParty = new Map<string, number>();
-  for (const r of db
-    .prepare(`SELECT id, party_id FROM party_version`)
-    .all() as { id: number; party_id: string }[]) {
-    if (!pvByParty.has(r.party_id)) pvByParty.set(r.party_id, r.id);
-  }
-  for (const row of candidacyRows.values()) {
-    const raw = row[10];
-    const key = typeof raw === "string" ? raw.toUpperCase() : null;
-    row[3] = key === null ? null : (pvByParty.get(key) ?? null);
+  db.exec("SAVEPOINT import_lokdhaba");
+  try {
+    writeAll();
+    db.exec("RELEASE import_lokdhaba");
+  } catch (cause) {
+    db.exec("ROLLBACK TO import_lokdhaba");
+    db.exec("RELEASE import_lokdhaba");
+    throw cause;
   }
 
-  w("candidacy", ["id", "contest_id", "person_id", "party_version_id", "alliance_version_id", "symbol_id", "serial_no", "status", "age_declared", "education_declared", "party_raw"], ["id"], candidacyRows.values());
-  w("result", ["contest_id", "candidacy_id", "revision", "votes", "postal_votes", "evm_votes", "vote_share", '"rank"', "is_winner", "margin", "source_id", "ingested_at"], ["contest_id", "candidacy_id", "revision"], resultRows.values());
-  // NOTA can appear after the row that produced the turnout entry for the same contest, so the value is
-  // stitched in here rather than relying on file order.
-  for (const [contestId, votes] of notaVotes) {
-    const row = turnoutRows.get(contestId);
-    if (row !== undefined) row[8] = votes;
-    else turnoutRows.set(contestId, [contestId, "contest", null, null, null, null, null, null, votes, sourceId]);
+  function writeAll(): void {
+    w("source", ["id", "kind", "publisher", "title", "url", "archived_url", "retrieved_at", "published_on", "doc_hash", "hash_kind", "retrieval_kind"], ["id"], sourceRows);
+    w("boundary_epoch", ["id", "name", "effective_from", "effective_to"], ["id"], epochRows.values());
+    w("place", ["id", "kind", "parent_id", "canonical_name", "names", "lgd_code", "eci_code"], ["id"], placeRows.values());
+    w("place_version", ["id", "place_id", "epoch_id", "number", "reservation", "geometry_ref", "electors_at_creation"], ["id"], versionRows.values());
+    w("election", ["id", "kind", "level", "electorate_kind", "jurisdiction_place_id", "epoch_id", "name", "lifecycle", "announced_on", "notified_on", "counting_on", "forecast_gate_from", "forecast_gate_to"], ["id"], electionRows.values());
+    w("contest", ["id", "election_id", "place_version_id", "phase_n", "seats_available", "lifecycle", "declared_at"], ["id"], contestRows.values());
+    w("person", ["id", "canonical_name", "canonical_name_script", "names", "sex", "birth_year", "birth_year_confidence", "review_state", "created_at"], ["id"], personRows.values());
+    w("person_identifier", ["person_id", "scheme", "value", "source_id"], ["scheme", "value"], identifierRows.values());
+    w("person_alias", ["person_id", "name", "script", "norm_key", "kind", "first_seen", "source_id"], ["person_id", "name", "script", "norm_key"], aliasRows.values());
+    w("party", ["id", "name", "names", "short_name", "kind", "registered_on", "dissolved_on"], ["id"], partyRows.values());
+
+    // party_version has an autoincrement id, so it is inserted then read back to resolve candidacies.
+    for (const [partyId, row] of partyVersionRows) {
+      insertMany(
+        db,
+        `INSERT INTO party_version (party_id, valid_from, valid_to, name, symbol_id)
+           VALUES (?,?,?,?,?)
+           ON CONFLICT DO NOTHING`,
+        [[partyId, row[1] ?? null, row[2] ?? null, row[3] ?? null, row[4] ?? null]],
+      );
+    }
+    const pvByParty = new Map<string, number>();
+    for (const r of db
+      .prepare(`SELECT id, party_id FROM party_version`)
+      .all() as { id: number; party_id: string }[]) {
+      if (!pvByParty.has(r.party_id)) pvByParty.set(r.party_id, r.id);
+    }
+    for (const row of candidacyRows.values()) {
+      const raw = row[10];
+      const key = typeof raw === "string" ? raw.toUpperCase() : null;
+      row[3] = key === null ? null : (pvByParty.get(key) ?? null);
+    }
+
+    w("candidacy", ["id", "contest_id", "person_id", "party_version_id", "alliance_version_id", "symbol_id", "serial_no", "status", "age_declared", "education_declared", "party_raw"], ["id"], candidacyRows.values());
+    w("result", ["contest_id", "candidacy_id", "revision", "votes", "postal_votes", "evm_votes", "vote_share", '"rank"', "is_winner", "margin", "source_id", "ingested_at"], ["contest_id", "candidacy_id", "revision"], resultRows.values());
+    // NOTA can appear after the row that produced the turnout entry for the same contest, so the value is
+    // stitched in here rather than relying on file order.
+    for (const [contestId, votes] of notaVotes) {
+      const row = turnoutRows.get(contestId);
+      if (row !== undefined) row[8] = votes;
+      else turnoutRows.set(contestId, [contestId, "contest", null, null, null, null, null, null, votes, sourceId]);
+    }
+    w("turnout", ["contest_id", "scope", "electors", "voters", "male", "female", "third_gender", "postal", "nota", "source_id"], ["contest_id", "scope"], turnoutRows.values());
   }
-  w("turnout", ["contest_id", "scope", "electors", "voters", "male", "female", "third_gender", "postal", "nota", "source_id"], ["contest_id", "scope"], turnoutRows.values());
 
   return {
     state: j.name,
@@ -650,6 +821,9 @@ export function importLokdhaba(
     tcpdIds: identifierRows.size,
     parties: partyRows.size,
     epochs: epochRows.size,
+    adoptedVersions,
+    adoptedContests,
+    adoptedPlaces: adoptedPlaces.size,
     skipped: [...skipped.entries()].map(([reason, count]) => ({ reason, count })),
   };
 }

@@ -49,8 +49,12 @@ test("turnout_pct against three real contests", { skip: skipWithoutRegistry() },
   try {
     const rows = db
       .prepare(
+        // Scoped to the election it names. Unscoped, `ORDER BY contest_id LIMIT 3` was the three lowest
+        // ids in the whole registry, which pan-India loading turned into Andhra Pradesh 1951 — a test
+        // still passing on identity while measuring something else entirely is worse than a red one.
         `SELECT contest_id, electors, voters FROM turnout
           WHERE scope = 'contest' AND electors > 0 AND voters IS NOT NULL
+            AND contest_id LIKE 'wb-assembly-2011:%'
           ORDER BY contest_id LIMIT 3`,
       )
       .all() as { contest_id: string; electors: number; voters: number }[];

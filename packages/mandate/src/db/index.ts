@@ -22,15 +22,22 @@ export function all<T>(db: DatabaseSync, sql: string, ...params: Param[]): T[] {
 /**
  * One prepared statement, one transaction, N rows. 2920 candidacies row-by-row in autocommit is
  * ~40s (one fsync per row); inside a transaction it is ~200ms. Returns rows written.
+ *
+ * SAVEPOINT rather than BEGIN so a caller can make a whole multi-table write atomic. An outermost
+ * savepoint behaves exactly like BEGIN DEFERRED and its RELEASE commits, so a lone call is unchanged;
+ * nested inside a caller's savepoint it rolls back only its own batch. The Sikkim import proved why
+ * this matters: it failed on the 4th of 13 tables and left three tables' rows behind, because each
+ * call was its own transaction and nothing owned the whole import.
  */
 export function insertMany(db: DatabaseSync, sql: string, rows: readonly Param[][]): number {
   const stmt = db.prepare(sql);
-  db.exec("BEGIN");
+  db.exec("SAVEPOINT insert_many");
   try {
     for (const row of rows) stmt.run(...row);
-    db.exec("COMMIT");
+    db.exec("RELEASE insert_many");
   } catch (cause) {
-    db.exec("ROLLBACK");
+    db.exec("ROLLBACK TO insert_many");
+    db.exec("RELEASE insert_many");
     throw cause;
   }
   return rows.length;
