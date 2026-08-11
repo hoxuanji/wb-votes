@@ -31,12 +31,11 @@ import { candidacyId, contestId, slug } from "../../../core/ids.ts";
 import { blockingKeys, detectScript } from "../../../core/indic/index.ts";
 import { JURISDICTIONS } from "../../india.ts";
 import { versionId } from "../lokdhaba.ts";
+import { delimIdOf } from "../../geography/delimitation.ts";
 import { ECI_STATISTICAL_DISCLAIMER, type RawArtefact } from "./acquire.ts";
 import { LS2024_EPOCH_ID, type Staged, type StagedCandidate, type StagedContest } from "./stage.ts";
 
 export const PARSER_VERSION = "eci-ls2024-v1";
-/** TCPD's DelimID for the 2008 order, so place_version ids land in the same space as the Lokdhaba import. */
-const DELIM_2008 = 4;
 
 export type PersonOutcome = "AUTO_MATCH" | "REVIEW" | "NEW_PERSON" | "REUSED";
 
@@ -151,15 +150,20 @@ export function importStaged(
       }
       const idx = JURISDICTIONS.findIndex((j) => j.id === c.jurisdictionId);
       if (idx < 0) throw new Error(`no jurisdiction '${c.jurisdictionId}' in india.ts — cannot number its seats`);
+      // The `place` row is the SEAT-NUMBER grouping, shared across delimitations — one row per
+      // (jurisdiction, house, number), with the constituency's real identity on `place_version`. Karnataka's
+      // `ka.pc.001` already works this way: BIDAR under the 1976 order and CHIKKODI under the 2008 one, two
+      // versions of one place row. A per-epoch place id would also collide with `place`'s
+      // UNIQUE (kind, eci_code, parent_id), which exists to stop exactly that duplication.
       const placeId = `${c.jurisdictionId}.pc.${String(c.number).padStart(3, "0")}`;
-      const vid = versionId(idx + 1, DELIM_2008, c.number, "pc");
+      const vid = versionId(idx + 1, delimIdOf(c.epochId), c.number, "pc");
       if (!existingPlaces.has(placeId)) {
         db.prepare(placeSql).run(placeId, "pc", c.jurisdictionId, c.rawName, String(c.number));
         existingPlaces.add(placeId);
         placesCreated += 1;
       }
       db.prepare(versionSql).run(
-        vid, placeId, c.jurisdictionId, "pc", LS2024_EPOCH_ID, c.number,
+        vid, placeId, c.jurisdictionId, "pc", c.epochId, c.number,
         // The source's own spelling, marker and all. This is the only place the name is written, and it is
         // written from the document that named it.
         c.rawName, c.reservation, `${c.jurisdictionId}|${c.number}|${c.rawName}`, winnerSource,

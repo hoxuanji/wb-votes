@@ -43,6 +43,7 @@ export type GeographyValidation = {
     nameMatchLinks: number;
     crosswalkRows: number;
     succession: number;
+    citedDerivations: number;
   };
   ok: boolean;
 };
@@ -308,7 +309,14 @@ export function validateGeography(db: DatabaseSync, opts?: { manifestPath?: stri
     ),
     nameMatchLinks: num("SELECT COUNT(*) FROM place_version_link WHERE kind = 'name_match'"),
     crosswalkRows: num("SELECT COUNT(*) FROM place_crosswalk"),
-    succession: num("SELECT COUNT(*) FROM place_version_link WHERE kind <> 'name_match'"),
+    // Relationships asserted with NO citation behind them. The rule this measures is "never invent
+    // continuity", not "never record it": `derived_from` links are cited to DPACO 2008, which states in
+    // terms that Assam's, Manipur's and Nagaland's 2008 content is the 1976 order carried forward,
+    // Arunachal's the 1989 order and J&K's the 1976 and 1995 orders. A fabricated succession still cannot
+    // be stored — the schema refuses an uncited link of any kind but 'name_match', and this counts what
+    // would slip past it. docs/model/delimitation-assam-jk.md.
+    succession: num("SELECT COUNT(*) FROM place_version_link WHERE kind <> 'name_match' AND source_id IS NULL"),
+    citedDerivations: num("SELECT COUNT(*) FROM place_version_link WHERE kind = 'derived_from' AND source_id IS NOT NULL"),
   };
 
   return { checks, metrics, ok: checks.every((c) => c.skipped || c.violations === 0) };

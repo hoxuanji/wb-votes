@@ -18,7 +18,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
-import { get } from "../../../db/index.ts";
+import { all, get } from "../../../db/index.ts";
 import { LS2024_ELECTION_ID, LS2024_EXPECTED_PCS, LS2024_REPORTED_PCS, type Staged } from "./stage.ts";
 
 export type Severity = "hard" | "warning";
@@ -171,6 +171,11 @@ export function validateStaged(s: Staged, db: DatabaseSync | null): Validation {
         .map((a) => `${a.path} no longer hashes to ${a.sha256.slice(0, 12)}`));
   }
 
+  // 17. every constituency has a defensible geography — jurisdiction, house, epoch, version, provenance
+  const geo = geographyAudit(s, db);
+  add(17, "every constituency has defensible geography provenance", "hard",
+    [...geo.unresolved, ...geo.ambiguous, ...geo.conflict], db === null ? "no registry" : null);
+
   const hardFailures = checks.filter((c) => c.severity === "hard" && (c.violations > 0 || c.skipped !== null)).length;
   const warnings = checks.filter((c) => c.severity === "warning" && c.violations > 0).length;
 
@@ -191,8 +196,95 @@ export function validateStaged(s: Staged, db: DatabaseSync | null): Validation {
       withAge: candidates.filter(({ x }) => x.age !== null).length,
       sources: s.sources.length,
       election: s.electionId,
+      geographyValid: geo.valid,
+      geographyUnresolved: geo.unresolved.length,
+      geographyAmbiguous: geo.ambiguous.length,
+      geographyConflict: geo.conflict.length,
     },
   };
+}
+
+/**
+ * Classify every staged constituency's geography as VALID, UNRESOLVED, AMBIGUOUS or CONFLICT.
+ *
+ * The four states are kept apart on purpose. "Unresolved" means no mapping was found; "ambiguous" means one
+ * was found but the evidence behind it does not settle it; "conflict" means two claims cannot both be true.
+ * Collapsing them into one count would let the second and third pass as the first — and every one of them is
+ * a HARD failure, because a constituency with no defensible geography is a result filed under the wrong seat,
+ * which is worse than a missing result.
+ */
+export function geographyAudit(
+  s: Staged,
+  db: DatabaseSync | null,
+): { valid: number; unresolved: string[]; ambiguous: string[]; conflict: string[] } {
+  const unresolved: string[] = [];
+  const ambiguous: string[] = [];
+  const conflict: string[] = [];
+
+  // The epochs the registry can defend: one that names the order that drew it.
+  const cited = new Map<string, { source: string | null; basis: string; jurisdiction: string | null }>();
+  if (db !== null) {
+    for (const e of all<{ id: string; source_id: string | null; effective_date_basis: string; jurisdiction_id: string | null }>(
+      db,
+      "SELECT id, source_id, effective_date_basis, jurisdiction_id FROM boundary_epoch",
+    )) {
+      cited.set(e.id, { source: e.source_id, basis: e.effective_date_basis, jurisdiction: e.jurisdiction_id });
+    }
+  }
+
+  const slotSeen = new Map<string, string>();
+  let valid = 0;
+  for (const c of s.contests) {
+    const at = `${c.jurisdictionId} pc${String(c.number).padStart(3, "0")} ${c.rawName}`;
+    if (c.resolution === "UNRESOLVED") {
+      unresolved.push(`${at}: ${c.resolutionNote}`);
+      continue;
+    }
+    // CONFLICT: two constituencies cannot occupy one slot in one epoch.
+    const slot = `${c.jurisdictionId}|${c.epochId}|${c.number}`;
+    const prior = slotSeen.get(slot);
+    if (prior !== undefined) {
+      conflict.push(`${at}: shares (jurisdiction, epoch, number) with ${prior}`);
+      continue;
+    }
+    slotSeen.set(slot, at);
+
+    // The four things every constituency must have.
+    const holes: string[] = [];
+    if (c.jurisdictionId === "") holes.push("no jurisdiction");
+    if (c.number < 1) holes.push("no house-seat number");
+    if (c.epochId === "") holes.push("no boundary_epoch");
+    if (c.resolution === "ADOPTED" && c.placeVersionId === null) holes.push("adopted with no place_version");
+    if (holes.length > 0) {
+      unresolved.push(`${at}: ${holes.join(", ")}`);
+      continue;
+    }
+
+    // AMBIGUOUS: the epoch exists but nothing cites the order that drew it, so the mapping cannot be
+    // defended even though it resolved. This is what would have fired had the 19 been forced through
+    // against `delim-2008` before the delimitation orders were acquired.
+    if (db !== null) {
+      const e = cited.get(c.epochId);
+      if (e === undefined) {
+        unresolved.push(`${at}: epoch ${c.epochId} is not in boundary_epoch`);
+        continue;
+      }
+      if (e.source === null) {
+        ambiguous.push(`${at}: epoch ${c.epochId} cites no order, so its geography cannot be defended`);
+        continue;
+      }
+      if (e.jurisdiction !== null && e.jurisdiction !== c.jurisdictionId) {
+        conflict.push(`${at}: epoch ${c.epochId} belongs to ${e.jurisdiction}, not ${c.jurisdictionId}`);
+        continue;
+      }
+    }
+    if (c.reservationConflict !== null) {
+      ambiguous.push(`${at}: ${c.reservationConflict}`);
+      continue;
+    }
+    valid += 1;
+  }
+  return { valid, unresolved, ambiguous, conflict };
 }
 
 /** The one-line-per-check report, and whether the import may proceed. */

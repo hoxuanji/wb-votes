@@ -38,6 +38,7 @@ const MIGRATIONS = [
   "012_place_version_name_required.sql",
   "013_election_event_identity.sql",
   "014_source_publisher_note.sql",
+  "015_delimitation_provenance.sql",
 ];
 
 function migrated(): DatabaseSync {

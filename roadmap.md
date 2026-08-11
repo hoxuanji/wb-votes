@@ -59,7 +59,7 @@ historical trends.
 | persons | 454,079 |
 | parties | 3,330 |
 | assembly seats, current delimitation | **4,117 of 4,123** (99.9%) |
-| Lok Sabha | 538 of 543 for 2019 · **524 of 543 for 2024** |
+| Lok Sabha | 538 of 543 for 2019 · **543 of 543 for 2024** |
 | genuinely fetched, byte-hashed sources | 76 of 3,000 |
 | merge queue | 52,350 pending |
 
@@ -68,11 +68,12 @@ historical trends.
 placeholders that had a margin and no vote counts. `mandate eci ls-2024 --apply`;
 `docs/ingestion/ls-2024-import.md`.
 
-**19 of the 543 are held back, and it is the one substantive gap.** Assam (14) and Jammu & Kashmir (5) were
-re-delimited after the 2008 order, so their 2024 constituencies are not `delim-2008` slots: ECI's name for
-Assam's seat 1 (Kokrajhar) is the registry's name for seat 5. Adopting by seat number would file one
-constituency's votes under another's name. Unblocking them needs the ECI delimitation order for each state
-as a cited source, and a `boundary_epoch` row built from it — not a name match.
+**All 543 are in, and the last 19 needed the delimitation orders themselves.** Assam was re-delimited in 2023
+and Jammu & Kashmir in 2022, so their 2024 constituencies are not `delim-2008` slots — ECI's Assam seat 1
+(Kokrajhar) is the registry's seat 5. Both orders are now acquired, hashed and registered as cited epochs,
+with J&K's legal effective date (20 May 2022, S.O. 2223(E)) and its order's own date (5 May 2022) stored
+separately, and Assam's start date recorded as a **publication date** because its notification is a scan and
+inferring an order date from it would be an invention. `docs/model/delimitation-assam-jk.md`.
 
 **Coverage otherwise stops where TCPD stops**: its assembly files end in 2022. The 2023–2026 assembly
 elections are the next ingestion, and the reconnaissance in `docs/ingestion/eci-2023-2026.md` establishes
@@ -157,6 +158,22 @@ date — see `docs/model/electoral-geography.md` §8 for the classification of e
 Both validators are now fully green: `mandate geography validate` **10 of 10** and
 `mandate elections validate` **5 of 5**. Geography's check 7 — the 34 Bihar seats with two winners — was
 fixed by the election-identity repair below, not excused.
+
+## Electoral geography: a boundary epoch now names its order, 2026-08-11
+
+The 2024 general election was conducted under **three** delimitations — DPACO 2008 for most states, the J&K
+Commission's 2022 order, and the ECI's 2023 Assam order — so `boundary_epoch` gained `jurisdiction_id`,
+`order_date`, `order_reference` and `effective_date_basis`, and the importer stopped assuming a single epoch.
+Assam and J&K's 19 seats resolved through the same code path as the other 524, with no state exceptions.
+
+**A correction, recorded rather than quietly fixed.** The Gazette (S.O. 903(E)) says DPACO 2008 was published
+"in respect of all States except Assam, Arunachal Pradesh, Manipur and Nagaland", and this project first
+concluded those states' `delim-2008` rows were an unfounded importer artefact to delete. Acquiring DPACO 2008
+itself disproved it: the order contains a Part for each, stating its content is an earlier order carried
+forward. So the epochs are **kept**, and 418 cited `derived_from` links now record the derivation — Assam,
+Manipur and Nagaland from 1976, Arunachal from the ECI's 1989 order, J&K from 1976 and the 1995 Commission
+order. The rule was never "record no relationships", it was "invent none": all 418 cite the order, and the
+`succession` metric was corrected to count uncited links and still asserts zero.
 
 ## The 2024 Lok Sabha ingestion, 2026-08-11
 

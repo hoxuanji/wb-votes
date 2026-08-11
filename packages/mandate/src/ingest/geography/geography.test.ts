@@ -315,8 +315,12 @@ test("all ten checks pass on the live registry", { skip: skip || skipSource }, (
   // recorded West Bengal numbering conflict, which is counted separately and not silently absorbed.
   assert.ok((v.metrics.misnamedBefore ?? 0) > 50_000, `before: ${v.metrics.misnamedBefore}`);
   assert.ok((v.metrics.misnamedAfter ?? 1e9) <= 900, `after: ${v.metrics.misnamedAfter}`);
-  assert.equal(v.metrics.succession, 0, "no succession relationship is asserted by this repair");
+  assert.equal(v.metrics.succession, 0, "no UNCITED relationship stronger than a name match is asserted");
   assert.equal(v.metrics.crosswalkRows, 0, "no quantitative crosswalk is invented either");
+  // Derivations ARE recorded now, and every one cites the order that states it: DPACO 2008 says in terms
+  // that these jurisdictions' 2008 content is an earlier order carried forward. The rule was never "record
+  // no relationships", it was "invent none".
+  assert.equal(v.metrics.citedDerivations, 418, "the derivations DPACO 2008 states about itself");
   d.close();
 });
 

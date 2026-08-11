@@ -152,13 +152,31 @@ export type Place = {
   eciCode: string | null;
 };
 
+/** What kind of date `effectiveFrom` is. A legal effective date and a publication date are not the same
+ *  fact, and a column holding both without saying which invites a reader to assume the stronger one. */
+export const EFFECTIVE_DATE_BASES = [
+  "legal_effective_date",
+  "order_date",
+  "publication_date",
+  "not_established",
+] as const;
+export type EffectiveDateBasis = (typeof EFFECTIVE_DATE_BASES)[number];
+
 export type BoundaryEpoch = {
-  /** 'delim-2008'. */
+  /** 'delim-2008', 'delim-2023-as'. */
   id: string;
   name: string;
   effectiveFrom: ISODate;
   effectiveTo: ISODate | null;
   sourceId: string | null;
+  /** NULL for a national order; a jurisdiction id for one that redraws a single state or UT. Assam was
+   *  re-delimited in 2023 and Jammu & Kashmir in 2022; DPACO 2008 is national. Migration 015. */
+  jurisdictionId: string | null;
+  /** When the order was MADE, where the authority establishes it. J&K's Order No. 2 is dated 5 May 2022 and
+   *  took effect on 20 May 2022; collapsing the two loses fifteen days and the reason for them. */
+  orderDate: ISODate | null;
+  orderReference: string | null;
+  effectiveDateBasis: EffectiveDateBasis;
 };
 
 /** 'bl' is Sikkim's Bhutia-Lepcha reservation — 12 of its 32 seats, by statute. See migration 010. */
@@ -204,6 +222,9 @@ export type PlaceVersion = {
  *  requires a cited source — the schema enforces it, so a fabricated succession cannot be stored. */
 export const PLACE_VERSION_LINK_KINDS = [
   "name_match",
+  /** The later version's content is an earlier order carried forward unchanged. DPACO 2008 says this in
+   *  terms for Assam, Arunachal Pradesh, Manipur, Nagaland and J&K. Migration 015. */
+  "derived_from",
   "renamed_to",
   "successor",
   "predecessor",

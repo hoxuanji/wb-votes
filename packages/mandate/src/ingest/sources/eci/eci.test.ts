@@ -270,7 +270,7 @@ function fixtureStaged(): Staged {
     shareOfValid: null, shareOfPolled: null, shareOfElectors: null, rank, isWinner, margin,
   });
   const contested: StagedContest = {
-    jurisdictionId: "ap", number: 1, rawName: "Araku", normName: "ARAKU", reservation: "st",
+    jurisdictionId: "ap", epochId: "delim-2008", number: 1, rawName: "Araku", normName: "ARAKU", reservation: "st",
     reservationConflict: null, placeVersionId: 9001, resolution: "ADOPTED", resolutionNote: "adopted",
     nameMismatch: 'registry "ARUKU" vs ECI "Araku"',
     totalVotesPolled: 300, totalValidVotes: 300,
@@ -492,20 +492,85 @@ test("the 542/542 join holds, and the 543rd constituency is found and classified
   db.close();
 });
 
-test("a renumbered jurisdiction is quarantined, not adopted by seat number", { skip: skipReal }, () => {
-  // Assam's 2024 seat 1 is Kokrajhar; the registry's Kokrajhar is seat 5. Adopting by number would file
-  // Kokrajhar's votes under Karimganj — the BIDAR/CHIKKODI defect docs/model/electoral-geography.md undid.
+test("a re-delimited jurisdiction resolves into its own cited epoch, never by seat number", { skip: skipReal }, () => {
+  // Assam's 2024 seat 1 is Kokrajhar and the registry's delim-2008 Kokrajhar is seat 5; J&K's seat 4 is
+  // Udhampur and delim-2008's Udhampur is seat 5. Phase 1 quarantined all 19 rather than adopt them by
+  // number, which would have filed one constituency's votes under another's name. They resolve now because
+  // the delimitations that created them are registered as cited epochs — not because the matching softened.
   const db = open(".data/registry.db");
   const staged = stageLs2024(db, acquired(), readReports(acquired()), { now: () => NOW });
-  const unresolved = staged.contests.filter((c) => c.resolution === "UNRESOLVED");
-  assert.deepEqual([...new Set(unresolved.map((c) => c.jurisdictionId))].sort(), ["as", "jk"]);
-  assert.equal(unresolved.length, 19, "all 14 Assam and all 5 Jammu & Kashmir seats");
-  for (const c of unresolved) assert.equal(c.placeVersionId, null, "a quarantined seat carries no place_version");
-  // The whole jurisdiction goes, including seats whose number and name happen to agree.
-  const jkBaramulla = staged.contests.find((c) => c.jurisdictionId === "jk" && c.number === 1);
-  assert.equal(jkBaramulla?.resolution, "UNRESOLVED");
-  assert.match(jkBaramulla?.resolutionNote ?? "", /renumbered/);
-  assert.ok(staged.unresolved.some((u) => u.what === "jurisdiction quarantined"), "the reason is recorded");
+
+  assert.equal(staged.contests.filter((c) => c.resolution === "UNRESOLVED").length, 0, "nothing is held back");
+
+  const epochs = new Map(staged.contests.map((c) => [c.jurisdictionId, c.epochId]));
+  assert.equal(epochs.get("as"), "delim-2023-as", "Assam resolves against its 2023 delimitation");
+  assert.equal(epochs.get("jk"), "delim-2022-jk", "J&K resolves against its 2022 delimitation");
+  assert.equal(epochs.get("ka"), "delim-2008", "everyone else still resolves against DPACO 2008");
+  assert.equal(epochs.get("wb"), "delim-2008");
+
+  // The epoch each seat lands in must be one an ORDER established, with its date basis stated.
+  for (const id of ["delim-2023-as", "delim-2022-jk"]) {
+    const e = db.prepare(
+      "SELECT jurisdiction_id AS j, source_id AS src, effective_from AS ef, effective_date_basis AS basis, order_date AS od FROM boundary_epoch WHERE id = ?",
+    ).get(id) as { j: string; src: string; ef: string; basis: string; od: string | null };
+    assert.ok(e !== undefined, `${id} exists`);
+    assert.ok(e.src.startsWith("delim:"), `${id} cites the order that drew it`);
+    assert.ok(e.j.length === 2, `${id} names the jurisdiction it applies to`);
+  }
+  // J&K's date is a legal effective date the Central Government appointed; Assam's is a publication date,
+  // because its notification is a scan. The two must not be presented as the same kind of fact.
+  const jk = db.prepare("SELECT effective_from AS ef, effective_date_basis AS basis, order_date AS od FROM boundary_epoch WHERE id='delim-2022-jk'").get() as { ef: string; basis: string; od: string };
+  assert.equal(jk.ef, "2022-05-20");
+  assert.equal(jk.basis, "legal_effective_date");
+  assert.equal(jk.od, "2022-05-05", "the order's own date is stored separately from when it took effect");
+  const as = db.prepare("SELECT effective_from AS ef, effective_date_basis AS basis, order_date AS od FROM boundary_epoch WHERE id='delim-2023-as'").get() as { ef: string; basis: string; od: string | null };
+  assert.equal(as.ef, "2023-08-11");
+  assert.equal(as.basis, "publication_date", "not a legal effective date, and it must not claim to be");
+  assert.equal(as.od, null, "the order date is unreadable from a scanned notification, so it is absent");
+
+  // The seats themselves: ECI's numbering, in its own epoch.
+  const seat = (j: string, n: number): string =>
+    (db.prepare(
+      "SELECT canonical_name AS nm FROM place_version WHERE jurisdiction_id=? AND kind='pc' AND number=? AND epoch_id=?",
+    ).get(j, n, j === "as" ? "delim-2023-as" : "delim-2022-jk") as { nm: string }).nm;
+  assert.match(seat("as", 1), /Kokrajhar/i);
+  assert.match(seat("as", 7), /Karimganj/i);
+  assert.match(seat("jk", 4), /UDHAMPUR/i);
+  // And the older seats keep their own names, in their own epoch — nothing was overwritten.
+  const old = db.prepare(
+    "SELECT canonical_name AS nm FROM place_version WHERE jurisdiction_id='as' AND kind='pc' AND number=1 AND epoch_id='delim-2008'",
+  ).get() as { nm: string };
+  assert.equal(old.nm, "KARIMGANJ", "Assam's 2008 seat 1 is still Karimganj");
+  db.close();
+});
+
+test("DPACO 2008's own derivations are recorded, and nothing historical was deleted", { skip: skipReal }, () => {
+  // The correction this phase turned on: DPACO 2008 CONTAINS a Part for Assam, Arunachal Pradesh, Manipur,
+  // Nagaland and J&K, each stating its content is an earlier order carried forward. So those epochs are real
+  // and are kept; what was missing was the derivation. Deleting them would have destroyed a true fact.
+  const db = open(".data/registry.db");
+  const links = db.prepare(
+    `SELECT pv.jurisdiction_id AS j, pv.kind, COUNT(*) AS n
+       FROM place_version_link l
+       JOIN place_version pv ON pv.id = l.from_place_version_id
+      WHERE l.kind = 'derived_from' GROUP BY j, pv.kind ORDER BY j, pv.kind`,
+  ).all() as { j: string; kind: string; n: number }[];
+  const got = new Map(links.map((r) => [`${r.j} ${r.kind}`, r.n]));
+  // Measured against the registry's own version counts, per Part of the order.
+  assert.deepEqual(
+    [...got].sort(),
+    [["ar ac", 60], ["ar pc", 2], ["as ac", 126], ["as pc", 14], ["jk ac", 87], ["jk pc", 6],
+     ["mn ac", 60], ["mn pc", 2], ["nl ac", 60], ["nl pc", 1]].sort(),
+  );
+  const uncited = db.prepare("SELECT COUNT(*) AS n FROM place_version_link WHERE kind='derived_from' AND source_id IS NULL").get() as { n: number };
+  assert.equal(uncited.n, 0, "every derivation cites DPACO 2008");
+  // The delim-2008 rows those links point FROM still exist for all five jurisdictions.
+  for (const j of ["as", "ar", "mn", "nl", "jk"]) {
+    const kept = db.prepare(
+      "SELECT COUNT(*) AS n FROM place_version WHERE jurisdiction_id=? AND kind='pc' AND epoch_id='delim-2008'",
+    ).get(j) as { n: number };
+    assert.ok(kept.n > 0, `${j} kept its delim-2008 parliamentary seats`);
+  }
   db.close();
 });
 
@@ -522,7 +587,7 @@ test("a spelling variant is adopted, and the registry's own name is never overwr
   db.close();
 });
 
-test("all sixteen checks pass on the real staged dataset", { skip: skipReal }, () => {
+test("all seventeen checks pass on the real staged dataset", { skip: skipReal }, () => {
   const db = open(".data/registry.db");
   const v = validateStaged(stageLs2024(db, acquired(), readReports(acquired()), { now: () => NOW }), db);
   for (const c of v.checks) {
@@ -545,14 +610,23 @@ test("the registry holds the imported election, with one winner per seat", { ski
   assert.ok(src.s?.startsWith("eci:"), "the election cites the ECI report it was imported from");
 
   const contests = one<{ n: number }>("SELECT COUNT(*) AS n FROM contest WHERE election_id='ls-2024'");
-  assert.equal(contests.n, 524, "524 of 543: Assam and Jammu & Kashmir are quarantined");
+  assert.equal(contests.n, 543, "every constituency, once the two delimitations are registered");
 
   // Every contest resolves to a place_version in the right epoch and of the right house.
+  // Every contest sits on a parliamentary version in the epoch in force for ITS jurisdiction — which is
+  // delim-2008 for most, delim-2023-as for Assam and delim-2022-jk for J&K.
   const wrong = db.prepare(
     `SELECT COUNT(*) AS n FROM contest c JOIN place_version v ON v.id = c.place_version_id
-      WHERE c.election_id = 'ls-2024' AND (v.kind <> 'pc' OR v.epoch_id <> 'delim-2008')`,
+       JOIN boundary_epoch e ON e.id = v.epoch_id
+      WHERE c.election_id = 'ls-2024'
+        AND (v.kind <> 'pc'
+             OR e.source_id IS NULL
+             OR (e.jurisdiction_id IS NOT NULL AND e.jurisdiction_id <> v.jurisdiction_id)
+             OR e.id <> (SELECT id FROM boundary_epoch b
+                          WHERE b.jurisdiction_id = v.jurisdiction_id OR b.jurisdiction_id IS NULL
+                          ORDER BY b.effective_from DESC, b.id DESC LIMIT 1))`,
   ).get() as { n: number };
-  assert.equal(wrong.n, 0);
+  assert.equal(wrong.n, 0, "every seat is in the delimitation in force for its own jurisdiction, and that epoch cites an order");
 
   // No duplicate winners anywhere on this election, and no duplicate results.
   const dupWinners = db.prepare(
@@ -565,14 +639,14 @@ test("the registry holds the imported election, with one winner per seat", { ski
     `SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id
       WHERE c.election_id='ls-2024' AND r.is_winner=1 AND r.revision=0`,
   );
-  assert.equal(winners.n, 523, "523 counted winners plus Surat, which has no result to count");
+  assert.equal(winners.n, 542, "542 counted winners plus Surat, which has no result to count");
 
   // Age is preserved with ECI provenance — the whole point of preferring report 33.
   const ages = one<{ n: number }>(
     `SELECT COUNT(*) AS n FROM candidacy ca JOIN contest c ON c.id = ca.contest_id
       WHERE c.election_id='ls-2024' AND ca.age_declared IS NOT NULL`,
   );
-  assert.equal(ages.n, 8116);
+  assert.equal(ages.n, 8359);
   const cited = one<{ n: number }>(
     `SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id
       WHERE c.election_id='ls-2024' AND r.source_id NOT LIKE 'eci:%'`,

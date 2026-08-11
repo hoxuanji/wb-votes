@@ -25,7 +25,7 @@ it, so each is separately runnable and the whole thing is resumable:
 | DOWNLOAD · HASH · STORE | [acquire.ts](../../packages/mandate/src/ingest/sources/eci/acquire.ts) | `.data/cache/eci/**` + `manifest.tsv` |
 | PARSE | [sheet.ts](../../packages/mandate/src/ingest/sources/eci/sheet.ts) | BIFF8 and XLSX readers, zero dependencies |
 | NORMALIZE · STAGE | [stage.ts](../../packages/mandate/src/ingest/sources/eci/stage.ts) | `.data/cache/eci/staging/ls-2024.json` |
-| VALIDATE | [validate.ts](../../packages/mandate/src/ingest/sources/eci/validate.ts) | 16 checks; a hard failure blocks the import |
+| VALIDATE | [validate.ts](../../packages/mandate/src/ingest/sources/eci/validate.ts) | 17 checks; a hard failure blocks the import |
 | IMPORT | [import.ts](../../packages/mandate/src/ingest/sources/eci/import.ts) | one transaction, idempotent |
 | REPORT | [ls2024.ts](../../packages/mandate/src/ingest/sources/eci/ls2024.ts) | the report below |
 
@@ -43,12 +43,12 @@ one 2023 report titled `…-pdf` that is an `.xlsx`.
 Election                          ls-2024
 Expected constituencies           543
 Constituencies staged             543
-Imported constituencies           524
-Unresolved                        19
+Imported constituencies           543      (524 before Phase 1.5)
+Unresolved                        0        (19 before Phase 1.5)
 Candidates (staged)               8360
-Candidacies                       8117
-Results                           8116
-Winners                           523
+Candidacies                       8360     (8117 before Phase 1.5)
+Results                           8359     (8116 before Phase 1.5)
+Winners                           542      (523 before Phase 1.5)
 Rejected rows                     0
 Warnings                          0
 Sources                           4
@@ -60,12 +60,18 @@ Join success                      542/542
 All validation checks             PASS
 ```
 
-Every figure was counted from the registry after the import, not assumed: 524 contests, 8,116 results,
-523 declared winners, 8,116 candidacies with a declared age, 524 turnout rows, 4 sources carrying ECI's
-caveat. **523 and not 524 because Surat held no poll** — see below.
+Every figure was counted from the registry after the import, not assumed: 543 contests, 8,359 results,
+542 declared winners, 8,359 candidacies with a declared age, 543 turnout rows, 4 sources carrying ECI's
+caveat. **542 and not 543 because Surat held no poll** — see below.
 
-Coverage before and after, for the 2024 Lok Sabha: **42 seats → 524**, all 42 of the earlier ones being
-West Bengal placeholders with a margin and no vote counts.
+Coverage before and after, for the 2024 Lok Sabha: **42 seats → 524 → 543**, all 42 of the earlier ones being
+West Bengal placeholders with a margin and no vote counts. The last 19 arrived with Phase 1.5's delimitation
+work; the figures in this report's table are that final state.
+
+**Seventeen checks, not sixteen.** Check 17 requires every constituency to have a jurisdiction, a house-seat
+number, a boundary epoch, a place_version, and an epoch that cites the order which drew it — classified
+VALID / UNRESOLVED / AMBIGUOUS / CONFLICT with all three failure states hard. It would have fired had the 19
+been forced through against `delim-2008`.
 
 ## The 543rd constituency
 
@@ -86,7 +92,7 @@ reason. Surat is imported as a contest with an elected candidacy, its electors a
 - **a cited claim instead**: `contest:ls-2024:gj-pc024 / elected_unopposed = true`, citing report 2(A), with
   ECI's note as the claim's unit text.
 
-That is why declared winners are 523 for 524 contests. The absence is asserted, not a hole.
+That is why declared winners are 542 for 543 contests. The absence is asserted, not a hole.
 
 ## Defects this work found
 
@@ -129,7 +135,19 @@ Two more, found earlier and recorded in [eci-2023-2026.md](eci-2023-2026.md): No
 secret is read from ECI's own `var` declaration because following `headers:{secret:s}` back to `s` resolved
 it to the string `"function"`.
 
-## The 19 constituencies not imported
+## The 19 constituencies not imported — RESOLVED 2026-08-11
+
+**All 19 are now imported: 543 of 543, zero unresolved.** Phase 1.5 acquired the delimitation orders that
+created them and registered each as a cited `boundary_epoch`; `docs/model/delimitation-assam-jk.md` is the
+full account, and the section below is preserved as the record of why they were held back.
+
+The resolution in one line: `stage.ts` stopped assuming `delim-2008` and now asks the registry which epoch is
+in force for each jurisdiction, so Assam resolves against its 2023 delimitation and J&K against its 2022 one
+— through the same code path that imported the other 524, with no state exceptions, no fuzzy matching and no
+seat-number shifting. Counts after: **543 contests, 8,359 results, 542 declared winners** (Surat still has
+none), 8,359 candidacies with a declared age, and the previously-imported 524 untouched.
+
+### Why they were held back, as recorded at the time
 
 **Assam (14) and Jammu & Kashmir (5) are quarantined**, and this is the one substantive gap.
 
@@ -235,8 +253,9 @@ declared ages are a separate, older problem; these are not part of it.
 
 ## Consequences a reader should know
 
-- **Party seat counts for 2024 are 524 seats' worth, not 543.** BJP reads 228 rather than 240: Assam's 9,
-  J&K's 2 and Surat's uncounted 1 are the difference, and all three are accounted for above.
+- **Party seat counts for 2024 are 542 seats' worth, not 543** — Surat's unopposed BJP win has no result row
+  to count, and that is the only difference. (Before Phase 1.5 they were 524 seats' worth: BJP read 228
+  rather than 240 because Assam's 9 and J&K's 2 were still held back.)
 - **Surat appears with no winner in any query that reads winners from `result`.** It has an elected
   candidacy and a cited claim; it has no vote row, because no votes exist.
 - **`situation.test.ts` had one obsolete expectation**, corrected upward rather than weakened: it asserted a
@@ -246,6 +265,6 @@ declared ages are a separate, older problem; these are not part of it.
 
 ## State at the end
 
-**355 tests, 354 pass.** The one failure is the pre-existing, classified `searchPersons` ranking issue,
+**356 tests, 355 pass.** The one failure is the pre-existing, classified `searchPersons` ranking issue,
 untouched. `npx tsc --noEmit` clean, `npm run build` passes, real-registry smoke suite green,
 `mandate elections validate` 5 of 5, `mandate geography validate` 10 of 10.

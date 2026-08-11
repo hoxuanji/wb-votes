@@ -23,6 +23,7 @@ import { countUncited, runIngest } from "../src/ingest/index.ts";
 import { THRESHOLD_PCT, diffAgainstSeed, formatReport } from "../src/ingest/export.ts";
 import { auditSample, resolvePersons, unmerge } from "../src/ingest/resolve/index.ts";
 import { backfillGeography } from "../src/ingest/geography/backfill.ts";
+import { applyDelimitation } from "../src/ingest/geography/delimitation.ts";
 import { validateGeography } from "../src/ingest/geography/validate.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
@@ -64,6 +65,8 @@ const USAGE = `mandate <command>
   coverage                     per-table row counts and citation coverage
   geography validate           ten checks on constituency identity, with before/after metrics
   geography backfill [--apply] restore each constituency's own name per delimitation, from source
+  geography delimitation [--apply]
+                               register the delimitation orders, their dates and their derivations
   elections validate           checks on election-event identity
   elections backfill [--apply] write year / month / house / occurrence onto every election, from source
   elections repair [--apply]   split elections that collapsed two events into one id
@@ -405,6 +408,24 @@ try {
         if (!v.ok) process.exit(1);
         break;
       }
+      if (sub === "delimitation") {
+        // The delimitation orders themselves: which order drew each epoch, what its dates mean, and what
+        // DPACO 2008 carried forward. docs/model/delimitation-assam-jk.md.
+        const db = open();
+        const r = applyDelimitation(db, { nowIso: new Date().toISOString(), dryRun: !has("apply") });
+        table([
+          ["documents registered", r.sources],
+          ["epochs created", r.epochsCreated],
+          ["epochs updated", r.epochsUpdated],
+          ["derivation links", r.derivationLinks],
+          ["chain claims", r.chainClaims],
+        ]);
+        console.log("\nderivations");
+        table(r.perDerivation.map((d): [string, unknown] => [`${d.jurisdiction} ${d.kind}`, `${d.links} links from ${d.note}`]));
+        console.log(has("apply") ? "\napplied" : "\ndry run — pass --apply to write");
+        db.close();
+        break;
+      }
       if (sub === "backfill") {
         const db = open();
         const r = backfillElections(db, { apply });
@@ -496,6 +517,24 @@ try {
         console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
         db.close();
         if (!v.ok) process.exit(1);
+        break;
+      }
+      if (sub === "delimitation") {
+        // The delimitation orders themselves: which order drew each epoch, what its dates mean, and what
+        // DPACO 2008 carried forward. docs/model/delimitation-assam-jk.md.
+        const db = open();
+        const r = applyDelimitation(db, { nowIso: new Date().toISOString(), dryRun: !has("apply") });
+        table([
+          ["documents registered", r.sources],
+          ["epochs created", r.epochsCreated],
+          ["epochs updated", r.epochsUpdated],
+          ["derivation links", r.derivationLinks],
+          ["chain claims", r.chainClaims],
+        ]);
+        console.log("\nderivations");
+        table(r.perDerivation.map((d): [string, unknown] => [`${d.jurisdiction} ${d.kind}`, `${d.links} links from ${d.note}`]));
+        console.log(has("apply") ? "\napplied" : "\ndry run — pass --apply to write");
+        db.close();
         break;
       }
       if (sub === "backfill") {

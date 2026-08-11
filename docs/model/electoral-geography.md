@@ -283,3 +283,51 @@ Recovering the pre-repair state needs no backup: `place.canonical_name` was neve
 `UPDATE place_version SET canonical_name = NULL, name_source_id = NULL, name_conflict = 0,
 name_variants = '[]', source_constituency_key = NULL` returns the registry to where it started, and 011's
 columns can then be re-derived from the same bytes.
+
+
+---
+
+## A boundary epoch now names its order, its jurisdiction and what its date means — 2026-08-11
+
+Added by Phase 1.5, whose object was the 19 held-back 2024 Lok Sabha constituencies. Full account in
+[delimitation-assam-jk.md](delimitation-assam-jk.md); the parts that change this model:
+
+**Not every delimitation is national.** Jammu & Kashmir was re-delimited in 2022 and Assam in 2023, each by
+an order affecting one jurisdiction and leaving the rest alone. `boundary_epoch` gains `jurisdiction_id`
+(NULL = national, as DPACO 2008 is), so a state-specific order can be stored without becoming a national
+epoch. The 2024 general election is consequently conducted under **three** delimitations at once, which is a
+fact about India rather than a defect — `mandate elections validate` check 4 was corrected to group by
+(election, jurisdiction, house) accordingly, matching what `geography validate` check 2 always did.
+
+**A date is not a date.** `effective_from` now travels with `effective_date_basis` ∈
+`legal_effective_date | order_date | publication_date | not_established`, and `order_date` is separate.
+J&K's epoch starts on a date the Central Government appointed (20 May 2022, S.O. 2223(E)) and records its
+order's own date (5 May 2022) beside it. Assam's starts on the date the ECI published the final notification
+(2023-08-11) with basis `publication_date` and `order_date` **NULL**, because that notification is a scanned
+image with no text layer and inferring an order date from a publication timestamp would be an invention. The
+publication date itself lives on `source.published_on`, where a document's publication date belongs.
+
+**THE CORRECTION, recorded rather than quietly fixed.** The Gazette (S.O. 903(E), 28 February 2020) says
+DPACO 2008 was published "in respect of all States except Assam, Arunachal Pradesh, Manipur and Nagaland",
+and this project first concluded that those states' `delim-2008` rows were an unfounded importer artefact to
+be deleted. **Acquiring DPACO 2008 itself disproved that.** The order contains a Part for each of them, and
+each Part states its content is an earlier order carried forward unchanged — Assam, Manipur and Nagaland from
+the 1976 order, Arunachal Pradesh from the ECI's 1989 order under the State of Arunachal Pradesh Act 1986,
+J&K's parliamentary seats from the 1976 order as applied to J&K and its assembly seats from the J&K
+Delimitation Commission's Order No. 1 of 27 April 1995.
+
+So the 2008 *exercise* did not redraw those states and the 2008 *order* reproduces their existing
+constituencies and says so; both documents are right. **The existing `delim-2008` epochs are therefore
+retained. The missing information was derivation provenance, not the epoch itself**, and deleting those rows
+would have destroyed the true fact that DPACO 2008 prescribed them.
+
+**`place_version_link` gains `derived_from`**, and 418 of them now record that derivation per seat, quoting
+the order and citing it — Assam 126 ac + 14 pc, Arunachal 60 + 2, Manipur 60 + 2, Nagaland 60 + 1, J&K 87 + 6.
+This does not weaken the rule that made this repair defensible. That rule was *never invent continuity*, not
+*never record it*: the schema still refuses any link but `name_match` without a source, all 418 carry one,
+and the `succession` metric — which asserted zero — was corrected to count **uncited** links and still
+asserts zero.
+
+**A seat's `place` row stays the seat-number grouping.** Assam's `as.pc.001` now has two versions, KARIMGANJ
+under the 2008 order and Kokrajhar under the 2023 one, exactly as `ka.pc.001` has held BIDAR (1976) and
+CHIKKODI (2008) since this repair. Nineteen new `place_version` rows, **zero new `place` rows**.

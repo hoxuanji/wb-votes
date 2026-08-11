@@ -25,9 +25,19 @@ import { dirname, join } from "node:path";
 import { all } from "../../../db/index.ts";
 import { slug } from "../../../core/ids.ts";
 import { ECI_CACHE_DIR, type RawArtefact, readRaw } from "./acquire.ts";
+import { currentEpochFor } from "../../geography/delimitation.ts";
 import { readSheet, type Sheet } from "./sheet.ts";
 
 export const LS2024_ELECTION_ID = "ls-2024";
+/**
+ * The epoch a jurisdiction's 2024 seats belong to, where nothing newer applies.
+ *
+ * NOT a constant any more, and that is the point: Assam was re-delimited in 2023 and Jammu & Kashmir in
+ * 2022, so their 2024 constituencies are not `delim-2008` slots. `currentEpochFor` reads the answer out of
+ * `boundary_epoch`, so the mapping is a property of the registry's own cited geography rather than a list of
+ * state exceptions in the importer. This value remains the fallback for every jurisdiction with nothing
+ * newer than DPACO 2008, which is most of them. See ingest/geography/delimitation.ts.
+ */
 export const LS2024_EPOCH_ID = "delim-2008";
 export const LS2024_EXPECTED_PCS = 543;
 /** ECI publishes 542 in reports 33/13/4 and Surat separately. Its own note says so. */
@@ -180,6 +190,8 @@ export type Resolution = "ADOPTED" | "CREATE" | "UNRESOLVED";
 
 export type StagedContest = {
   jurisdictionId: string;
+  /** The delimitation this seat belongs to, resolved from boundary_epoch, never assumed. */
+  epochId: string;
   number: number;
   /** The source's own spelling, kept exactly. Reservation marker and all. */
   rawName: string;
@@ -456,18 +468,27 @@ export function stageLs2024(
   }
 
   // ── existing place_version slots, so a seat is adopted rather than duplicated ────────────────────
+  //
+  // Read per jurisdiction, against the epoch in force for THAT jurisdiction. Reading them all against one
+  // epoch is what made Assam and J&K look like renumbered `delim-2008` states rather than states with a
+  // newer delimitation of their own.
+  const epochOf = new Map<string, string>();
+  for (const j of new Set([...groups.values()].map((g) => g.j))) epochOf.set(j, currentEpochFor(db, j));
+
   const slots = new Map<string, { id: number; name: string; reservation: string | null }>();
   /** Which numbers each name currently occupies, so renumbering can be told from a spelling variant. */
   const nameAt = new Map<string, number[]>();
-  for (const v of all<{ id: number; jurisdiction_id: string; number: number; canonical_name: string; reservation: string | null }>(
-    db,
-    `SELECT id, jurisdiction_id, number, canonical_name, reservation FROM place_version
-      WHERE kind = 'pc' AND epoch_id = ?`,
-    LS2024_EPOCH_ID,
-  )) {
-    slots.set(`${v.jurisdiction_id}|${v.number}`, { id: v.id, name: v.canonical_name, reservation: v.reservation });
-    const key = `${v.jurisdiction_id}|${normName(v.canonical_name)}`;
-    nameAt.set(key, [...(nameAt.get(key) ?? []), v.number]);
+  for (const [j, epochId] of epochOf) {
+    for (const v of all<{ id: number; number: number; canonical_name: string; reservation: string | null }>(
+      db,
+      `SELECT id, number, canonical_name, reservation FROM place_version
+        WHERE kind = 'pc' AND epoch_id = ? AND jurisdiction_id = ?`,
+      epochId, j,
+    )) {
+      slots.set(`${j}|${v.number}`, { id: v.id, name: v.canonical_name, reservation: v.reservation });
+      const key = `${j}|${normName(v.canonical_name)}`;
+      nameAt.set(key, [...(nameAt.get(key) ?? []), v.number]);
+    }
   }
 
   const contests: StagedContest[] = [];
@@ -486,7 +507,8 @@ export function stageLs2024(
     const r4row = r4By.get(`${g.j}|${hit.number}`);
     contests.push(
       buildContest({
-        j: g.j, number: hit.number, rawName: g.rawName, rows: g.rows, r13: hit.r13, r4: r4row,
+        j: g.j, epochId: epochOf.get(g.j) ?? LS2024_EPOCH_ID,
+        number: hit.number, rawName: g.rawName, rows: g.rows, r13: hit.r13, r4: r4row,
         slots, nameAt, unresolved,
         fromReports: ["33", "13", ...(r4row === undefined ? [] : ["4"])],
       }),
@@ -501,7 +523,7 @@ export function stageLs2024(
       detail: `${suratJ} PC ${surat.number} came from both report 33 and report 2(A) — ECI's exclusion note no longer holds`,
     });
   } else {
-    contests.push(suratContest(surat, suratJ, slots, nameAt, unresolved));
+    contests.push(suratContest(surat, suratJ, epochOf.get(suratJ) ?? currentEpochFor(db, suratJ), slots, nameAt, unresolved));
   }
 
   /**
@@ -522,7 +544,7 @@ export function stageLs2024(
     c.placeVersionId = null;
     c.resolution = "UNRESOLVED";
     c.resolutionNote =
-      `${c.jurisdictionId} was renumbered after ${LS2024_EPOCH_ID}, so every seat in it is quarantined — ` +
+      `${c.jurisdictionId} was renumbered relative to ${c.epochId}, so every seat in it is quarantined — ` +
       `this one's number and name happen to agree, which is not evidence that it is the same constituency`;
   }
   for (const j of renumbered) {
@@ -560,7 +582,7 @@ export function stageLs2024(
 }
 
 function buildContest(a: {
-  j: string; number: number; rawName: string; rows: R33Row[]; r13: R13Row; r4: R4Row | undefined;
+  j: string; epochId: string; number: number; rawName: string; rows: R33Row[]; r13: R13Row; r4: R4Row | undefined;
   slots: Map<string, { id: number; name: string; reservation: string | null }>;
   nameAt: Map<string, number[]>;
   unresolved: { what: string; detail: string }[]; fromReports: string[];
@@ -629,9 +651,10 @@ function buildContest(a: {
       ? `report 4 says ${fromType}, the name "${a.r13.pcName}" says ${fromMarker}`
       : null;
 
-  const resolved = resolveSlot(a.j, a.number, a.rawName, a.slots, a.nameAt, a.unresolved);
+  const resolved = resolveSlot(a.j, a.number, a.rawName, a.slots, a.nameAt, a.unresolved, a.epochId);
   return {
     jurisdictionId: a.j,
+    epochId: a.epochId,
     number: a.number,
     rawName: a.rawName,
     normName: normName(a.rawName),
@@ -670,13 +693,15 @@ function buildContest(a: {
 function suratContest(
   s: SuratRow,
   j: string,
+  epochId: string,
   slots: Map<string, { id: number; name: string; reservation: string | null }>,
   nameAt: Map<string, number[]>,
   unresolved: { what: string; detail: string }[],
 ): StagedContest {
-  const resolved = resolveSlot(j, s.number, s.pcName, slots, nameAt, unresolved);
+  const resolved = resolveSlot(j, s.number, s.pcName, slots, nameAt, unresolved, epochId);
   return {
     jurisdictionId: j,
+    epochId,
     number: s.number,
     rawName: s.pcName,
     normName: normName(s.pcName),
@@ -756,6 +781,7 @@ function resolveSlot(
   slots: Map<string, { id: number; name: string; reservation: string | null }>,
   nameAt: Map<string, number[]>,
   unresolved: { what: string; detail: string }[],
+  epochId: string,
 ): { placeVersionId: number | null; resolution: Resolution; resolutionNote: string; nameMismatch: string | null } {
   if (number < 1 || number > 499) {
     unresolved.push({ what: "constituency number out of range", detail: `${j} PC ${number} ("${eciName}")` });
@@ -766,7 +792,7 @@ function resolveSlot(
     return {
       placeVersionId: null,
       resolution: "CREATE",
-      resolutionNote: `${j} has no pc place_version numbered ${number} in ${LS2024_EPOCH_ID}`,
+      resolutionNote: `${j} has no pc place_version numbered ${number} in ${epochId}`,
       nameMismatch: null,
     };
   }
@@ -777,7 +803,7 @@ function resolveSlot(
   if (elsewhere.length > 0) {
     const detail =
       `${j} PC ${number}: ECI calls it "${eciName}", the registry calls PC ${elsewhere.join("/")} that ` +
-      `and calls PC ${number} "${slot.name}" — the jurisdiction was renumbered after ${LS2024_EPOCH_ID}`;
+      `and calls PC ${number} "${slot.name}" — ${j}'s ${epochId} numbering disagrees with the source`;
     unresolved.push({ what: "constituency renumbered", detail });
     return { placeVersionId: null, resolution: "UNRESOLVED", resolutionNote: detail, nameMismatch: `registry "${slot.name}" vs ECI "${eciName}"` };
   }

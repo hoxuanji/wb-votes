@@ -93,15 +93,23 @@ export function validateElections(db: DatabaseSync, opts?: { manifestPath?: stri
     ),
   );
 
-  // 4. An event's contests must all sit in one delimitation, and belong to its own jurisdiction.
+  // 4. An event's contests must sit in one delimitation PER JURISDICTION, and belong to its own jurisdiction.
+  //
+  // Per jurisdiction, not per election. One election spanning several delimitations is not a defect, it is
+  // what India's 2024 general election was: DPACO 2008 for most states, the Jammu & Kashmir Delimitation
+  // Commission's 2022 order for J&K, and the ECI's 2023 order for Assam. Grouping by election alone made
+  // `ls-2024 spans 3 epochs` a violation when all three are correct and cited. What must never happen is one
+  // JURISDICTION's seats in an election straddling two delimitations, which is the real defect —
+  // `mandate geography validate` check 2 has always grouped this way, and this check now agrees with it.
+  // docs/model/delimitation-assam-jk.md.
   add(
     4,
-    "an event's contests are in one delimitation and its own jurisdiction",
+    "an event's contests are in one delimitation per jurisdiction, and its own jurisdiction",
     sql(
-      `SELECT e.id || ' spans ' || COUNT(DISTINCT v.epoch_id) || ' epochs' AS ex
+      `SELECT e.id || ' / ' || v.jurisdiction_id || ' spans ' || COUNT(DISTINCT v.epoch_id) || ' epochs' AS ex
          FROM election e JOIN contest c ON c.election_id = e.id
          JOIN place_version v ON v.id = c.place_version_id
-        GROUP BY e.id HAVING COUNT(DISTINCT v.epoch_id) > 1
+        GROUP BY e.id, v.jurisdiction_id, v.kind HAVING COUNT(DISTINCT v.epoch_id) > 1
        UNION ALL
        SELECT e.id || ' has a contest in ' || v.jurisdiction_id AS ex
          FROM election e JOIN contest c ON c.election_id = e.id

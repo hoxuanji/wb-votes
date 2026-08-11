@@ -95,6 +95,10 @@ const MAP = {
     effectiveFrom: "req",
     effectiveTo: "null",
     sourceId: "null",
+    jurisdictionId: "null",
+    orderDate: "null",
+    orderReference: "null",
+    effectiveDateBasis: "req",
   } satisfies Shape<BoundaryEpoch>,
   place: {
     id: "req",
