@@ -38,6 +38,9 @@ export async function load(url, context, nextLoad) {
     babelrc: false,
     configFile: false,
     sourceMaps: "inline",
+    // The JSON import in IndiaMap.tsx carries `with { type: "json" }`, which Babel needs a plugin to
+    // parse. Next ships it; webpack enables it implicitly.
+    plugins: [require("next/dist/compiled/babel/plugin-syntax-import-assertions")],
     presets: [
       [require("next/dist/compiled/babel/preset-typescript"), { isTSX: true, allExtensions: true }],
       // automatic runtime: the app files do not import React, because Next injects it. Classic would need

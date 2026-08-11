@@ -342,6 +342,14 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     const ink = key === "assembly" ? spine.ink : partyInk(spine.houseStandings);
     const rows = key === "assembly" ? spine.standings : spine.houseStandings;
     const byId = new Map(rows.map((r) => [r.jurisdictionId, r]));
+    // The party breakdown behind each polygon, from the winners-only read already in the spine. Three
+    // parties, because a hover card that lists sixteen is a table in a tooltip — and the leader alone
+    // ("INC 135 of 224") does not tell a reader who came second, which is the thing they want next.
+    const seatRows = key === "assembly" ? spine.latestAssemblySeats : spine.houseSeatRows;
+    const breakdown = new Map<string, SeatsWon[]>();
+    for (const r of seatRows) {
+      breakdown.set(r.jurisdictionId, [...(breakdown.get(r.jurisdictionId) ?? []), r]);
+    }
     for (const j of spine.states) {
       const s = byId.get(j.id);
       if (s === undefined || s.leaderKey === null) {
@@ -355,8 +363,11 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
         electionId: s.electionId,
         year: s.year,
         detail: [
-          `${key === "assembly" ? "Assembly" : "Lok Sabha"} ${s.year}`,
-          `${s.leaderLabel} ${s.leaderSeats} of ${s.seatsContested} seats`,
+          `${key === "assembly" ? "Assembly" : "Lok Sabha"} ${s.year} · ${s.seatsContested} seats`,
+          ...[...(breakdown.get(j.id) ?? [])]
+            .sort((a, b) => b.seats - a.seats || a.key.localeCompare(b.key))
+            .slice(0, 3)
+            .map((r) => `${r.label}  ${r.seats}`),
           s.majority ? "outright majority" : "no outright majority of the seats contested",
         ],
       });
@@ -1098,6 +1109,8 @@ export type Spine = {
   ink: PartyInk;
   seats: readonly SeatFact[];
   latestAssemblySeats: readonly SeatsWon[];
+  /** Seats by party per jurisdiction in the latest Lok Sabha — the breakdown that layer's cards show. */
+  houseSeatRows: readonly SeatsWon[];
   /**
    * The leading party's share of counted votes in each jurisdiction's most recent assembly election.
    *
@@ -1207,12 +1220,13 @@ export function spine(db: DatabaseSync): Spine {
     return shares;
   };
 
+  const houseSeatRows = houseRow === null ? [] : seatsWonBy(db, [houseRow.id]);
   const houseStandings: Standing[] =
     houseRow === null
       ? []
       : (() => {
           const byJurisdiction = new Map<string, SeatsWon[]>();
-          for (const r of seatsWonBy(db, [houseRow.id])) {
+          for (const r of houseSeatRows) {
             byJurisdiction.set(r.jurisdictionId, [...(byJurisdiction.get(r.jurisdictionId) ?? []), r]);
           }
           return [...byJurisdiction]
@@ -1276,6 +1290,7 @@ export function spine(db: DatabaseSync): Spine {
     ink: partyInk(standings),
     seats: facts,
     latestAssemblySeats,
+    houseSeatRows,
     leaderShare,
     counted,
     bypoll: null,

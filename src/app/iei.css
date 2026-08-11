@@ -951,3 +951,226 @@
     border: 1px solid CanvasText;
   }
 }
+
+/* ══════════════════════════ the map ══════════════════════════
+   The canvas, and the only place on the page where hue carries meaning. */
+
+.iei-map-split {
+  display: grid;
+  grid-template-columns: minmax(320px, 1.05fr) minmax(0, 1fr);
+  gap: 12px 32px;
+  align-items: start;
+}
+
+.iei-map {
+  margin: 0;
+  min-width: 0;
+}
+
+.iei-map svg {
+  width: 100%;
+  height: auto;
+  max-height: 640px;
+  display: block;
+  overflow: visible;
+}
+
+/* A 0.6px stroke in the surface colour is the 2px inter-mark gap at this scale: without it, 36 adjacent
+   fills read as one landmass. */
+.iei-map path {
+  stroke: var(--iei-bg);
+  stroke-width: 0.6;
+}
+
+/* Hover and focus change the STROKE, never the fill. Changing a choropleth's fill on hover destroys the
+   one thing the reader is comparing. */
+.iei-map a:hover path {
+  stroke: var(--iei-ink);
+  stroke-width: 1.8;
+}
+
+.iei-map a:focus-visible {
+  outline: none;
+}
+
+.iei-map a:focus-visible path {
+  stroke: var(--iei-ink);
+  stroke-width: 2.4;
+}
+
+.iei-map-off {
+  stroke: var(--iei-line);
+}
+
+/* Direct labels: the secondary encoding that makes four fills legal, and the thing that makes the map
+   readable without a colour-matching exercise. Paint order puts them above every polygon. */
+.iei-map-labels text {
+  fill: var(--iei-bg);
+  font-family: var(--iei-mono);
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  text-anchor: middle;
+  dominant-baseline: central;
+  paint-order: stroke;
+  /* A hairline of the fill's own darkness behind the glyphs, so a label stays readable over the lightest
+     ramp step and the darkest alike. */
+  stroke: rgba(255, 255, 255, 0.55);
+  stroke-width: 2.2;
+  stroke-linejoin: round;
+}
+
+.iei-map figcaption {
+  font-family: var(--iei-mono);
+  font-size: 9.5px;
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+  margin-top: 8px;
+}
+
+/* ── layer strip ── */
+
+.iei-layers {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 0 0 14px;
+}
+
+.iei-layer {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--iei-ink-3);
+  background: var(--iei-panel);
+  border: 1px solid var(--iei-line);
+  border-radius: 2px;
+  padding: 5px 9px;
+  white-space: nowrap;
+}
+
+.iei-layer:hover {
+  color: var(--iei-ink);
+  border-color: var(--iei-line-2);
+}
+
+.iei-layer:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-color: var(--iei-ink);
+}
+
+.iei-layer-on {
+  color: var(--iei-ink) !important;
+  background: var(--iei-raised) !important;
+  border-color: var(--iei-ink-3) !important;
+}
+
+/* Unavailable, not "coming soon": there is nothing behind it, and the strip says so rather than offering a
+   layer that would shade a country in a colour standing for nothing. */
+.iei-layer-off {
+  color: var(--iei-ink-4);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+/* ── legend ── */
+
+.iei-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px 18px;
+  margin: 0 0 14px;
+  padding: 0;
+  list-style: none;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-2);
+}
+
+.iei-legend li {
+  display: flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.iei-legend b {
+  color: var(--iei-ink-3);
+  font-weight: 400;
+  margin-left: 5px;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-sw-none {
+  background: #1d1b26;
+  border: 1px dashed var(--iei-line-2);
+}
+
+/* ── the jurisdictions too small to click ──
+   Which ones is computed by labelFits(), never listed. */
+
+.iei-tiles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 3px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iei-tiles a {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  text-decoration: none;
+  color: var(--iei-ink-2);
+  background: var(--iei-panel);
+  border: 1px solid var(--iei-line);
+  border-radius: 2px;
+  padding: 4px 7px;
+  white-space: nowrap;
+}
+
+.iei-tiles a:hover {
+  color: var(--iei-ink);
+  border-color: var(--iei-line-2);
+}
+
+.iei-tiles a:focus-visible {
+  outline: none;
+  border-color: var(--iei-ink);
+}
+
+.iei-tiles b {
+  font-weight: 700;
+  color: var(--iei-ink);
+  letter-spacing: 0.06em;
+}
+
+.iei-tile-v {
+  color: var(--iei-ink-3);
+}
+
+@media (max-width: 1080px) {
+  .iei-map-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iei-map svg {
+    max-height: 72vh;
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-layer-on,
+  .iei-layer:focus-visible,
+  .iei-tiles a:focus-visible,
+  .iei-map a:focus-visible path {
+    outline: 2px solid CanvasText;
+    outline-offset: 1px;
+  }
+}

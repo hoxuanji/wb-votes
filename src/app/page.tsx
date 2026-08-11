@@ -4,6 +4,7 @@ import { homeView, hueOf } from '../../packages/mandate/src/repo/home.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { Shell } from '../components/iei/Shell.tsx';
+import { IndiaMap } from '../components/iei/IndiaMap.tsx';
 import { Metric, Panel, Value } from '../components/iei/parts.tsx';
 import './iei.css';
 
@@ -35,8 +36,33 @@ export const dynamic = 'force-dynamic';
  */
 const THIS_YEAR = 2026;
 
+type Params = Record<string, string | string[] | undefined> | undefined;
+
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
+}
+
+/**
+ * A link to this page with one parameter changed and the rest kept.
+ *
+ * Filters are URL state, which is what makes a view shareable — but a layer link that dropped `?election=`
+ * would silently reset the coverage panel, so the whole query is carried through. `#map` sends the browser
+ * back to the section that changed rather than to the top of the page.
+ */
+function href(params: Params, change: Record<string, string>): string {
+  const q = new URLSearchParams();
+  for (const [k, val] of Object.entries(params ?? {})) {
+    const one = first(val);
+    if (one !== undefined && one !== '') q.set(k, one);
+  }
+  for (const [k, val] of Object.entries(change)) q.set(k, val);
+  const anchor = 'layer' in change ? '#map' : 'house' in change ? '#history' : '';
+  return `/?${q.toString()}${anchor}`;
+}
+
+/** The registry's name for a jurisdiction id, from the rows the page already holds. */
+function nameOf(v: HomeView, id: string): string {
+  return v.states.find((j) => j.id === id)?.name ?? id;
 }
 
 /** The dateline. Counts, then when the counting happened — which is the honest form of a timestamp. */
@@ -188,6 +214,111 @@ export default function Home({
     >
       <Record v={v} at={at} />
       <Hero v={v} />
+
+      <Panel
+        id="map"
+        title={v.layer.label}
+        question={v.layer.question}
+        basis={v.layer.key === 'year' ? 'reference' : 'measured'}
+      >
+        {/* The layer strip. Plain links, so the layer is URL state: a view can be sent to someone, survives
+            a reload, and works with JavaScript off. A layer with nothing behind it is offered as
+            unavailable rather than rendering an empty country — and which those are is measured. */}
+        <div className="iei-layers" role="group" aria-label="Map layer">
+          {v.layers.map((l) =>
+            l.available ? (
+              <Link
+                key={l.key}
+                href={href(searchParams, { layer: l.key })}
+                className={l.key === v.layer.key ? 'iei-layer iei-layer-on' : 'iei-layer'}
+                aria-current={l.key === v.layer.key ? 'true' : undefined}
+              >
+                {l.label}
+              </Link>
+            ) : (
+              <span key={l.key} className="iei-layer iei-layer-off" aria-disabled="true">
+                {l.label}
+                <span className="iei-sr"> — unavailable: nothing in the registry can fill this layer</span>
+              </span>
+            ),
+          )}
+        </div>
+
+        <div className="iei-linked iei-map-split">
+          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} />
+
+          <div>
+            <ul className="iei-legend">
+              {v.layer.legend.map((l) => (
+                <li key={l.label}>
+                  <span className="iei-sw" style={{ background: l.fill }} aria-hidden="true" />
+                  {l.label}
+                  {l.note === undefined ? null : <b>{l.note}</b>}
+                </li>
+              ))}
+              {v.layer.unknown === 0 ? null : (
+                <li>
+                  <span className="iei-sw iei-sw-none" aria-hidden="true" />
+                  Not held <b>{v.layer.unknown}</b>
+                </li>
+              )}
+            </ul>
+
+            <div className="iei-scroll" tabIndex={0} aria-label="Every jurisdiction in this layer">
+              <table className="iei-t iei-t-tight">
+                <caption className="iei-sr">{v.layer.question}</caption>
+                <thead>
+                  <tr>
+                    <th scope="col">State / UT</th>
+                    <th scope="col" className="iei-n">
+                      Year
+                    </th>
+                    <th scope="col">{v.layer.encoding === 'categorical' ? 'Leading party' : 'Value'}</th>
+                    <th scope="col" className="iei-n">
+                      Seats
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {v.layer.cells.map((c) => {
+                    const s = v.standings.find((x) => x.jurisdictionId === c.jurisdictionId);
+                    return (
+                      <tr key={c.jurisdictionId} data-j={c.jurisdictionId}>
+                        <td>
+                          <Link href={c.href}>{c.jurisdictionName}</Link>
+                        </td>
+                        <td className="iei-n">
+                          {c.year ?? <span className="iei-absent">—</span>}
+                        </td>
+                        <td>
+                          {c.label === null ? (
+                            <span className="iei-absent">{c.detail[1] ?? 'not loaded'}</span>
+                          ) : (
+                            <>
+                              <span className="iei-sw" style={{ background: c.fill }} aria-hidden="true" />
+                              <span className="iei-chip">{c.label}</span>
+                            </>
+                          )}
+                        </td>
+                        <td className="iei-n">
+                          {s === undefined ? (
+                            <span className="iei-absent">—</span>
+                          ) : (
+                            <>
+                              {s.leaderSeats}
+                              <span className="iei-of"> of {s.seatsContested}</span>
+                            </>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </Panel>
 
       <Panel
         id="states"
