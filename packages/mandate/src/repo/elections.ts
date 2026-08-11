@@ -22,9 +22,6 @@ import type { SourceRef } from "./index.ts";
 import { placeHref } from "./place-page.ts";
 import { JURISDICTIONS } from "../ingest/india.ts";
 
-/** How many years a house runs before it must face the electorate again. */
-const TERM_YEARS = 5;
-
 /**
  * Chronological order for elections, newest first — the ONLY ordering any surface may rank by.
  *
@@ -602,6 +599,20 @@ export type Dated = {
   leaderLabel: string | null;
   leaderSeats: number;
   seatsContested: number;
+  /** 'ac' or 'pc' — which house was, or is to be, elected. */
+  house: string;
+  /**
+   * A date the COMMISSION set, never one this codebase computed.
+   *
+   * `announced_on` is NULL for all 1,202 rows and `election_phase` holds none, so there is nothing
+   * authoritative to prefer over the derived arithmetic today. These fields exist so that when the ECI
+   * schedule is ingested the derived list GIVES WAY to it rather than being reconciled with it, and
+   * `upcoming()` already reads them first.
+   */
+  announcedOn: string | null;
+  countingOn: string | null;
+  /** Votes polled as a share of electors, or null where the source published no turnout. */
+  turnoutPct: number | null;
 };
 
 /** The most recent elections held, newest first — any kind, any jurisdiction. */
@@ -621,10 +632,19 @@ export function bypolls(db: DatabaseSync, limit = 8): Dated[] {
  * India were, according to that ordering, four West Bengal elections in a row.
  */
 function dated(db: DatabaseSync, where: string, limit: number): Dated[] {
-  const rows = all<{ id: string; name: string; kind: string; j: string; year: number; seats: number }>(
+  const rows = all<{
+    id: string; name: string; kind: string; house: string; j: string; year: number; seats: number;
+    announced: string | null; counting: string | null; voters: number | null; electors: number | null;
+  }>(
     db,
-    `SELECT e.id AS id, e.name AS name, e.kind AS kind, e.jurisdiction_place_id AS j, e.year AS year,
-            (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
+    `SELECT e.id AS id, e.name AS name, e.kind AS kind, e.house AS house,
+            e.jurisdiction_place_id AS j, e.year AS year,
+            e.announced_on AS announced, e.counting_on AS counting,
+            (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats,
+            (SELECT SUM(t.voters) FROM turnout t JOIN contest c2 ON c2.id = t.contest_id
+              WHERE c2.election_id = e.id AND t.scope = 'contest') AS voters,
+            (SELECT SUM(t.electors) FROM turnout t JOIN contest c3 ON c3.id = t.contest_id
+              WHERE c3.election_id = e.id AND t.scope = 'contest') AS electors
        FROM election e WHERE ${where}
       ORDER BY ${CHRONO_DESC} LIMIT ?`,
     limit,
@@ -641,45 +661,117 @@ function dated(db: DatabaseSync, where: string, limit: number): Dated[] {
       jurisdictionId: e.j,
       jurisdictionName: nameOf(e.j),
       kind: e.kind,
+      house: e.house,
       year: e.year,
       status: "declared" as const,
       leaderLabel: parties[0]?.label ?? null,
       leaderSeats: parties[0]?.seats ?? 0,
       seatsContested: e.seats,
+      announcedOn: e.announced,
+      countingOn: e.counting,
+      turnoutPct:
+        e.electors !== null && e.electors > 0 && e.voters !== null
+          ? Number(((100 * e.voters) / e.electors).toFixed(1))
+          : null,
     };
   });
 }
 
 /**
- * When each house is next DUE, derived from the last election plus a five-year term.
+ * What is coming: elections the COMMISSION has announced, then terms this code derived.
  *
- * DERIVED, and labelled as such everywhere it is shown. The Election Commission announces dates; this
- * registry does not hold them, and printing a derived date as an announced one would be exactly the kind
- * of quiet fabrication the rest of this codebase refuses.
+ * THE ORDER OF PREFERENCE IS THE POINT. An election row whose `announced_on` or `counting_on` is set is an
+ * authoritative fact and comes first, marked `announced`. Only where none exists does the five-year term
+ * arithmetic run, and every row it produces is marked `derived` — printing a term expiry as though the
+ * Commission had set it is exactly the quiet fabrication the rest of this codebase refuses.
  *
- * `thisYear` is an argument, not a call to the clock, so a page renders the same in a test as in a
- * browser. A term that expired BEFORE it splits the list in two, because "Jammu & Kashmir was due in
- * 2019" is not an upcoming election — it is a statement about where our data stops, and the two must not
- * be printed as one list. Past-due rows sort most-overdue first; upcoming rows sort soonest first.
+ * Today the announced list is EMPTY: `announced_on` is NULL for all 1,202 rows and `election_phase` holds
+ * none. So the panel is entirely derived and says so on every row. When the ECI schedule is ingested this
+ * function starts answering with announced rows and the derived ones fall away for those jurisdictions —
+ * no reconciliation, no merge, no "best guess" between the two.
+ *
+ * `thisYear` is an argument, not a call to the clock, so a page renders the same in a test as in a browser.
+ * A term that expired BEFORE it is split out: "Jammu & Kashmir was due in 2019" is not an upcoming
+ * election, it is a statement about where our data stops, and the two must not be printed as one list.
  */
-export function due(db: DatabaseSync, thisYear: number, kind = "assembly", limit = 8): { upcoming: Dated[]; overdue: Dated[] } {
+export type Upcoming = {
+  /** Announced by the Commission, with the date it set. Empty until the schedule is ingested. */
+  announced: Dated[];
+  /** A five-year term from the last election. DERIVED, and labelled that way wherever shown. */
+  derived: Dated[];
+  /** Terms that expired before `thisYear` — a fact about our coverage, not about a future election. */
+  overdue: Dated[];
+};
+
+/** How many years a house runs before it must face the electorate again. */
+export const TERM_YEARS = 5;
+
+export function upcoming(db: DatabaseSync, thisYear: number, kind = "assembly", limit = 8): Upcoming {
   return read(() => {
-    const rows = currentStandings(db, kind).map((s) => ({
-      id: s.electionId,
-      name: `${s.jurisdictionName} — next ${kind === "assembly" ? "assembly" : "general"} election`,
-      jurisdictionId: s.jurisdictionId,
-      jurisdictionName: s.jurisdictionName,
+    // Authoritative first. An election row that carries a date the Commission set, and has no results yet.
+    const announced = all<{
+      id: string; name: string; kind: string; house: string; j: string; year: number;
+      announced: string | null; counting: string | null;
+    }>(
+      db,
+      `SELECT e.id AS id, e.name AS name, e.kind AS kind, e.house AS house,
+              e.jurisdiction_place_id AS j, e.year AS year,
+              e.announced_on AS announced, e.counting_on AS counting
+         FROM election e
+        WHERE e.kind = ?
+          AND (e.announced_on IS NOT NULL OR e.notified_on IS NOT NULL)
+          AND e.year >= ?
+        ORDER BY COALESCE(e.announced_on, e.notified_on), e.id
+        LIMIT ?`,
       kind,
-      year: s.year + TERM_YEARS,
-      status: "due" as const,
-      leaderLabel: s.leaderLabel,
-      leaderSeats: s.leaderSeats,
-      seatsContested: s.seatsContested,
-    }));
+      thisYear,
+      limit,
+    ).map(
+      (e): Dated => ({
+        id: e.id,
+        name: e.name,
+        jurisdictionId: e.j,
+        jurisdictionName: nameOf(e.j),
+        kind: e.kind,
+        house: e.house,
+        year: e.year,
+        status: "due",
+        leaderLabel: null,
+        leaderSeats: 0,
+        seatsContested: 0,
+        announcedOn: e.announced,
+        countingOn: e.counting,
+        turnoutPct: null,
+      }),
+    );
+    const covered = new Set(announced.map((a) => a.jurisdictionId));
+
+    const rows = currentStandings(db, kind)
+      // A jurisdiction whose next election is already announced does not also get a derived guess at it.
+      .filter((s) => !covered.has(s.jurisdictionId))
+      .map(
+        (s): Dated => ({
+          id: s.electionId,
+          name: `${s.jurisdictionName} — next ${kind === "assembly" ? "assembly" : "general"} election`,
+          jurisdictionId: s.jurisdictionId,
+          jurisdictionName: s.jurisdictionName,
+          kind,
+          house: kind === "assembly" ? "ac" : "pc",
+          year: s.year + TERM_YEARS,
+          status: "due",
+          leaderLabel: s.leaderLabel,
+          leaderSeats: s.leaderSeats,
+          seatsContested: s.seatsContested,
+          announcedOn: null,
+          countingOn: null,
+          turnoutPct: null,
+        }),
+      );
     const byYear = (a: Dated, b: Dated): number =>
       a.year - b.year || a.jurisdictionName.localeCompare(b.jurisdictionName);
     return {
-      upcoming: rows.filter((r) => r.year >= thisYear).sort(byYear).slice(0, limit),
+      announced,
+      derived: rows.filter((r) => r.year >= thisYear).sort(byYear).slice(0, limit),
       overdue: rows.filter((r) => r.year < thisYear).sort(byYear).slice(0, limit),
     };
   });

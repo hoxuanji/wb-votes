@@ -155,7 +155,7 @@ test("elections: every query runs, for a big, a small and a middling jurisdictio
     ran(`closeFights(${kind})`, () => elections.closeFights(d, kind, 5));
   }
   ran("bypolls", () => elections.bypolls(d, 5));
-  ran("due", () => elections.due(d, 2026, "assembly", 5));
+  ran("upcoming", () => elections.upcoming(d, 2026, "assembly", 5));
   ran("changeLog", () => room.changeLog(d, 5));
   ran("calendar", () => room.calendar(d));
 

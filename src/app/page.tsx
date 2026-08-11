@@ -5,7 +5,7 @@ import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
-import { Metric, Panel, Value } from '../components/iei/parts.tsx';
+import { BasisChip, CoverageChip, Metric, Panel, Value } from '../components/iei/parts.tsx';
 import './iei.css';
 
 /**
@@ -58,6 +58,11 @@ function href(params: Params, change: Record<string, string>): string {
   for (const [k, val] of Object.entries(change)) q.set(k, val);
   const anchor = 'layer' in change ? '#map' : 'house' in change ? '#history' : '';
   return `/?${q.toString()}${anchor}`;
+}
+
+/** The house a row is about, in the words a reader uses. `ac`/`pc` are the registry's codes. */
+function houseWord(house: string): string {
+  return house === 'pc' ? 'Lok Sabha' : house === 'ac' ? 'Assembly' : house;
 }
 
 /** The registry's name for a jurisdiction id, from the rows the page already holds. */
@@ -388,6 +393,123 @@ export default function Home({
           all, and the rest are not loaded. <Link href="/coverage">Coverage</Link> says which is which.
         </p>
       </Panel>
+
+      <div className="iei-two iei-two-wide" id="elections">
+        <Panel
+          title="Upcoming"
+          question="Which houses face the electorate next?"
+          basis={v.announced.length > 0 ? 'measured' : 'derived'}
+          note={
+            v.announced.length > 0 ? undefined : (
+              <>
+                <b>No date on this list was announced by anyone.</b> The Election Commission announces
+                schedules; this registry holds none — <code>announced_on</code> is empty for all{' '}
+                {v.snapshot.elections} elections and no polling phase is loaded. Every row below is a
+                five-year term counted from the last election, which is arithmetic on a past date and not a
+                statement about a future one. Once the ECI schedule is ingested, announced dates appear here
+                and these rows give way to them.
+              </>
+            )
+          }
+        >
+          {v.announced.length + v.upcoming.length === 0 ? (
+            <p className="iei-absent">No jurisdiction has an assembly election on record to count from.</p>
+          ) : (
+            <table className="iei-t">
+              <thead>
+                <tr>
+                  <th scope="col">State / UT</th>
+                  <th scope="col">House</th>
+                  <th scope="col" className="iei-n">
+                    Due
+                  </th>
+                  <th scope="col">Basis</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...v.announced, ...v.upcoming].map((r) => (
+                  <tr key={`${r.jurisdictionId}-${r.year}`}>
+                    <td>
+                      <Link href={`/pl/${r.jurisdictionId}`}>{r.jurisdictionName}</Link>
+                    </td>
+                    <td className="iei-rule">{houseWord(r.house)}</td>
+                    <td className="iei-n">{r.announcedOn ?? r.year}</td>
+                    <td>
+                      {/* The basis travels with the row, not with the section: an announced date and a
+                          derived one must never look alike, even side by side in one table. */}
+                      <BasisChip basis={r.announcedOn === null ? 'derived' : 'measured'} />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+          {v.overdue.length === 0 ? null : (
+            <p className="iei-note">
+              {v.overdue.length} more term{v.overdue.length === 1 ? '' : 's'} ended before {THIS_YEAR} on the
+              same count — {v.overdue.map((r) => `${r.jurisdictionName} ${r.year}`).join(', ')}. That is a
+              statement about where our data stops, not about an election that is coming, which is why it is
+              not in the list above. <Link href="/coverage">Coverage</Link>
+            </p>
+          )}
+        </Panel>
+
+        <Panel
+          title="Recently held"
+          question="What has just been decided, and do we hold all of it?"
+          basis="measured"
+        >
+          <table className="iei-t">
+            <thead>
+              <tr>
+                <th scope="col">Election</th>
+                <th scope="col">Won by</th>
+                <th scope="col" className="iei-n">
+                  Turnout
+                </th>
+                <th scope="col">Coverage</th>
+              </tr>
+            </thead>
+            <tbody>
+              {v.held.map((r) => (
+                <tr key={r.id}>
+                  <td>
+                    <Link href={`/pl/${r.jurisdictionId}?election=${r.id}`}>{r.jurisdictionName}</Link>
+                    <span className="iei-rule">
+                      {houseWord(r.house)} {r.year}
+                      {r.kind === 'bypoll' ? ' by-election' : ''}
+                    </span>
+                  </td>
+                  <td>
+                    {r.leaderLabel === null ? (
+                      <span className="iei-absent">no winner recorded</span>
+                    ) : (
+                      <>
+                        <span className="iei-chip">{r.leaderLabel}</span>
+                        <span className="iei-rule">
+                          {r.leaderSeats} of {r.seatsContested}
+                        </span>
+                      </>
+                    )}
+                  </td>
+                  <td className="iei-n">
+                    <Value value={r.turnoutPct} unit="%" decimals={1} absent="not reported" />
+                  </td>
+                  <td>
+                    <CoverageChip state={v.coverageOf.get(r.id) ?? 'unavailable'} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <p className="iei-note">
+            Coverage is counted, not declared: <b>complete</b> means every constituency the house elects is
+            loaded and every contest carries a vote count or a stated reason it does not.{' '}
+            <b>Partial</b> names what is missing — see <Link href="#coverage">Data coverage</Link> for the
+            election-by-election account.
+          </p>
+        </Panel>
+      </div>
 
       <footer className="iei-foot">
         <p>

@@ -46,8 +46,18 @@ import {
   watchSignals,
   type LayerKey,
 } from "./home.ts";
-import { closeFights, currentStandings, latestPerJurisdiction, previousElection, recent, seatsWonBy } from "./elections.ts";
+import {
+  closeFights,
+  currentStandings,
+  latestPerJurisdiction,
+  previousElection,
+  recent,
+  seatsWonBy,
+  upcoming,
+} from "./elections.ts";
 import { INDIA_TOTALS } from "../ingest/india.ts";
+import { open } from "../db/index.ts";
+import { migrate } from "../db/migrate.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
@@ -300,6 +310,106 @@ test("recent elections are ordered by the calendar and span more than one state"
     assert.ok(
       new Set(rows.map((r) => r.jurisdictionId)).size > 1,
       `every recent election is in ${rows[0]?.jurisdictionId} — this is the ORDER BY id defect`,
+    );
+  } finally {
+    d.close();
+  }
+});
+
+/* ────────────────────────────── announced beats derived ────────────────────────────── */
+
+/**
+ * An election the Commission has announced must displace the derived guess at it.
+ *
+ * This is the one rule on the page with NO live example: `announced_on` is NULL for all 1,202 rows, so the
+ * announced branch of `upcoming()` never runs against the real registry and a defect in it would ship
+ * invisibly — right up until the ECI schedule is ingested, at which point the front page would print a
+ * five-year term beside a date the Commission actually set. So the fixture is built by hand.
+ */
+function fixture(): DatabaseSync {
+  const d = open(":memory:");
+  migrate(d, "2026-08-12T00:00:00.000Z");
+  d.exec(`
+    INSERT INTO source (id, kind, retrieved_at, doc_hash) VALUES ('s1','static_module','2026-08-12','sha256:0');
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('e1','Delimitation','2008-02-19');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('ka','state','Karnataka');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('kl','state','Kerala');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('ka.ac.001','ac','SEAT A','ka');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('kl.ac.001','ac','SEAT B','kl');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+      VALUES (1,'ka.ac.001','ka','ac','e1',1,'SEAT A','general');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+      VALUES (2,'kl.ac.001','kl','ac','e1',1,'SEAT B','general');
+    -- Karnataka: an election held in 2023, and its successor ANNOUNCED for 2028.
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-assembly-2023','assembly','state','ka','e1','KA 2023','declared','ac',2023,1);
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year,
+                          occurrence, announced_on, counting_on)
+      VALUES ('ka-assembly-2028','assembly','state','ka','e1','KA 2028','declared','ac',2028,1,
+              '2028-03-01','2028-05-13');
+    -- Kerala: an election held in 2021 and nothing announced, so it must appear as DERIVED for 2026.
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('kl-assembly-2021','assembly','state','kl','e1','KL 2021','declared','ac',2021,1);
+    INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('c1','ka-assembly-2023',1,'declared');
+    INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('c2','kl-assembly-2021',2,'declared');
+    INSERT INTO person (id, canonical_name, created_at) VALUES ('p1','A','2026-08-12');
+    INSERT INTO person (id, canonical_name, created_at) VALUES ('p2','B','2026-08-12');
+    INSERT INTO party (id, name, short_name) VALUES ('PARTY','A Party','PTY');
+    INSERT INTO party_version (id, party_id, valid_from, name) VALUES (1,'PARTY','1990-01-01','A Party');
+    INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status) VALUES ('d1','c1','p1',1,'elected');
+    INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status) VALUES ('d2','c2','p2',1,'elected');
+    INSERT INTO result (contest_id, candidacy_id, votes, rank, is_winner, source_id, ingested_at)
+      VALUES ('c1','d1',100,1,1,'s1','2026-08-12');
+    INSERT INTO result (contest_id, candidacy_id, votes, rank, is_winner, source_id, ingested_at)
+      VALUES ('c2','d2',100,1,1,'s1','2026-08-12');
+  `);
+  return d;
+}
+
+test("an announced election displaces the derived guess at it, and is marked differently", () => {
+  const d = fixture();
+  try {
+    const next = upcoming(d, 2026);
+    // The announced one is present, carries the Commission's own date, and is not a five-year count.
+    assert.equal(next.announced.length, 1, "the announced election is missing");
+    assert.equal(next.announced[0]?.id, "ka-assembly-2028");
+    assert.equal(next.announced[0]?.announcedOn, "2028-03-01");
+    assert.equal(next.announced[0]?.countingOn, "2028-05-13");
+    // Karnataka must NOT also appear as a derived 2028 row: one jurisdiction, one answer.
+    assert.equal(
+      next.derived.filter((r) => r.jurisdictionId === "ka").length,
+      0,
+      "Karnataka appears both announced and derived",
+    );
+    // Kerala has nothing announced, so it is derived — 2021 plus a five-year term.
+    const kl = next.derived.find((r) => r.jurisdictionId === "kl");
+    assert.equal(kl?.year, 2026, "Kerala's derived year is not the term expiry");
+    assert.equal(kl?.announcedOn, null, "a derived row must carry no announced date");
+    assert.deepEqual(next.overdue, [], "nothing expired before 2026 in this fixture");
+  } finally {
+    d.close();
+  }
+});
+
+test("the live registry holds no announced date, so every upcoming row is derived", live, () => {
+  const d = db();
+  try {
+    const next = upcoming(d, THIS_YEAR);
+    const claimed = get<{ n: number }>(
+      d,
+      "SELECT COUNT(*) AS n FROM election WHERE announced_on IS NOT NULL OR notified_on IS NOT NULL",
+    );
+    assert.equal(next.announced.length === 0, (claimed?.n ?? 0) === 0, "announced rows disagree with the registry");
+    for (const r of next.derived) {
+      assert.equal(r.announcedOn, null, `${r.jurisdictionId} carries a date nobody announced`);
+      assert.ok(r.year >= THIS_YEAR, `${r.jurisdictionId} is in the upcoming list with a past year`);
+    }
+    // Overdue is a statement about coverage, not an upcoming election, and must be kept separate.
+    for (const r of next.overdue) assert.ok(r.year < THIS_YEAR, `${r.jurisdictionId} is not overdue`);
+    assert.equal(
+      new Set([...next.derived, ...next.overdue].map((r) => r.jurisdictionId)).size,
+      next.derived.length + next.overdue.length,
+      "a jurisdiction is both upcoming and overdue",
     );
   } finally {
     d.close();

@@ -22,6 +22,7 @@ import { all, get } from "../db/index.ts";
 import { loadSources, read, type SourceRef } from "./index.ts";
 import {
   CHRONO_DESC,
+  bypolls,
   closeFights,
   currentStandings,
   foldStandings,
@@ -29,6 +30,7 @@ import {
   previousElection,
   recent,
   seatsByParty,
+  upcoming,
   seatsWonBy,
   type CloseFight,
   type Dated,
@@ -1349,6 +1351,9 @@ export type HomeView = {
   standings: readonly Standing[];
   layer: Layer;
   layers: readonly { key: LayerKey; label: string; available: boolean }[];
+  /** Announced by the Commission. Empty until the ECI schedule is ingested. */
+  announced: Dated[];
+  /** A five-year term from the last election — derived, and labelled that way on every row. */
   upcoming: Dated[];
   overdue: Dated[];
   held: Dated[];
@@ -1374,7 +1379,7 @@ export type HomeView = {
 export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
   const sp = spine(db);
   const held = recent(db, 8);
-  const polls = recentBypolls(db, 1);
+  const polls = bypolls(db, 1);
   const withPoll: Spine = { ...sp, bypoll: polls[0] ?? null };
 
   const key: LayerKey = isLayer(p.layer) ? p.layer : DEFAULT_LAYER;
@@ -1397,7 +1402,7 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
   const asked = choices.find((c) => c.id === p.election);
   const coverageId = asked?.id ?? choices[0]?.id ?? null;
 
-  const dueRows = dueFrom(sp.standings, p.thisYear);
+  const next = upcoming(db, p.thisYear);
   const snap = snapshot(db, sp.standings, sp.states, sp.houseStandings, held[0] ?? null, p.thisYear);
   const parties = partyLandscape(db, withPoll);
   return {
@@ -1407,8 +1412,9 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     standings: sp.standings,
     layer: chosen,
     layers,
-    upcoming: dueRows.upcoming,
-    overdue: dueRows.overdue,
+    announced: next.announced,
+    upcoming: next.derived,
+    overdue: next.overdue,
     held,
     coverageOf: completenessOf(db, held.map((h) => h.id)),
     parties,
@@ -1419,67 +1425,5 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     coverage: coverageId === null ? null : electionCoverage(db, coverageId),
     choices,
     ink: sp.ink,
-  };
-}
-
-/** The newest by-elections, by chronology. */
-function recentBypolls(db: DatabaseSync, limit: number): Dated[] {
-  return read(() =>
-    all<{ id: string; name: string; j: string; year: number; seats: number }>(
-      db,
-      `SELECT e.id AS id, e.name AS name, e.jurisdiction_place_id AS j, e.year AS year,
-              (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
-         FROM election e WHERE e.kind = 'bypoll' ORDER BY ${CHRONO_DESC} LIMIT ?`,
-      limit,
-    ).map((e) => {
-      const won = seatsWonBy(db, [e.id]);
-      const top = [...won].sort((a, b) => b.seats - a.seats || a.key.localeCompare(b.key))[0];
-      return {
-        id: e.id,
-        name: e.name,
-        jurisdictionId: e.j,
-        jurisdictionName: e.j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === e.j)?.name ?? e.j),
-        kind: "bypoll",
-        year: e.year,
-        status: "declared" as const,
-        leaderLabel: top?.label ?? null,
-        leaderSeats: top?.seats ?? 0,
-        seatsContested: e.seats,
-      };
-    }),
-  );
-}
-
-/**
- * When each assembly is next DUE, from the standings already in hand.
- *
- * DERIVED, and labelled that way everywhere it is shown. The Commission announces dates; `election`
- * holds a NULL in every `announced_on`, and `election_phase` holds no rows at all, so there is nothing
- * authoritative to prefer over this arithmetic — and the moment there is, this list gives way to it
- * rather than being reconciled with it.
- *
- * A term that expired BEFORE `thisYear` is not an upcoming election. It is a statement about where our
- * data stops, and the two must not be printed as one list.
- */
-export function dueFrom(standings: readonly Standing[], thisYear: number, limit = 8): { upcoming: Dated[]; overdue: Dated[] } {
-  const rows = standings.map(
-    (s): Dated => ({
-      id: s.electionId,
-      name: `${s.jurisdictionName} — next assembly election`,
-      jurisdictionId: s.jurisdictionId,
-      jurisdictionName: s.jurisdictionName,
-      kind: "assembly",
-      year: s.year + 5,
-      status: "due",
-      leaderLabel: s.leaderLabel,
-      leaderSeats: s.leaderSeats,
-      seatsContested: s.seatsContested,
-    }),
-  );
-  const byYear = (a: Dated, b: Dated): number =>
-    a.year - b.year || a.jurisdictionName.localeCompare(b.jurisdictionName);
-  return {
-    upcoming: rows.filter((r) => r.year >= thisYear).sort(byYear).slice(0, limit),
-    overdue: rows.filter((r) => r.year < thisYear).sort(byYear).slice(0, limit),
   };
 }
