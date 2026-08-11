@@ -273,7 +273,13 @@ export function jurisdictions(db: DatabaseSync): JurisdictionState[] {
     const loaded = new Map<string, number>();
     for (const r of all<{ state_id: string; n: number }>(
       db,
-      `SELECT COALESCE(d.parent_id, p.parent_id) AS state_id, count(*) AS n
+      // The CASE, not COALESCE(d.parent_id, p.parent_id). 535 assembly constituencies hang off their
+      // state directly rather than off a district, and for those `d` IS the state — so its parent_id is
+      // 'in', and COALESCE filed every one of them under the nation. Andhra Pradesh's 300 seats read as
+      // "not loaded" in the state picker and as no-data ink on the map while its 2019 results sat in the
+      // registry. Same defect, same shape, as the one repo/elections.ts documents at J_OF_SEAT.
+      `SELECT CASE WHEN d.kind = 'district' THEN d.parent_id ELSE p.parent_id END AS state_id,
+              count(*) AS n
          FROM place p
          LEFT JOIN place d ON d.id = p.parent_id
         WHERE p.kind = 'ac'

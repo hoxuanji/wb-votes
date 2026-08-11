@@ -26,6 +26,19 @@ import { JURISDICTIONS } from "../ingest/india.ts";
 const TERM_YEARS = 5;
 
 /**
+ * Chronological order for elections, newest first — the ONLY ordering any surface may rank by.
+ *
+ * An election id is only accidentally chronological. It sorts by the middle of the string, so by id the
+ * election after `wb-bypoll-ae-2021` is `wb-bypoll-ge-2016`, five years EARLIER, and `ka-bypoll-ge-2021`
+ * outranks `ka-assembly-2023`. Every ranking in this file and in repo/home.ts binds this constant so the
+ * defect cannot come back in one place while being fixed in another.
+ *
+ * `polling_month` is NULL for the elections whose month was never sourced (it is not derived from a
+ * five-year term), so it is coalesced rather than allowed to reorder a year.
+ */
+export const CHRONO_DESC = "e.year DESC, COALESCE(e.polling_month, 0) DESC, e.occurrence DESC, e.id DESC";
+
+/**
  * The contests of one election that lie INSIDE one jurisdiction — joins only, so it composes into
  * any query that has a `contest c` in scope.
  *
@@ -67,8 +80,16 @@ export type CloseFight = {
   placeId: string;
   jurisdictionId: string;
   winner: string;
+  /** The party that came second, and its share. Null where the source holds only the winner. */
+  runnerUp: string | null;
+  runnerUpPct: number | null;
+  /** Winner's votes as a share of votes polled. Null where the source published no counts. */
+  winnerPct: number | null;
   marginPct: number;
   marginVotes: number | null;
+  /** The election the margin belongs to, so a row can be traced without guessing from the year. */
+  electionId: string;
+  year: number;
 };
 
 export type ElectionSummary = {
@@ -121,7 +142,7 @@ function standings(
        JOIN candidacy cd     ON cd.id = r.candidacy_id
        LEFT JOIN party_version pv ON pv.id = cd.party_version_id
        LEFT JOIN party pt         ON pt.id = pv.party_id${s.joins}
-      WHERE c.election_id = ?${s.where}
+      WHERE r.revision = 0 AND c.election_id = ?${s.where}
       GROUP BY 1, 2
       ORDER BY seats DESC, votes DESC`,
     electionId,
@@ -142,6 +163,131 @@ function standings(
 }
 
 /**
+ * The jurisdiction a seat sits in, from the place tree rather than from the id string.
+ *
+ * Two depths, because two shapes of place hang off a jurisdiction: an assembly seat's parent is usually a
+ * district whose parent is the state, but 535 of them hang off the state directly, and a parliamentary
+ * seat's parent IS the state. The CASE reads the district only when `dis` really is a district; taking
+ * `dis.parent_id` unconditionally would answer 'in' for every parliamentary seat.
+ */
+const J_OF_SEAT = `CASE WHEN dis.kind = 'district' THEN dis.parent_id ELSE pl.parent_id END`;
+
+export type SeatsByParty = {
+  electionId: string;
+  /** The jurisdiction the seats are in — 'ka' for Karnataka's 28 seats of a general election. */
+  jurisdictionId: string;
+  key: string;
+  label: string;
+  seats: number;
+  /** Votes the party polled, or null where the source published no counts. */
+  votes: number | null;
+};
+
+/**
+ * Seats and votes by party for MANY elections at once, split by the jurisdiction each seat sits in.
+ *
+ * One query where `standings()` is one per election per jurisdiction. The national front page needs the
+ * full party list for 31 jurisdictions' latest assemblies plus every state's slice of the latest Lok
+ * Sabha; through `standings()` that is 60-odd scans of `result`, and the page had four sections each
+ * paying for it again. This is the same GROUP BY with the election and the jurisdiction added to the key.
+ *
+ * `revision = 0` is not optional: revision is the supersession column, and without it a corrected result
+ * would be counted alongside the row it replaced.
+ */
+export function seatsByParty(db: DatabaseSync, electionIds: readonly string[]): SeatsByParty[] {
+  if (electionIds.length === 0) return [];
+  return read(() =>
+    all<SeatsByParty>(
+      db,
+      `SELECT c.election_id AS electionId, ${J_OF_SEAT} AS jurisdictionId,
+              ${KEY_SQL} AS key, ${LABEL_SQL} AS label,
+              SUM(CASE WHEN r.is_winner = 1 THEN 1 ELSE 0 END) AS seats,
+              SUM(r.votes) AS votes
+         FROM result r
+         JOIN contest c        ON c.id = r.contest_id
+         JOIN candidacy cd     ON cd.id = r.candidacy_id
+         LEFT JOIN party_version pv ON pv.id = cd.party_version_id
+         LEFT JOIN party pt         ON pt.id = pv.party_id
+         JOIN place_version pvv ON pvv.id = c.place_version_id
+         JOIN place pl          ON pl.id = pvv.place_id
+         LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)
+        WHERE r.revision = 0 AND c.election_id IN (${electionIds.map(() => "?").join(",")})
+        GROUP BY 1, 2, 3, 4`,
+      ...electionIds,
+    ),
+  );
+}
+
+export type SeatsWon = {
+  electionId: string;
+  jurisdictionId: string;
+  key: string;
+  label: string;
+  seats: number;
+};
+
+/**
+ * Seats WON by party, for many elections — winners only, and deliberately without votes.
+ *
+ * The cheap sibling of `seatsByParty`. A grid of 36 jurisdictions × 5 elections needs the leader of 155
+ * elections; through `seatsByParty` that reads every losing row of all of them (~300,000) to compute a
+ * vote share nothing on that surface displays. This reads the ~31,000 winners.
+ *
+ * No `votes` column, by design rather than by omission: the winners' votes are not a denominator for
+ * anything, and a `votes` field here would eventually be divided by something and reported as a share.
+ */
+export function seatsWonBy(db: DatabaseSync, electionIds: readonly string[]): SeatsWon[] {
+  if (electionIds.length === 0) return [];
+  return read(() =>
+    all<SeatsWon>(
+      db,
+      `SELECT c.election_id AS electionId, ${J_OF_SEAT} AS jurisdictionId,
+              ${KEY_SQL} AS key, ${LABEL_SQL} AS label, COUNT(*) AS seats
+         FROM result r
+         JOIN contest c        ON c.id = r.contest_id
+         JOIN candidacy cd     ON cd.id = r.candidacy_id
+         LEFT JOIN party_version pv ON pv.id = cd.party_version_id
+         LEFT JOIN party pt         ON pt.id = pv.party_id
+         JOIN place_version pvv ON pvv.id = c.place_version_id
+         JOIN place pl          ON pl.id = pvv.place_id
+         LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)
+        WHERE r.revision = 0 AND r.is_winner = 1
+          AND c.election_id IN (${electionIds.map(() => "?").join(",")})
+        GROUP BY 1, 2, 3, 4`,
+      ...electionIds,
+    ),
+  );
+}
+
+/**
+ * `seatsByParty` rows folded into the `PartyStanding` shape one election's readers expect.
+ *
+ * Share is of the votes COUNTED in the rows summed, and it is null when the source published none —
+ * never 0, which would read as a party that contested and polled nothing.
+ */export function foldStandings(rows: readonly SeatsByParty[]): { parties: PartyStanding[]; votesCounted: boolean } {
+  const byParty = new Map<string, { label: string; seats: number; votes: number | null }>();
+  for (const r of rows) {
+    const at = byParty.get(r.key) ?? { label: r.label, seats: 0, votes: null };
+    at.seats += r.seats;
+    if (r.votes !== null) at.votes = (at.votes ?? 0) + r.votes;
+    byParty.set(r.key, at);
+  }
+  const counted = [...byParty.values()].reduce((t, r) => t + (r.votes ?? 0), 0);
+  return {
+    votesCounted: counted > 0,
+    parties: [...byParty]
+      .filter(([, r]) => r.seats > 0 || (r.votes ?? 0) > 0)
+      .map(([key, r]) => ({
+        key,
+        label: r.label,
+        seats: r.seats,
+        votePct: counted > 0 && r.votes !== null ? Number(((100 * r.votes) / counted).toFixed(1)) : null,
+      }))
+      .sort((a, b) => b.seats - a.seats || (b.votePct ?? 0) - (a.votePct ?? 0)),
+  };
+}
+
+/**
  * The previous election of the SAME KIND in the same jurisdiction. Cross-kind comparison is a lie.
  *
  * Ordered by YEAR, not by id, for the reason `recent` records: an id is only accidentally
@@ -153,13 +299,18 @@ function standings(
 export function previousElection(db: DatabaseSync, electionId: string): string | null {
   const row = get<{ id: string }>(
     db,
+    // The columns, not substr(id, -4). Reading a year out of the id string worked only because every id
+    // this registry holds happens to end in one; `election.year` is the modelled fact, and (year,
+    // polling_month, occurrence) is the same tuple CHRONO_DESC ranks by, so "the previous election" and
+    // "the newest election" can never disagree about which of two is earlier.
     `SELECT e2.id AS id FROM election e
        JOIN election e2 ON e2.jurisdiction_place_id = e.jurisdiction_place_id
                        AND e2.kind = e.kind
-                       AND (substr(e2.id, -4) < substr(e.id, -4)
-                            OR (substr(e2.id, -4) = substr(e.id, -4) AND e2.id < e.id))
+                       AND (e2.year, COALESCE(e2.polling_month, 0), e2.occurrence, e2.id)
+                         < (e.year,  COALESCE(e.polling_month, 0),  e.occurrence,  e.id)
       WHERE e.id = ?
-      ORDER BY substr(e2.id, -4) DESC, e2.id DESC LIMIT 1`,
+      ORDER BY e2.year DESC, COALESCE(e2.polling_month, 0) DESC, e2.occurrence DESC, e2.id DESC
+      LIMIT 1`,
     electionId,
   );
   return row?.id ?? null;
@@ -232,40 +383,64 @@ export type Standing = {
   majority: boolean;
 };
 
+export type LatestElection = {
+  id: string;
+  jurisdictionId: string;
+  year: number;
+  seatsContested: number;
+};
+
 /**
- * Where every jurisdiction stands now: its most recent election of this kind and who leads it.
+ * The most recent election of one kind in each jurisdiction, by real chronology.
  *
- * This is the national picture, and it is one query plus one per state rather than a curated table. A
- * state with no data loaded is absent rather than zeroed — the caller pairs it against JURISDICTIONS to
- * show the gap.
+ * `ORDER BY e.id DESC` was here, and inside one kind it happened to agree with the calendar because an
+ * assembly id ends in its year. It does not agree for by-elections: `wb-bypoll-ge-2016` sorts above
+ * `wb-bypoll-ae-2021`, so "the current state of play" for that kind was a five-year-old result. Every
+ * caller now ranks on CHRONO_DESC, and `year` comes off the column rather than out of the id.
  */
-export function currentStandings(db: DatabaseSync, kind = "assembly"): Standing[] {
-  return read(() => {
-    const latest = all<{ id: string; jurisdiction_place_id: string }>(
+export function latestPerJurisdiction(db: DatabaseSync, kind = "assembly"): LatestElection[] {
+  return read(() =>
+    all<LatestElection>(
       db,
-      `SELECT id, jurisdiction_place_id FROM (
-         SELECT e.id, e.jurisdiction_place_id,
-                row_number() OVER (PARTITION BY e.jurisdiction_place_id ORDER BY e.id DESC) AS rn
+      `SELECT id, jurisdictionId, year, seatsContested FROM (
+         SELECT e.id AS id, e.jurisdiction_place_id AS jurisdictionId, e.year AS year,
+                (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seatsContested,
+                row_number() OVER (PARTITION BY e.jurisdiction_place_id ORDER BY ${CHRONO_DESC}) AS rn
            FROM election e WHERE e.kind = ?
        ) WHERE rn = 1`,
       kind,
-    );
+    ),
+  );
+}
+
+/**
+ * Where every jurisdiction stands now: its most recent election of this kind and who leads it.
+ *
+ * This is the national picture, and it is two queries rather than a curated table — or than the 62 it
+ * used to be, one pair per jurisdiction. A state with no data loaded is absent rather than zeroed; the
+ * caller pairs it against JURISDICTIONS to show the gap.
+ */
+export function currentStandings(db: DatabaseSync, kind = "assembly"): Standing[] {
+  return read(() => {
+    const latest = latestPerJurisdiction(db, kind);
+    const byElection = new Map<string, SeatsByParty[]>();
+    for (const r of seatsByParty(db, latest.map((l) => l.id))) {
+      byElection.set(r.electionId, [...(byElection.get(r.electionId) ?? []), r]);
+    }
     return latest
       .map((row): Standing => {
-        const { parties } = standings(db, row.id);
-        const seats =
-          get<{ n: number }>(db, "SELECT COUNT(*) AS n FROM contest WHERE election_id = ?", row.id)?.n ?? 0;
+        const { parties } = foldStandings(byElection.get(row.id) ?? []);
         const top = parties[0] ?? null;
         return {
-          jurisdictionId: row.jurisdiction_place_id,
-          jurisdictionName: nameOf(row.jurisdiction_place_id),
+          jurisdictionId: row.jurisdictionId,
+          jurisdictionName: nameOf(row.jurisdictionId),
           electionId: row.id,
-          year: yearOf(row.id),
-          seatsContested: seats,
+          year: row.year,
+          seatsContested: row.seatsContested,
           leaderKey: top?.key ?? null,
           leaderLabel: top?.label ?? null,
           leaderSeats: top?.seats ?? 0,
-          majority: top !== null && seats > 0 && top.seats > seats / 2,
+          majority: top !== null && row.seatsContested > 0 && top.seats > row.seatsContested / 2,
         };
       })
       .sort((a, b) => b.year - a.year || a.jurisdictionName.localeCompare(b.jurisdictionName));
@@ -370,28 +545,44 @@ export function swings(db: DatabaseSync, kind = "assembly", limit = 8): Swing[] 
 /** The tightest results in the country, from the most recent election of each jurisdiction. */
 export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): CloseFight[] {
   return read(() => {
-    const ids = currentStandings(db, kind).map((s) => s.electionId);
-    if (ids.length === 0) return [];
+    const latest = latestPerJurisdiction(db, kind);
+    if (latest.length === 0) return [];
+    const ids = latest.map((l) => l.id);
+    const holes = ids.map(() => "?").join(",");
     return all<CloseFight>(
       db,
-      `SELECT plv.canonical_name AS placeName, pl.id AS placeId,
-              substr(pl.id, 1, instr(pl.id, '.') - 1) AS jurisdictionId,
+      // The runner-up joins on rank = 2 of the SAME contest. A LEFT JOIN, because an election the source
+      // published winners-only for has no second row — and "no runner-up recorded" is a different fact
+      // from "unopposed", which is why it is null here rather than blank.
+      `SELECT plv.canonical_name AS placeName, pl.id AS placeId, ${J_OF_SEAT} AS jurisdictionId,
               ${LABEL_SQL} AS winner,
+              CASE WHEN r2.candidacy_id IS NULL THEN NULL
+                   ELSE COALESCE(NULLIF(pt2.short_name, ''), NULLIF(pt2.name, ''), NULLIF(cd2.party_raw, ''), 'Unattached')
+              END AS runnerUp,
+              ROUND(100.0 * r2.votes / t.voters, 1) AS runnerUpPct,
+              ROUND(100.0 * r.votes / t.voters, 1) AS winnerPct,
               -- Two decimals, because the closest seats in India are decided by tens of votes and one
               -- decimal printed five different results as "0%".
               ROUND(100.0 * r.margin / t.voters, 2) AS marginPct,
-              r.margin AS marginVotes
+              r.margin AS marginVotes,
+              c.election_id AS electionId, e.year AS year
          FROM result r
          JOIN contest c        ON c.id = r.contest_id
+         JOIN election e       ON e.id = c.election_id
          JOIN candidacy cd     ON cd.id = r.candidacy_id
          LEFT JOIN party_version pv ON pv.id = cd.party_version_id
          LEFT JOIN party pt         ON pt.id = pv.party_id
+         LEFT JOIN result r2   ON r2.contest_id = c.id AND r2.revision = 0 AND r2.rank = 2
+         LEFT JOIN candidacy cd2    ON cd2.id = r2.candidacy_id
+         LEFT JOIN party_version pv2 ON pv2.id = cd2.party_version_id
+         LEFT JOIN party pt2         ON pt2.id = pv2.party_id
          JOIN turnout t        ON t.contest_id = c.id AND t.scope = 'contest'
          JOIN place_version plv ON plv.id = c.place_version_id
          JOIN place pl          ON pl.id = plv.place_id
-        WHERE r.is_winner = 1 AND r.margin IS NOT NULL AND t.voters > 0
-          AND c.election_id IN (${ids.map(() => "?").join(",")})
-        ORDER BY marginPct ASC
+         LEFT JOIN place dis    ON dis.id = COALESCE(plv.district_place_id, pl.parent_id)
+        WHERE r.revision = 0 AND r.is_winner = 1 AND r.margin IS NOT NULL AND t.voters > 0
+          AND c.election_id IN (${holes})
+        ORDER BY marginPct ASC, placeName
         LIMIT ?`,
       ...ids,
       limit,
@@ -415,33 +606,48 @@ export type Dated = {
 
 /** The most recent elections held, newest first — any kind, any jurisdiction. */
 export function recent(db: DatabaseSync, limit = 6): Dated[] {
-  return read(() =>
-    all<{ id: string; name: string; kind: string; jurisdiction_place_id: string }>(
-      db,
-      // BY YEAR, not by id. Election ids are '<state>-assembly-<year>', so ORDER BY id DESC is
-      // alphabetical by state and returned nothing but West Bengal — the most recent elections in India
-      // were, according to that ordering, four West Bengal elections in a row.
-      `SELECT id, name, kind, jurisdiction_place_id FROM election
-        WHERE kind <> 'bypoll'
-        ORDER BY year DESC, polling_month DESC, occurrence DESC, jurisdiction_place_id LIMIT ?`,
-      limit,
-    ).map((e) => {
-      const { parties } = standings(db, e.id);
-      return {
-        id: e.id,
-        name: e.name,
-        jurisdictionId: e.jurisdiction_place_id,
-        jurisdictionName: nameOf(e.jurisdiction_place_id),
-        kind: e.kind,
-        year: yearOf(e.id),
-        status: "declared" as const,
-        leaderLabel: parties[0]?.label ?? null,
-        leaderSeats: parties[0]?.seats ?? 0,
-        seatsContested:
-          get<{ n: number }>(db, "SELECT COUNT(*) AS n FROM contest WHERE election_id = ?", e.id)?.n ?? 0,
-      };
-    }),
+  return read(() => dated(db, "kind <> 'bypoll'", limit));
+}
+
+/** By-elections, which are their own election kind and their own story. */
+export function bypolls(db: DatabaseSync, limit = 8): Dated[] {
+  return read(() => dated(db, "kind = 'bypoll'", limit));
+}
+
+/**
+ * The shape `recent` and `bypolls` both return, from one query plus one bulk standings read.
+ *
+ * BY CHRONOLOGY, not by id. `ORDER BY id DESC` is alphabetical by state, and the most recent elections in
+ * India were, according to that ordering, four West Bengal elections in a row.
+ */
+function dated(db: DatabaseSync, where: string, limit: number): Dated[] {
+  const rows = all<{ id: string; name: string; kind: string; j: string; year: number; seats: number }>(
+    db,
+    `SELECT e.id AS id, e.name AS name, e.kind AS kind, e.jurisdiction_place_id AS j, e.year AS year,
+            (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
+       FROM election e WHERE ${where}
+      ORDER BY ${CHRONO_DESC} LIMIT ?`,
+    limit,
   );
+  const byElection = new Map<string, SeatsByParty[]>();
+  for (const r of seatsByParty(db, rows.map((e) => e.id))) {
+    byElection.set(r.electionId, [...(byElection.get(r.electionId) ?? []), r]);
+  }
+  return rows.map((e) => {
+    const { parties } = foldStandings(byElection.get(e.id) ?? []);
+    return {
+      id: e.id,
+      name: e.name,
+      jurisdictionId: e.j,
+      jurisdictionName: nameOf(e.j),
+      kind: e.kind,
+      year: e.year,
+      status: "declared" as const,
+      leaderLabel: parties[0]?.label ?? null,
+      leaderSeats: parties[0]?.seats ?? 0,
+      seatsContested: e.seats,
+    };
+  });
 }
 
 /**
@@ -480,31 +686,6 @@ export function due(db: DatabaseSync, thisYear: number, kind = "assembly", limit
 }
 
 /** By-elections, which are their own election kind and their own story. */
-export function bypolls(db: DatabaseSync, limit = 8): Dated[] {
-  return read(() =>
-    all<{ id: string; name: string; jurisdiction_place_id: string }>(
-      db,
-      `SELECT id, name, jurisdiction_place_id FROM election WHERE kind = 'bypoll'
-        ORDER BY year DESC, polling_month DESC, occurrence DESC, jurisdiction_place_id LIMIT ?`,
-      limit,
-    ).map((e) => {
-      const { parties } = standings(db, e.id);
-      return {
-        id: e.id,
-        name: e.name,
-        jurisdictionId: e.jurisdiction_place_id,
-        jurisdictionName: nameOf(e.jurisdiction_place_id),
-        kind: "bypoll",
-        year: yearOf(e.id),
-        status: "declared" as const,
-        leaderLabel: parties[0]?.label ?? null,
-        leaderSeats: parties[0]?.seats ?? 0,
-        seatsContested:
-          get<{ n: number }>(db, "SELECT COUNT(*) AS n FROM contest WHERE election_id = ?", e.id)?.n ?? 0,
-      };
-    }),
-  );
-}
 
 export type ElectionRef = { id: string; name: string; kind: string; year: number };
 
