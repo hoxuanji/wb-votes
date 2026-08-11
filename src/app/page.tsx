@@ -5,7 +5,17 @@ import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
-import { Bar, BasisChip, Change, CoverageChip, Metric, Panel, Sparkline, Value } from '../components/iei/parts.tsx';
+import {
+  Bar,
+  BasisChip,
+  Change,
+  CoverageChip,
+  Metric,
+  Panel,
+  Scroll,
+  Sparkline,
+  Value,
+} from '../components/iei/parts.tsx';
 import './iei.css';
 
 /**
@@ -276,7 +286,7 @@ export default function Home({
               )}
             </ul>
 
-            <div className="iei-scroll" tabIndex={0} aria-label="Every jurisdiction in this layer">
+            <Scroll label="Every jurisdiction in this layer">
               <table className="iei-t iei-t-tight">
                 <caption className="iei-sr">{v.layer.question}</caption>
                 <thead>
@@ -327,7 +337,7 @@ export default function Home({
                   })}
                 </tbody>
               </table>
-            </div>
+            </Scroll>
           </div>
         </div>
       </Panel>
@@ -338,7 +348,7 @@ export default function Home({
         question="Which party leads each assembly, in its most recent election?"
         basis="measured"
       >
-        <div className="iei-scroll" tabIndex={0}>
+        <Scroll label="Jurisdictions by their most recent assembly election">
           <table className="iei-t iei-t-tight">
             <caption className="iei-sr">
               Every jurisdiction with an assembly election on record, newest first
@@ -375,25 +385,18 @@ export default function Home({
                     <span className="iei-of"> of {r.seatsContested}</span>
                   </td>
                   <td className="iei-col-track">
-                    <span
-                      className="iei-track"
-                      role="img"
-                      aria-label={`${r.leaderSeats} of ${r.seatsContested} seats`}
-                    >
-                      <span
-                        className="iei-bar"
-                        style={{
-                          width: `${Math.min(100, (100 * r.leaderSeats) / Math.max(1, r.seatsContested))}%`,
-                          background: hueOf(v.ink, r.leaderKey),
-                        }}
-                      />
-                    </span>
+                    {/* No label: the seat count is the cell immediately before this one, and announcing the
+                        bar as well makes a screen reader read every row's figure twice. */}
+                    <Bar
+                      pct={(100 * r.leaderSeats) / Math.max(1, r.seatsContested)}
+                      fill={hueOf(v.ink, r.leaderKey)}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
-        </div>
+        </Scroll>
         <p className="iei-note">
           {v.snapshot.jurisdictionsTotal - v.standings.length} of {v.snapshot.jurisdictionsTotal} jurisdictions
           have no assembly election on record here — three union territories have no legislative assembly at
@@ -533,6 +536,7 @@ export default function Home({
           </>
         }
       >
+        <Scroll label="Parties by where they hold power">
         <table className="iei-t">
           <thead>
             <tr>
@@ -585,11 +589,7 @@ export default function Home({
                 </td>
                 <td className="iei-n">{p.assemblySeats}</td>
                 <td className="iei-col-track">
-                  <Bar
-                    pct={(100 * p.assemblySeats) / Math.max(1, v.parties.assemblySeats)}
-                    fill={hueOf(v.ink, p.key)}
-                    label={`${p.assemblySeats} of ${v.parties.assemblySeats} assembly seats loaded`}
-                  />
+                  <Bar pct={(100 * p.assemblySeats) / Math.max(1, v.parties.assemblySeats)} fill={hueOf(v.ink, p.key)} />
                 </td>
                 <td className="iei-n">{p.houseSeats === 0 ? <span className="iei-absent">none</span> : p.houseSeats}</td>
                 <td className="iei-n">
@@ -612,6 +612,7 @@ export default function Home({
             ))}
           </tbody>
         </table>
+        </Scroll>
         <p className="iei-note">
           Ranked by jurisdictions governed, then Lok Sabha seats. No pie chart: a party&rsquo;s change
           against last time is the useful comparison, and two pies side by side cannot show it.
@@ -679,11 +680,7 @@ export default function Home({
                     </span>
                   </td>
                   <td className="iei-col-track">
-                    <Bar
-                      pct={(100 * f.marginPct) / Math.max(0.01, widest(v))}
-                      fill="var(--iei-alert)"
-                      label={`${f.marginPct}% margin`}
-                    />
+                    <Bar pct={(100 * f.marginPct) / Math.max(0.01, widest(v))} fill="var(--iei-alert)" />
                   </td>
                 </tr>
               ))}
@@ -746,7 +743,7 @@ export default function Home({
             </Link>
           ))}
         </div>
-        <div className="iei-scroll" tabIndex={0}>
+        <Scroll label={`The last ${HISTORY_DEPTH} elections in each jurisdiction`}>
           <table className="iei-t iei-t-tight iei-hist">
             <caption className="iei-sr">
               Each jurisdiction&rsquo;s last {HISTORY_DEPTH} {houseWord(v.historyHouse)} elections, newest
@@ -794,7 +791,7 @@ export default function Home({
               ))}
             </tbody>
           </table>
-        </div>
+        </Scroll>
       </Panel>
 
       {v.coverage === null ? null : (

@@ -156,12 +156,39 @@ export function Metric({
   );
 }
 
-/** An in-cell magnitude bar. The value and its length never separate, so the number is always beside it. */
+/**
+ * An in-cell magnitude bar.
+ *
+ * `aria-hidden` by default, and that is the accessible choice rather than a lapse: every bar on this page
+ * sits in the cell beside the number it encodes, so announcing it repeats the figure a screen reader has
+ * just read. Pass `label` only where a bar is the ONLY encoding of its value.
+ */
 export function Bar({ pct, fill, label }: { pct: number; fill: string; label?: string }) {
   return (
-    <span className="iei-track" role="img" aria-label={label}>
+    <span
+      className="iei-track"
+      role={label === undefined ? undefined : 'img'}
+      aria-label={label}
+      aria-hidden={label === undefined ? true : undefined}
+    >
       <span className="iei-bar" style={{ width: `${Math.max(1.5, Math.min(100, pct))}%`, background: fill }} />
     </span>
+  );
+}
+
+/**
+ * A table too wide for a phone, in a region that can be scrolled by keyboard.
+ *
+ * `tabIndex={0}` plus `role="region"` plus a name, all three: a scroll container that is not focusable is
+ * unreachable without a pointer, and an unnamed region is announced as "region" with no indication of what
+ * it holds. This is the difference between a responsive table and a table a phone user cannot read the
+ * right-hand half of.
+ */
+export function Scroll({ label, children }: { label: string; children: React.ReactNode }) {
+  return (
+    <div className="iei-scroll" role="region" aria-label={label} tabIndex={0}>
+      {children}
+    </div>
   );
 }
 

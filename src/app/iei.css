@@ -26,8 +26,20 @@
   --iei-line-2: #2a2a38;
   --iei-ink: #f2f2f7;
   --iei-ink-2: #a3a3b3;
-  --iei-ink-3: #74748a;
-  --iei-ink-4: #4b4b5c;
+  /*
+   * ink-3 is every label, table header, caption and metadata line on the page, and it was #74748a — 4.41:1
+   * on the canvas and 4.02:1 on the raised surface, which misses the 4.5:1 floor that small text has to
+   * clear. It is #818198 now: 4.82:1 on the WORST surface it is drawn on, with a little headroom. Measured
+   * by iei.test.ts rather than by eye, because this is exactly the kind of claim that cannot be eyeballed.
+   */
+  --iei-ink-3: #818198;
+  /*
+   * There is no fourth ink tier. There was one at #4b4b5c — 2.2:1 on the raised surface, which no text can
+   * clear — and everything it rendered turned out to carry meaning: `.iei-absent` made "not reported" the
+   * least readable text on a page whose one product value is that absences are LEGIBLE rather than hidden,
+   * the coverage chip made "Unavailable" the same, and the ⌘K hint made the affordance that teaches the
+   * shortcut invisible. A tier that nothing may legitimately use is a tier to delete.
+   */
 
   /* Semantic, and each used ONLY for its meaning. These are data, not decoration. */
   --iei-good: #7fd4a8;
@@ -172,7 +184,7 @@
   font-family: var(--iei-mono);
   font-size: 9px;
   letter-spacing: 0.04em;
-  color: var(--iei-ink-4);
+  color: var(--iei-ink-3);
   border: 1px solid var(--iei-line-2);
   border-radius: 2px;
   padding: 1px 4px;
@@ -518,7 +530,7 @@
 }
 
 .iei-basis-absent {
-  color: var(--iei-ink-4);
+  color: var(--iei-ink-3);
   border-bottom-style: dotted;
 }
 
@@ -526,7 +538,7 @@
 .iei-absent {
   font-family: var(--iei-mono);
   font-size: 0.86em;
-  color: var(--iei-ink-4);
+  color: var(--iei-ink-3);
   font-variant-numeric: normal;
   letter-spacing: 0.02em;
 }
@@ -735,7 +747,7 @@
 }
 
 .iei-cov-unavailable {
-  color: var(--iei-ink-4);
+  color: var(--iei-ink-3);
 }
 
 .iei-cov-unavailable .iei-cov-mark {
@@ -1070,7 +1082,7 @@
 /* Unavailable, not "coming soon": there is nothing behind it, and the strip says so rather than offering a
    layer that would shade a country in a colour standing for nothing. */
 .iei-layer-off {
-  color: var(--iei-ink-4);
+  color: var(--iei-ink-3);
   border-style: dashed;
   cursor: not-allowed;
 }
@@ -1361,4 +1373,67 @@
 .iei-anom li {
   border-left-color: var(--iei-line-2);
   border-left-style: dashed;
+}
+
+/* ══════════════════════════ the phone hierarchy ══════════════════════════
+   Not a shrunk dashboard: a different reading order, and a map sized so that something after it is
+   visible without scrolling. A full-height choropleth on a phone is a page with one section in it. */
+
+@media (max-width: 900px) {
+  .iei-map svg {
+    max-height: 52vh;
+  }
+
+  /* The map's companion table is 36 rows. On a phone it would push every panel below the map off the
+     third screen, so it keeps its own scroll region rather than growing the document. */
+  .iei-scroll {
+    max-height: 300px;
+  }
+
+  .iei-record {
+    gap: 2px 16px;
+    font-size: 10px;
+  }
+
+  .iei-sec {
+    padding: 18px 0 20px;
+  }
+
+  /* A section header on a phone reads top-to-bottom: title, then what it answers, then how. Right-aligned
+     metadata beside a title only works when there is room beside the title. */
+  .iei-h {
+    display: block;
+  }
+
+  .iei-h-meta {
+    justify-content: flex-start;
+    margin-top: 6px;
+  }
+
+  .iei-h-meta p {
+    text-align: left;
+  }
+
+  .iei-ev-body {
+    max-width: none;
+  }
+
+  /* Tables stay dense but stop being cramped: a 6px cell on a touch target is not reachable. */
+  .iei-t td,
+  .iei-t-tight td {
+    padding-top: 8px;
+    padding-bottom: 8px;
+  }
+
+  .iei-tiles a {
+    padding: 7px 9px;
+  }
+}
+
+/* Wider than a phone and narrower than a laptop: the map and its table stack, but the metric strip and the
+   two-column panels do not need to. */
+@media (min-width: 901px) and (max-width: 1080px) {
+  .iei-scroll {
+    max-height: 380px;
+  }
 }
