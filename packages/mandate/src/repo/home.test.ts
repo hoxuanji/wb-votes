@@ -664,6 +664,32 @@ test("the snapshot's ratios cannot exceed the country, and the live flag is neve
   }
 });
 
+test("the headline counts assemblies, not jurisdictions with any result", live, () => {
+  const d = db();
+  try {
+    const v = homeView(d, { thisYear: THIS_YEAR });
+    // The denominator in a sentence about who governs must be the assemblies on record. 36 jurisdictions
+    // have a Lok Sabha result and only 31 have an assembly; the first draft printed "of 36 on record" and
+    // overstated the coverage of the very table underneath it by five.
+    assert.equal(v.snapshot.assembliesOnRecord, v.standings.length);
+    assert.ok(
+      v.snapshot.assembliesOnRecord <= v.snapshot.jurisdictionsWithResults,
+      "more assemblies on record than jurisdictions with results",
+    );
+    if (v.snapshot.assembliesOnRecord !== v.snapshot.jurisdictionsWithResults) {
+      assert.doesNotMatch(
+        v.headline,
+        new RegExp(`of the ${v.snapshot.jurisdictionsWithResults} assemblies`),
+        "the headline uses the wrong denominator",
+      );
+    }
+    // And the sentence must name the derived half as derived.
+    if (v.snapshot.dueSoon > 0) assert.match(v.headline, /derived, not announced/);
+  } finally {
+    d.close();
+  }
+});
+
 test("close fights are the closest results held, with a runner-up where one was published", live, () => {
   const d = db();
   try {

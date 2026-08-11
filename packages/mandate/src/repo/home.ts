@@ -127,7 +127,11 @@ export function partyInk(standings: readonly Standing[]): PartyInk {
 export type Snapshot = {
   /** Reference totals: what India has, against what the registry holds. */
   jurisdictionsTotal: number;
+  /** Jurisdictions with a result of ANY house on record. */
   jurisdictionsWithResults: number;
+  /** Jurisdictions with an ASSEMBLY election on record — a different, smaller number, and the one a
+   *  sentence about who governs has to use. 36 have Lok Sabha results; 31 have assemblies. */
+  assembliesOnRecord: number;
   assemblySeatsTotal: number;
   assemblySeatsHeld: number;
   lokSabhaSeatsTotal: number;
@@ -179,6 +183,7 @@ export function snapshot(
       // Counted from the elections themselves, not from `hasData`. The two disagree, and the one that
       // matters here is "we can show you a result": a jurisdiction the map lights has a standing, so the
       // strip must count standings or it contradicts the picture beside it.
+      assembliesOnRecord: standings.length,
       jurisdictionsWithResults: new Set([
         ...standings.map((s) => s.jurisdictionId),
         ...houseStandings.map((s) => s.jurisdictionId),
@@ -1282,7 +1287,34 @@ export function spine(db: DatabaseSync): Spine {
   };
 }
 
-/* ────────────────────────────── the page ────────────────────────────── */
+/**
+ * The ten-second answer, computed.
+ *
+ * A written headline is a claim that rots the first time a state is loaded, and this is the sentence most
+ * likely to be quoted back at us. Every number in it comes from the rows above; the phrasing changes shape
+ * when the data does, and the derived half says so in the sentence rather than in a footnote.
+ */
+export function headline(snap: Snapshot, parties: PartyLandscape): string {
+  const top = parties.rows[0];
+  const held = `${snap.jurisdictionsWithResults} of ${snap.jurisdictionsTotal} states and union territories`;
+  if (top === undefined || top.governs === 0) {
+    return `${held} have results on record, across ${IN_NUM.format(snap.elections)} elections.`;
+  }
+  const second = parties.rows[1];
+  // The denominator is ASSEMBLIES on record, not jurisdictions with any result. Using the latter read
+  // "BJP leads 11 assemblies and INC 5, of 36 on record" — but only 31 assemblies are loaded; the other
+  // five jurisdictions are on record through the Lok Sabha alone, and three of them have no assembly.
+  const of = snap.assembliesOnRecord;
+  const lead =
+    second === undefined || second.governs === 0
+      ? `${top.label} leads ${top.governs} of the ${of} assemblies on record`
+      : `${top.label} leads ${top.governs} of the ${of} assemblies on record, and ${second.label} ${second.governs}`;
+  const due =
+    snap.dueSoon === 0
+      ? ""
+      : ` ${snap.dueSoon} term${snap.dueSoon === 1 ? "" : "s"} expire within a year on a five-year count — derived, not announced.`;
+  return `${lead}.${due}`;
+}
 
 export type HomeParams = {
   layer?: string | undefined;
@@ -1296,6 +1328,8 @@ export type HomeParams = {
 
 export type HomeView = {
   snapshot: Snapshot;
+  /** The ten-second answer, computed from the rows below rather than written. */
+  headline: string;
   states: readonly JurisdictionState[];
   standings: readonly Standing[];
   layer: Layer;
@@ -1349,8 +1383,11 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
   const coverageId = asked?.id ?? choices[0]?.id ?? null;
 
   const dueRows = dueFrom(sp.standings, p.thisYear);
+  const snap = snapshot(db, sp.standings, sp.states, sp.houseStandings, held[0] ?? null, p.thisYear);
+  const parties = partyLandscape(db, withPoll);
   return {
-    snapshot: snapshot(db, sp.standings, sp.states, sp.houseStandings, held[0] ?? null, p.thisYear),
+    snapshot: snap,
+    headline: headline(snap, parties),
     states: sp.states,
     standings: sp.standings,
     layer: chosen,
@@ -1359,7 +1396,7 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     overdue: dueRows.overdue,
     held,
     coverageOf: completenessOf(db, held.map((h) => h.id)),
-    parties: partyLandscape(db, withPoll),
+    parties,
     fights: closeFights(db, "assembly", 10),
     signals: watchSignals(db, withPoll, p.thisYear),
     historyHouse,

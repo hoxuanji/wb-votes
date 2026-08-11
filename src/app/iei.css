@@ -1,32 +1,38 @@
-/* INDIA ELECTION INTELLIGENCE — the shell.
-   §33 visual language, §34 typography, §21 dashboard density.
+/* INDIA ELECTION INTELLIGENCE — the product shell.
 
-   Rules this file enforces rather than suggests:
-   · §21 no giant hero, no decorative cards, no gradients. Sections are separated by rules, not by
-     floating panels, and every block answers a question named in its own header.
-   · §34 every NUMBER and every piece of metadata is monospace. Prose is not. That single split is what
-     makes a dense table readable, and it was missing entirely.
-   · §33 colour carries MEANING: alert / developing / confirmed / informational. Party colour is
-     contextual (the map) and never structural.
-   · Focus is never an outline. Each control states its own treatment; forced-colors gets a real one. */
+   THE ONE RULE THIS FILE ENFORCES: the interface is monochrome, and only DATA is coloured.
+
+   Nav, controls, headers, rules, focus states and the current-section marker are all ink on near-black.
+   Hue is spent on four things and nothing else: the choropleth's parties, the magnitude ramp, coverage
+   status, and the direction of a change. That is a real position rather than restraint for its own sake —
+   an accent colour on the chrome competes with the map for the only channel the map has, and this page
+   exists to be read map-first. It also removes the collision the alternative creates: any accent close
+   enough to feel deliberate sits next to one of the four party fills.
+
+   The rest follows from the same instinct:
+   · No gradients, no glass, no shadows, no card that floats for decoration. Sections are divided by
+     hairlines, which is how a document divides sections.
+   · Every NUMBER and every piece of metadata is monospace and tabular. Prose is not. That single split is
+     what lets a table run at 12px and stay readable.
+   · Radius tops out at 2px. A dashboard of rounded cards reads as a marketing page with data in it.
+   · Focus is a 2px bright-ink underline on the control itself, never a ring. forced-colors gets a real
+     outline, because there the system owns the treatment. */
 
 :root {
-  --iei-bg: #08070c;
-  --iei-panel: #0f0e15;
-  --iei-raised: #16151f;
-  --iei-line: #221f2d;
-  --iei-line-2: #2f2b3d;
-  --iei-ink: #f4f3f8;
-  --iei-ink-2: #a7a2b8;
-  --iei-ink-3: #7c7690;
-  --iei-accent: #a98bf2;
-  --iei-accent-2: #6d4fcc;
+  --iei-bg: #07070b;
+  --iei-panel: #0d0d13;
+  --iei-raised: #14141c;
+  --iei-line: #1e1e28;
+  --iei-line-2: #2a2a38;
+  --iei-ink: #f2f2f7;
+  --iei-ink-2: #a3a3b3;
+  --iei-ink-3: #74748a;
+  --iei-ink-4: #4b4b5c;
 
-  /* §33 semantic status. Each is used ONLY for its meaning. */
+  /* Semantic, and each used ONLY for its meaning. These are data, not decoration. */
+  --iei-good: #7fd4a8;
+  --iei-warn: #e0b458;
   --iei-alert: #e8927c;
-  --iei-developing: #e0b458;
-  --iei-confirmed: #7fd4a8;
-  --iei-info: #6fb3e0;
 
   --iei-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --iei-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -36,59 +42,100 @@
   background: var(--iei-bg);
   color: var(--iei-ink);
   font-family: var(--iei-sans);
-  font-size: 14px;
+  font-size: 13px;
   line-height: 1.5;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
 }
 
 .iei * {
   box-sizing: border-box;
 }
 
-.iei-sr {
+.iei-sr,
+.iei-skip {
   position: absolute;
   width: 1px;
   height: 1px;
   overflow: hidden;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   white-space: nowrap;
 }
 
-/* ---------- top strip: wordmark, controls, §24 nav ----------
-   The controls were a search box pinned hard left of the nav and a state picker pinned hard right, two
-   strays in the chrome with a hundred pixels of nothing between them. They are one cluster now, sitting
-   directly after the wordmark where a reader looks first, and the nav takes the remaining room. */
+/* The skip link is the first thing in the tab order and must become visible when it takes focus. */
+.iei-skip:focus {
+  position: fixed;
+  top: 6px;
+  left: 6px;
+  z-index: 40;
+  width: auto;
+  height: auto;
+  clip-path: none;
+  padding: 6px 10px;
+  background: var(--iei-ink);
+  color: var(--iei-bg);
+  font-family: var(--iei-mono);
+  font-size: 11px;
+  border-radius: 2px;
+}
+
+/* ══════════════════════════ top bar ══════════════════════════ */
 
 .iei-top {
   display: grid;
-  grid-template-columns: auto auto 1fr;
+  grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 8px 18px;
-  padding: 0 16px;
-  min-height: 46px;
+  gap: 8px 20px;
+  padding: 0 18px;
+  min-height: 48px;
   border-bottom: 1px solid var(--iei-line);
   background: var(--iei-panel);
   position: sticky;
   top: 0;
-  z-index: 10;
+  z-index: 20;
 }
 
-/* One bordered group: type a name, or pick a jurisdiction. Two ways into the same registry, read as one
-   control rather than two accidents. */
+.iei-mark {
+  display: flex;
+  gap: 8px;
+  align-items: baseline;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.iei-mark-a {
+  font-family: var(--iei-sans);
+  font-size: 14px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: var(--iei-ink);
+}
+
+.iei-mark-b {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+/* One bordered cluster: type a name, jump to a state, or change the election. Three ways into the same
+   registry, read as one control rather than three strays with a hundred pixels between them. */
 .iei-controls {
   display: flex;
   align-items: stretch;
-  gap: 0;
+  min-width: 0;
   border: 1px solid var(--iei-line-2);
-  border-bottom-width: 2px;
-  border-radius: 4px;
+  border-radius: 2px;
   background: var(--iei-raised);
   overflow: hidden;
+  justify-self: start;
 }
 
 .iei-controls form {
   display: flex;
   align-items: stretch;
+  min-width: 0;
 }
 
 .iei-controls input,
@@ -98,45 +145,67 @@
   border: 0;
   color: var(--iei-ink);
   font-family: var(--iei-mono);
-  font-size: 12px;
-  padding: 7px 10px;
+  font-size: 11px;
+  padding: 8px 10px;
+  min-width: 0;
 }
 
-.iei-controls input {
-  width: 232px;
-  max-width: 30vw;
+.iei-cmd {
+  position: relative;
 }
 
-.iei-controls input::placeholder {
+.iei-cmd input {
+  width: 210px;
+  max-width: 26vw;
+  padding-right: 40px;
+}
+
+.iei-cmd input::placeholder {
   color: var(--iei-ink-3);
 }
 
-.iei-controls select {
+.iei-cmd kbd {
+  position: absolute;
+  right: 7px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-family: var(--iei-mono);
+  font-size: 9px;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-4);
+  border: 1px solid var(--iei-line-2);
+  border-radius: 2px;
+  padding: 1px 4px;
+  pointer-events: none;
+}
+
+.iei-pick {
   border-left: 1px solid var(--iei-line-2);
+}
+
+.iei-pick select {
   color: var(--iei-ink-2);
   max-width: 150px;
   cursor: pointer;
 }
 
-.iei-controls button {
-  border-left: 1px solid var(--iei-line-2);
-  color: var(--iei-ink-2);
+.iei-pick button {
+  color: var(--iei-ink-3);
   letter-spacing: 0.08em;
   text-transform: uppercase;
-  font-size: 10px;
+  font-size: 9px;
   cursor: pointer;
+  padding: 8px 8px;
 }
 
-.iei-controls button:hover,
-.iei-controls select:hover {
+.iei-pick button:hover,
+.iei-pick select:hover {
   color: var(--iei-ink);
 }
 
-/* Focus is shown on the GROUP, so the joined control never looks broken apart. */
+/* Focus shows on the GROUP, so a joined control never looks broken apart, and on the field itself. */
 .iei-controls:focus-within {
-  border-color: var(--iei-line-2);
-  border-bottom-color: var(--iei-accent);
-  background: var(--iei-panel);
+  border-color: var(--iei-ink-3);
 }
 
 .iei-controls input:focus-visible,
@@ -144,64 +213,25 @@
 .iei-controls button:focus-visible {
   outline: none;
   color: var(--iei-ink);
-}
-
-@media (max-width: 900px) {
-  .iei-controls input {
-    width: 120px;
-    max-width: 34vw;
-  }
-
-  .iei-controls select {
-    max-width: 104px;
-  }
-}
-
-@media (forced-colors: active) {
-  .iei-controls:focus-within {
-    outline: 2px solid CanvasText;
-    outline-offset: 1px;
-  }
-}
-
-/* ---------- superseded: the old three-column strip ---------- */
-
-.iei-mark {
-  display: flex;
-  gap: 6px;
-  align-items: baseline;
-  text-decoration: none;
-  font-family: var(--iei-mono);
-  font-size: 11px;
-  letter-spacing: 0.14em;
-  white-space: nowrap;
-}
-
-.iei-mark-a {
-  color: var(--iei-ink);
-  font-weight: 700;
-}
-
-.iei-mark-b {
-  color: var(--iei-ink-3);
+  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
 }
 
 .iei-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 14px;
+  gap: 2px 16px;
   align-items: center;
+  justify-self: end;
   min-width: 0;
 }
 
-.iei-nav a,
-.iei-off {
+.iei-nav a {
   font-family: var(--iei-mono);
-  font-size: 11px;
-  letter-spacing: 0.06em;
+  font-size: 10px;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   text-decoration: none;
-  color: var(--iei-ink-2);
+  color: var(--iei-ink-3);
   padding: 4px 0 3px;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
@@ -214,69 +244,22 @@
 .iei-nav a:focus-visible {
   outline: none;
   color: var(--iei-ink);
-  border-bottom-color: var(--iei-accent);
+  border-bottom-color: var(--iei-ink);
 }
 
 .iei-on {
   color: var(--iei-ink) !important;
-  border-bottom-color: var(--iei-accent-2) !important;
+  border-bottom-color: var(--iei-ink-3) !important;
 }
 
-/* An unbuilt destination is legible and obviously inert. Not hidden: the IA is the product's shape. */
-.iei-off {
-  color: #4c4760;
-  cursor: help;
-  border-bottom: 2px dotted #332e42;
-}
-
-.iei-cmd input {
-  width: 260px;
-  max-width: 34vw;
-  background: var(--iei-raised);
-  border: 1px solid var(--iei-line-2);
-  border-bottom: 2px solid var(--iei-line-2);
-  border-radius: 3px;
-  color: var(--iei-ink);
+.iei-live {
+  display: inline-flex;
+  align-items: center;
   font-family: var(--iei-mono);
-  font-size: 12px;
-  padding: 6px 9px;
-}
-
-.iei-cmd input::placeholder {
-  color: var(--iei-ink-3);
-}
-
-.iei-cmd input:focus-visible {
-  outline: none;
-  border-bottom-color: var(--iei-accent);
-  background: var(--iei-panel);
-}
-
-/* ---------- page frame ---------- */
-
-.iei-body {
-  max-width: 1280px;
-  margin: 0 auto;
-  padding: 0 16px 64px;
-}
-
-/* §25 status line: the first thing, and it is a strip rather than a hero. */
-.iei-status {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 28px;
-  align-items: baseline;
-  border-bottom: 1px solid var(--iei-line);
-  padding: 12px 0;
-  font-family: var(--iei-mono);
-  font-size: 11px;
-  letter-spacing: 0.04em;
-  color: var(--iei-ink-3);
-}
-
-.iei-status b {
-  color: var(--iei-ink);
-  font-weight: 600;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-alert);
 }
 
 .iei-dot {
@@ -285,62 +268,160 @@
   height: 6px;
   border-radius: 50%;
   margin-right: 6px;
-  vertical-align: 1px;
-  background: var(--iei-ink-3);
+  background: currentColor;
 }
 
 .iei-dot-live {
   background: var(--iei-alert);
 }
 
-.iei-dot-idle {
-  background: var(--iei-info);
+/* ══════════════════════════ page frame ══════════════════════════ */
+
+.iei-body {
+  max-width: 1340px;
+  margin: 0 auto;
+  padding: 0 18px 72px;
 }
 
-/* KPI strip: §21 allows these only when each answers a question. Four numbers, no cards. */
-.iei-kpi {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+/* The record strip: the dateline of the whole page, and the first thing under the chrome. Every figure in
+   it is a count, and the last cell is when the counting happened. */
+.iei-record {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px 26px;
+  align-items: baseline;
   border-bottom: 1px solid var(--iei-line);
-}
-
-.iei-kpi > div {
-  padding: 14px 18px 14px 0;
-}
-
-.iei-kpi dt {
+  padding: 11px 0;
   font-family: var(--iei-mono);
-  font-size: 10px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-size: 10.5px;
+  letter-spacing: 0.05em;
   color: var(--iei-ink-3);
-  margin: 0 0 4px;
 }
 
-.iei-kpi dd {
-  margin: 0;
-  font-family: var(--iei-mono);
-  font-size: 22px;
+.iei-record b {
+  color: var(--iei-ink);
   font-weight: 600;
-  letter-spacing: -0.01em;
   font-variant-numeric: tabular-nums;
 }
 
-.iei-kpi small {
+.iei-record a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-record a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-record a:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom: 2px solid var(--iei-ink);
+}
+
+/* ══════════════════════════ hero ══════════════════════════
+   A data surface, not a marketing block. One sentence that is computed, then the six counts behind it. */
+
+.iei-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  gap: 10px 40px;
+  align-items: end;
+  padding: 26px 0 20px;
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-eyebrow {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+  margin: 0 0 10px;
+}
+
+/* The answer. 26px, not 64px: the brief forbids a giant hero, and a sentence this specific does not need
+   size to land — it needs to be a sentence rather than a slogan. */
+.iei-answer {
+  font-size: 25px;
+  line-height: 1.25;
+  font-weight: 600;
+  letter-spacing: -0.015em;
+  margin: 0;
+  max-width: 34ch;
+  text-wrap: balance;
+}
+
+.iei-answer b {
+  font-family: var(--iei-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.iei-sub {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--iei-ink-2);
+  max-width: 52ch;
+}
+
+.iei-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--iei-line);
+}
+
+.iei-metric {
+  background: var(--iei-bg);
+  padding: 10px 12px 11px;
+}
+
+.iei-metric dt {
+  font-family: var(--iei-mono);
+  font-size: 9.5px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+  margin: 0 0 3px;
+}
+
+.iei-metric dd {
+  margin: 0;
+  font-family: var(--iei-mono);
+  font-size: 19px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.iei-metric small {
   display: block;
   font-family: var(--iei-sans);
-  font-size: 11px;
+  font-size: 10.5px;
   font-weight: 400;
   color: var(--iei-ink-3);
   letter-spacing: 0;
   margin-top: 3px;
+  line-height: 1.35;
 }
 
-/* ---------- sections ---------- */
+.iei-of {
+  color: var(--iei-ink-3);
+  font-size: 0.66em;
+  font-weight: 400;
+  letter-spacing: 0;
+}
+
+/* ══════════════════════════ sections ══════════════════════════ */
 
 .iei-sec {
   border-bottom: 1px solid var(--iei-line);
-  padding: 22px 0;
+  padding: 22px 0 24px;
 }
 
 .iei-sec:last-of-type {
@@ -351,66 +432,129 @@
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 14px;
-  margin: 0 0 12px;
+  gap: 10px 20px;
+  flex-wrap: wrap;
+  margin: 0 0 14px;
 }
 
 .iei-h h2 {
   font-family: var(--iei-mono);
   font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.12em;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--iei-ink-2);
+  color: var(--iei-ink);
   margin: 0;
 }
 
-/* The one-sentence answer under a section header. Replaces the paragraphs of methodology that used to
-   sit here: the reasoning lives in the code and the method links to /coverage. */
-.iei-h p {
+.iei-h-meta {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  min-width: 0;
+}
+
+.iei-h-meta p {
   margin: 0;
   font-size: 12px;
   color: var(--iei-ink-3);
   text-align: right;
 }
 
-.iei-h a {
+.iei-caveat {
+  margin: -6px 0 12px;
+  font-size: 12px;
   color: var(--iei-ink-2);
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-}
-
-.iei-h a:hover {
-  color: var(--iei-ink);
-}
-
-.iei-h a:focus-visible {
-  outline: none;
-  color: var(--iei-ink);
-  border-bottom-color: var(--iei-accent);
+  border-left: 2px solid var(--iei-line-2);
+  padding-left: 10px;
+  max-width: 88ch;
 }
 
 .iei-two {
   display: grid;
-  grid-template-columns: 1.15fr 1fr;
-  gap: 26px;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
   align-items: start;
 }
 
-/* ---------- tables: dense, monospace numerals, no zebra ---------- */
+.iei-two-wide {
+  grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr);
+}
+
+/* ══════════════════════════ the provenance marker ══════════════════════════
+   The signature. A WORD with a rule under it, because status has to survive greyscale, forced-colors and a
+   screen reader — and because "derived" is the most important thing this product says about a number. */
+
+.iei-basis {
+  font-family: var(--iei-mono);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--iei-line-2);
+  white-space: nowrap;
+  cursor: help;
+}
+
+.iei-basis-measured {
+  color: var(--iei-ink-2);
+  border-bottom-color: var(--iei-ink-3);
+}
+
+/* Derived is the one that must catch the eye: a term expiry printed like an announced date is the
+   fabrication this whole codebase is built to refuse. */
+.iei-basis-derived {
+  color: var(--iei-warn);
+  border-bottom-color: var(--iei-warn);
+}
+
+.iei-basis-reference {
+  color: var(--iei-ink-3);
+  border-bottom-style: dashed;
+}
+
+.iei-basis-absent {
+  color: var(--iei-ink-4);
+  border-bottom-style: dotted;
+}
+
+/* An absence is words, never a bare dash: a dash beside other numbers reads as zero. */
+.iei-absent {
+  font-family: var(--iei-mono);
+  font-size: 0.86em;
+  color: var(--iei-ink-4);
+  font-variant-numeric: normal;
+  letter-spacing: 0.02em;
+}
+
+/* ══════════════════════════ tables ══════════════════════════ */
 
 .iei-t {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: 12.5px;
+}
+
+.iei-t caption {
+  text-align: left;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+  padding-bottom: 6px;
 }
 
 .iei-t th {
   text-align: left;
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 500;
-  letter-spacing: 0.08em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--iei-ink-3);
   padding: 0 10px 6px 0;
@@ -419,16 +563,21 @@
 }
 
 .iei-t td {
-  padding: 7px 10px 7px 0;
+  padding: 6px 10px 6px 0;
   border-bottom: 1px solid var(--iei-line);
   vertical-align: baseline;
 }
 
-.iei-t tr:last-child td {
+.iei-t tbody tr:last-child td {
   border-bottom: none;
 }
 
-/* §34: numbers are monospace and tabular, always. */
+.iei-t td:last-child,
+.iei-t th:last-child {
+  padding-right: 0;
+}
+
+/* Numbers are monospace and tabular, always. */
 .iei-n {
   font-family: var(--iei-mono);
   font-variant-numeric: tabular-nums;
@@ -444,633 +593,361 @@
 }
 
 .iei-t a:hover {
-  border-bottom-color: var(--iei-accent);
+  border-bottom-color: var(--iei-ink);
 }
 
 .iei-t a:focus-visible {
   outline: none;
-  border-bottom: 2px solid var(--iei-accent);
+  border-bottom: 2px solid var(--iei-ink);
 }
 
-.iei-sub {
-  display: block;
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--iei-ink-3);
-  text-transform: uppercase;
+.iei-t-tight td {
+  padding: 3px 10px 3px 0;
+  font-size: 11.5px;
 }
 
-.iei-na {
-  color: var(--iei-ink-3);
-  font-family: var(--iei-mono);
-  font-size: 11px;
-}
-
-/* in-cell magnitude bar: the value and its length never separate */
-.iei-bar {
-  display: block;
-  height: 6px;
-  border-radius: 3px;
-  background: var(--iei-accent-2);
-  min-width: 2px;
-}
-
-.iei-track {
-  width: 20%;
-  min-width: 60px;
-}
-
-/* ---------- §16 confidence vocabulary ---------- */
-
-.iei-badge {
-  display: inline-block;
-  font-family: var(--iei-mono);
-  font-size: 9px;
-  font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  padding: 2px 6px;
-  border-radius: 2px;
-  border: 1px solid currentColor;
-  white-space: nowrap;
-}
-
-.iei-confirmed {
-  color: var(--iei-confirmed);
-}
-
-.iei-reported {
-  color: var(--iei-info);
-}
-
-.iei-developing {
-  color: var(--iei-developing);
-}
-
-.iei-unverified {
-  color: var(--iei-ink-3);
-}
-
-/* ---------- signals (§15/§18) ---------- */
-
-.iei-signals {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.iei-signals li {
-  display: grid;
-  grid-template-columns: 78px 1fr;
-  gap: 12px;
-  padding: 9px 0;
-  border-bottom: 1px solid var(--iei-line);
-}
-
-.iei-signals li:last-child {
-  border-bottom: none;
-}
-
-.iei-when {
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--iei-ink-3);
-  padding-top: 2px;
-}
-
-.iei-sig-h {
-  font-size: 13px;
-  color: var(--iei-ink);
-}
-
-.iei-sig-h a {
-  color: var(--iei-ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--iei-line-2);
-}
-
-.iei-sig-h a:hover {
-  border-bottom-color: var(--iei-accent);
-}
-
-.iei-sig-h a:focus-visible {
-  outline: none;
-  border-bottom: 2px solid var(--iei-accent);
-}
-
-.iei-sig-d {
-  font-size: 12px;
-  color: var(--iei-ink-2);
-  margin-top: 2px;
-}
-
-/* the rule that produced a signal, in mono because it is metadata (§34) */
-.iei-rule {
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  color: var(--iei-ink-3);
-  margin-top: 3px;
-}
-
-/* ---------- embedded map (§5 map-first) ---------- */
-
-.iei-map {
-  border: 1px solid var(--iei-line);
-  background: var(--iei-panel);
-  padding: 10px;
-}
-
-.iei-map svg {
-  width: 100%;
-  height: auto;
+.iei-scroll {
   max-height: 460px;
-  display: block;
+  overflow-y: auto;
+  /* A scroll region needs to be keyboard-focusable or its content is unreachable without a mouse. */
+  scrollbar-width: thin;
 }
 
-.iei-map svg a:hover path {
-  stroke: var(--iei-ink);
-  stroke-width: 1.2;
-}
-
-.iei-map svg a:focus-visible {
+.iei-scroll:focus-visible {
   outline: none;
+  box-shadow: inset 0 0 0 2px var(--iei-ink-3);
 }
 
-.iei-map svg a:focus-visible path {
-  stroke: var(--iei-accent);
-  stroke-width: 1.6;
-}
-
-.iei-swatches {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px 14px;
-  margin: 10px 0 0;
-  padding: 0;
-  list-style: none;
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  color: var(--iei-ink-2);
-}
-
-.iei-swatches li {
-  display: flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.iei-swatches span {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  border: 1px solid var(--iei-line-2);
-}
-
-.iei-modes {
-  display: flex;
-  gap: 4px;
-}
-
-.iei-modes a {
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--iei-ink-2);
-  background: var(--iei-raised);
-  border: 1px solid var(--iei-line-2);
-  border-bottom: 2px solid var(--iei-line-2);
-  border-radius: 2px;
-  padding: 4px 8px;
-}
-
-.iei-modes a:hover {
-  color: var(--iei-ink);
-}
-
-.iei-modes a:focus-visible {
-  outline: none;
-  color: var(--iei-ink);
-  border-bottom-color: var(--iei-accent);
-}
-
-.iei-mode-on {
-  color: var(--iei-ink) !important;
-  border-bottom-color: var(--iei-accent-2) !important;
-}
-
-/* ---------- footer ---------- */
-
-.iei-foot {
-  border-top: 1px solid var(--iei-line);
-  margin-top: 8px;
-  padding-top: 14px;
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  line-height: 1.8;
-  letter-spacing: 0.04em;
-  color: var(--iei-ink-3);
-}
-
-.iei-foot a {
-  color: var(--iei-ink-2);
-  text-decoration: none;
-  border-bottom: 1px solid transparent;
-}
-
-.iei-foot a:hover {
-  color: var(--iei-ink);
-  border-bottom-color: var(--iei-line-2);
-}
-
-.iei-foot a:focus-visible {
-  outline: none;
-  color: var(--iei-ink);
-  border-bottom: 2px solid var(--iei-accent);
-}
-
-/* ---------- §36: a different hierarchy, not a shrunk desktop ---------- */
-
-@media (max-width: 900px) {
-  .iei-two {
-    grid-template-columns: 1fr;
-    gap: 18px;
-  }
-
-  .iei-top {
-    grid-template-columns: 1fr auto;
-    height: auto;
-    padding: 8px 12px;
-    row-gap: 8px;
-  }
-
-  .iei-nav {
-    order: 3;
-    grid-column: 1 / -1;
-    overflow-x: auto;
-    /* horizontal scroll beats wrapping to three rows and pushing content off the first screen */
-    flex-wrap: nowrap;
-    gap: 14px;
-    padding-bottom: 2px;
-  }
-
-  .iei-cmd input {
-    width: 150px;
-    max-width: 40vw;
-  }
-
-  .iei-drop {
-    display: none;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .iei * {
-    transition: none !important;
-    animation: none !important;
-  }
-}
-
-@media (forced-colors: active) {
-  .iei-nav a:focus-visible,
-  .iei-cmd input:focus-visible,
-  .iei-t a:focus-visible,
-  .iei-modes a:focus-visible,
-  .iei-map svg a:focus-visible path,
-  .iei-foot a:focus-visible {
-    outline: 2px solid CanvasText;
-    outline-offset: 2px;
-  }
-}
-
-/* ---------- the map of India ---------- */
-
-.iei-map-split {
-  display: grid;
-  grid-template-columns: minmax(300px, 0.95fr) 1.05fr;
-  gap: 8px 28px;
-  align-items: start;
-}
-
-.iei-india {
-  margin: 0;
-}
-
-.iei-india svg {
-  width: 100%;
-  height: auto;
-  max-height: 620px;
-  display: block;
-}
-
-.iei-india path {
-  stroke: #0b0a10;
-  stroke-width: 0.6;
-  transition: none;
-}
-
-.iei-india a:hover path {
-  stroke: var(--iei-ink);
-  stroke-width: 1.6;
-}
-
-.iei-india a:focus-visible {
-  outline: none;
-}
-
-.iei-india a:focus-visible path {
-  stroke: var(--iei-accent);
-  stroke-width: 2;
-}
-
-.iei-india-off {
-  stroke: #16151f;
-}
-
-.iei-india figcaption {
+.iei-note {
   font-family: var(--iei-mono);
   font-size: 10px;
   line-height: 1.6;
   color: var(--iei-ink-3);
-  margin-top: 6px;
+  margin: 8px 0 0;
 }
 
-.iei-swatches-stack {
-  gap: 4px 16px;
-  margin: 0 0 12px;
+.iei-rule {
+  font-family: var(--iei-mono);
+  font-size: 9.5px;
+  line-height: 1.55;
+  color: var(--iei-ink-3);
+  margin: 3px 0 0;
 }
 
-.iei-swatches-stack b {
-  font-variant-numeric: tabular-nums;
-  color: var(--iei-ink);
+/* ══════════════════════════ marks ══════════════════════════ */
+
+.iei-track {
+  display: block;
+  width: 100%;
+  min-width: 44px;
+  height: 6px;
+  background: var(--iei-line);
+  border-radius: 2px;
+  overflow: hidden;
 }
 
-/* A dense variant: the standings table beside the map has 31 rows and must not scroll the page twice. */
-.iei-t-tight td {
-  padding: 3px 10px 3px 0;
-  font-size: 12px;
+.iei-bar {
+  display: block;
+  height: 100%;
+  /* 2px rounded data-end anchored to the baseline, per the mark spec. */
+  border-radius: 0 2px 2px 0;
+}
+
+.iei-col-track {
+  width: 15%;
+  min-width: 56px;
+}
+
+.iei-spark {
+  display: block;
+  width: 64px;
+  height: 16px;
+  overflow: visible;
 }
 
 .iei-chip {
   font-family: var(--iei-mono);
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-}
-
-@media (max-width: 900px) {
-  .iei-map-split {
-    grid-template-columns: 1fr;
-  }
-}
-
-/* ---------- WHO GOVERNS: one tile per jurisdiction (the stand-in for a choropleth) ----------
-   A tile carries four facts — the code, the party, the seats, and a bar for the share of the house — so
-   colour is never the only channel. That is what lets this use five hues where a chart legend would be
-   held to three. */
-
-.iei-tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  gap: 4px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-
-.iei-tile {
-  border: 1px solid var(--iei-line);
-  background: var(--iei-panel);
-  padding: 7px 8px 8px;
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  line-height: 1.4;
-  min-height: 62px;
-  display: flex;
-  flex-direction: column;
-  gap: 1px;
-}
-
-.iei-tile-id {
-  color: var(--iei-ink-3);
-  letter-spacing: 0.1em;
-}
-
-.iei-tile b {
-  font-size: 13px;
-  font-weight: 700;
-  letter-spacing: 0.01em;
-  /* A long party name must not push the tile wider than its neighbours. */
-  overflow: hidden;
-  text-overflow: ellipsis;
+  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
-.iei-tile-n {
-  color: var(--iei-ink-2);
-  font-variant-numeric: tabular-nums;
-}
-
-.iei-tile-none {
-  color: #4c4760;
-}
-
-.iei-tile-off {
-  border-style: dashed;
-}
-
-.iei-tile-bar {
-  display: block;
-  height: 3px;
-  margin-top: auto;
-  background: var(--iei-line-2);
+/* A swatch beside a label, so identity is never colour alone. */
+.iei-sw {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
   border-radius: 2px;
-  overflow: hidden;
+  margin-right: 6px;
+  vertical-align: -1px;
 }
 
-.iei-tile-bar i {
-  display: block;
-  height: 100%;
-  border-radius: 2px;
-}
-
-/* ---------- vote share against last time ---------- */
-
-.iei-swings {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
-  gap: 8px 26px;
-}
-
-.iei-swing h3 {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 8px;
-  margin: 0 0 4px;
-  font-size: 12px;
-  font-weight: 600;
-}
-
-.iei-swing h3 a {
-  color: var(--iei-ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--iei-line-2);
-}
-
-.iei-swing h3 a:hover {
-  border-bottom-color: var(--iei-accent);
-}
-
-.iei-swing h3 a:focus-visible {
-  outline: none;
-  border-bottom: 2px solid var(--iei-accent);
-}
-
-.iei-swing .iei-sub {
-  display: inline;
-}
-
-/* Direction is semantic here, so it is a colour with a meaning and a sign in the text. */
 .iei-up {
-  color: var(--iei-confirmed);
+  color: var(--iei-good);
 }
 
 .iei-down {
   color: var(--iei-alert);
 }
 
-/* ---------- the jurisdiction picker in the chrome ---------- */
+.iei-flat {
+  color: var(--iei-ink-3);
+}
 
-.iei-jump {
-  display: flex;
-  gap: 4px;
+/* ══════════════════════════ coverage ══════════════════════════
+   Word first, mark second. The state must be readable in greyscale and to a screen reader. */
+
+.iei-cov {
+  display: inline-flex;
   align-items: center;
-}
-
-.iei-jump select,
-.iei-jump button {
-  background: var(--iei-raised);
-  border: 1px solid var(--iei-line-2);
-  border-bottom: 2px solid var(--iei-line-2);
-  border-radius: 3px;
-  color: var(--iei-ink);
+  gap: 5px;
   font-family: var(--iei-mono);
-  font-size: 11px;
-  padding: 5px 7px;
-}
-
-.iei-jump select {
-  max-width: 168px;
-}
-
-.iei-jump button {
-  cursor: pointer;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--iei-ink-2);
-}
-
-.iei-jump button:hover {
-  color: var(--iei-ink);
-}
-
-.iei-jump select:focus-visible,
-.iei-jump button:focus-visible {
-  outline: none;
-  border-bottom-color: var(--iei-accent);
-}
-
-@media (max-width: 900px) {
-  .iei-jump select {
-    max-width: 120px;
-  }
-}
-
-@media (forced-colors: active) {
-  .iei-jump select:focus-visible,
-  .iei-jump button:focus-visible {
-    outline: 2px solid CanvasText;
-    outline-offset: 2px;
-  }
-}
-
-/* ---------- seat-share bar: the whole result in one row, no words ---------- */
-
-.iei-share {
-  display: flex;
-  width: 100%;
-  height: 26px;
-  border-radius: 3px;
-  overflow: hidden;
-  /* a 2px surface gap between segments, per the mark spec: adjacent fills otherwise read as one */
-  gap: 2px;
-  background: var(--iei-line);
-}
-
-.iei-share span {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: 9.5px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  color: #08070c;
-  min-width: 2px;
-  overflow: hidden;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
   white-space: nowrap;
 }
 
-/* ---------- national grid: 36 cells, one per jurisdiction (§4 pan-India) ---------- */
-
-.iei-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(58px, 1fr));
-  gap: 3px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+.iei-cov-mark {
+  width: 7px;
+  height: 7px;
+  border-radius: 1px;
+  border: 1px solid currentColor;
 }
 
-.iei-grid li {
+.iei-cov-complete {
+  color: var(--iei-good);
+}
+
+.iei-cov-complete .iei-cov-mark {
+  background: currentColor;
+}
+
+.iei-cov-partial {
+  color: var(--iei-warn);
+}
+
+/* Half-filled: the shape carries the state as well as the hue. */
+.iei-cov-partial .iei-cov-mark {
+  background: linear-gradient(135deg, currentColor 50%, transparent 50%);
+}
+
+.iei-cov-unavailable {
+  color: var(--iei-ink-4);
+}
+
+.iei-cov-unavailable .iei-cov-mark {
+  border-style: dotted;
+}
+
+/* ══════════════════════════ evidence ══════════════════════════ */
+
+.iei-ev {
+  font-family: var(--iei-mono);
+  font-size: 10px;
+}
+
+.iei-ev summary {
+  cursor: pointer;
+  color: var(--iei-ink-3);
+  letter-spacing: 0.06em;
+  list-style: none;
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--iei-line-2);
+  white-space: nowrap;
+}
+
+.iei-ev summary::-webkit-details-marker {
+  display: none;
+}
+
+.iei-ev summary:hover {
+  color: var(--iei-ink);
+}
+
+.iei-ev summary:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-ev-body {
+  margin-top: 10px;
   border: 1px solid var(--iei-line);
   background: var(--iei-panel);
-  padding: 6px 5px;
-  font-family: var(--iei-mono);
-  font-size: 9px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--iei-ink-3);
-  text-align: center;
-  line-height: 1.35;
+  padding: 10px 12px;
+  text-align: left;
+  max-width: 62ch;
 }
 
-.iei-grid b {
+.iei-ev-body ul {
+  list-style: none;
+  margin: 8px 0 0;
+  padding: 0;
+}
+
+.iei-ev-body li {
+  padding: 7px 0;
+  border-top: 1px solid var(--iei-line);
+}
+
+.iei-ev-body b {
   display: block;
+  color: var(--iei-ink);
+  font-weight: 600;
+  font-size: 10.5px;
+}
+
+.iei-ev-t {
+  display: block;
+  font-family: var(--iei-sans);
   font-size: 11px;
-  font-weight: 700;
-  color: var(--iei-ink-3);
-}
-
-/* Loaded: the one cell that has data carries the accent and a real seat count. Everything else states
-   its declared strength in muted type, which is the honest way to show a denominator. */
-.iei-grid .iei-has {
-  border-color: var(--iei-accent-2);
-  background: var(--iei-raised);
   color: var(--iei-ink-2);
+  margin: 1px 0;
 }
 
-.iei-grid .iei-has b {
-  color: var(--iei-accent);
+.iei-ev-a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
 }
 
-/* No assembly at all — three UTs. Distinct from "assembly with no data loaded". */
-.iei-grid .iei-none {
-  border-style: dashed;
-  color: #4c4760;
+.iei-ev-a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-ev-a:focus-visible {
+  outline: none;
+  border-bottom: 2px solid var(--iei-ink);
+}
+
+/* ══════════════════════════ footer ══════════════════════════ */
+
+.iei-foot {
+  border-top: 1px solid var(--iei-line);
+  margin-top: 10px;
+  padding-top: 16px;
+  font-family: var(--iei-mono);
+  font-size: 10px;
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-3);
+  max-width: 88ch;
+}
+
+.iei-foot a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-foot a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-foot a:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom: 2px solid var(--iei-ink);
+}
+
+/* ══════════════════════════ responsive ══════════════════════════
+   A different hierarchy, not a shrunk desktop. */
+
+@media (max-width: 1080px) {
+  .iei-hero {
+    grid-template-columns: minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+@media (max-width: 900px) {
+  .iei-top {
+    grid-template-columns: 1fr auto;
+    padding: 8px 12px;
+    row-gap: 8px;
+  }
+
+  .iei-controls {
+    grid-column: 1 / -1;
+    order: 3;
+    width: 100%;
+  }
+
+  .iei-cmd {
+    flex: 1 1 auto;
+  }
+
+  .iei-cmd input {
+    width: 100%;
+    max-width: none;
+  }
+
+  .iei-nav {
+    order: 4;
+    grid-column: 1 / -1;
+    /* Horizontal scroll beats wrapping to three rows and pushing the map off the first screen. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: 16px;
+    padding-bottom: 2px;
+  }
+
+  .iei-two,
+  .iei-two-wide {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 22px;
+  }
+
+  .iei-body {
+    padding: 0 12px 56px;
+  }
+
+  .iei-answer {
+    font-size: 21px;
+    max-width: none;
+  }
+
+  .iei-metrics {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 560px) {
+  .iei-pick select {
+    max-width: 92px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .iei *,
+  .iei *::before,
+  .iei *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* In forced-colors the system owns colour, so every treatment that relied on ours needs a real outline. */
+@media (forced-colors: active) {
+  .iei-nav a:focus-visible,
+  .iei-controls:focus-within,
+  .iei-controls input:focus-visible,
+  .iei-controls select:focus-visible,
+  .iei-controls button:focus-visible,
+  .iei-t a:focus-visible,
+  .iei-ev summary:focus-visible,
+  .iei-scroll:focus-visible,
+  .iei-foot a:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+
+  .iei-cov-mark,
+  .iei-sw {
+    border: 1px solid CanvasText;
+  }
 }

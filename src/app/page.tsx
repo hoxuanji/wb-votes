@@ -1,405 +1,270 @@
 import Link from 'next/link';
 import { openRead } from '../../packages/mandate/src/db/open.ts';
-import {
-  bypolls,
-  closeFights,
-  currentStandings,
-  due,
-  recent,
-  swings,
-} from '../../packages/mandate/src/repo/elections.ts';
-import type { CloseFight, Dated, Standing, Swing } from '../../packages/mandate/src/repo/elections.ts';
-import { getCoverage, jurisdictions, INDIA } from '../../packages/mandate/src/repo/coverage.ts';
-import type { Coverage, JurisdictionState } from '../../packages/mandate/src/repo/coverage.ts';
-import { IndiaMap } from './india-map.tsx';
-import type { MapState } from './india-map.tsx';
-import { Nav } from './nav.tsx';
+import { homeView, hueOf } from '../../packages/mandate/src/repo/home.ts';
+import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
+import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
+import { Shell } from '../components/iei/Shell.tsx';
+import { Metric, Panel, Value } from '../components/iei/parts.tsx';
 import './iei.css';
 
 /**
- * `/` — the national front door.
+ * `/` — INDIA.
  *
- * WHAT THIS IS NOT ANY MORE: West Bengal's results with a national frame drawn around them. One state was
- * the hero because one state was the data; 31 states and 1,188 elections later the front page's job is to
- * be a place to choose from, not a place to read one result.
+ * The top of an information architecture that runs INDIA → STATE → ELECTION → CONSTITUENCY → CANDIDATE →
+ * EVIDENCE. Its job is not to show a result; it is to show the country, and to be the place you choose
+ * from. Every figure is a `SELECT` executed when the page is requested, and every section is the same
+ * component shape pointed at a different slice — see repo/home.ts, where nothing knows whether it is
+ * holding a state assembly, a Lok Sabha election or a by-poll.
  *
- * Every section is a SELECT over the registry at request time, and every section is the same component
- * shape applied to a different slice — see repo/elections.ts, where nothing knows whether it is holding a
- * state assembly, a Lok Sabha election or a by-poll. Adding Kerala's history to the registry adds Kerala
- * to this page; there is no list of states in this file, and there must never be one.
+ * THERE IS NO LIST OF STATES IN THIS FILE, and there must never be one. The 36 jurisdictions, the seat
+ * counts and the elections all arrive from the registry and from `ingest/india.ts` reference data; loading
+ * Kerala's next assembly puts Kerala on this page without a line of UI changing.
  *
- * TWO THINGS DELIBERATELY ABSENT, because the honest version of each needs data we do not hold:
- *  · A choropleth of India. place_geometry holds 313 outlines and all of them are West Bengal, so a
- *    national map would be an empty country with one state in it. The 36-tile grid below is the same
- *    information without the pretence, and the map appears when the boundaries are acquired.
- *  · Exit polls. There is no model, no source and no rows. A section header with nothing behind it is
- *    worse than its absence.
+ * WHAT THE PAGE MAY NOT DO, stated here because it is easier to violate in JSX than anywhere else: print a
+ * figure no source published, print a derived date as an announced one, or shade a jurisdiction in a colour
+ * that stands for nothing. `Value` cannot render a null as a blank, `BasisChip` marks the derived rows, and
+ * an unlit polygon wears an ink that deliberately fails the contrast floor a mark has to clear.
  */
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const IN = new Intl.NumberFormat('en-IN');
-
 /**
- * Party colour, assigned in fixed order to the parties that govern the most states, with everything else
- * neutral. Five hues rather than the three the rest of the product caps at: every tile here is directly
- * labelled with its party's abbreviation, so colour is reinforcement rather than the only channel, which
- * is the condition that makes more hues safe. The order is by states governed, so a party's colour does
- * not move when one state's row is filtered out of some other view.
+ * The year the page reasons about. A constant rather than a call to the clock, so a list of expiring terms
+ * cannot change under a test and the one thing that needs updating is visible instead of buried in SQL.
  */
-const PARTY_HUES = ['#a98bf2', '#5ec8c8', '#e0a458', '#e8927c', '#6fb3e0'];
-const NEUTRAL = '#4a4459';
+const THIS_YEAR = 2026;
 
-function hueMap(rows: readonly Standing[]): Map<string, string> {
-  const byParty = new Map<string, number>();
-  for (const r of rows) if (r.leaderKey !== null) byParty.set(r.leaderKey, (byParty.get(r.leaderKey) ?? 0) + 1);
-  const ranked = [...byParty.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  return new Map(ranked.slice(0, PARTY_HUES.length).map(([k], i) => [k, PARTY_HUES[i] as string]));
+function first(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
 }
 
-function Section({
-  title,
-  note,
-  children,
-}: {
-  title: string;
-  note?: React.ReactNode;
-  children: React.ReactNode;
-}) {
+/** The dateline. Counts, then when the counting happened — which is the honest form of a timestamp. */
+function Record({ v, at }: { v: HomeView; at: string }) {
+  const s = v.snapshot;
   return (
-    <section className="iei-sec">
-      <div className="iei-h">
-        <h2>{title}</h2>
-        {note === undefined ? null : <p>{note}</p>}
-      </div>
-      {children}
-    </section>
+    <div className="iei-record">
+      <span>
+        <b>
+          {s.jurisdictionsWithResults}
+        </b>{' '}
+        of {s.jurisdictionsTotal} states &amp; UTs
+      </span>
+      <span>
+        assembly seats{' '}
+        <b>
+          <Value value={s.assemblySeatsHeld} of={s.assemblySeatsTotal} absent="none held" />
+        </b>
+      </span>
+      <span>
+        Lok Sabha{' '}
+        <b>
+          <Value value={s.lokSabhaSeatsHeld} of={s.lokSabhaSeatsTotal} absent="none held" />
+        </b>
+      </span>
+      <span>
+        elections{' '}
+        <b>
+          <Value value={s.elections} absent="none loaded" />
+        </b>
+        {s.earliestYear === null ? null : ` since ${s.earliestYear}`}
+      </span>
+      {s.latest === null ? null : (
+        <span>
+          latest{' '}
+          <b>
+            {s.latest.jurisdictionName} {s.latest.year}
+          </b>
+        </span>
+      )}
+      <span>computed {at}</span>
+      <span>
+        <Link href="/coverage">what is and is not loaded</Link>
+      </span>
+    </div>
   );
 }
 
-/** WHO GOVERNS: one tile per jurisdiction, coloured by the party leading its most recent assembly. */
-function Governs({ rows, all }: { rows: readonly Standing[]; all: readonly JurisdictionState[] }) {
-  const hues = hueMap(rows);
-  const byId = new Map(rows.map((r) => [r.jurisdictionId, r]));
-  const legend = [...hues.entries()].map(([key, fill]) => ({
-    fill,
-    label: rows.find((r) => r.leaderKey === key)?.leaderLabel ?? key,
-    n: rows.filter((r) => r.leaderKey === key).length,
-  }));
-  const other = rows.filter((r) => r.leaderKey !== null && !hues.has(r.leaderKey)).length;
-  const mapStates: MapState[] = all.map((j) => {
-    const s = byId.get(j.id);
-    return {
-      id: j.id,
-      label: s?.leaderLabel ?? null,
-      fill: s?.leaderKey == null ? null : (hues.get(s.leaderKey) ?? NEUTRAL),
-      seats: s?.leaderSeats ?? 0,
-      of: s?.seatsContested ?? 0,
-      year: s?.year ?? null,
-    };
-  });
-  const nameOf = (id: string): string => all.find((j) => j.id === id)?.name ?? id;
+/**
+ * The hero: a computed sentence and the six counts behind it.
+ *
+ * Not a marketing block and not a giant number. `headline` is built in repo/home.ts from the same rows the
+ * page prints, so it cannot drift from them — and its second clause says "derived, not announced" in the
+ * sentence rather than in a footnote, because that is where a reader is when they read the figure.
+ */
+function Hero({ v }: { v: HomeView }) {
+  const s = v.snapshot;
+  const house = v.parties.houseYear;
   return (
-    <>
-      <div className="iei-map-split">
-        <IndiaMap states={mapStates} nameOf={nameOf} />
-        <div>
-          <ul className="iei-swatches iei-swatches-stack">
-            {legend.map((l) => (
-              <li key={l.label}>
-                <span style={{ background: l.fill }} />
-                {l.label} <b>{l.n}</b>
-              </li>
-            ))}
-            {other > 0 ? (
-              <li>
-                <span style={{ background: NEUTRAL }} />
-                other <b>{other}</b>
-              </li>
-            ) : null}
-            <li>
-              <span style={{ background: '#1d1b26', borderColor: '#2f2b3d' }} />
-              no data <b>{all.length - rows.length}</b>
-            </li>
-          </ul>
+    <div className="iei-hero">
+      <div>
+        <p className="iei-eyebrow">India · current electoral landscape</p>
+        <h1 className="iei-answer">{v.headline}</h1>
+        <p className="iei-sub">
+          Every figure on this page is counted from the registry when the page is requested, and carries the
+          source it came from. Nothing is modelled, predicted or filled in.
+        </p>
+      </div>
+      <dl className="iei-metrics">
+        <Metric
+          label="Assemblies"
+          value={s.assembliesOnRecord}
+          of={s.jurisdictionsTotal}
+          hint="jurisdictions with an assembly election on record"
+        />
+        <Metric
+          label="Assembly seats"
+          value={s.assemblySeatsHeld}
+          of={s.assemblySeatsTotal}
+          hint="newest election in each"
+        />
+        <Metric
+          label="Lok Sabha seats"
+          value={s.lokSabhaSeatsHeld}
+          of={s.lokSabhaSeatsTotal}
+          hint={house === null ? 'no general election loaded' : `${house}, every constituency resolved`}
+        />
+        <Metric label="Governing parties" value={s.governingParties} hint="leading an assembly" />
+        <Metric label="Elections held" value={s.elections} hint={s.earliestYear === null ? undefined : `back to ${s.earliestYear}`} />
+        <Metric label="Terms expiring" value={s.dueSoon} hint="within a year — derived" />
+      </dl>
+    </div>
+  );
+}
+
+export default function Home({
+  searchParams,
+}: {
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  let v: HomeView | null = null;
+  let unavailable = false;
+  // openRead() is INSIDE the try. A missing .data/registry.db throws there, not in homeView, so opening
+  // outside it sent a fresh clone a 500 instead of the page that names the command to fix it.
+  let db: ReturnType<typeof openRead> | null = null;
+  try {
+    db = openRead();
+    v = homeView(db, {
+      layer: first(searchParams?.['layer']),
+      election: first(searchParams?.['election']),
+      house: first(searchParams?.['house']),
+      thisYear: THIS_YEAR,
+    });
+  } catch (e) {
+    // A fresh clone has no registry. That is the expected failure, not a bug in this process, and the page
+    // says so with the command that fixes it rather than rendering a 500.
+    if (!(e instanceof RegistryUnavailableError) && !/unable to open database file/.test(String(e))) throw e;
+    unavailable = true;
+  } finally {
+    db?.close();
+  }
+
+  if (v === null) {
+    return (
+      <Shell here="overview">
+        <div className="iei-hero">
+          <div>
+            <p className="iei-eyebrow">India · election intelligence</p>
+            <h1 className="iei-answer">
+              {unavailable ? 'The registry is not built in this checkout.' : 'No elections are loaded.'}
+            </h1>
+            <p className="iei-sub">
+              This page counts rows, so it needs the database. Build it with{' '}
+              <code>npm run registry:migrate &amp;&amp; npm run registry:ingest</code>, then reload.
+            </p>
+          </div>
+        </div>
+      </Shell>
+    );
+  }
+
+  const at = new Date().toISOString().slice(11, 16) + ' UTC';
+  return (
+    <Shell
+      here="overview"
+      states={v.states.map((j) => ({ id: j.id, name: j.name, hasData: j.hasData }))}
+      elections={v.choices}
+      live={v.snapshot.live}
+    >
+      <Record v={v} at={at} />
+      <Hero v={v} />
+
+      <Panel
+        id="states"
+        title="Who governs"
+        question="Which party leads each assembly, in its most recent election?"
+        basis="measured"
+      >
+        <div className="iei-scroll" tabIndex={0}>
           <table className="iei-t iei-t-tight">
+            <caption className="iei-sr">
+              Every jurisdiction with an assembly election on record, newest first
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">State / UT</th>
+                <th scope="col" className="iei-n">
+                  Year
+                </th>
+                <th scope="col">Leading party</th>
+                <th scope="col" className="iei-n">
+                  Seats
+                </th>
+                <th scope="col" className="iei-col-track">
+                  <span className="iei-sr">Share of the seats contested</span>
+                </th>
+              </tr>
+            </thead>
             <tbody>
-              {rows.map((r) => (
+              {v.standings.map((r) => (
                 <tr key={r.jurisdictionId}>
                   <td>
                     <Link href={`/pl/${r.jurisdictionId}`}>{r.jurisdictionName}</Link>
                   </td>
                   <td className="iei-n">{r.year}</td>
                   <td>
-                    <span
-                      className="iei-chip"
-                      style={{ color: r.leaderKey === null ? undefined : (hues.get(r.leaderKey) ?? NEUTRAL) }}
-                    >
-                      {r.leaderLabel}
-                    </span>
+                    <span className="iei-sw" style={{ background: hueOf(v.ink, r.leaderKey) }} aria-hidden="true" />
+                    <span className="iei-chip">{r.leaderLabel ?? <span className="iei-absent">not recorded</span>}</span>
+                    {r.majority ? null : <span className="iei-rule">no outright majority</span>}
                   </td>
                   <td className="iei-n">
-                    {r.leaderSeats}/{r.seatsContested}
-                    {r.majority ? '' : '*'}
+                    {r.leaderSeats}
+                    <span className="iei-of"> of {r.seatsContested}</span>
                   </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          <p className="iei-rule">* no outright majority of the seats contested</p>
-        </div>
-      </div>
-      <ul className="iei-tiles">
-        {all.map((j) => {
-          const s = byId.get(j.id);
-          const fill = s?.leaderKey == null ? null : (hues.get(s.leaderKey) ?? NEUTRAL);
-          return (
-            <li key={j.id} className={s === undefined ? 'iei-tile iei-tile-off' : 'iei-tile'}>
-              <span className="iei-tile-id">{j.id.toUpperCase()}</span>
-              {s === undefined ? (
-                <span className="iei-tile-none">{j.seats === null ? 'no assembly' : 'not loaded'}</span>
-              ) : (
-                <>
-                  <b style={{ color: fill ?? 'inherit' }}>{s.leaderLabel}</b>
-                  <span className="iei-tile-n">
-                    {s.leaderSeats}/{s.seatsContested} · {s.year}
-                  </span>
-                  <span className="iei-tile-bar" aria-hidden="true">
-                    <i
-                      style={{
-                        width: `${Math.min(100, (100 * s.leaderSeats) / Math.max(1, s.seatsContested))}%`,
-                        background: fill ?? NEUTRAL,
-                      }}
-                    />
-                  </span>
-                </>
-              )}
-            </li>
-          );
-        })}
-      </ul>
-    </>
-  );
-}
-
-/** One card shape for any dated election — upcoming, held, or a by-poll. */
-function ElectionRows({ rows, kind }: { rows: readonly Dated[]; kind: 'due' | 'held' }) {
-  if (rows.length === 0) return <p className="iei-na">Nothing to show yet.</p>;
-  return (
-    <table className="iei-t">
-      <tbody>
-        {rows.map((r) => (
-          <tr key={`${r.id}-${r.year}-${r.jurisdictionId}`}>
-            <td className="iei-n">{r.year}</td>
-            <td>
-              <Link href={`/pl/${r.jurisdictionId}`}>{r.jurisdictionName}</Link>
-              <span className="iei-sub">{r.kind === 'bypoll' ? 'by-election' : r.kind}</span>
-            </td>
-            {kind === 'held' ? (
-              <>
-                <td>{r.leaderLabel ?? <span className="iei-na">—</span>}</td>
-                <td className="iei-n">
-                  {r.leaderSeats}/{r.seatsContested}
-                </td>
-              </>
-            ) : (
-              <td className="iei-n" colSpan={2}>
-                <span className="iei-badge iei-unverified">TERM ENDS</span>
-              </td>
-            )}
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-function Fights({ rows }: { rows: readonly CloseFight[] }) {
-  if (rows.length === 0) return <p className="iei-na">No margins are computable yet.</p>;
-  const worst = Math.max(...rows.map((r) => r.marginPct), 0.01);
-  return (
-    <table className="iei-t">
-      <thead>
-        <tr>
-          <th>Seat</th>
-          <th>State</th>
-          <th>Won by</th>
-          <th className="iei-n">Margin</th>
-          <th className="iei-track">&nbsp;</th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map((r) => (
-          <tr key={r.placeId}>
-            <td>
-              <Link href={`/pl/${r.placeId.split('.').join('/')}`}>{r.placeName}</Link>
-            </td>
-            <td className="iei-n">{r.jurisdictionId.toUpperCase()}</td>
-            <td>{r.winner}</td>
-            <td className="iei-n">
-              {r.marginPct}%
-              {r.marginVotes === null ? null : <span className="iei-sub">{IN.format(r.marginVotes)} votes</span>}
-            </td>
-            <td className="iei-track">
-              <span
-                className="iei-bar"
-                style={{ width: `${Math.max(2, (100 * r.marginPct) / worst)}%`, background: '#e8927c' }}
-              />
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
-  );
-}
-
-/** Vote share now against last time. The sign is the story, so it leads the cell. */
-function Swings({ rows }: { rows: readonly Swing[] }) {
-  if (rows.length === 0) return <p className="iei-na">No jurisdiction has counts on both sides yet.</p>;
-  return (
-    <div className="iei-swings">
-      {rows.map((s) => (
-        <div key={s.nowId} className="iei-swing">
-          <h3>
-            <Link href={`/pl/${s.jurisdictionId}`}>{s.jurisdictionName}</Link>
-            <span className="iei-sub">
-              {s.thenYear} → {s.year}
-            </span>
-          </h3>
-          <table className="iei-t">
-            <tbody>
-              {s.rows.map((r) => (
-                <tr key={r.key}>
-                  <td>{r.label}</td>
-                  <td className="iei-n">{r.nowPct === null ? '—' : `${r.nowPct}%`}</td>
-                  <td className={`iei-n ${r.changePp === null ? '' : r.changePp >= 0 ? 'iei-up' : 'iei-down'}`}>
-                    {r.changePp === null ? (
-                      <span className="iei-na">n/a</span>
-                    ) : (
-                      `${r.changePp > 0 ? '+' : ''}${r.changePp}`
-                    )}
+                  <td className="iei-col-track">
+                    <span
+                      className="iei-track"
+                      role="img"
+                      aria-label={`${r.leaderSeats} of ${r.seatsContested} seats`}
+                    >
+                      <span
+                        className="iei-bar"
+                        style={{
+                          width: `${Math.min(100, (100 * r.leaderSeats) / Math.max(1, r.seatsContested))}%`,
+                          background: hueOf(v.ink, r.leaderKey),
+                        }}
+                      />
+                    </span>
                   </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
-      ))}
-    </div>
+        <p className="iei-note">
+          {v.snapshot.jurisdictionsTotal - v.standings.length} of {v.snapshot.jurisdictionsTotal} jurisdictions
+          have no assembly election on record here — three union territories have no legislative assembly at
+          all, and the rest are not loaded. <Link href="/coverage">Coverage</Link> says which is which.
+        </p>
+      </Panel>
+
+      <footer className="iei-foot">
+        <p>
+          India Election Intelligence is a registry of Indian elections in which every figure carries its
+          source, its derivation and its uncertainty. Sources, methods and the gaps are at{' '}
+          <Link href="/coverage">/coverage</Link>.
+        </p>
+      </footer>
+    </Shell>
   );
 }
-
-export default function Home() {
-  const db = openRead();
-  let standings: Standing[] = [];
-  let held: Dated[] = [];
-  let upcoming: Dated[] = [];
-  let overdue: Dated[] = [];
-  let fights: CloseFight[] = [];
-  let shifts: Swing[] = [];
-  let polls: Dated[] = [];
-  let coverage: Coverage | null = null;
-  let states: JurisdictionState[] = [];
-  try {
-    standings = currentStandings(db);
-    held = recent(db, 8);
-    const nextUp = due(db, THIS_YEAR);
-    upcoming = nextUp.upcoming;
-    overdue = nextUp.overdue;
-    fights = closeFights(db, 'assembly', 10);
-    shifts = swings(db, 'assembly', 6);
-    polls = bypolls(db, 6);
-    coverage = getCoverage(db);
-    states = jurisdictions(db);
-  } finally {
-    db.close();
-  }
-
-  const g = coverage?.geography;
-  return (
-    <div className="iei">
-      <Nav here="home" states={states} />
-      <main className="iei-body">
-        <div className="iei-status">
-          <span>
-            <span className="iei-dot iei-dot-idle" />
-            {standings.length} of {INDIA.states} jurisdictions have results
-          </span>
-          <span>
-            assembly seats <b>{IN.format(g?.assemblySeatsLoaded ?? 0)}</b> of {IN.format(INDIA.assemblySeats)}
-          </span>
-          <span>
-            Lok Sabha <b>{IN.format(g?.parliamentarySeatsLoaded ?? 0)}</b> of {IN.format(INDIA.lokSabhaSeats)}
-          </span>
-          <span>
-            most recent <b>{held[0] === undefined ? '—' : `${held[0].jurisdictionName} ${held[0].year}`}</b>
-          </span>
-          <span>
-            <Link href="/coverage">what is and is not loaded</Link>
-          </span>
-        </div>
-
-        <Section
-          title="Who governs"
-          note={<>Leading party in each jurisdiction&rsquo;s most recent assembly election</>}
-        >
-          <Governs rows={standings} all={states} />
-        </Section>
-
-        <div className="iei-two">
-          <Section
-            title="Next due"
-            note={
-              <>
-                Five-year term from the last election &mdash; <b>derived, not announced</b>
-              </>
-            }
-          >
-            <ElectionRows rows={upcoming} kind="due" />
-            {overdue.length === 0 ? null : (
-              <p className="iei-rule">
-                {overdue.length} more terms ended before {THIS_YEAR} in our data &mdash; the registry stops at
-                2022 for most states. <Link href="/coverage">Coverage</Link>
-              </p>
-            )}
-          </Section>
-          <Section title="Recent results" note={<>Newest first, any house</>}>
-            <ElectionRows rows={held} kind="held" />
-          </Section>
-        </div>
-
-        <Section
-          title="Close fights across states"
-          note={<>Margin as a share of votes polled, most recent election of each jurisdiction</>}
-        >
-          <Fights rows={fights} />
-        </Section>
-
-        <Section
-          title="Vote share against last time"
-          note={<>Percentage points gained or lost, same house, consecutive elections</>}
-        >
-          <Swings rows={shifts} />
-        </Section>
-
-        <Section title="By-elections" note={<>A separate kind of election, and its own signal</>}>
-          <ElectionRows rows={polls} kind="held" />
-        </Section>
-
-        <footer className="iei-foot">
-          <p>
-            Every figure on this page is computed from the registry when the page is requested. Sources,
-            methods and the gaps are at <Link href="/coverage">/coverage</Link>.
-          </p>
-        </footer>
-      </main>
-    </div>
-  );
-}
-
-/**
- * The year the page reasons about. A constant rather than `new Date()` so a term-expiry list cannot change
- * under a test, and so the one place that needs updating is visible instead of scattered through the SQL.
- */
-const THIS_YEAR = 2026;
