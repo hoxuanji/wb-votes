@@ -36,13 +36,22 @@ export type Vertical = {
   probe: string | null;
   /** What the row count counts, so a bare number is never ambiguous. */
   unit: string;
-  /** How far the data reaches. Stated even when rows exist — "present" is not "complete". */
+  /**
+   * SQL returning one column `reach`: how far the data actually goes, MEASURED.
+   *
+   * This exists because the hand-written `scope` line below rotted exactly as this file warned a status
+   * would. It read "West Bengal: 294 assembly seats × 4 elections" for months after 355 assembly elections
+   * across 31 jurisdictions had been loaded — a page built to stop the product overstating itself was
+   * understating it instead, which is the same defect facing the other way. Anything countable is counted.
+   */
+  reachProbe: string | null;
+  /** What the data does NOT cover, and why. Prose, because a caveat is not a count. */
   scope: string;
   /** Where the data would have to come from. Named for every vertical, including the built ones. */
   source: string;
 };
 
-export type VerticalState = Vertical & { status: Status; count: number };
+export type VerticalState = Vertical & { status: Status; count: number; reach: string | null };
 
 /** §3 of docs/platform/00-model.md, in the order that document lists them. */
 export const VERTICALS: readonly Vertical[] = [
@@ -52,7 +61,12 @@ export const VERTICALS: readonly Vertical[] = [
     question: "Who won this seat, by how much, and how has it behaved across cycles?",
     probe: "SELECT count(*) AS n FROM result WHERE revision = 0",
     unit: "result rows",
-    scope: "West Bengal: 294 assembly seats × 4 elections, plus its 42 Lok Sabha seats in 2024",
+    reachProbe: `SELECT (SELECT count(DISTINCT jurisdiction_place_id) FROM election) || ' jurisdictions, '
+                     || (SELECT min(year) FROM election) || '-' || (SELECT max(year) FROM election)
+                     || ', ' || (SELECT count(*) FROM election) || ' elections' AS reach`,
+    scope:
+      "results only — no booth-level or round-level detail outside West Bengal, and candidate vote counts " +
+      "are absent wherever the source published winners alone",
     source: "ECI, Lokdhaba, MyNeta affidavits",
   },
   {
@@ -61,7 +75,9 @@ export const VERTICALS: readonly Vertical[] = [
     question: "Who lives in this constituency?",
     probe: "SELECT count(*) AS n FROM claim WHERE predicate LIKE 'demographics.%'",
     unit: "demographic claims",
-    scope: "294 West Bengal assembly seats: literacy, SC/ST share, urbanisation",
+    reachProbe: `SELECT count(DISTINCT subject_ref) || ' seats' AS reach FROM claim
+                  WHERE predicate LIKE 'demographics.%'`,
+    scope: "literacy, SC/ST share and urbanisation only, and only for the seats counted here",
     source: "Census of India, ECI electoral rolls",
   },
   {
@@ -70,7 +86,10 @@ export const VERTICALS: readonly Vertical[] = [
     question: "What has changed across election cycles?",
     probe: "SELECT count(*) AS n FROM election",
     unit: "elections",
-    scope: "four assembly cycles (2011–2026) and one general election, one state",
+    reachProbe: `SELECT (SELECT count(*) FROM election WHERE kind = 'assembly') || ' assembly, '
+                     || (SELECT count(*) FROM election WHERE kind = 'general') || ' general, '
+                     || (SELECT count(*) FROM election WHERE kind = 'bypoll') || ' by-elections' AS reach`,
+    scope: "no municipal or panchayat election is modelled, and no Rajya Sabha election",
     source: "Lokdhaba",
   },
   {
@@ -79,7 +98,13 @@ export const VERTICALS: readonly Vertical[] = [
     question: "Is this seat comparable to itself across boundary changes?",
     probe: "SELECT count(*) AS n FROM place_crosswalk",
     unit: "crosswalk rows",
-    scope: "one boundary epoch loaded, so nothing to cross-walk between yet",
+    reachProbe: `SELECT (SELECT count(*) FROM boundary_epoch) || ' boundary epochs, '
+                     || (SELECT count(*) FROM boundary_epoch WHERE source_id IS NOT NULL) || ' citing an order, '
+                     || (SELECT count(*) FROM place_version_link WHERE kind = 'derived_from')
+                     || ' cited derivations' AS reach`,
+    scope:
+      "epochs and their derivations are modelled and cited; a seat-to-seat vote crosswalk across a " +
+      "boundary change is not, which is the harder half",
     source: "ECI delimitation orders",
   },
   {
@@ -88,7 +113,11 @@ export const VERTICALS: readonly Vertical[] = [
     question: "Who holds which portfolio, and since when?",
     probe: "SELECT count(*) AS n FROM claim WHERE predicate LIKE 'cabinet_portfolio:%'",
     unit: "portfolio claims",
-    scope: "current West Bengal cabinet only — a snapshot, with no start dates for most and no history",
+    reachProbe: `SELECT count(DISTINCT subject_ref) || ' people' AS reach FROM claim
+                  WHERE predicate LIKE 'cabinet_portfolio:%'`,
+    scope:
+      "a current cabinet as a snapshot — no start dates for most of it, no history at all, and no cabinet " +
+      "outside the jurisdiction those people sit in",
     source: "state gazettes, PIB",
   },
   {
@@ -98,6 +127,7 @@ export const VERTICALS: readonly Vertical[] = [
     // The table does not exist. Neither does anything that could stand in for it: the old app's
     // mlaRecords and wbmpRecords are empty arrays in files nothing imports.
     probe: null,
+    reachProbe: null,
     unit: "activity rows",
     scope: "no tenure or activity model exists yet — see phase 0 and 2",
     source: "PRS India, Lok Sabha / Rajya Sabha / assembly records",
@@ -107,6 +137,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "Parliamentary sessions",
     question: "What did this house do this session?",
     probe: null,
+    reachProbe: null,
     unit: "sittings",
     scope: "no institution or session model exists yet",
     source: "Lok Sabha and Rajya Sabha bulletins",
@@ -116,6 +147,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "Bills",
     question: "What was proposed, and what became law?",
     probe: null,
+    reachProbe: null,
     unit: "motions",
     scope: "no motion model exists yet",
     source: "PRS India, Lok Sabha bill tracker",
@@ -125,6 +157,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "Voting records",
     question: "How did this member vote?",
     probe: null,
+    reachProbe: null,
     unit: "recorded votes",
     // The single most important row in this table to state correctly.
     scope:
@@ -137,6 +170,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "Government schemes",
     question: "What programmes exist, who runs them, and what do they fund?",
     probe: null,
+    reachProbe: null,
     unit: "schemes",
     scope: "no scheme model exists yet",
     source: "ministry dashboards, PIB",
@@ -146,6 +180,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "Budget allocations",
     question: "What was promised in money?",
     probe: null,
+    reachProbe: null,
     unit: "fiscal lines",
     scope: "no fiscal model exists yet",
     source: "Union and state budget documents",
@@ -155,6 +190,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "Public spending",
     question: "What was actually spent against what was allocated?",
     probe: null,
+    reachProbe: null,
     unit: "fiscal lines with actuals",
     scope: "no fiscal model exists yet",
     source: "CAG reports, expenditure budgets",
@@ -164,6 +200,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "Constituency development funds",
     question: "Did this member spend their allocation, and where?",
     probe: null,
+    reachProbe: null,
     unit: "allocations",
     scope: "no fiscal model exists yet; also needs the tenure spine to scope money to a member",
     source: "MPLADS portal, state MLALAD returns",
@@ -174,6 +211,7 @@ export const VERTICALS: readonly Vertical[] = [
     question: "Was the manifesto honoured?",
     // Promises exist as party stance data in the old app; NOTHING models delivery.
     probe: null,
+    reachProbe: null,
     unit: "assessed commitments",
     scope:
       "14 party manifestos with policy positions sit in the repo unmodelled, and there is no delivery " +
@@ -185,6 +223,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "Political funding",
     question: "Who funds whom, and through what instrument?",
     probe: null,
+    reachProbe: null,
     unit: "contributions",
     scope:
       "5 parties for one year sit in the repo as a legacy page, unmodelled and uncited by the registry",
@@ -197,6 +236,7 @@ export const VERTICALS: readonly Vertical[] = [
     // The table exists and is empty ON PURPOSE, which is a different fact from "we have not got to it".
     probe: "SELECT count(*) AS n FROM legal_case",
     unit: "cases",
+    reachProbe: null,
     scope:
       "deliberately zero: declared pending-case counts are held as cited claims instead, and no case " +
       "is asserted without a court record, because charged is not convicted",
@@ -207,6 +247,7 @@ export const VERTICALS: readonly Vertical[] = [
     label: "RTI datasets",
     question: "What has been disclosed on request?",
     probe: null,
+    reachProbe: null,
     unit: "documents",
     scope: "no extraction pipeline exists yet",
     source: "RTI portals, published responses",
@@ -217,24 +258,33 @@ export const VERTICALS: readonly Vertical[] = [
     question: "Who governs with whom, and do they vote together?",
     probe: "SELECT count(*) AS n FROM alliance_member",
     unit: "alliance memberships",
+    reachProbe: null,
     scope: "the tables exist and hold nothing; vote agreement additionally needs the vote model",
     source: "declared pre-poll alliances, then voting records",
   },
 ];
 
-/** Row counts per vertical, with status derived from the count rather than declared. */
+/** Row counts and measured reach per vertical, with status derived from the count rather than declared. */
 export function verticals(db: DatabaseSync): VerticalState[] {
   return read(() =>
     VERTICALS.map((v) => {
-      if (v.probe === null) return { ...v, status: "no-model" as Status, count: 0 };
+      if (v.probe === null) return { ...v, status: "no-model" as Status, count: 0, reach: null };
       // A probe naming a table that a future migration renames must not take the page down with it.
       let count = 0;
       try {
         count = Number(get<{ n: number }>(db, v.probe)?.n ?? 0);
       } catch {
-        return { ...v, status: "no-model" as Status, count: 0 };
+        return { ...v, status: "no-model" as Status, count: 0, reach: null };
       }
-      return { ...v, status: count > 0 ? ("present" as Status) : ("empty" as Status), count };
+      let reach: string | null = null;
+      if (v.reachProbe !== null && count > 0) {
+        try {
+          reach = get<{ reach: string | null }>(db, v.reachProbe)?.reach ?? null;
+        } catch {
+          reach = null;
+        }
+      }
+      return { ...v, status: count > 0 ? ("present" as Status) : ("empty" as Status), count, reach };
     }),
   );
 }

@@ -39,6 +39,28 @@ test("the ledger covers every vertical the spec names, by key", () => {
   assert.match(spec, /Elections are its live-event mode,\s+not its\s+subject/);
 });
 
+test("reach is measured, and scope no longer claims to be a count", () => {
+  // WHY THIS EXISTS. `scope` was one field carrying two different kinds of claim: how far the data goes,
+  // and what it excludes. The first is a count and it rotted — "West Bengal: 294 assembly seats × 4
+  // elections" survived months past the load of 355 assembly elections across 31 jurisdictions, so a page
+  // built to stop the product overstating itself was understating it by an order of magnitude. Anything
+  // countable is now counted by `reachProbe`; `scope` keeps only the caveat.
+  for (const v of VERTICALS) {
+    if (v.reachProbe !== null) {
+      assert.match(v.reachProbe, /AS reach/i, `${v.key}'s reach probe must select one column named reach`);
+      assert.ok(v.probe !== null, `${v.key} measures its reach but not its rows`);
+    }
+    // A caveat may name a place; it may not assert HOW MANY of them there are, because that is the part
+    // that goes stale. Guard the specific shape that failed.
+    assert.doesNotMatch(
+      v.scope,
+      /\b(one|two|three|four|five)\s+(state|states|assembly cycles|boundary epoch)/i,
+      `${v.key}'s scope line counts something in prose: "${v.scope}"`,
+    );
+    assert.doesNotMatch(v.scope, /\d+\s+(assembly seats|West Bengal)/i, `${v.key}'s scope hard-codes a count`);
+  }
+});
+
 test("no two verticals share a probe, so an empty one cannot borrow rows", () => {
   const probes = VERTICALS.flatMap((v) => (v.probe === null ? [] : [v.probe.replace(/\s+/g, " ")]));
   assert.equal(new Set(probes).size, probes.length, "two verticals count the same query");
@@ -106,6 +128,36 @@ test("the live ledger reports the gap honestly", live, () => {
   assert.equal(Math.round(g.assemblyPct * 100) / 100, Math.round(((100 * g.assemblySeatsLoaded) / INDIA.assemblySeats) * 100) / 100);
   assert.ok(g.assemblyPct < 100, "claiming every assembly seat in India is loaded");
   assert.ok(g.parliamentarySeatsLoaded > 0, "the Lok Sabha load is not visible in coverage");
+});
+
+test("measured reach agrees with the registry, and never contradicts the count", live, () => {
+  const d = openRead();
+  try {
+    for (const v of verticals(d)) {
+      if (v.reachProbe === null || v.status !== "present") {
+        assert.equal(v.reach, null, `${v.key} reports a reach it cannot measure`);
+        continue;
+      }
+      assert.ok(v.reach !== null && v.reach.trim().length > 0, `${v.key} has rows but no measured reach`);
+      // The reach must not be a bare number with no unit, and must not be empty of digits either: it is a
+      // measurement, so it says what it measured.
+      assert.match(v.reach, /\d/, `${v.key}'s reach carries no figure: "${v.reach}"`);
+      assert.match(v.reach, /[a-z]/i, `${v.key}'s reach carries no unit: "${v.reach}"`);
+    }
+    // The one that rotted, asserted directly: the elections row must name more than one jurisdiction if
+    // the registry holds more than one.
+    const js = get<{ n: number }>(d, "SELECT count(DISTINCT jurisdiction_place_id) AS n FROM election")?.n ?? 0;
+    const elections = verticals(d).find((v) => v.key === "elections");
+    if (js > 1 && elections?.status === "present") {
+      assert.match(
+        elections.reach ?? "",
+        new RegExp(`^${js} jurisdictions`),
+        `the elections reach says "${elections.reach}" but the registry holds ${js} jurisdictions`,
+      );
+    }
+  } finally {
+    d.close();
+  }
 });
 
 test("counts match a direct query, so the page cannot inflate them", live, () => {

@@ -62,7 +62,12 @@ function Row({ v }: { v: VerticalState }) {
           <span className="sr-na">—</span>
         )}
       </td>
-      <td className="cv-scope">{v.scope}</td>
+      <td className="cv-scope">
+        {/* Reach is MEASURED; scope is the caveat. Keeping them apart is what stops the second from being
+            read as the first — the line that said "one state" was a caveat that had become a false count. */}
+        {v.reach === null ? null : <span className="cv-reach">{v.reach}</span>}
+        {v.scope}
+      </td>
       <td className="cv-source">{v.source}</td>
     </tr>
   );
@@ -81,15 +86,17 @@ function Body({ c }: { c: Coverage }) {
         This is a political intelligence platform in which elections are one vertical, not the
         subject. The other seventeen are specified and mostly unbuilt, and the honest thing is to say
         which is which on the way in rather than let a reader infer it from an empty page. Nothing
-        below is hand-maintained: a row says &ldquo;has data&rdquo; because a query found rows.
+        below is hand-maintained: a row says &ldquo;has data&rdquo; because a query found rows, and its
+        reach is counted rather than described.
       </p>
 
       <section className="sr-sec">
         <h2 className="sr-h">Geography</h2>
         <p className="sr-note">
-          One state of {INDIA.states}. Every table is national in shape — a nation place, two election
-          kinds and five place kinds are loaded — so each additional state is a data load rather than a
-          rewrite. That is the only claim being made here.
+          Counted against the seat totals India has TODAY, and from each jurisdiction&rsquo;s most recent
+          election in each house — the only denominator that compares like with like. Seats that exist only
+          in an earlier delimitation are reported separately rather than dropped, because a percentage that
+          can exceed 100 is not a measurement.
         </p>
         <table className="sr-table cv-geo">
           <thead>
@@ -119,6 +126,22 @@ function Body({ c }: { c: Coverage }) {
               <td className="n">{INDIA.lokSabhaSeats}</td>
               <td className="n">{g.parliamentaryPct.toFixed(1)}%</td>
             </tr>
+            <tr>
+              <td>
+                Constituencies from an earlier delimitation
+                <span className="cv-q">
+                  Real seats, and not current ones — undivided Bihar numbered 324, and Andhra Pradesh&rsquo;s
+                  2009 and 2014 elections precede Telangana. Counted here so no ratio above can exceed 100%.
+                </span>
+              </td>
+              <td className="n">{IN.format(g.historicalSeatsLoaded)}</td>
+              <td className="n">
+                <span className="sr-na">n/a</span>
+              </td>
+              <td className="n">
+                <span className="sr-na">n/a</span>
+              </td>
+            </tr>
           </tbody>
         </table>
       </section>
@@ -127,8 +150,10 @@ function Body({ c }: { c: Coverage }) {
         <h2 className="sr-h">The eighteen subject areas</h2>
         <p className="sr-note">
           {c.present} have data, {c.empty} have a table holding nothing, and {c.noModel} have nothing
-          in the schema that could hold them. The source column names what would have to be fetched —
-          which is the real constraint, since most of it is not a coding problem.
+          in the schema that could hold them. Where a vertical holds data its REACH is counted at request
+          time and shown in bold; the sentence after it is the caveat, which is prose because a caveat is not
+          a count. The source column names what would have to be fetched — which is the real constraint,
+          since most of it is not a coding problem.
         </p>
         <table className="sr-table cv-table">
           <thead>

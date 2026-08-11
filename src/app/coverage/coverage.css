@@ -149,3 +149,15 @@
     color: var(--muted);
   }
 }
+
+/* Reach is measured and leads the cell; the caveat follows it as prose. Two different kinds of claim, and
+   the line that read "one state of 36" long after 31 were loaded is what happens when they are one field. */
+.cv-reach {
+  display: block;
+  font-family: var(--mono, ui-monospace, monospace);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--ink, #f2f0f7);
+  margin-bottom: 2px;
+}

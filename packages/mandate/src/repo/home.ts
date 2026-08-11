@@ -817,13 +817,36 @@ export type ElectionCoverage = {
   /** Contests with an elected candidacy, no result row, and a cited claim saying why. */
   unopposed: number;
   candidacies: number;
+  /**
+   * Candidacies with no result row of any kind.
+   *
+   * `unopposed` of these are legitimate — an unopposed winner has no votes to record. Anything BEYOND that
+   * is an orphan, and the 2024 Lok Sabha has 19 of them: West Bengal placeholder candidacies carrying the
+   * seed's own id scheme and `status = 'elected'`, left behind when the ECI import superseded the
+   * placeholder RESULTS but created new candidacies for the seats where the person did not match. They
+   * inflate any raw count of "candidate records" by 19, so the count is reported beside them rather than
+   * on its own.
+   */
+  candidaciesWithoutResult: number;
   turnoutRows: number;
   /** The delimitations this election's seats were drawn under. More than one is not a defect. */
   epochs: { id: string; contests: number }[];
   sources: SourceRef[];
   completeness: Completeness;
-  /** What is missing, in the words of the counts. Empty when nothing is. */
+  /**
+   * What is MISSING. Only these drive `completeness`, because that is the question a reader is asking:
+   * is this election fully represented?
+   */
   gaps: string[];
+  /**
+   * What is PRESENT AND WRONG — a different question, and one that must not be answered by the same word.
+   *
+   * The 2024 Lok Sabha holds 19 orphaned candidacies and its results are nonetheless complete: 543 of 543
+   * constituencies, 542 numeric plus one cited unopposed. Letting an orphaned row downgrade the election to
+   * "Partial" would tell a reader something is missing when nothing is, which is as misleading as the
+   * reverse. Anomalies are reported in full and change no verdict.
+   */
+  anomalies: string[];
 };
 
 /**
@@ -873,6 +896,12 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     );
     const candidacies = n(
       "SELECT COUNT(*) AS n FROM candidacy cd JOIN contest c ON c.id = cd.contest_id WHERE c.election_id = ?",
+      e.id,
+    );
+    const candidaciesWithoutResult = n(
+      `SELECT COUNT(*) AS n FROM candidacy cd JOIN contest c ON c.id = cd.contest_id
+        WHERE c.election_id = ?
+          AND NOT EXISTS (SELECT 1 FROM result r WHERE r.candidacy_id = cd.id)`,
       e.id,
     );
     const turnoutRows = n(
@@ -929,15 +958,11 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
           ? (ref?.assemblySeats ?? null)
           : (ref?.lokSabhaSeats ?? null);
 
-    const gaps: string[] = [];
     const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+
+    const gaps: string[] = [];
     if (expected !== null && contests < expected) {
       gaps.push(`${expected - contests} of ${expected} constituencies are not loaded`);
-    }
-    if (referenceSeats !== null && contests > referenceSeats) {
-      gaps.push(
-        `${contests} contests for a house of ${referenceSeats} — ${contests - referenceSeats} more constituencies than this jurisdiction elects`,
-      );
     }
     const accounted = numericResults + unopposed;
     if (contests > 0 && accounted < contests) {
@@ -946,6 +971,21 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     if (contests > 0 && turnoutRows < contests) {
       gaps.push(`${plural(contests - turnoutRows, "contest has", "contests have")} no turnout row`);
     }
+
+    const anomalies: string[] = [];
+    if (referenceSeats !== null && contests > referenceSeats) {
+      anomalies.push(
+        `${contests} contests for a house of ${referenceSeats} — ${contests - referenceSeats} more constituencies than this jurisdiction elects today`,
+      );
+    }
+    // Orphans are candidacies with no result beyond the unopposed ones that legitimately have none.
+    const orphaned = candidaciesWithoutResult - unopposed;
+    if (orphaned > 0) {
+      anomalies.push(
+        `${plural(orphaned, "candidacy carries", "candidacies carry")} no result row and no unopposed claim — placeholders left behind when an import superseded their results`,
+      );
+    }
+
     const completeness: Completeness =
       contests === 0 ? "unavailable" : gaps.length === 0 && expected !== null ? "complete" : "partial";
 
@@ -965,11 +1005,13 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
       declaredWinners,
       unopposed,
       candidacies,
+      candidaciesWithoutResult,
       turnoutRows,
       epochs,
       sources: loadSources(db, sourceIdsOf(db, e.id), []),
       completeness,
       gaps,
+      anomalies,
     };
   });
 }

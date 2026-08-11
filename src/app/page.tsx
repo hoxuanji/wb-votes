@@ -797,6 +797,99 @@ export default function Home({
         </div>
       </Panel>
 
+      {v.coverage === null ? null : (
+        <Panel
+          id="coverage"
+          title="Data coverage"
+          question="How much of this election do we actually hold?"
+          basis="measured"
+          sources={v.coverage.sources}
+        >
+          <p className="iei-cov-h">
+            <b>{v.coverage.name}</b>
+            <CoverageChip state={v.coverage.completeness} />
+          </p>
+          <dl className="iei-metrics iei-metrics-6">
+            <Metric
+              label="Constituencies"
+              value={v.coverage.contests}
+              of={v.coverage.expected}
+              absent="none loaded"
+              hint={v.coverage.expected === null ? v.coverage.expectedBasis : 'resolved of expected'}
+            />
+            <Metric
+              label="Numeric results"
+              value={v.coverage.numericResults}
+              hint="contests with a published vote count"
+            />
+            <Metric
+              label="Unopposed"
+              value={v.coverage.unopposed}
+              hint="elected with no poll — asserted by a cited claim, not a zero"
+            />
+            <Metric label="Declared winners" value={v.coverage.declaredWinners} hint="contests with a winner row" />
+            <Metric
+              label="Candidate records"
+              value={v.coverage.candidacies}
+              hint={
+                v.coverage.candidaciesWithoutResult - v.coverage.unopposed > 0
+                  ? `${v.coverage.candidaciesWithoutResult - v.coverage.unopposed} of them carry no result row — see below`
+                  : 'candidacies loaded'
+              }
+            />
+            <Metric label="Turnout rows" value={v.coverage.turnoutRows} of={v.coverage.contests} hint="per constituency" />
+          </dl>
+
+          <p className="iei-note">
+            <b>Expected</b> comes from reference data — {v.coverage.expectedBasis}.{' '}
+            {v.coverage.referenceSeats === null ? null : (
+              <>
+                This house elects {v.coverage.referenceSeats} members today.{' '}
+              </>
+            )}
+            {v.coverage.epochs.length === 1 ? (
+              <>Its seats were drawn under one delimitation ({v.coverage.epochs[0]?.id}).</>
+            ) : (
+              <>
+                Its seats span {v.coverage.epochs.length} delimitations —{' '}
+                {v.coverage.epochs.map((e) => `${e.id} (${e.contests})`).join(', ')} — which is not a defect:
+                Assam and Jammu &amp; Kashmir were re-delimited after 2008.
+              </>
+            )}
+          </p>
+
+          {v.coverage.gaps.length === 0 ? (
+            <p className="iei-note">
+              <b>Nothing is missing.</b> Every constituency this house elects is loaded, and every contest
+              carries a vote count or a stated reason it does not.
+            </p>
+          ) : (
+            <ul className="iei-gaps">
+              {v.coverage.gaps.map((g) => (
+                <li key={g}>{g}</li>
+              ))}
+            </ul>
+          )}
+
+          {v.coverage.anomalies.length === 0 ? null : (
+            // Present-and-wrong, kept apart from missing. These do not change the verdict above: an
+            // orphaned row is not a gap, and calling the election Partial for one would tell a reader
+            // something is absent when nothing is.
+            <ul className="iei-gaps iei-anom">
+              {v.coverage.anomalies.map((a) => (
+                <li key={a}>{a}</li>
+              ))}
+            </ul>
+          )}
+
+          <p className="iei-note">
+            Change the election in the picker at the top of the page — the choice is carried in{' '}
+            <code>?election=</code>, so this view can be sent to someone. The full account of what the
+            platform holds and does not is at <Link href="/coverage">/coverage</Link>.
+          </p>
+        </Panel>
+      )}
+
       <footer className="iei-foot">
         <p>
           India Election Intelligence is a registry of Indian elections in which every figure carries its
