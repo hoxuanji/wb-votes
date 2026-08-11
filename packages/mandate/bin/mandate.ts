@@ -26,6 +26,7 @@ import { backfillGeography } from "../src/ingest/geography/backfill.ts";
 import { validateGeography } from "../src/ingest/geography/validate.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
+import { formatReport as formatEciReport, runLs2024 } from "../src/ingest/sources/eci/ls2024.ts";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0] ?? "";
@@ -66,6 +67,9 @@ const USAGE = `mandate <command>
   elections validate           checks on election-event identity
   elections backfill [--apply] write year / month / house / occurrence onto every election, from source
   elections repair [--apply]   split elections that collapsed two events into one id
+  eci ls-2024 [--apply] [--refresh]
+                               discover, hash, parse, stage, validate and import the 2024 Lok Sabha
+                               from the ECI's own statistical reports (dry run without --apply)
   export                       rebuild the seed from the registry and report what differs`;
 
 /** Two columns, right-aligned values. Every subcommand prints through this so output is one shape. */
@@ -344,6 +348,25 @@ try {
         ["uncited values", countUncited(db)],
       ]);
       db.close();
+      break;
+    }
+
+    case "eci": {
+      // Phase 1: one complete, authoritative election from the ECI's own statistical reports.
+      // docs/ingestion/eci-2023-2026.md establishes the sources; the pipeline never writes from an
+      // HTTP response, only from the hashed raw store via a validated staging document.
+      const sub = argv[1] ?? "";
+      if (sub !== "ls-2024") fail(`unknown eci target '${sub}' (only ls-2024 in this phase)`);
+      const db = open();
+      const result = await runLs2024(db, {
+        apply: has("apply"),
+        refresh: has("refresh"),
+        nowIso: new Date().toISOString(),
+      });
+      console.log("");
+      console.log(formatEciReport(result, db));
+      db.close();
+      if (result.validation.hardFailures > 0) process.exit(1);
       break;
     }
 

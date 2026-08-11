@@ -16,7 +16,7 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import { existsSync } from "node:fs";
 import { openRead, DEV_DB_PATH } from "../db/open.ts";
-import { all } from "../db/index.ts";
+import { all, get } from "../db/index.ts";
 import { getSituation, partyMomentum, slug, MARGINAL_PP } from "./situation.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
@@ -178,15 +178,38 @@ test("the previous election is the previous election OF THE SAME KIND", opts, ()
   }
 
   // And asking for a kind that exists must not silently fall back to another one.
+  //
+  // The size heuristic used to be "no more than 42 seats", because the registry's 2024 general election
+  // held only West Bengal's 42 constituencies. The ECI import made it national, so 42 stopped being a
+  // property of a Lok Sabha row and became a property of one state's slice of it — the premise went stale,
+  // not the check. The Lok Sabha's own size is the durable bound, and the sum is asserted against the
+  // registry's own counted winners rather than a constant, so it stays true as coverage grows.
   const general = partyMomentum(db, 2024, "general");
   assert.ok(general.length > 0, "no parties in the 2024 general election");
   assert.ok(
-    general.every((p) => p.seatsWon <= 42),
-    "a general-election momentum row reports more seats than this state sends to the Lok Sabha",
+    general.every((p) => p.seatsWon <= 543),
+    "a general-election momentum row reports more seats than the Lok Sabha has",
   );
+  // An assembly baseline would put a 294-seat state's numbers here, which 543 alone would not catch.
+  assert.ok(
+    general.every((p) => p.seatsWon <= (get<{ n: number }>(
+      db,
+      `SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id
+        WHERE c.election_id = 'ls-2024' AND r.is_winner = 1 AND r.revision = 0`,
+    )?.n ?? 543)),
+    "a general-election row claims more seats than this election declared winners for",
+  );
+  const declaredWithParty = get<{ n: number }>(
+    db,
+    `SELECT COUNT(*) AS n FROM result r
+       JOIN contest c   ON c.id = r.contest_id
+       JOIN candidacy ca ON ca.id = r.candidacy_id
+      WHERE c.election_id = 'ls-2024' AND r.is_winner = 1 AND r.revision = 0
+        AND ca.party_version_id IS NOT NULL`,
+  )?.n;
   assert.equal(
     general.reduce((n, p) => n + p.seatsWon, 0),
-    42,
-    "the general election's seats won must sum to this state's 42 parliamentary seats",
+    declaredWithParty,
+    "every winner whose party resolved must appear in exactly one party's seat count",
   );
 });

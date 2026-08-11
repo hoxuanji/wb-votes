@@ -1,6 +1,6 @@
 # ROADMAP — India Election Intelligence
 
-Where this stands, what was asked, and what is left. Updated **2026-08-10**.
+Where this stands, what was asked, and what is left. Updated **2026-08-11**.
 
 > This supersedes the *WB Votes → WB Civic Dashboard* roadmap, which described a single-state civic
 > dashboard for the 2026–2031 West Bengal term. That document is in git history; it is not what this is
@@ -39,7 +39,7 @@ historical trends.
 | 7 | What was said in exit polls | **not built — no data, no model** |
 | 8 | How states voted before: last 4–5 elections, who won | **data loaded for all 31 states**; the surface belongs on the state page |
 | 9 | Live section: recent by-polls and who won | **by-polls built**; "live" needs a counting-day feed |
-| 10 | Upcoming elections with month and year, link to all state/UT dates | **year only** — announced dates and phases are not in the registry |
+| 10 | Upcoming elections with month and year, link to all state/UT dates | **year only** — announced dates and phases are not in the registry. The ECI publishes all eight fields as JSON for every 2023–2026 assembly election (`docs/ingestion/eci-2023-2026.md` §10); `election_phase` still holds zero rows |
 | 11 | States dropdown in the top bar | **built** |
 | 12 | State page: seat distribution, party-wise count, constituency results, historical, fact checks | **not built** — the dropdown lands on the existing state brief |
 | 13 | Year dropdown on the state page | **not built** — `electionsIn()` is the query it needs, and exists |
@@ -51,24 +51,36 @@ historical trends.
 
 | Measure | Value |
 | --- | --- |
-| jurisdictions with results | **31** of 36 |
-| elections | **1,188** |
-| contests | 63,288 |
-| candidacies | 565,714 |
-| results | **557,645**, every one carrying a source id |
-| persons | 448,035 — 440,708 carry a published TCPD id |
+| jurisdictions with results | **36** of 36 |
+| elections | 1,202 |
+| contests | 64,014 |
+| candidacies | 569,026 |
+| results | **566,337**, every one carrying a source id |
+| persons | 454,079 |
 | parties | 3,330 |
 | assembly seats, current delimitation | **4,117 of 4,123** (99.9%) |
-| Lok Sabha | 538 of 543 for 2019 · **42 for 2024** |
-| genuinely fetched, byte-hashed sources | 72 of 2,996 |
-| merge queue | 52,330 pending — 43,723 of them seed × TCPD |
+| Lok Sabha | 538 of 543 for 2019 · **524 of 543 for 2024** |
+| genuinely fetched, byte-hashed sources | 76 of 3,000 |
+| merge queue | 52,350 pending |
 
-**Coverage stops where the source stops.** TCPD's assembly files end in 2022 and its parliamentary files
-in 2019. That is why 2024's Lok Sabha holds only West Bengal's 42 seats, and why eight state terms show
-as ended-in-our-data rather than upcoming.
+**2024's Lok Sabha now comes from the ECI's own statistical reports** — 524 constituencies, 8,116 results,
+523 declared winners, every candidacy carrying a declared age with ECI provenance, up from 42 West Bengal
+placeholders that had a margin and no vote counts. `mandate eci ls-2024 --apply`;
+`docs/ingestion/ls-2024-import.md`.
 
-**Not loaded at all:** the five union territories with no assembly (Andaman & Nicobar, Chandigarh, Dadra
-& Nagar Haveli and Daman & Diu, Ladakh, Lakshadweep). Lokdhaba publishes no file for them.
+**19 of the 543 are held back, and it is the one substantive gap.** Assam (14) and Jammu & Kashmir (5) were
+re-delimited after the 2008 order, so their 2024 constituencies are not `delim-2008` slots: ECI's name for
+Assam's seat 1 (Kokrajhar) is the registry's name for seat 5. Adopting by seat number would file one
+constituency's votes under another's name. Unblocking them needs the ECI delimitation order for each state
+as a cited source, and a `boundary_epoch` row built from it — not a name match.
+
+**Coverage otherwise stops where TCPD stops**: its assembly files end in 2022. The 2023–2026 assembly
+elections are the next ingestion, and the reconnaissance in `docs/ingestion/eci-2023-2026.md` establishes
+that 16 of 21 are available as spreadsheets.
+
+**The five union territories with no assembly are now loaded for the Lok Sabha** (Andaman & Nicobar,
+Chandigarh, Dadra & Nagar Haveli and Daman & Diu, Ladakh, Lakshadweep) — six parliamentary seats Lokdhaba
+publishes no file for. They still have no assembly elections, because they hold none.
 
 **Adding a state is two commands**, which is the structural requirement met:
 
@@ -120,8 +132,10 @@ things that genuinely need it — the ⌘K command bar and the evidence drawer.
    the queue exists to resolve. This is the deferred supersession design arriving as a scoring problem.
 3. **Announced election dates and phases** (ask 10), from the ECI. `election_phase` models them and holds
    zero rows.
-4. **2023–2026 results**, the live coverage gap. TCPD stops in 2022; the ECI's own result pages cover the
-   rest, and 2024's Lok Sabha is the most valuable single load left.
+4. **2023–2026 assembly results.** TCPD stops in 2022. The ECI ingestion substrate now exists and the
+   reports are the same shape per election, so this is the substrate's second use rather than a new build:
+   16 of 21 state elections are available (Chhattisgarh, Karnataka, Tripura, Meghalaya and Nagaland 2023 are
+   not, and must stay absent). `docs/ingestion/eci-2023-2026.md` §8.
 5. **193,951 declared ages and educations render with no claim behind them** — a P2 violation the
    `coverage` command already prints.
 6. **Historical on the home page** (ask 8), once the state page proves the component.
@@ -131,8 +145,8 @@ things that genuinely need it — the ⌘K command bar and the evidence drawer.
 
 ## Known red, and why
 
-**1 test.** Down from 11, and nine of those turned out to be right about a defect rather than out of date —
-see `docs/model/electoral-geography.md` §8 for the classification of each.
+**1 test of 355.** Down from 11, and nine of those turned out to be right about a defect rather than out of
+date — see `docs/model/electoral-geography.md` §8 for the classification of each.
 
 - **`searchPersons`: surname-first and given-name-first meet.** Real, and out of scope where it was found.
   "Md Salim" and "Salim Md" do reach the same person — both emit the order-independent key `md|slm` — but
@@ -143,6 +157,32 @@ see `docs/model/electoral-geography.md` §8 for the classification of each.
 Both validators are now fully green: `mandate geography validate` **10 of 10** and
 `mandate elections validate` **5 of 5**. Geography's check 7 — the 34 Bihar seats with two winners — was
 fixed by the election-identity repair below, not excused.
+
+## The 2024 Lok Sabha ingestion, 2026-08-11
+
+The first ECI ingestion, and the substrate for every one after it:
+DISCOVER → DOWNLOAD → HASH → STORE RAW → PARSE → NORMALIZE → STAGE → VALIDATE → IMPORT → REPORT. Nothing
+downstream sees an HTTP response; each step writes to disk before the next reads it, so the run is
+resumable and a validation failure costs nothing. **Zero new dependencies** — `.xls` is BIFF8 records in an
+OLE2 container, `.xlsx` is a ZIP of XML, and format is decided by magic bytes because ECI ships one report
+titled `…-pdf` that is an `.xlsx`.
+
+**The 543rd constituency is Surat**, and ECI's own note says why: won unopposed, so it is excluded from the
+three main reports and published in report 2(A). It is imported as a contest with an elected candidacy and
+**no result row** — `result_has_a_figure` wants votes, margin or share, and there are none — plus a cited
+`elected_unopposed` claim. Hence 523 declared winners for 524 contests.
+
+Six defects found and fixed, each now regression-tested. The two worth naming: **seven seats fielded a
+candidate with the winner's exact name** (Rewa had two JANARDAN MISHRAs, on 477,459 and 2,295 votes), which
+first produced 550 winners for 543 seats and then, because `candidacy` is UNIQUE (contest, person), made one
+row overwrite the other and lost three winners outright — the Bihar-2005 collapse in a new place. And **the
+importer reported 8,116 results while the registry held 8,110**, so it now counts what is actually there
+before COMMIT and refuses to commit on any disagreement. Full account in
+`docs/ingestion/ls-2024-import.md`.
+
+Migration 014 adds `source.publisher_note`, carrying ECI's own caveat that these reports are secondary to
+Form 20. Without it a page built from a statistical report would be indistinguishable from one built from
+the statutory record.
 
 ## The election-identity repair, 2026-08-11
 

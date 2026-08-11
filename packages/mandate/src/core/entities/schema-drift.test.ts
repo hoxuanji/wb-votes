@@ -87,6 +87,7 @@ const MAP = {
     retrievalKind: "req",
     pageCount: "null",
     licence: "null",
+    publisherNote: "null",
   } satisfies Shape<Source>,
   boundary_epoch: {
     id: "req",

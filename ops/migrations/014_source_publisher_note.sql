@@ -1,0 +1,22 @@
+-- 014_source_publisher_note.sql — carry a publisher's own caveat about its own document.
+--
+-- ECI prints this on every statistical report it publishes:
+--
+--   "These statistical reports are prepared only for academic and research purposes from the secondary
+--    data filled in the Index Cards. The primary data is in the statutory forms maintained by the
+--    concerned Returning Officers and the data kept in statutory forms is final."
+--
+-- So the Commission itself classes these as SECONDARY to Form 20. That is a fact about the source, and
+-- the registry has had nowhere to put it. `licence` is not it — that column is the governance field the
+-- bulk-download surface filters on (§12), and overloading it would make a caveat look like a licence.
+-- `title` is not it either: a paragraph in a title is a paragraph nobody reads.
+--
+-- Without this column the only honest alternative was to drop the caveat, and then a page built from a
+-- statistical report would be indistinguishable from one built from the statutory record. That is the
+-- class of silence this registry exists to refuse.
+--
+-- ponytail: one nullable column, plain ALTER, no table rebuild and no foreign-key dance — SQLite adds a
+-- nullable column in place. Nothing existing is touched, so every source row that has no publisher
+-- caveat keeps saying nothing, which is correct.
+
+ALTER TABLE source ADD COLUMN publisher_note TEXT;

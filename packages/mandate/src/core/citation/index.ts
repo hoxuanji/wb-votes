@@ -51,6 +51,9 @@ export type Source = {
   pageCount: number | null;
   /** §12 governance: the bulk-download surface filters on this. Not decorative. */
   licence: string | null;
+  /** The publisher's own caveat about its own document, verbatim. ECI's statistical reports declare
+   *  themselves secondary to Form 20; a page built from one must be able to say so. Migration 014. */
+  publisherNote: string | null;
 };
 
 export const CONFIDENCES = ["verified", "provisional", "disputed", "retracted"] as const;
