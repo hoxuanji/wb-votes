@@ -1,6 +1,6 @@
 # ROADMAP — India Election Intelligence
 
-Where this stands, what was asked, and what is left. Updated **2026-08-11**.
+Where this stands, what was asked, and what is left. Updated **2026-08-12**.
 
 > This supersedes the *WB Votes → WB Civic Dashboard* roadmap, which described a single-state civic
 > dashboard for the 2026–2031 West Bengal term. That document is in git history; it is not what this is
@@ -37,15 +37,35 @@ historical trends.
 | 5 | Vote share per state by party, last two elections and the change | **built** |
 | 6 | Close fights across states | **built** |
 | 7 | What was said in exit polls | **not built — no data, no model** |
-| 8 | How states voted before: last 4–5 elections, who won | **data loaded for all 31 states**; the surface belongs on the state page |
-| 9 | Live section: recent by-polls and who won | **by-polls built**; "live" needs a counting-day feed |
+| 8 | How states voted before: last 4–5 elections, who won | **built** — a grid of each jurisdiction's last five, honest about depth |
+| 9 | Live section: recent by-polls and who won | **by-polls built**; "live" needs a counting-day feed. The indicator is wired to `election.lifecycle` and is absent because nothing is running |
 | 10 | Upcoming elections with month and year, link to all state/UT dates | **year only** — announced dates and phases are not in the registry. The ECI publishes all eight fields as JSON for every 2023–2026 assembly election (`docs/ingestion/eci-2023-2026.md` §10); `election_phase` still holds zero rows |
 | 11 | States dropdown in the top bar | **built** |
-| 12 | State page: seat distribution, party-wise count, constituency results, historical, fact checks | **not built** — the dropdown lands on the existing state brief |
+| 12 | State page: seat distribution, party-wise count, constituency results, historical, fact checks | **not built** — the dropdown lands on the existing state brief. Every part the rebuild needs is in `src/components/iei/` |
 | 13 | Year dropdown on the state page | **not built** — `electionsIn()` is the query it needs, and exists |
 | 14 | Search bar's hardcoded hint text looks bad | **fixed** |
 | 15 | Don't make West Bengal the hero | **fixed** |
 | 16 | Search and state picker looked disjoint in the chrome | **fixed** — one bordered control cluster after the wordmark |
+
+**The Phase 2 product shell, as specified 2026-08-12** — the full account is
+[docs/product/india-homepage.md](docs/product/india-homepage.md):
+
+| # | Asked for | State |
+|---|---|---|
+| 1 | Premium intelligence header: wordmark, command bar, state + election selectors, nav, live indicator | **built** — ⌘K focuses the field already in the chrome; 475 B of route JS |
+| 2 | Hero as a live data surface, not a marketing block | **built** — a computed sentence and six counts |
+| 3 | India map as the primary surface, hover card, click to `/pl/<state>` | **built** — 36 polygons, 27 direct labels, a tile row for the nine too small to click |
+| 4 | Map layers: assembly, Lok Sabha, vote share, turnout, margin, year | **all six built**, availability measured rather than declared |
+| 5 | Upcoming elections, source/confidence, derived labelled explicitly | **built** — announced dates are preferred by construction; today every row is derived and says so |
+| 6 | Recent elections with a Complete / Partial / Unavailable indicator | **built**, computed |
+| 7 | Party landscape, no pie chart, comparative change | **built** — ranked table, bars, sparklines |
+| 8 | Close fights with runner-up, chronological ordering | **built** — and the lexical-id defect the ask names was still live; fixed at the root |
+| 9 | Watch: deterministic signals, no prediction | **built** — five rules, each with its threshold, capped so the section is a mix |
+| 10 | Historical exploration, honest about coverage | **built** — no padding, no assumed five |
+| 11 | Data coverage as a first-class component | **built** — with the ECI sources, their hashes and whether the bytes were fetched |
+| 12 | URL state (`?layer=`, `?election=`, `?house=`) | **built** — every link carries the others forward |
+| 13 | No hardcoded states | **built and asserted by a test** over every file the phase wrote |
+| 14 | Desktop, laptop, tablet, mobile | **built** — a different phone hierarchy, asserted by a test, but **not seen in a browser** |
 
 ## Where the data stands
 
@@ -123,10 +143,15 @@ things that genuinely need it — the ⌘K command bar and the evidence drawer.
 
 ## Next, in order
 
+0. **Open the front page in a browser.** Phase 2 shipped without a visual check: this sandbox refuses
+   `listen()`, so `next dev` cannot run and there is no browser. Markup, contrast, colour separation and the
+   absence of fabricated values are all asserted by tests; layout, spacing and optical balance are not. This
+   is the one outstanding verification and it needs a human.
 1. **The state page** (asks 12, 13). `/pl/<state>` becomes the state front page: seat distribution,
    party-wise count, constituency results, the last five cycles, with a year picker. Every query it needs
    is already in `repo/elections.ts` — `electionSummary`, `electionsIn`, `swings` and `closeFights` all
-   take an election id and none of them cares which house it is.
+   take an election id and none of them cares which house it is — and every component it needs is in
+   `src/components/iei/`, built for this reuse.
 2. **Scoring, so the 52,330-pair queue can be worked.** No pair scores above the auto-merge line on name
    evidence, because the contest-deferral rule means a seed person and a TCPD person never share a
    contest — so `sameContest`, the strongest feature there is, is structurally zero for exactly the pairs
@@ -144,9 +169,26 @@ things that genuinely need it — the ⌘K command bar and the evidence drawer.
    attaches to. The registry currently ends at `result`, which is why nothing yet represents *holding*
    power. See `docs/platform/00-model.md`.
 
+## Four data defects the front page made visible, 2026-08-12
+
+None were introduced by Phase 2 and none are fixed by it — they are ingest concerns. All four now PRINT on
+the page instead of silently shaping a figure, which is the honest interim state.
+
+1. **West Bengal holds 307 assembly `place_version` rows in `delim-2008` for a 294-seat house.** Its 2011,
+   2016 and 2021 elections each carry 307 contests. `electionCoverage` reports contests against today's
+   elected strength so the discrepancy is stated.
+2. **19 orphaned candidacies in `ls-2024`** — West Bengal placeholders with the seed's id scheme,
+   `status = 'elected'`, no party and no result row, left behind when the Phase 1 import superseded the
+   placeholder results but created new candidacies for the seats where the person did not match.
+3. **West Bengal 2026 reports 93.0% turnout** — the voter count reconciles with the source, the elector
+   count (68.0M against 2021's 76.7M) does not. The aggregation is verified correct elsewhere: Karnataka
+   72.8% against the ECI's 73.19%, the 2024 Lok Sabha 66.0% against 65.79%.
+4. **BJP's Lok Sabha seat history reads 278 for 2014 and 301 for 2019** against the 282 and 303 won, because
+   some winners' party did not resolve past `party_raw`.
+
 ## Known red, and why
 
-**1 test of 355.** Down from 11, and nine of those turned out to be right about a defect rather than out of
+**1 test of 398.** Down from 11, and nine of those turned out to be right about a defect rather than out of
 date — see `docs/model/electoral-geography.md` §8 for the classification of each.
 
 - **`searchPersons`: surname-first and given-name-first meet.** Real, and out of scope where it was found.
@@ -155,9 +197,37 @@ date — see `docs/model/electoral-geography.md` §8 for the classification of e
   match is not ranked above them, so the overlap falls outside the top 50. Person-search ranking, not
   electoral geography.
 
+`npm run lint` cannot be reported on either way: ESLint has never been configured in this repo, so the script
+opens an interactive setup prompt instead of running. Left alone rather than configured unasked.
+
 Both validators are now fully green: `mandate geography validate` **10 of 10** and
 `mandate elections validate` **5 of 5**. Geography's check 7 — the 34 Bihar seats with two winners — was
 fixed by the election-identity repair below, not excused.
+
+## The India front page, 2026-08-12
+
+Eight commits; the full account is [docs/product/india-homepage.md](docs/product/india-homepage.md).
+
+`/` is the country as a place to choose from rather than one state's results with a national frame around
+them. Nine sections, all computed at request time, none holding a list of states — a test asserts that no
+jurisdiction name or id appears as a literal in any file the phase wrote, because that rule is what makes a
+new state a data load.
+
+**Measured, not asserted.** The page costs a **median 798 ms** of queries over 566,580 result rows and 1,202
+elections, down from 1,435 ms in the first draft: `seatsByParty` replaced 62 scans of `result` with one,
+`seatsWonBy` reads winners only where no share is shown (31,000 rows against 300,000), and the expensive
+party read is lazy so five of the six map layers never pay for it. 475 B of route JavaScript.
+
+**The map palette was computed.** Three identity hues plus a neutral, searched in OKLCH for the largest
+worst-case OKLab ΔE across normal, protan, deutan and tritan vision — 14.8, computed by a test rather than
+described. All pairs, not adjacent pairs, because a choropleth of 36 polygons puts any two fills together.
+
+**Six pre-existing defects fixed on the way**, three of them found by a render harness built because this
+sandbox has no browser: every union territory 404'd on `/pl/<id>`; `currentStandings` ranked by election id
+so a 2016 by-election outranked a 2021 one; `standings()` counted superseded results; `jurisdictions()` filed
+535 assembly seats under the nation, so Andhra Pradesh read as "not loaded"; vote share was rounded to one
+decimal at source, so a party that won a seat rendered as "0.0%"; and two ink tiers missed the contrast floor,
+the worse of them rendering the word "not reported".
 
 ## Electoral geography: a boundary epoch now names its order, 2026-08-11
 
