@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { openRead } from '../../packages/mandate/src/db/open.ts';
-import { homeView, hueOf } from '../../packages/mandate/src/repo/home.ts';
+import { HISTORY_DEPTH, homeView, hueOf } from '../../packages/mandate/src/repo/home.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
-import { BasisChip, CoverageChip, Metric, Panel, Value } from '../components/iei/parts.tsx';
+import { Bar, BasisChip, Change, CoverageChip, Metric, Panel, Sparkline, Value } from '../components/iei/parts.tsx';
 import './iei.css';
 
 /**
@@ -59,6 +59,13 @@ function href(params: Params, change: Record<string, string>): string {
   const anchor = 'layer' in change ? '#map' : 'house' in change ? '#history' : '';
   return `/?${q.toString()}${anchor}`;
 }
+
+/** The span of the elections the party table sums over, so its caveat states its own range. */
+const oldest = (v: HomeView): number => Math.min(...v.standings.map((s) => s.year));
+const newest = (v: HomeView): number => Math.max(...v.standings.map((s) => s.year));
+
+/** The widest margin in the close-fight list — the bar's denominator, so the bars are comparable. */
+const widest = (v: HomeView): number => Math.max(...v.fights.map((f) => f.marginPct), 0.01);
 
 /** The house a row is about, in the words a reader uses. `ac`/`pc` are the registry's codes. */
 function houseWord(house: string): string {
@@ -510,6 +517,285 @@ export default function Home({
           </p>
         </Panel>
       </div>
+
+      <Panel
+        id="parties"
+        title="Party landscape"
+        question="Where does each party actually hold power?"
+        basis="measured"
+        note={
+          <>
+            Assembly seats are summed across <b>each jurisdiction&rsquo;s most recent election</b>, which is
+            the only denominator comparable with today&rsquo;s India — and those elections span{' '}
+            {v.standings.length === 0 ? 'no' : `${oldest(v)}–${newest(v)}`}, so this is a snapshot of who sits
+            now, not a national vote at one moment.
+            {v.parties.houseCounted ? null : ' The latest Lok Sabha published no candidate vote counts, so every share below is absent rather than zero.'}
+          </>
+        }
+      >
+        <table className="iei-t">
+          <thead>
+            <tr>
+              <th scope="col">Party</th>
+              <th scope="col" className="iei-n">
+                Assemblies
+              </th>
+              <th scope="col" className="iei-n">
+                Assembly seats
+              </th>
+              <th scope="col" className="iei-col-track">
+                <span className="iei-sr">Assembly seats as a share of those loaded</span>
+              </th>
+              <th scope="col" className="iei-n">
+                {v.parties.houseYear === null ? 'Lok Sabha' : `Lok Sabha ${v.parties.houseYear}`}
+              </th>
+              <th scope="col" className="iei-n">
+                {v.parties.previousHouseYear === null ? 'Change' : `vs ${v.parties.previousHouseYear}`}
+              </th>
+              <th scope="col" className="iei-n">
+                Share
+              </th>
+              <th scope="col" className="iei-n">
+                Change
+              </th>
+              <th scope="col">
+                <span className="iei-sr">Lok Sabha seats over the last five general elections</span>
+                Trend
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {v.parties.rows.map((p) => (
+              <tr key={p.key}>
+                <td>
+                  <span className="iei-sw" style={{ background: hueOf(v.ink, p.key) }} aria-hidden="true" />
+                  <span className="iei-chip">{p.label}</span>
+                </td>
+                <td className="iei-n">
+                  {p.governs === 0 ? (
+                    <span className="iei-absent">none</span>
+                  ) : (
+                    <>
+                      {p.governs}
+                      {p.governsMajority < p.governs ? (
+                        <span className="iei-of"> {p.governsMajority} with a majority</span>
+                      ) : null}
+                    </>
+                  )}
+                </td>
+                <td className="iei-n">{p.assemblySeats}</td>
+                <td className="iei-col-track">
+                  <Bar
+                    pct={(100 * p.assemblySeats) / Math.max(1, v.parties.assemblySeats)}
+                    fill={hueOf(v.ink, p.key)}
+                    label={`${p.assemblySeats} of ${v.parties.assemblySeats} assembly seats loaded`}
+                  />
+                </td>
+                <td className="iei-n">{p.houseSeats === 0 ? <span className="iei-absent">none</span> : p.houseSeats}</td>
+                <td className="iei-n">
+                  <Change value={p.houseSeatsChange} absent="did not contest" />
+                </td>
+                <td className="iei-n">
+                  <Value value={p.houseSharePct} unit="%" decimals={1} absent="not reported" />
+                </td>
+                <td className="iei-n">
+                  <Change value={p.houseSharePp} unit="pp" absent="n/a" />
+                </td>
+                <td>
+                  <Sparkline
+                    points={p.spark}
+                    fill={hueOf(v.ink, p.key)}
+                    label={`${p.label} Lok Sabha seats: ${p.spark.map((s) => `${s.year} ${s.seats}`).join(', ')}`}
+                  />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="iei-note">
+          Ranked by jurisdictions governed, then Lok Sabha seats. No pie chart: a party&rsquo;s change
+          against last time is the useful comparison, and two pies side by side cannot show it.
+        </p>
+      </Panel>
+
+      <div className="iei-two iei-two-wide">
+        <Panel
+          title="Close fights"
+          question="Where was the result closest?"
+          basis="measured"
+          note={
+            <>
+              Margin as a share of <b>votes polled</b>, never of the result rows summed. For years where the
+              source holds only the leading contestants, a sum of those rows understates the votes cast and
+              inflates every margin.
+            </>
+          }
+        >
+          <table className="iei-t">
+            <thead>
+              <tr>
+                <th scope="col">Seat</th>
+                <th scope="col">Won by</th>
+                <th scope="col">Runner-up</th>
+                <th scope="col" className="iei-n">
+                  Margin
+                </th>
+                <th scope="col" className="iei-col-track">
+                  <span className="iei-sr">Margin against the widest shown</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {v.fights.map((f) => (
+                <tr key={`${f.placeId}-${f.electionId}`}>
+                  <td>
+                    <Link href={`/pl/${f.jurisdictionId}?election=${f.electionId}`}>{f.placeName}</Link>
+                    <span className="iei-rule">
+                      {nameOf(v, f.jurisdictionId)} {f.year}
+                    </span>
+                  </td>
+                  <td>
+                    <span className="iei-chip">{f.winner}</span>
+                    <span className="iei-rule">
+                      <Value value={f.winnerPct} unit="%" decimals={1} absent="share not reported" />
+                    </span>
+                  </td>
+                  <td>
+                    {f.runnerUp === null ? (
+                      <span className="iei-absent">not recorded</span>
+                    ) : (
+                      <>
+                        <span className="iei-chip">{f.runnerUp}</span>
+                        <span className="iei-rule">
+                          <Value value={f.runnerUpPct} unit="%" decimals={1} absent="share not reported" />
+                        </span>
+                      </>
+                    )}
+                  </td>
+                  <td className="iei-n">
+                    {f.marginPct}%
+                    <span className="iei-of">
+                      <Value value={f.marginVotes} absent="votes not reported" /> votes
+                    </span>
+                  </td>
+                  <td className="iei-col-track">
+                    <Bar
+                      pct={(100 * f.marginPct) / Math.max(0.01, widest(v))}
+                      fill="var(--iei-alert)"
+                      label={`${f.marginPct}% margin`}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </Panel>
+
+        <Panel
+          id="watch"
+          title="What to watch"
+          question="Which measurable signals stand out?"
+          note={
+            <>
+              <b>Nothing here is a prediction.</b> Each row is a count or a difference over rows the registry
+              holds, and carries the rule and the threshold that produced it, so the threshold is what you
+              argue with rather than an oracle. No model, no forecast, no probability.
+            </>
+          }
+        >
+          <ul className="iei-signals">
+            {v.signals.map((s) => (
+              <li key={`${s.rule}-${s.subject}`}>
+                <div className="iei-sig-h">
+                  <Link href={s.href}>{s.subject}</Link>
+                  <BasisChip basis={s.basis === 'derived' ? 'derived' : 'measured'} />
+                </div>
+                <p className="iei-sig-d">{s.detail}</p>
+                <p className="iei-rule">
+                  {s.rule} · {s.threshold}
+                </p>
+              </li>
+            ))}
+          </ul>
+        </Panel>
+      </div>
+
+      <Panel
+        id="history"
+        title="Historical elections"
+        question={`The last ${HISTORY_DEPTH} ${v.historyHouse === 'pc' ? 'general elections' : 'assembly elections'} in each jurisdiction`}
+        basis="measured"
+        note={
+          <>
+            <b>Coverage here is honest by construction.</b> A jurisdiction with two elections on record gets
+            two cells; nothing is padded and nothing assumes five. Ordering is by the calendar, not by
+            election id — Bihar held one election in February 2005 and another in October, and they are two
+            cells in the right order rather than one.
+          </>
+        }
+      >
+        <div className="iei-layers" role="group" aria-label="House">
+          {(['ac', 'pc'] as const).map((h) => (
+            <Link
+              key={h}
+              href={href(searchParams, { house: h })}
+              className={h === v.historyHouse ? 'iei-layer iei-layer-on' : 'iei-layer'}
+              aria-current={h === v.historyHouse ? 'true' : undefined}
+            >
+              {houseWord(h)}
+            </Link>
+          ))}
+        </div>
+        <div className="iei-scroll" tabIndex={0}>
+          <table className="iei-t iei-t-tight iei-hist">
+            <caption className="iei-sr">
+              Each jurisdiction&rsquo;s last {HISTORY_DEPTH} {houseWord(v.historyHouse)} elections, newest
+              first
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">State / UT</th>
+                {Array.from({ length: HISTORY_DEPTH }, (_, i) => (
+                  <th key={i} scope="col">
+                    {i === 0 ? 'Most recent' : `${i} back`}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {v.history.map((row) => (
+                <tr key={row.jurisdictionId}>
+                  <th scope="row">
+                    <Link href={`/pl/${row.jurisdictionId}`}>{row.jurisdictionName}</Link>
+                  </th>
+                  {Array.from({ length: HISTORY_DEPTH }, (_, i) => {
+                    const c = row.cells[i];
+                    return (
+                      <td key={i}>
+                        {c === undefined ? (
+                          // Not "n/a": there is no election here, which is a different fact from a missing
+                          // figure for one that happened.
+                          <span className="iei-absent">—</span>
+                        ) : (
+                          <Link className="iei-cell" href={`/pl/${row.jurisdictionId}?election=${c.electionId}`}>
+                            <b>{c.year}</b>
+                            <span className="iei-chip">
+                              {c.leaderLabel ?? <span className="iei-absent">no winner</span>}
+                            </span>
+                            <span className="iei-rule">
+                              {c.leaderSeats} of {c.seatsContested}
+                            </span>
+                          </Link>
+                        )}
+                      </td>
+                    );
+                  })}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </Panel>
 
       <footer className="iei-foot">
         <p>

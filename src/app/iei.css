@@ -1174,3 +1174,124 @@
     outline-offset: 1px;
   }
 }
+
+/* ══════════════════════════ signals ══════════════════════════ */
+
+.iei-signals {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.iei-signals li {
+  padding: 10px 0;
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-signals li:last-child {
+  border-bottom: none;
+}
+
+.iei-sig-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.iei-sig-h a {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--iei-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-sig-h a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-sig-h a:focus-visible {
+  outline: none;
+  border-bottom: 2px solid var(--iei-ink);
+}
+
+.iei-sig-d {
+  margin: 3px 0 0;
+  font-size: 12.5px;
+  color: var(--iei-ink-2);
+  max-width: 70ch;
+}
+
+/* ══════════════════════════ the history grid ══════════════════════════
+   Five columns of the same shape, so a row reads left-to-right as a run of elections. A jurisdiction with
+   fewer gets fewer cells — never a padded one. */
+
+.iei-hist th[scope='row'] {
+  text-align: left;
+  font-weight: 400;
+  font-family: var(--iei-sans);
+  font-size: 12px;
+  padding: 4px 10px 4px 0;
+  border-bottom: 1px solid var(--iei-line);
+  white-space: nowrap;
+}
+
+.iei-hist th[scope='row'] a {
+  color: var(--iei-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-hist th[scope='row'] a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-hist th[scope='row'] a:focus-visible {
+  outline: none;
+  border-bottom: 2px solid var(--iei-ink);
+}
+
+.iei-cell {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 0 7px;
+  align-items: baseline;
+  text-decoration: none;
+  color: var(--iei-ink-2);
+  padding: 2px 4px 2px 0;
+  border-radius: 2px;
+}
+
+.iei-cell b {
+  font-family: var(--iei-mono);
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--iei-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-cell .iei-chip {
+  color: var(--iei-ink);
+}
+
+.iei-cell .iei-rule {
+  grid-column: 2;
+  margin: 0;
+}
+
+.iei-cell:hover {
+  background: var(--iei-raised);
+}
+
+.iei-cell:focus-visible {
+  outline: none;
+  background: var(--iei-raised);
+  box-shadow: inset 0 0 0 1px var(--iei-ink);
+}
+
+@media (forced-colors: active) {
+  .iei-cell:focus-visible {
+    outline: 2px solid CanvasText;
+  }
+}
