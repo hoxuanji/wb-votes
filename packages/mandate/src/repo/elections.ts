@@ -154,7 +154,11 @@ function standings(
         key: r.key,
         label: r.label,
         seats: r.seats,
-        votePct: counted > 0 && r.votes !== null ? Number(((100 * r.votes) / counted).toFixed(1)) : null,
+        // FULL PRECISION, rounded by whatever displays it. Rounding here to one decimal turned SKM's real
+        // 2024 national share into 0 — and a party that won a seat cannot be shown to have polled nothing.
+        // A view that wants one decimal asks for one; a view that must distinguish "small" from "none"
+        // cannot get that distinction back once it has been thrown away.
+        votePct: counted > 0 && r.votes !== null ? (100 * r.votes) / counted : null,
       })),
   };
 }
@@ -278,7 +282,11 @@ export function seatsWonBy(db: DatabaseSync, electionIds: readonly string[]): Se
         key,
         label: r.label,
         seats: r.seats,
-        votePct: counted > 0 && r.votes !== null ? Number(((100 * r.votes) / counted).toFixed(1)) : null,
+        // FULL PRECISION, rounded by whatever displays it. Rounding here to one decimal turned SKM's real
+        // 2024 national share into 0 — and a party that won a seat cannot be shown to have polled nothing.
+        // A view that wants one decimal asks for one; a view that must distinguish "small" from "none"
+        // cannot get that distinction back once it has been thrown away.
+        votePct: counted > 0 && r.votes !== null ? (100 * r.votes) / counted : null,
       }))
       .sort((a, b) => b.seats - a.seats || (b.votePct ?? 0) - (a.votePct ?? 0)),
   };

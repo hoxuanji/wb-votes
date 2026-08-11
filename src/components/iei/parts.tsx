@@ -102,6 +102,11 @@ function basisTitle(basis: Basis): string {
  * `unit` follows the value; `of` prints a denominator so a bare count is never ambiguous. When `value` is
  * null the `absent` text is printed in the muted absence style — and `absent` is REQUIRED, so there is no
  * way to render a null as a blank or a dash.
+ *
+ * A SMALL NUMBER IS NOT ZERO. A value that is genuinely non-zero but rounds to all-zeros at the requested
+ * precision renders as `<0.1` rather than `0.0`: SKM polled a real share of the 2024 national vote and won
+ * a seat with it, and printing "0.0%" beside that seat says the party received no votes. Rounding is
+ * allowed to lose precision; it is not allowed to change a fact.
  */
 export function Value({
   value,
@@ -117,7 +122,14 @@ export function Value({
   decimals?: number;
 }) {
   if (value === null) return <span className="iei-absent">{absent}</span>;
-  const shown = decimals > 0 ? value.toFixed(decimals) : IN.format(Math.round(value));
+  const smallest = 10 ** -decimals;
+  const rounded = Number(value.toFixed(decimals));
+  const shown =
+    value !== 0 && rounded === 0
+      ? `<${smallest.toFixed(decimals)}`
+      : decimals > 0
+        ? rounded.toFixed(decimals)
+        : IN.format(Math.round(value));
   return (
     <>
       {shown}

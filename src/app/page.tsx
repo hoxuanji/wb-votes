@@ -414,10 +414,10 @@ export default function Home({
               <>
                 <b>No date on this list was announced by anyone.</b> The Election Commission announces
                 schedules; this registry holds none — <code>announced_on</code> is empty for all{' '}
-                {v.snapshot.elections} elections and no polling phase is loaded. Every row below is a
-                five-year term counted from the last election, which is arithmetic on a past date and not a
-                statement about a future one. Once the ECI schedule is ingested, announced dates appear here
-                and these rows give way to them.
+                <Value value={v.snapshot.elections} absent="none of the" /> elections and no polling phase is
+                loaded. Every row below is a five-year term counted from the last election, which is
+                arithmetic on a past date and not a statement about a future one. Once the ECI schedule is
+                ingested, announced dates appear here and these rows give way to them.
               </>
             )
           }

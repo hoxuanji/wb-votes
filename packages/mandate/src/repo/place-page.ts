@@ -765,7 +765,10 @@ export async function placeView(segments: readonly string[], search: Search): Pr
                FROM place_version pv
                JOIN place pl ON pl.id = pv.place_id
                JOIN boundary_epoch be ON be.id = pv.epoch_id
-              WHERE pv.kind = ?
+              -- Two placeholders here as well, so both branches of this ternary take the SAME bind list.
+              -- Adding one to the jurisdiction branch alone made every AC path raise "column index out of
+              -- range" — the binds are positional and shared, and node:sqlite counts them.
+              WHERE pv.kind IN (?, ?)
                 AND (pl.id = ? OR pl.id = ? OR LOWER(pv.canonical_name) = ?
                      OR LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ?
                      -- The source appends the reservation to the name — 'BISHNUPUR(SC)', 'KHANAPUR(ST)',
@@ -782,15 +785,22 @@ export async function placeView(segments: readonly string[], search: Search): Pr
               ORDER BY CASE WHEN pl.id = ? THEN 0 WHEN pl.id = ? THEN 1 ELSE 2 END,
                        be.effective_from DESC, pl.id
               LIMIT 1`
+          // `kind IN (?, ?)`, not `kind = ?`. A one-segment path is a JURISDICTION, and eight of India's
+          // thirty-six are union territories with `kind = 'ut'` — so matching 'state' alone 404'd Jammu &
+          // Kashmir, Delhi, Puducherry, Ladakh, Chandigarh, Andaman & Nicobar, Lakshadweep and Dadra &
+          // Nagar Haveli. Survivable while nothing linked to them; a dead end on the primary navigation
+          // surface the moment the national map did, which is how it was found.
           : `SELECT id, kind, canonical_name, parent_id
                FROM place
-              WHERE kind = ?
+              WHERE kind IN (?, ?)
                 AND (id = ? OR id = ? OR LOWER(canonical_name) = ? OR LOWER(REPLACE(canonical_name, ' ', '-')) = ?
                      OR REPLACE(REPLACE(UPPER(canonical_name), ' ', ''), '-', '') = ?)
                 AND (? IS NULL OR parent_id = ?)
               ORDER BY CASE WHEN id = ? THEN 0 WHEN id = ? THEN 1 ELSE 2 END, id
               LIMIT 1`,
         target.level,
+        // 'ut' only for a one-segment path; every other level repeats itself, and `IN (x, x)` is `= x`.
+        target.level === "state" ? "ut" : target.level,
         idA,
         idB,
         target.name,
