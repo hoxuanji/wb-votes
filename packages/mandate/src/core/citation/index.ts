@@ -24,6 +24,13 @@ export const SOURCE_KINDS = [
   "factcheck",
   /** the committed data/seed/*.json files — real sources with a real hash, just not scraped yet. */
   "static_module",
+  /**
+   * a published boundary dataset — constituency or administrative polygons, with a publisher, a URL, a
+   * licence and a hash over its bytes. `census` is not a synonym: census district boundaries are one
+   * instance of this, and constituency boundaries scraped from an ECI system are another.
+   * docs/geo/sources.md is what this registry accepts as one, and what it refuses.
+   */
+  "boundary_geometry",
 ] as const;
 export type SourceKind = (typeof SOURCE_KINDS)[number];
 

@@ -44,6 +44,7 @@
         "note": "Only where the source's own spelling does not normalise to a registry jurisdiction name, or where one source key covers several jurisdictions. Everything else resolves by name.",
         "ORISSA": ["od"],
         "UTTARKHAND": ["uk"],
+        "JAMMU & KASHMIR": ["jk"],
         "ANDHRA PRADESH": ["ap", "tg"]
       },
       "caveats": [

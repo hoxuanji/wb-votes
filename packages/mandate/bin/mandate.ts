@@ -13,7 +13,9 @@
 //   mandate export                       rebuild data/seed/*.json FROM the registry and report
 //                                        what does not come back (a measurement, never a migration)
 
+import { createHash } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
 import { blockingKeys } from "../src/core/indic/index.ts";
 import { DEV_DB_PATH, all, get, open, openRead } from "../src/db/index.ts";
 import { migrate } from "../src/db/migrate.ts";
@@ -26,6 +28,15 @@ import { backfillGeography } from "../src/ingest/geography/backfill.ts";
 import { applyDelimitation } from "../src/ingest/geography/delimitation.ts";
 import { validateGeography } from "../src/ingest/geography/validate.ts";
 import { COVERAGE_PREFACE, formatCoverage, geometryCoverage } from "../src/ingest/geography/geometry-coverage.ts";
+import {
+  importGeometry,
+  inspectGeometry,
+  manifest,
+  readDataset,
+  sourceKindAvailable,
+} from "../src/ingest/geography/geometry.ts";
+import { formatGeometryReport } from "../src/ingest/geography/geometry-report.ts";
+import { httpGet } from "../src/ingest/sources/eci/transport.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
 import { formatReport as formatEciReport, runLs2024 } from "../src/ingest/sources/eci/ls2024.ts";
@@ -67,6 +78,13 @@ const USAGE = `mandate <command>
   geography validate           ten checks on constituency identity, with before/after metrics
   geography coverage [--all] [--write]
                                what the map can draw, per jurisdiction/house/boundary epoch
+  geography fetch [--dataset=<id>]
+                               acquire the declared boundary datasets and verify their sha256
+  geography inspect [--dataset=<id>] [--only=ka,up]
+                               resolve every polygon to a jurisdiction, epoch and place_version, and
+                               report what would be written and what is staged for review
+  geography import [--dataset=<id>] [--only=ka,up] [--apply] [--replace]
+                               write what inspect decided (dry run without --apply)
   geography backfill [--apply] restore each constituency's own name per delimitation, from source
   geography delimitation [--apply]
                                register the delimitation orders, their dates and their derivations
@@ -584,7 +602,71 @@ try {
         }
         break;
       }
-      fail("geography <validate|backfill|coverage>");
+      if (sub === "fetch") {
+        // Acquire a declared dataset and verify its hash. NO SILENT DOWNLOADS: the URL, the byte count and
+        // the sha256 come from data/geo/sources.json, and a mismatch is a failure rather than a warning.
+        const only = arg("dataset");
+        for (const d of manifest().datasets) {
+          if (only !== undefined && d.id !== only) continue;
+          console.log(`${d.id}  ${d.publisher} — ${d.title}`);
+          console.log(`  ${d.url}`);
+          let onDisk = false;
+          try {
+            const held = readDataset(d);
+            console.log(`  cached  ${held.bytes.toLocaleString("en-IN")} bytes  sha256 ${d.sha256.slice(0, 16)}…  MATCH`);
+            onDisk = true;
+          } catch (cause) {
+            console.log(`  ${(cause as Error).message.split("\n")[0]}`);
+          }
+          if (onDisk) continue;
+          const res = await httpGet(d.url);
+          if (!res.ok) fail(`${d.url} returned ${res.status}`);
+          mkdirSync(dirname(d.file), { recursive: true });
+          writeFileSync(d.file, res.bytes);
+          const got = createHash("sha256").update(res.bytes).digest("hex");
+          console.log(`  fetched ${res.bytes.length.toLocaleString("en-IN")} bytes  sha256 ${got.slice(0, 16)}…`);
+          if (got !== d.sha256) fail(`sha256 mismatch: the manifest declares ${d.sha256}`);
+        }
+        break;
+      }
+      if (sub === "inspect" || sub === "import") {
+        // The whole decision is `inspect`; `import` writes exactly what it decided. A dry run and a real
+        // run therefore cannot disagree, which is the only way a dry run means anything.
+        const db = sub === "import" && has("apply") ? open() : openRead();
+        if (sub === "import" && has("apply") && !sourceKindAvailable(db)) {
+          fail("run `mandate migrate` first — source.kind has no 'boundary_geometry' value yet");
+        }
+        const wanted = arg("dataset");
+        const only = arg("only")?.split(",").filter((s) => s !== "");
+        for (const d of manifest().datasets) {
+          if (wanted !== undefined && d.id !== wanted) continue;
+          const held = readDataset(d);
+          const r =
+            sub === "inspect"
+              ? { report: inspectGeometry(db, d, held.features, only === undefined ? {} : { only }), written: 0, restatedWritten: 0, replaced: 0, skipped: 0, sourceId: "" }
+              : importGeometry(db, d, held.features, {
+                  ...(only === undefined ? {} : { only }),
+                  apply: has("apply"),
+                  nowIso,
+                  replace: has("replace"),
+                });
+          console.log(formatGeometryReport(r.report));
+          if (sub === "import") {
+            console.log("");
+            table([
+              ["mode", has("apply") ? "applied" : "dry run — pass --apply to write"],
+              ["source id", r.sourceId],
+              ["rows written", r.written],
+              ["of those, a restated epoch", r.restatedWritten],
+              ["replaced", r.replaced],
+              ["skipped, already drawn", r.skipped],
+            ]);
+          }
+        }
+        db.close();
+        break;
+      }
+      fail("geography <validate|backfill|coverage|fetch|inspect|import>");
       break;
     }
     default:

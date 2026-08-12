@@ -36,73 +36,22 @@
 
 import { createHash } from "node:crypto";
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
+import { project, simplifyRing as simplify } from "../../packages/mandate/src/ingest/geography/project.ts";
 
 const src = process.argv[2] ?? "/tmp/india.geojson";
 const bytes = readFileSync(src);
 const sha256 = createHash("sha256").update(bytes).digest("hex");
 const geo = JSON.parse(bytes.toString("utf8"));
 
-/** Douglas-Peucker, in degrees. 0.015 is about 1.5km — invisible at any width this renders at. */
+// The projection and the ring simplification come from the mandate package, so the basemap and the
+// constituency polygons cannot end up in two different coordinate spaces. That was a real risk: this
+// file owned both until Phase 3 needed them for 4,725 constituencies as well.
 const TOLERANCE = 0.015;
-function dp(points, tol) {
-  if (points.length < 3) return points;
-  let maxD = -1;
-  let idx = 0;
-  const [ax, ay] = points[0];
-  const [bx, by] = points[points.length - 1];
-  const dx = bx - ax;
-  const dy = by - ay;
-  const norm = Math.hypot(dx, dy) || 1e-12;
-  for (let i = 1; i < points.length - 1; i += 1) {
-    const [px, py] = points[i];
-    const d = Math.abs(dy * px - dx * py + bx * ay - by * ax) / norm;
-    if (d > maxD) {
-      maxD = d;
-      idx = i;
-    }
-  }
-  if (maxD <= tol) return [points[0], points[points.length - 1]];
-  return [...dp(points.slice(0, idx + 1), tol).slice(0, -1), ...dp(points.slice(idx), tol)];
-}
-
-/**
- * Douglas-Peucker on a CLOSED ring, which is not the same problem.
- *
- * A ring's first and last point are the same point, so the baseline DP measures against has zero length,
- * every perpendicular distance is zero, and the algorithm helpfully simplifies all 760 districts of India out
- * of existence. (Measured: 25,482 points in, 0 out.) The ring is cut at its two most distant points first,
- * and each half simplified as an open line.
- */
-function simplifyRing(points, tol = TOLERANCE) {
-  const ring =
-    points.length > 1 &&
-    points[0][0] === points[points.length - 1][0] &&
-    points[0][1] === points[points.length - 1][1]
-      ? points.slice(0, -1)
-      : points;
-  if (ring.length < 4) return ring;
-  let far = 1;
-  let farD = -1;
-  for (let i = 1; i < ring.length; i += 1) {
-    const d = Math.hypot(ring[i][0] - ring[0][0], ring[i][1] - ring[0][1]);
-    if (d > farD) {
-      farD = d;
-      far = i;
-    }
-  }
-  const a = dp(ring.slice(0, far + 1), tol);
-  const b = dp([...ring.slice(far), ring[0]], tol);
-  return [...a.slice(0, -1), ...b.slice(0, -1)];
-}
-
-// Equirectangular, scaled at the mid-latitude. India spans ~68-97E and 6-37N; anything fancier buys nothing
-// at this size and costs a dependency.
-const K = 22;
-const LAT_MID = 22;
-const project = ([lon, lat]) => [(lon - 68) * K * Math.cos((LAT_MID * Math.PI) / 180), (37.2 - lat) * K];
 
 const ringsOf = (g) =>
   g.type === "Polygon" ? g.coordinates : g.type === "MultiPolygon" ? g.coordinates.flat() : [];
+
+const simplifyRing = (points, tol = TOLERANCE) => simplify(points, tol);
 
 /** Every ring of one feature, projected, simplified and emitted as one SVG path. */
 function pathOf(feature, stats) {
