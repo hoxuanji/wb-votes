@@ -1,137 +1,93 @@
-# WB Votes - West Bengal Election Candidate Database
+# India Election Intelligence
 
-A comprehensive web platform for exploring West Bengal election candidates, constituencies, and electoral data. Built with Next.js, featuring interactive candidate profiles, constituency insights, and comparative analysis tools.
+A registry of Indian elections in which every figure carries the source it came from, how it was derived,
+and what is missing. Assembly and Lok Sabha results across 36 states and union territories, 1962 onward.
 
-## Features
+Nothing here is modelled, predicted or filled in. A figure no source published is rendered as the reason
+there is no figure, never as a zero. A date nobody announced is marked **derived** wherever it appears.
 
-- **Candidate Search & Profiles**: Browse detailed candidate information including background, occupation, party affiliation, and funding data
-- **Constituency Explorer**: View constituency-level insights and key candidates running in each area
-- **Candidate Comparison**: Compare multiple candidates side-by-side
-- **Election News**: Aggregated news and updates about the election
-- **Interactive Quiz**: Test your knowledge about candidates and constituencies
-- **Party Funding Analysis**: Track and visualize political party funding
-- **Electoral Map**: Visual representation of West Bengal assembly constituencies
-- **Multi-language Support**: Support for multiple languages
+## Surfaces
 
-## Tech Stack
+| route | what it answers |
+| --- | --- |
+| `/` | What is happening across India? Who governs, what is next, what was just decided, which signals stand out. A choropleth of 36 jurisdictions with six layers, and the page's primary navigation. |
+| `/pl/<state>` | How is this state made up, and what has it voted in? |
+| `/pl/<state>/<district>` | Which seats does this district elect? |
+| `/pl/<state>/<district>/<seat>` | Who has won this seat, and by how much? |
+| `/pl/<...>/<seat>/analysis` | How did this seat get this way? Turnout against a baseline, swing, effective parties, seat-by-seat retention. |
+| `/p/<person>` | One person's whole record, and what they declared. |
+| `/search?q=` | One field over states, elections, constituencies, people and parties. |
+| `/coverage` | What this platform holds and what it does not — counted at request time, per subject area and per election. |
+| `/v1/entity/{person,place}/<slug>`, `/v1/search` | The same reads as JSON, with `sources[]`. |
 
-- **Frontend**: Next.js 14+, React, TypeScript, Tailwind CSS
-- **Styling**: Tailwind CSS with custom configuration
-- **Maps**: Custom SVG-based electoral map
-- **API**: REST API endpoints for candidates, constituencies, insights, and news
-- **Database**: SQL schema (PostgreSQL compatible)
+`/candidate/<id>`, `/constituency/<id>`, `/mla/<id>` and `/candidates` are permanent redirects that resolve
+old ids through `person_identifier` and the place tree.
 
-## Project Structure
+## Running it
 
-```
-├── src/
-│   ├── app/                    # Next.js app directory
-│   │   ├── api/               # API routes
-│   │   ├── candidate/         # Candidate detail page
-│   │   ├── candidates/        # Candidates listing
-│   │   ├── compare/           # Comparison tool
-│   │   ├── constituency/      # Constituency details
-│   │   ├── quiz/              # Quiz page
-│   │   ├── results/           # Election results
-│   │   └── methodology/       # Methodology page
-│   ├── components/            # Reusable React components
-│   ├── data/                  # Static candidate and constituency data
-│   ├── hooks/                 # Custom React hooks
-│   ├── lib/                   # Utility functions and helpers
-│   ├── types/                 # TypeScript type definitions
-│   └── i18n/                  # Internationalization
-├── database/                  # Database schema
-├── scripts/                   # Data scraping and processing scripts
-├── public/                    # Static assets
-└── tailwind.config.ts         # Tailwind configuration
-```
-
-## Getting Started
-
-### Prerequisites
-
-- Node.js 18+ and npm/yarn
-- Git
-
-### Installation
-
-1. Clone the repository:
-```bash
-git clone https://github.com/hoxuanji/wb-votes.git
-cd wb-votes
-```
-
-2. Install dependencies:
 ```bash
 npm install
+npm run registry:migrate     # create .data/registry.db
+npm run registry:ingest      # load the committed sources
+npm run registry:resolve     # entity resolution
+npm run dev                  # http://localhost:3000
 ```
 
-3. Create environment file:
+`.data/` is gitignored, so a fresh clone has no registry. Every page says so, with the command above, rather
+than returning a 500.
+
+## Layout
+
+```text
+src/app/                     one route per surface, and one stylesheet
+  iei.css                    the design system: tokens, primitives, grid, breakpoints
+src/components/iei/          Shell, IndiaMap, and the primitives every page is built from
+packages/mandate/            the registry: schema, migrations, ingestion, entity resolution, read layer
+  src/repo/                  one module per surface's data contract — no SQL reaches a component
+  src/semantic/              how a measure is defined and how it is written
+  src/viz/                   server-rendered charts, and the palette
+data/seed/                   the committed sources, with a hash and a retrieval date per file
+docs/                        the model, the methodology, and the decisions
+ops/probe/                   test scaffolding: render a route, and screenshot it
+```
+
+## Checks
+
 ```bash
-cp .env.local.example .env.local
+npm test                     # 405 tests, including a real-registry smoke suite
+npm run type-check           # tsc over the app
+npm run registry:typecheck   # tsc over packages/mandate
+npm run lint                 # next lint
+npm run build                # production build
+npm run registry:audit       # export round-trip and provenance report
 ```
 
-4. Start the development server:
-```bash
-npm run dev
-```
+One test fails and is classified: `searchPersons` ranking/order-independence, in
+`packages/mandate/src/repo/person.test.ts`.
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser
+Three suites are worth knowing about, because between them they cover what `tsc` cannot see:
 
-## Development
+* `repo/smoke.test.ts` calls every read function against the real database with arguments discovered from
+  it. `tsc` cannot see inside a SQL string, and `next build` renders no dynamic route.
+* `repo/render.test.ts` renders the real routes and asserts the data rules on the markup: no fabricated
+  figure, no derived date unlabelled, every link resolves, and the navigation graph walks India → state →
+  district → seat → analysis → person in five jurisdictions.
+* `viz/iei.test.ts` parses the stylesheet and computes contrast, so the accessibility claims are measured
+  rather than asserted.
 
-### Build for production:
-```bash
-npm run build
-npm start
-```
+## Documentation
 
-### Run scripts:
-- Data scraping: `node scripts/scraper/myneta.ts`
-- Data enrichment: `node scripts/scraper/enrich-occupation.js`
-- Fix districts: `node scripts/fix-districts.js`
+* `docs/model/` — electoral geography, election identity, delimitation
+* `docs/methodology/` — one card per measure: what it is, how it is computed, what it does not capture
+* `docs/platform/00-model.md` — the eighteen subject areas, four of which hold data
+* `docs/product/consolidation-audit.md` — the Phase 2.5 audit
+* `docs/product/visual-qa.md` — what was rendered, at what sizes, and what the screenshots do not prove
+* `docs/product/removed-features.md` — what the West Bengal dashboard was, and why each part is gone
+* `docs/adr/` — the decisions
 
-## API Endpoints
+## Scope
 
-- `GET /api/candidates` - List all candidates
-- `GET /api/candidates/[id]` - Get candidate details
-- `GET /api/constituencies` - List constituencies
-- `GET /api/insights/[id]` - Get constituency insights
-- `GET /api/news` - Get election news
-- `GET /api/quiz/questions` - Get quiz questions
-
-## Deployment
-
-### Deploy to Vercel (Recommended)
-
-1. Push your code to GitHub
-2. Go to [vercel.com/import](https://vercel.com/import)
-3. Connect your repository
-4. Vercel will auto-detect Next.js configuration
-5. Click "Deploy"
-
-Your site will be live at `<project-name>.vercel.app`
-
-See [DEPLOYMENT.md](./DEPLOYMENT.md) for detailed deployment instructions.
-
-## Data Sources
-
-- Candidate data from MyNeta and election commission
-- News aggregation from various electoral news sources
-- Party funding data from election commission filings
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit pull requests or open issues for bugs and feature requests.
-
-## License
-
-MIT License - feel free to use this project for your own purposes.
-
-## Contact
-
-For questions or suggestions, open an issue on the GitHub repository.
-
----
-
-**Last Updated**: April 2026
+This is not a campaign site and not a prediction engine. `/coverage` is the honest statement of what is
+loaded: elections are one of eighteen subject areas in the model, and most of the others are specified and
+unbuilt. Where a figure is a judgement rather than a measurement — whether a promise was kept, whether a
+member performed — it is not published, and `/coverage` says why.

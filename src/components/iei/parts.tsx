@@ -255,6 +255,8 @@ export function Bar({ pct, fill, label }: { pct: number; fill: string; label?: s
  *    because on most surfaces the panel's question above the table already says what it says.
  *  · `tight` is the 36-rows-of-India density, and it is the only second density that exists.
  *  · `tall` gives the region its own vertical scroll instead of letting a long list grow the document.
+ *  · `wide` gives the table a minimum width, for the tables whose columns hold prose. Without it a phone
+ *    squeezes a sentence into a 55px column and wraps it over eight lines.
  */
 export function Table({
   label,
@@ -262,6 +264,7 @@ export function Table({
   head,
   tight = false,
   tall = false,
+  wide = false,
   captionVisible = false,
   className,
   children,
@@ -271,6 +274,7 @@ export function Table({
   head: React.ReactNode;
   tight?: boolean;
   tall?: boolean;
+  wide?: boolean;
   captionVisible?: boolean;
   className?: string;
   children: React.ReactNode;
@@ -282,7 +286,11 @@ export function Table({
       aria-label={label}
       tabIndex={0}
     >
-      <table className={['iei-t', tight ? 'iei-t-tight' : '', className ?? ''].filter(Boolean).join(' ')}>
+      <table
+        className={['iei-t', tight ? 'iei-t-tight' : '', wide ? 'iei-t-wide' : '', className ?? '']
+          .filter(Boolean)
+          .join(' ')}
+      >
         {caption === undefined ? null : (
           <caption className={captionVisible ? undefined : 'iei-sr'}>{caption}</caption>
         )}

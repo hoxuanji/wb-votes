@@ -275,6 +275,7 @@ function Body({
         <Table
           label="The eighteen subject areas and what each holds"
           caption="Every subject area in the model, its status, its measured reach and the source it still needs"
+          wide
           head={
             <>
               <th scope="col">Subject</th>
@@ -282,8 +283,12 @@ function Body({
               <th scope="col" className="iei-n">
                 Rows
               </th>
-              <th scope="col">How far it reaches</th>
-              <th scope="col">Source it needs</th>
+              <th scope="col">
+                How far it reaches
+              </th>
+              <th scope="col">
+                Source it needs
+              </th>
             </>
           }
         >
@@ -317,7 +322,7 @@ function Body({
                 {v.reach === null ? null : <span className="iei-chip">{v.reach}</span>}
                 <span className="iei-rule">{v.scope}</span>
               </td>
-              <td className="iei-clip" title={v.source}>
+              <td title={v.source}>
                 {v.source}
               </td>
             </tr>

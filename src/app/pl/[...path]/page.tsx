@@ -174,15 +174,17 @@ export default async function PlacePage({
             >
               {view.elections.map((e) => (
                 <tr key={e.id}>
-                  {/* The year is the link. A "Coverage" column of seventeen identical "how much is loaded"
-                      links is a column that says one thing seventeen times. */}
-                  <th scope="row" className="iei-n">
+                  {/* The year is the link, and it is a LABEL: left-aligned like every other row header, so
+                      this table's first column starts where the districts table's does. Four digits align
+                      with each other whichever edge they are set against.
+                      A "Coverage" column of seventeen identical "how much is loaded" links is a column that
+                      says one thing seventeen times, so the year carries that too. */}
+                  <th scope="row">
                     <Link href={`/coverage?election=${e.id}#election`}>{e.year}</Link>
                   </th>
-                  <td>
-                    {houseWord(e.house)}
-                    {e.kind === "bypoll" ? <span className="iei-rule">by-election</span> : null}
-                  </td>
+                  {/* Inline, not a sub-line: a conditional second line made every by-election row taller
+                      than the rows around it, and a table of 17 elections rippled. */}
+                  <td>{houseWord(e.house)}{e.kind === "bypoll" ? " by-election" : ""}</td>
                   <td>
                     {e.leaderLabel === null ? (
                       <span className="iei-absent">no winner recorded</span>
@@ -292,9 +294,7 @@ export default async function PlacePage({
         >
           {brief.contests.map((c) => (
             <tr key={c.contestId}>
-              <th scope="row" className="iei-n">
-                {c.year}
-              </th>
+              <th scope="row">{c.year}</th>
               <td>
                 {c.winner === null ? (
                   <span className="iei-absent">no result declared</span>

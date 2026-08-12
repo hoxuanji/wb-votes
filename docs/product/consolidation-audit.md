@@ -14,7 +14,7 @@ nothing.
 The homepage baseline was measured by rendering `/` through `ops/probe/render` and counting the markup:
 
 | | before |
-|---|---|
+| --- | --- |
 | `<section>` | 9 |
 | tables | 7 |
 | table rows | 141 |
@@ -30,7 +30,7 @@ scales, four table treatments and four navigation models, and a component writte
 the next.
 
 | system | stylesheet | class prefix | routes |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | IEI | `src/app/iei.css` (1,439 lines) | `.iei-*` | `/` only |
 | MANDATE | `src/app/p/mandate.css` + `src/app/pl/place.css` | `.mandate`, `.wrap`, `.tiles`, `.crumbs` | `/p/*`, `/pl/*` |
 | Situation | `src/app/situation.css` (+ `coverage.css`, `map.css`, `review.css`) | `.sr-*`, `.cv-*`, `.mp-*` | `/coverage`, `/search`, `/map`, `/review/merges` |
@@ -59,7 +59,7 @@ within one state.
 ## Three search fields
 
 | where | scope | mechanism |
-|---|---|---|
+| --- | --- | --- |
 | `Shell` header input | people | GET `/search?q=` |
 | `/search` page's own form | people | GET `/search?q=` — the same field, twice on one page |
 | `Shell` state `<select>` | states | GET `/pl?to=` |
@@ -73,7 +73,7 @@ field that lies about its scope.
 ## Duplicate implementations
 
 | # | thing | copies | keep |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | 1 | India map | `src/components/iei/IndiaMap.tsx`, `src/app/india-map.tsx` | the first; the second is imported by nothing |
 | 2 | "who governs each state" table | homepage `#map` companion table, homepage `#states` panel | one |
 | 3 | choropleth page | `/` (India, 36 shapes), `/map` (West Bengal, 294 shapes) | `/`; `/map` is a state-level view stranded at the root |
@@ -139,7 +139,7 @@ deliberate.
 ## Homepage: what each section is for, and what happens to it
 
 | section | user decision it supports | verdict |
-|---|---|---|
+| --- | --- | --- |
 | Record strip | "is this current, and how much is loaded?" | keep, thinned — it is the dateline |
 | Hero sentence | "what is happening across India?" | keep |
 | Hero 6 metrics | — every one of the six is printed again in the record strip or in a section below | **remove** |
@@ -161,3 +161,67 @@ deliberate.
 No data-model change. No change to electoral geography identity, election identity, source provenance,
 result semantics or boundary epochs. No new ingestion. The classified `searchPersons` ranking failure in
 `packages/mandate/src/repo/person.test.ts:162` stays failing and stays classified.
+
+## Outcome
+
+Written before the work; this section was added after it, so the audit is not a plan that outlived its
+result. Measured the same way it was measured before — the rendered markup of `/`:
+
+| | before | after | change |
+| --- | --- | --- | --- |
+| `<section>` | 9 | 5 | −44% |
+| tables | 7 | 4 | −43% |
+| table rows | 141 | 66 | −53% |
+| table cells | 726 | 325 | −55% |
+| metric tiles | 12 | 0 | −100% |
+| prose notes / caveats | 11 | 4 | −64% |
+| visible words | 3,868 | 1,861 | −52% |
+
+And the repository:
+
+| | before | after |
+| --- | --- | --- |
+| files under `src/` (ts, tsx, css) | 155 | 26 |
+| stylesheets | 8 | 2 |
+| routes | ~40 | 18 |
+| runtime dependencies | 9 | 3 |
+| design systems | 4 | 1 |
+| navigation models | 3 | 1 |
+| search fields | 5 | 1 |
+| first-load JS on a product page | ~223 kB | 94.3 kB |
+
+The second stylesheet is `src/app/review/merges/review.css`, and it holds only the classes that are about
+judging a pair of person records; its tokens are `iei.css`'s. The design system's own rules are now checked
+by `viz/iei.test.ts`: the spacing scale is exactly 4·8·12·16·24·32·48, there are seven type sizes and every
+one is used, every `border-radius` is the token, and every length outside `:root` resolves to a `var()` or is
+one of a named list of exemptions.
+
+`docs/product/visual-qa.md` records what was rendered in a real browser, at what sizes, the twenty-two
+defects three passes found, and — because a screenshot invites more confidence than it earns — what those
+images do not prove.
+
+### Departures from the plan above
+
+Three, each because the work found something the audit could not:
+
+1. **`/coverage` was rewritten, not just restyled.** The front page's per-election coverage panel had to go
+   somewhere, and the page whose whole subject is that question is the place. It took the `?election=` deep
+   link with it.
+2. **`/review/merges` is on the product's shell after all.** The audit classified it LEGACY-isolated and it
+   remains that in every other sense — an internal queue with a mutating POST, linked from nothing. But it
+   had the last hand-rolled navigation bar in the repository, and one navigation model means one.
+3. **A state page gained a section.** `history()` — the 36×5 grid of 180 cells on the front page — was
+   deleted, and a state's own run of elections had nowhere else to live. Relocating a question to the level
+   that owns it is what Phase J asks for; it is the one thing this phase added, and it added it with a query
+   that already existed.
+
+### Not done, deliberately
+
+* **The `searchPersons` ranking failure stays failing and stays classified.** No UI change required it.
+* **No data-model change.** Electoral geography identity, election identity, source provenance, result
+  semantics and boundary epochs are untouched. The search layer found a real defect in the first of those —
+  a `place` row groups seats by NUMBER across delimitations, so matching historical names produced
+  "NANJANGUD · no. 214 · MYSORE · was BADAMI" for a seat five hundred kilometres from Badami — and the
+  response was to stop making the claim rather than to migrate. It is recorded in `repo/search.ts`.
+* **`scripts/` is untouched.** It is the acquisition pipeline upstream of `data/seed/`, which the registry
+  ingests. It is not front-end code and this phase had no business in it.

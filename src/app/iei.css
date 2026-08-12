@@ -740,12 +740,14 @@ html {
   }
 }
 
-/* A cell whose content must not push the table wider than the page. */
-.iei-clip {
-  max-width: 22ch;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+/* A table with prose columns cannot be squeezed below a readable measure; the region scrolls instead.
+   THE FLOOR IS ON THE TABLE, NOT ON THE CELLS, and that is not a stylistic choice — Chrome ignores
+   `min-width` on a `display: table-cell`, so the first attempt at this set 12ch on the row header and 26ch
+   on the two prose columns and changed nothing at all. At 390px the coverage ledger's subject column was
+   about 55px wide, wrapping "Who won this seat, by how much, and how has it behaved across cycles?" over
+   eight lines. 760px is five columns at a legible measure, and the region it sits in already scrolls. */
+.iei-t-wide {
+  min-width: 760px;
 }
 
 /* Every table lives inside one of these: a named, keyboard-focusable region that scrolls SIDEWAYS rather

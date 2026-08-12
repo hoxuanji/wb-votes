@@ -149,9 +149,7 @@ export default async function PersonBriefPage({ params }: { params: { person: st
               const decided = isDecided(c);
               return (
                 <tr key={`${c.contestId}-${c.electionId}`}>
-                  <th scope="row" className="iei-n">
-                    {c.year}
-                  </th>
+                  <th scope="row">{c.year}</th>
                   <td>
                     {c.placeName}
                     {c.placeNumber !== null && <span className="iei-of"> no. {c.placeNumber}</span>}

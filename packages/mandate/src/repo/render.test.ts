@@ -229,6 +229,54 @@ test("every place the front page links to actually resolves", live, () => {
   assert.equal(onMap.length, 36, `the map offers ${onMap.length} jurisdictions, not 36`);
 });
 
+test("the navigation graph walks all the way down, in five jurisdictions", live, () => {
+  // Phase J's graph, walked rather than asserted about: INDIA → STATE → DISTRICT → SEAT → ANALYSIS, with
+  // every step taken from the LINKS THE PREVIOUS PAGE RENDERED. Nothing here is a hand-written path, so a
+  // page that stops offering a way down fails the test rather than quietly becoming a dead end.
+  //
+  // Five jurisdictions, and they are the brief's five because between them they are every shape this data
+  // has: a union territory re-delimited after 2008 (jk), a state re-delimited after 2008 (as), the largest
+  // (up), the one this project started as (wb), and one with no relationship to any of them (ka).
+  for (const state of ["ka", "wb", "up", "as", "jk"]) {
+    const statePage = render("/pl", "", state);
+    // Asserted on the MARKUP, not the stripped text: the crumb separator is its own element, so `text()`
+    // renders the trail as three lines and a regex over it is checking the helper rather than the page.
+    assert.match(statePage, /href="\/"[^>]*>India</, `/pl/${state} has no breadcrumb back to India`);
+    assert.ok(text(statePage).includes("Elections on record"), `/pl/${state} does not list its elections`);
+
+    // A district link is a three-segment path under this state.
+    const district = new RegExp(`href="/pl/${state}/([^/"]+)"`).exec(statePage)?.[1];
+    assert.ok(district !== undefined, `/pl/${state} offers no district`);
+    const districtPage = render("/pl", "", `${state}/${district}`);
+    const dt = text(districtPage);
+    assert.ok(dt.length > 200, `/pl/${state}/${district} rendered almost nothing`);
+    assert.doesNotMatch(dt, /not built in this checkout/, `/pl/${state}/${district} could not read the registry`);
+
+    // A seat link is a four-segment path under that district.
+    const seat = new RegExp(`href="/pl/${state}/${district}/([^/"]+)"`).exec(districtPage)?.[1];
+    assert.ok(seat !== undefined, `/pl/${state}/${district} offers no seat`);
+    const seatPage = render("/pl", "", `${state}/${district}/${seat}`);
+    const st = text(seatPage);
+    assert.ok(st.includes("Every election on record"), `${state}/${district}/${seat} has no election history`);
+    assert.ok(st.includes("Analysis"), `${state}/${district}/${seat} offers no analysis lens`);
+    // The breadcrumb has all four levels, and the first is a link home.
+    assert.match(seatPage, /href="\/"[^>]*>India</, `${state}/${district}/${seat} cannot reach India`);
+
+    // And the Analysis floor renders, which is where every chart in the product lives.
+    const analysis = text(render("/pl", "", `${state}/${district}/${seat}/analysis`));
+    assert.match(analysis, /How .* got this way/, `${state}/${district}/${seat}/analysis has no headline`);
+    assert.ok(analysis.includes("Window"), "the analysis floor lost its window filter");
+
+    // A member link out of the seat's history reaches a person, which is the last level of the graph.
+    const person = /href="\/p\/([^"]+)"/.exec(seatPage)?.[1];
+    if (person !== undefined) {
+      const pt = text(render("/p", "", person));
+      assert.ok(pt.includes("Career") || pt.includes("Affidavit trail"), `/p/${person} rendered no record`);
+      assert.match(render("/p", "", person), /href="\/"[^>]*>India</, `/p/${person} has no breadcrumb`);
+    }
+  }
+});
+
 test("the five jurisdictions the brief names each render their own name and result", live, () => {
   // Karnataka, West Bengal, Uttar Pradesh, Assam, Jammu & Kashmir — one of them a union territory, which is
   // how the 404 that hit all eight UTs was found.

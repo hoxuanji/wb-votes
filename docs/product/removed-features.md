@@ -10,7 +10,7 @@ These asked a question the national surfaces already answer, for one state, with
 instead of the registry.
 
 | route | was | now |
-|---|---|---|
+| --- | --- | --- |
 | `/classic` | West Bengal civic dashboard home — hero, tabbed panels, AC picker | `/` and `/pl/wb` |
 | `/assembly` | directory of 294 sitting MLAs, party breakdown | `/pl/wb` (every seat, with its winner) |
 | `/results` | 2026 results by constituency | `/pl/wb?election=…` |
@@ -30,7 +30,7 @@ file with no national model behind it. Porting them would have meant inventing d
 jurisdictions.
 
 | route | was | why it is not ported |
-|---|---|---|
+| --- | --- | --- |
 | `/quiz` | a policy quiz matching a reader's answers to party stances | `src/data/party-stances.ts` was written by hand for one state's parties; there is no source for it, and a "your party match" score is exactly the modelled number this registry refuses |
 | `/funds` | MLALADS allocation for 294 constituencies | a real dataset, absent from the registry, and a different vertical (`docs/platform/00-model.md` lists it) |
 | `/cabinet` | WB Council of Ministers, 2026 term, searchable | one state, one term, `data/seed/cabinet.json`, maintained by hand |

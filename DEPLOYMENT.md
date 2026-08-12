@@ -1,299 +1,108 @@
-# WB Votes — Deployment Guide
+# Deployment
 
-## System Architecture
+Every claim in this file was checked against the repository as it stands. The previous version documented a
+Supabase project, five quiz tables, a MyNeta scraper writing `src/data/candidates_real.json` and a set of
+environment variables the code no longer reads; none of that exists.
 
-```
-┌─────────────────────────────────────────────────────────────┐
-│                     CLIENT BROWSER                          │
-│           (Next.js static + React hydration)                │
-└──────────────────────┬──────────────────────────────────────┘
-                       │ HTTPS
-┌──────────────────────▼──────────────────────────────────────┐
-│                  VERCEL EDGE NETWORK                        │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │         Next.js App (App Router, SSR + RSC)          │   │
-│  │                                                      │   │
-│  │  Pages:                    API Routes:               │   │
-│  │  /                         /api/constituencies       │   │
-│  │  /constituency/[id]        /api/candidates           │   │
-│  │  /candidate/[id]           /api/candidates/[id]      │   │
-│  │  /compare                  /api/quiz/questions       │   │
-│  │  /quiz                                               │   │
-│  │  /results                                            │   │
-│  └─────────────────────────┬────────────────────────────┘   │
-└────────────────────────────│────────────────────────────────┘
-                             │ PostgreSQL / Supabase client
-┌────────────────────────────▼────────────────────────────────┐
-│                    SUPABASE (PostgreSQL)                     │
-│  Tables: constituencies, parties, candidates,               │
-│          quiz_questions, quiz_options,                      │
-│          quiz_sessions, quiz_session_answers                │
-│                                                             │
-│  Row Level Security: public read-only for reference data    │
-└─────────────────────────────────────────────────────────────┘
+## What the application is
 
-Data Pipeline:
-  ECI Affidavits / MyNeta.info
-       │
-       ▼ scripts/scraper/myneta.ts
-  JSON candidates_real.json
-       │
-       ▼ scripts/seed.js
-  Supabase DB (production)
+A Next.js 14 App Router application with **three runtime dependencies** — `next`, `react`, `react-dom` — and
+no database server, no cache, no analytics and no external API. Every page is a server component that opens
+a SQLite file, runs its `SELECT`s and closes the handle.
+
+```text
+                       ┌──────────────────────────────┐
+   data/seed/*.json ──▶│  packages/mandate            │
+   (committed, hashed) │  migrate → ingest → resolve  │
+                       └──────────────┬───────────────┘
+                                      ▼
+                            .data/registry.db  (SQLite, gitignored)
+                                      ▲
+                       ┌──────────────┴───────────────┐
+                       │  src/app — 18 routes         │
+                       │  runtime: nodejs             │
+                       │  dynamic: force-dynamic      │
+                       └──────────────────────────────┘
 ```
 
----
+`runtime = 'nodejs'` on every data route, because they use `node:sqlite`. `dynamic = 'force-dynamic'`,
+because `.data/` is gitignored and a route that tried to prerender at build time would have nothing to read.
 
-## Prerequisites
+Client JavaScript: 94.3 kB first load, of which the application's own share is under 500 B per route. The one
+client component is `CommandKey`, twenty lines that bind ⌘K to the search field.
 
-- Node.js 20+
-- npm / pnpm
-- Git
-- Vercel account (free tier OK)
-- Supabase account (free tier OK)
-
----
-
-## 1. Local Development Setup
+## Local
 
 ```bash
-# Clone / enter project
-cd wb-votes
-
-# Install dependencies
 npm install
-
-# Copy env file
-cp .env.local.example .env.local
-# Edit .env.local with your values (see below)
-
-# Run dev server
-npm run dev
-# → http://localhost:3000
+npm run registry:migrate
+npm run registry:ingest
+npm run registry:resolve
+npm run dev                  # http://localhost:3000
 ```
 
-### `.env.local` values for local dev (MVP with mock data)
+`.env.local` is optional and nothing in `src/` reads it. A fresh clone with no `.data/registry.db` renders
+every page with the command above on it rather than a 500 — `RegistryMissing`, and there is one wording of it.
 
-```env
-NEXT_PUBLIC_APP_URL=http://localhost:3000
-NEXT_PUBLIC_APP_NAME="WB Votes"
-
-# For MVP with mock data, leave DB vars empty
-# DATABASE_URL=
-# NEXT_PUBLIC_SUPABASE_URL=
-# NEXT_PUBLIC_SUPABASE_ANON_KEY=
-```
-
----
-
-## 2. Supabase Setup (Production DB)
-
-1. Go to https://supabase.com → New Project
-2. Set a strong DB password (save it)
-3. Go to **SQL Editor** → New Query
-4. Paste the contents of `database/schema.sql` → Run
-5. Copy your project credentials from **Settings → API**:
-   - Project URL → `NEXT_PUBLIC_SUPABASE_URL`
-   - `anon` key → `NEXT_PUBLIC_SUPABASE_ANON_KEY`
-   - `service_role` key → `SUPABASE_SERVICE_ROLE_KEY`
-   - Connection string → `DATABASE_URL`
-
----
-
-## 3. Seed Mock Data to DB
+Run a production build somewhere other than `.next` if a dev server is up, or the two will fight over the
+directory:
 
 ```bash
-# Install Supabase client
-npm install @supabase/supabase-js
-
-# Create scripts/seed.js with your mock data → Supabase inserts
-node scripts/seed.js
+MANDATE_DIST=.next-verify npx next build
 ```
 
-Sample seed script structure:
-```javascript
-const { createClient } = require('@supabase/supabase-js');
-const { constituencies } = require('./src/data/constituencies');
-const { parties } = require('./src/data/parties');
-const { candidates } = require('./src/data/candidates');
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL,
-  process.env.SUPABASE_SERVICE_ROLE_KEY
-);
-
-async function seed() {
-  await supabase.from('parties').upsert(parties);
-  await supabase.from('constituencies').upsert(constituencies.map(c => ({
-    id: c.id, assembly_number: c.assemblyNumber, name: c.name,
-    name_bn: c.nameBn, district: c.district, district_bn: c.districtBn,
-    reservation: c.reservation,
-  })));
-  // ... candidates similarly
-}
-seed();
-```
-
----
-
-## 4. Deploy to Vercel
-
-### Option A: Vercel CLI
+## Checks before shipping
 
 ```bash
-npm install -g vercel
-vercel login
-vercel --prod
+npm run type-check           # tsc over the app
+npm run registry:typecheck   # tsc over packages/mandate
+npm run lint                 # next lint, via .eslintrc.json
+npm test                     # 405 tests; one classified failure (searchPersons ranking)
+MANDATE_DIST=.next-verify npx next build
 ```
 
-### Option B: GitHub Integration (Recommended)
+`npm test` includes `repo/smoke.test.ts`, which calls every read function against the real registry, and
+`repo/render.test.ts`, which renders the real routes. Both skip cleanly when `.data/registry.db` is absent,
+so CI without a registry is green and proves less — worth knowing before trusting a green build.
 
-1. Push code to GitHub:
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial WB Votes MVP"
-   git remote add origin https://github.com/YOUR_USERNAME/wb-votes.git
-   git push -u origin main
-   ```
+`.github/workflows/ci.yml` runs exactly that, in that order, and builds the registry first so the two suites
+that need one actually run. It asserts the failure COUNT is at most one rather than ignoring failures, so the
+classified `searchPersons` failure stays green and a second one does not. The workflow it replaced triggered
+the deleted `/api/cron/scrape-results` endpoint.
 
-2. Go to https://vercel.com → **Add New Project** → Import from GitHub
+## Hosting — the unresolved part
 
-3. Set **Environment Variables** in Vercel dashboard:
-   ```
-   NEXT_PUBLIC_APP_URL=https://your-domain.vercel.app
-   NEXT_PUBLIC_SUPABASE_URL=https://xxx.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJxxx
-   SUPABASE_SERVICE_ROLE_KEY=eyJyyy
-   DATABASE_URL=postgresql://postgres:pwd@db.xxx.supabase.co:5432/postgres
-   ```
+`vercel.json` targets Vercel in `bom1`, and this is the honest statement of where that stands: **the registry
+is a 566 MB SQLite file that is not in the repository.** A Vercel build has no way to produce it, and a
+serverless function has no writable volume to keep it on. So the deployment story for this architecture is
+open, and these are the shapes it could take rather than a plan:
 
-4. Deploy → Vercel auto-detects Next.js, builds, and deploys.
+* **Ship the file in the build.** `registry:ingest` during `next build`, and the file lands in the function
+  bundle. Bounded by the 250 MB unzipped limit, which the current registry exceeds.
+* **A persistent volume or an object store with local caching.** Needs a host with a filesystem — Fly, a
+  container, a VM — rather than a serverless function.
+* **Move to Postgres in production.** `docs/adr/0001-sqlite-dev-postgres-prod.md` records that decision as
+  taken and not yet done. It is the one that scales and the one with the most work in it.
 
-### Custom Domain (Optional)
+Until one of those is real, this runs locally and in CI. Saying so is better than a guide that reads as
+though it has been deployed.
 
-- Vercel dashboard → Project → Settings → Domains
-- Add `wbvotes.in` or your domain
-- Update DNS CNAME to `cname.vercel-dns.com`
+### What `vercel.json` still does
 
----
+* Security headers on every response: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
+* `/v1/*` cached for 15 minutes with a one-hour stale-while-revalidate; static assets immutable for a year.
+* `/west-bengal/:slug` → `/constituency/:slug`, which redirects on into the place tree. An old inbound URL
+  still lands somewhere correct.
 
-## 5. CI/CD Pipeline
+## Legal and ethical notes
 
-Vercel auto-deploys on every push to `main`.
-
-For staging:
-- Create a `develop` branch
-- Vercel auto-creates preview deployments for PRs
-
-Recommended GitHub Actions (`.github/workflows/ci.yml`):
-
-```yaml
-name: CI
-on: [push, pull_request]
-jobs:
-  lint-typecheck:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: '20', cache: 'npm' }
-      - run: npm ci
-      - run: npm run lint
-      - run: npm run type-check
-```
-
----
-
-## 6. Real Data Ingestion
-
-### Step 1: Scrape MyNeta.info
-
-```bash
-# Run the scraper
-npm run scrape -- --election=2021
-
-# Output: src/data/candidates_real.json
-```
-
-### Step 2: Review & clean data
-
-```bash
-# Inspect output
-cat src/data/candidates_real.json | python3 -m json.tool | less
-```
-
-### Step 3: Seed to production DB
-
-```bash
-DATABASE_URL=... node scripts/seed.js --source=./src/data/candidates_real.json
-```
-
-### Alternative: ECI Direct Data
-
-- Download from: https://affidavit.eci.gov.in/
-- Filter by State: West Bengal
-- Download Excel → parse with xlsx npm package
-- Map to your schema
-
----
-
-## 7. Environment Variables Reference
-
-| Variable | Required | Description |
-|---|---|---|
-| `NEXT_PUBLIC_APP_URL` | Yes | Full URL of your site |
-| `NEXT_PUBLIC_SUPABASE_URL` | Prod only | Supabase project URL |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Prod only | Supabase anon/public key |
-| `SUPABASE_SERVICE_ROLE_KEY` | Server only | For DB writes (never expose to client) |
-| `DATABASE_URL` | Prod only | Direct PostgreSQL connection string |
-
----
-
-## 8. Performance Checklist
-
-- [x] Next.js App Router with RSC (server components by default)
-- [x] Static generation for constituency and candidate pages
-- [x] Image optimization via next/image
-- [x] Tailwind CSS (purged in production)
-- [x] Mobile-first responsive layout
-- [ ] Add ISR (Incremental Static Regeneration) when DB is live:
-  ```typescript
-  export const revalidate = 3600; // re-generate every hour
-  ```
-- [ ] Add Vercel Edge Config for feature flags
-
----
-
-## 9. Future Improvements
-
-### Phase 2 (Real Data)
-- [ ] Full 294 constituency dataset
-- [ ] Real ECI affidavit scraper with rate limiting
-- [ ] Automated nightly data refresh via Vercel cron
-
-### Phase 3 (Features)
-- [ ] Voter registration lookup (link to ECI voter portal)
-- [ ] Constituency finder by address (Google Maps Geocoding API)
-- [ ] Historical election results comparison
-- [ ] Candidate social media links
-- [ ] Mobile app (React Native / Expo)
-- [ ] Notification alerts for filing deadlines
-
-### Phase 4 (Scale)
-- [ ] Redis caching for API responses
-- [ ] CDN-level caching on Vercel Edge
-- [ ] Full Bengali UI (i18n library like next-intl)
-- [ ] Accessibility audit (WCAG 2.1 AA)
-- [ ] Analytics with privacy-first Plausible (no cookies)
-
----
-
-## Legal & Ethical Notes
-
-- This tool is purely informational. It does not endorse any candidate or party.
-- All candidate data is self-declared in ECI affidavits (public record).
-- Quiz scores are approximations — not verified policy positions.
-- No personal data is collected. No cookies except functional.
-- Comply with ECI Model Code of Conduct during election periods.
-- Check ECI guidelines before deploying near election dates.
+* Informational only. It endorses no candidate and no party, and it publishes no score, ranking or index
+  over people — a composite of declared assets and pending cases is a judgement wearing a measurement's
+  clothes, and the one that existed was deleted with the dashboard that showed it.
+* Affidavit figures are **self-declared** and are carried as cited claims, never as findings. A declared
+  pending-case count is a count: the source records no stage, no court and no outcome, and the page says so
+  where the figure is.
+* No cookies, no analytics, no personal data collected. There is no client-side telemetry of any kind.
+* Boundary geometry credits its publisher in the map's own caption, on the page.
+* The Model Code of Conduct applies during election periods. Check ECI guidance before deploying close to a
+  poll.

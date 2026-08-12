@@ -209,6 +209,7 @@ test("every length in the stylesheet comes from the scale", () => {
     "640px", // the authored width of a chart's viewBox, so its type is not scaled up
     "200px", // the narrowest a metric tile may be before the grid drops a column
     "1040px", // the reading measure
+    "760px", // the floor under a table whose columns hold prose
     "300px",
     "380px",
     "460px", // the three scroll-region heights, which are viewport decisions
