@@ -23,6 +23,9 @@ import type { Chart, Series, SlopeRow } from "../viz/charts.ts";
 import { bars, lines, slope } from "../viz/charts.ts";
 import type { Tile } from "./brief.ts";
 import { fromRepo } from "./brief.ts";
+// A const string, not a query: importing it here opens no database and keeps one definition of what
+// "newest first" means across every module that orders elections.
+import { CHRONO_DESC } from "./elections.ts";
 import { unavailable } from "./envelope.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
 import type { PartyPoint, PlaceAnalysis, PlaceAnalysisFilters } from "./place-analysis.ts";
@@ -682,7 +685,31 @@ export function analysisCards(a: PlaceAnalysis): Card[] {
 export type ChildTable = {
   caption: string;
   headers: string[];
+  /**
+   * Which columns hold a figure, per header, so the page can align them right without guessing.
+   *
+   * The page used to guess with `i > 1`, which is true for both of these tables' numeric columns and also
+   * for "Won most", "Won by" and "Member" — so a state page right-aligned "INC 5 of 7" as though it were a
+   * number, in a table whose other columns are numbers. The layer that builds the columns is the layer that
+   * knows which is which.
+   */
+  numeric: boolean[];
   rows: { href: string; cols: string[] }[];
+};
+
+/** One step of the place path, walkable. The last has no href, because it is the page you are on. */
+export type Crumb = { label: string; href?: string };
+
+/** An election this jurisdiction held, as the state page lists them. */
+export type StateElection = {
+  id: string;
+  year: number;
+  /** 'ac' or 'pc', in the registry's codes; the page turns it into a word. */
+  house: string;
+  kind: string;
+  seats: number;
+  leaderLabel: string | null;
+  leaderSeats: number;
 };
 
 export type PlaceView =
@@ -696,6 +723,7 @@ export type PlaceView =
       years: number[];
       parties: string[];
       filters: ParsedFilters;
+      trail: Crumb[];
     }
   | {
       kind: "parent";
@@ -705,6 +733,16 @@ export type PlaceView =
       children: ChildTable;
       sources: SourceRef[];
       electionId: string | null;
+      trail: Crumb[];
+      /**
+       * Every election this jurisdiction has held, newest first. State level only.
+       *
+       * THIS IS WHERE THE FRONT PAGE'S HISTORY GRID WENT. That grid was 36 rows by 5 columns of
+       * `/pl/<state>?election=<id>` links — a table of contents for these pages, on the landing surface,
+       * 180 cells deep. A state's own run of elections is a real thing to want and the state page did not
+       * have it; the level that owns the question is the level that answers it now.
+       */
+      elections: StateElection[];
     };
 
 type RepoMod = typeof import("./index.ts");
@@ -730,6 +768,104 @@ function load(): Promise<[RepoMod, DbMod, AnalysisMod]> {
 }
 
 type PlaceRow = { id: string; kind: string; canonical_name: string; parent_id: string | null };
+
+/**
+ * The place path as a walkable trail, with the registry's names rather than the URL's slugs.
+ *
+ * `/pl/ka/bagalkot/badami` used to render its breadcrumb as "Mandate · ka / bagalkot / badami" — a
+ * technical id, a slug, and no way at all back to the country. India is the first crumb and it is a real
+ * link, which is the fix for the defect the audit found: a reader who arrived at a seat could reach that
+ * seat's ancestors and nothing else.
+ *
+ * The hrefs come from the segments, because those are what resolved; the labels come from `place`, because
+ * a slug is not a name. A label that cannot be found falls back to the slug with its hyphens opened out,
+ * so a crumb is never blank.
+ */
+function trailOf(
+  db: DatabaseSync,
+  sql: DbMod,
+  repo: RepoMod,
+  segments: readonly string[],
+  current: string,
+): Crumb[] {
+  const state = segments.at(0);
+  const district = segments.at(1);
+  const ids = [state, district === undefined || state === undefined ? undefined : `${state}.${district}`].filter(
+    (x): x is string => x !== undefined,
+  );
+  const names = new Map<string, string>();
+  if (ids.length > 0) {
+    for (const row of repo.read(() =>
+      sql.all<{ id: string; canonical_name: string }>(
+        db,
+        `SELECT id, canonical_name FROM place WHERE id IN (${ids.map(() => "?").join(",")})`,
+        ...ids,
+      ),
+    )) {
+      names.set(row.id, row.canonical_name);
+    }
+  }
+  const open = (slug: string): string => slug.replace(/-/g, " ");
+  const trail: Crumb[] = [{ label: "India", href: "/" }];
+  // Every ancestor is a link; the last segment is the page itself and carries no href.
+  segments.forEach((seg, i) => {
+    const last = i === segments.length - 1;
+    const id = i === 0 ? seg : i === 1 ? `${state}.${seg}` : null;
+    const label = last ? current : (id === null ? null : names.get(id)) ?? open(seg);
+    trail.push(last ? { label } : { label, href: `/pl/${segments.slice(0, i + 1).join("/")}` });
+  });
+  return trail;
+}
+
+/**
+ * Every election a jurisdiction has held, with who led it and by how many seats.
+ *
+ * Winners only. Reading every losing row to compute a share nothing displays is the difference between
+ * 300,000 rows and a few hundred, and the same argument the deleted history grid made.
+ */
+function stateElections(db: DatabaseSync, sql: DbMod, repo: RepoMod, jurisdiction: string): StateElection[] {
+  const rows = repo.read(() =>
+    sql.all<{ id: string; year: number; house: string; kind: string; seats: number }>(
+      db,
+      `SELECT e.id AS id, e.year AS year, e.house AS house, e.kind AS kind,
+              (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
+         FROM election e
+        WHERE e.jurisdiction_place_id = ?
+        ORDER BY ${CHRONO_DESC}`,
+      jurisdiction,
+    ),
+  );
+  if (rows.length === 0) return [];
+  const won = repo.read(() =>
+    sql.all<{ eid: string; party: string | null; n: number }>(
+      db,
+      `SELECT c.election_id AS eid, COALESCE(pt.short_name, ca.party_raw) AS party, COUNT(*) AS n
+         FROM contest c
+         JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
+         JOIN candidacy ca ON ca.id = r.candidacy_id
+         LEFT JOIN party_version pver ON pver.id = ca.party_version_id
+         LEFT JOIN party pt ON pt.id = pver.party_id
+        WHERE c.election_id IN (${rows.map(() => "?").join(",")})
+        GROUP BY eid, party`,
+      ...rows.map((r) => r.id),
+    ),
+  );
+  return rows.map((r) => {
+    const top = won
+      .filter((w) => w.eid === r.id && w.party !== null)
+      .sort((a, b) => b.n - a.n || (a.party ?? "").localeCompare(b.party ?? ""))
+      .at(0);
+    return {
+      id: r.id,
+      year: r.year,
+      house: r.house,
+      kind: r.kind,
+      seats: r.seats,
+      leaderLabel: top?.party ?? null,
+      leaderSeats: top?.n ?? 0,
+    };
+  });
+}
 
 /**
  * Resolve a URL path to a place and read everything its level actually has. One DB open, closed in
@@ -814,7 +950,7 @@ export async function placeView(segments: readonly string[], search: Search): Pr
     );
     if (place === undefined) return { kind: "not-found" };
 
-    if (place.kind !== "ac") return parentView(db, sql, r, place);
+    if (place.kind !== "ac") return parentView(db, sql, r, place, segments);
 
     const brief = r.getPlaceBrief(db, place.id);
     if (brief === null) return { kind: "not-found" };
@@ -846,7 +982,16 @@ export async function placeView(segments: readonly string[], search: Search): Pr
     const filters = parseFilters(search, { base, years, parties });
     const analysis = an.getPlaceAnalysis(db, place.id, filters.filters);
     if (analysis === null) return { kind: "not-found" };
-    return { kind: "ac", brief, analysis, base, years, parties, filters };
+    return {
+      kind: "ac",
+      brief,
+      analysis,
+      base,
+      years,
+      parties,
+      filters,
+      trail: trailOf(db, sql, r, segments, brief.place.canonicalName),
+    };
   } catch (e) {
     if (repo !== undefined && e instanceof repo.RegistryUnavailableError) {
       return { kind: "unavailable", detail: e.message };
@@ -895,7 +1040,13 @@ function ids(rows: readonly { source_ids: string | null }[]): string[] {
  * its latest declared result. getPlaceAnalysis is an AC measure, so there are no charts here and no
  * placeholder saying there will be.
  */
-function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow): PlaceView {
+function parentView(
+  db: DatabaseSync,
+  sql: DbMod,
+  repo: RepoMod,
+  place: PlaceRow,
+  segments: readonly string[],
+): PlaceView {
   // The latest assembly election IN THIS JURISDICTION, by year.
   //
   // This was `SELECT MAX(election_id) FROM contest`, which was survivable while the registry held one
@@ -964,6 +1115,7 @@ function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow
           `Every assembly seat in ${place.canonical_name} with its ${year} result — ` +
           `${inr(rows.length)} seat${rows.length === 1 ? "" : "s"}. Open one for its brief.`,
         headers: ["No.", "Seat", "Won by", "Member", "Margin", "Turnout"],
+        numeric: [true, false, false, false, true, true],
         rows: rows.map((x) => ({
           href: placeHref({
             kind: "ac",
@@ -983,6 +1135,10 @@ function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow
       },
       sources,
       electionId: election,
+      trail: trailOf(db, sql, repo, segments, place.canonical_name),
+      // A district holds no elections of its own: an election is called for a jurisdiction, and the
+      // district is a grouping inside one.
+      elections: [],
     };
   }
 
@@ -1029,6 +1185,7 @@ function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow
         `Every district with its ${year} seat count and turnout — ${inr(rows.length)} districts, ` +
         `${inr(seats)} seats. Open one for its seats.`,
       headers: ["District", "Seats", "Won most", "Turnout"],
+      numeric: [false, true, false, true],
       rows: rows.map((x) => {
         const t = tally((x.winners ?? "").split(","));
         const top = t.at(0);
@@ -1050,6 +1207,8 @@ function parentView(db: DatabaseSync, sql: DbMod, repo: RepoMod, place: PlaceRow
     },
     sources,
     electionId: election,
+    trail: trailOf(db, sql, repo, segments, place.canonical_name),
+    elections: stateElections(db, sql, repo, place.id),
   };
 }
 

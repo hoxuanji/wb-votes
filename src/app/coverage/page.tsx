@@ -99,7 +99,7 @@ function Election({
         <b> Partial</b> names what is missing, below.
       </p>
 
-      <Metrics columns={6}>
+      <Metrics>
         <Metric
           label="Constituencies"
           value={c.contests}

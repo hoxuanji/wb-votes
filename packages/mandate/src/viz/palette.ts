@@ -5,24 +5,37 @@
 // in this cycle's CSS to measure against.
 // ponytail: dark-only tokens — add the light column when a light surface actually ships.
 
-/** The surface every mark sits on, and the surface every validator run is measured against. */
-export const SURFACE = "#13111B";
+/*
+ * PHASE 2.5: THESE ARE THE STYLESHEET'S TOKENS, NOT A SECOND SET OF THEM.
+ *
+ * Every value below is the iei.css custom property of the same role, copied because an SVG attribute cannot
+ * read a CSS variable through `dangerouslySetInnerHTML` and a runtime lookup is not available to a string
+ * builder. It was a genuinely different palette until this phase: the surfaces named `--panel` and `--muted`
+ * from src/app/p/mandate.css, which this phase DELETED, so a chart was drawing itself on a #13111B card that
+ * the page no longer paints — and the series hues were a separate three-colour set, so BJP was a muted
+ * orange on the national map and a saturated blue on a seat's analysis chart. One product, one palette.
+ */
 
-/** Grid lines. Never drawn over a mark (§24.7). */
-export const LINE_SUBTLE = "#201C2B";
+/** --iei-panel. The surface every mark sits on, and the surface every validator run is measured against. */
+export const SURFACE = "#0d0d13";
 
-/** Values. Never a series colour (§24.7). */
-export const TEXT_PRIMARY = "#F2F0F7";
+/** --iei-line. Grid lines. Never drawn over a mark (§24.7). */
+export const LINE_SUBTLE = "#1e1e28";
 
-/** Legend text and series names beside a swatch. */
-export const TEXT_SECONDARY = "#A7A2B8";
+/** --iei-ink. Values. Never a series colour (§24.7). */
+export const TEXT_PRIMARY = "#f2f2f7";
+
+/** --iei-ink-2. Legend text and series names beside a swatch. */
+export const TEXT_SECONDARY = "#a3a3b3";
 
 /**
- * Axes, units, tick labels. This is src/app/p/mandate.css's `--muted` (#8a8399, 4.6:1 on --panel),
- * NOT §24.2's #6E687F (3.51:1). Cycle 2 lifted the tier precisely so small axis text clears 4.5:1;
- * charts follow the CSS the page is already wearing.
+ * --iei-ink-3. Axes, units, tick labels.
+ *
+ * 4.82:1 on the worst surface it is drawn on, which is the floor small text has to clear. §24.2's #6E687F
+ * is 3.51:1 and is NOT used: charts follow the CSS the page is wearing, and that tier was lifted precisely
+ * so axis text clears 4.5:1.
  */
-export const TEXT_MUTED = "#8A8399";
+export const TEXT_MUTED = "#818198";
 
 /**
  * §24.4, dark. Eight slots, adjacency-gated. Legal in full only where adjacency is KNOWN — which,
@@ -31,9 +44,12 @@ export const TEXT_MUTED = "#8A8399";
  * because they are the §24.4 record, and a truncated copy of a validated palette is a lie.
  */
 export const CATEGORICAL = [
-  "#3987e5", // 1 blue    INC
-  "#d95926", // 2 orange  BJP
-  "#199e70", // 3 aqua    AITC
+  // The first three are repo/home.ts's PARTY_HUES, verbatim, and they are the better-validated set: their
+  // worst-case OKLab ΔE across normal, protan, deutan and tritan vision is computed in home.test.ts, all
+  // pairs, including against the neutral. Nothing measures the eight below that way.
+  "#cd702f", // 1 orange
+  "#6fa4fc", // 2 blue
+  "#e1a6a2", // 3 rose
   "#c98500", // 4 yellow
   "#d55181", // 5 magenta
   "#008300", // 6 green
@@ -54,11 +70,12 @@ export const HUE_CAP = 3;
  * surface, which is the floor a mark has to clear. Both figures are asserted in charts.test.ts —
  * §24.8's "the colour system is a test, not a document".
  */
-export const OTHERS = "#6E687F";
+export const OTHERS = "#7b7490";
 
 /**
  * §24.6 diverging, blue ↔ red, grey between. Used by `slope`, where the encoded dimension is
  * POLARITY (a share rose or fell), not identity — so the three-hue cap does not apply and no
  * legend swatch stands for an entity. `zero` is OTHERS for the same visibility reason as above.
  */
-export const DIVERGING = { up: "#3987e5", down: "#e66767", zero: OTHERS } as const;
+/** --iei-good and --iei-alert: the two hues this product already spends on the direction of a change. */
+export const DIVERGING = { up: "#7fd4a8", down: "#e8927c", zero: OTHERS } as const;

@@ -799,20 +799,15 @@ html {
    A figure with its label and, where one exists, its denominator. One primitive for the tile grids that
    /pl and /coverage each had their own version of. */
 
+/* As many tiles per row as fit, and never an empty cell. The 1px gaps show the hairline colour through, so a
+   grid with a fixed column count and one tile short painted a solid grey block where a tile should be.
+   auto-fit also makes this the one grid in the file that needs no breakpoint. */
 .iei-metrics {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1px;
   margin: 0;
   background: var(--iei-line);
-}
-
-.iei-metrics-4 {
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-}
-
-.iei-metrics-6 {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .iei-metric {
@@ -1252,6 +1247,77 @@ html {
   padding: 1px var(--iei-1);
 }
 
+/* ══════════════════════════ the window filter ══════════════════════════
+   Three selects and a button, as a GET form, on the analysis floor. The only form in the product besides
+   the command bar, and it exists because a range of years and a party is genuinely a form rather than a
+   navigation — a reader is composing a query, not choosing a destination. */
+
+.iei-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--iei-3);
+  margin: 0 0 var(--iei-4);
+}
+
+.iei-filters label {
+  display: block;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+  margin-bottom: var(--iei-1);
+}
+
+.iei-filters select,
+.iei-filters button {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink);
+  background: var(--iei-raised);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  padding: var(--iei-1) var(--iei-2);
+  cursor: pointer;
+}
+
+.iei-filters button {
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: var(--iei-f-mark);
+  padding: var(--iei-2);
+}
+
+.iei-filters select:hover,
+.iei-filters button:hover {
+  border-color: var(--iei-ink-3);
+}
+
+.iei-filters select:focus-visible,
+.iei-filters button:focus-visible {
+  outline: none;
+  border-color: var(--iei-ink);
+  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
+}
+
+/* A server-rendered chart. charts.ts emits a complete <svg> with a 640-unit viewBox and no width, so
+   `width: 100%` scaled it to the container and took its 11px axis labels with it: at 1,040px of reading
+   measure every tick and legend rendered at 17.9px, which made a chart legend louder than the section
+   heading above it. Capping the box at its authored width keeps the type at the size it was chosen at. */
+.iei-fig {
+  margin: 0 0 var(--iei-4);
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.iei-fig svg {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+}
+
 /* ══════════════════════════ the map ══════════════════════════
    The canvas, and the only place on the page where hue carries meaning. */
 
@@ -1506,10 +1572,6 @@ html {
     gap: var(--iei-6);
   }
 
-  .iei-metrics-6 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
   .iei-scroll-tall {
     max-height: 380px;
   }
@@ -1597,11 +1659,6 @@ html {
     max-width: none;
   }
 
-  .iei-metrics,
-  .iei-metrics-4,
-  .iei-metrics-6 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
 }
 
 /* iOS Safari zooms the page when a focused input's text is under 16px, which on a sticky header means the
@@ -1650,6 +1707,8 @@ html {
   .iei-tab-on,
   .iei-tab:focus-visible,
   .iei-tiles a:focus-visible,
+  .iei-filters select:focus-visible,
+  .iei-filters button:focus-visible,
   .iei-cell:focus-visible {
     outline: 2px solid CanvasText;
     outline-offset: 1px;

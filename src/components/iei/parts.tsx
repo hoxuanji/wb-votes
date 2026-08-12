@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import type { SourceRef } from '../../../packages/mandate/src/repo/index.ts';
+import { ABSENT } from '../../../packages/mandate/src/semantic/measures.ts';
 
 /**
  * The product's vocabulary. Every surface is built out of these and nothing else.
@@ -143,10 +144,24 @@ export function Value({
   );
 }
 
-/** A headline figure with its label and, where one exists, its denominator. */
+/**
+ * A headline figure with its label and, where one exists, its denominator.
+ *
+ * `text` is the door for a figure the repo layer has already formatted — `Tile.value` from brief.ts is a
+ * string, because the semantic layer owns how a turnout, a margin or an effective-party count is written,
+ * and a component must not re-round what it was handed.
+ *
+ * A text figure equal to `ABSENT` is the semantic layer's one absence token, and it renders as WORDS in the
+ * absence style. That is the product's rule — a dash beside other numbers reads as zero — and it was being
+ * broken on every place and person page, which printed a literal em dash at 19px wherever a source had
+ * published no margin. Recognising the token beats guessing: the first attempt at this asked whether the
+ * string contained a digit, and rendered "once" (a real count of how often a seat has changed hands) in the
+ * muted tier reserved for figures that do not exist.
+ */
 export function Metric({
   label,
   value,
+  text,
   of,
   unit,
   absent = 'not held',
@@ -155,7 +170,9 @@ export function Metric({
   sources,
 }: {
   label: string;
-  value: number | null;
+  value?: number | null;
+  /** A pre-formatted figure. Mutually exclusive with `value`. */
+  text?: string;
   of?: number | null;
   unit?: string;
   absent?: string;
@@ -168,7 +185,16 @@ export function Metric({
     <div className="iei-metric">
       <dt>{label}</dt>
       <dd>
-        <Value value={value} of={of} unit={unit} absent={absent} decimals={decimals} />
+        {text === undefined ? (
+          <Value value={value ?? null} of={of} unit={unit} absent={absent} decimals={decimals} />
+        ) : text === ABSENT ? (
+          <span className="iei-absent">{absent}</span>
+        ) : (
+          <>
+            {text}
+            {unit === undefined ? null : <span className="iei-of"> {unit}</span>}
+          </>
+        )}
         {sources === undefined || sources.length === 0 ? null : <Evidence sources={sources} inline />}
         {hint === undefined ? null : <small>{hint}</small>}
       </dd>
@@ -177,13 +203,19 @@ export function Metric({
 }
 
 /**
- * A grid of metrics. `columns` is the count at desktop width; the breakpoints reduce it.
+ * A grid of metrics, as many per row as fit.
+ *
+ * NO COLUMN COUNT. It took one — 3, 4 or 6 — and every caller had to guess how many tiles its data would
+ * produce. `placeTiles` produces five for a seat with no demographic claim and six for one with, so a
+ * six-column grid rendered a sixth cell with nothing in it, and because the grid paints the hairline colour
+ * behind its 1px gaps, that empty cell was a solid grey block sitting in the row like a broken tile.
+ * `auto-fit` cannot do that, and it needs no breakpoints either.
  *
  * `<dl>` rather than a row of divs, because a label and its figure are a description list and a screen
- * reader is told so.
+ * reader should be told so.
  */
-export function Metrics({ columns = 3, children }: { columns?: 3 | 4 | 6; children: React.ReactNode }) {
-  return <dl className={columns === 3 ? 'iei-metrics' : `iei-metrics iei-metrics-${columns}`}>{children}</dl>;
+export function Metrics({ children }: { children: React.ReactNode }) {
+  return <dl className="iei-metrics">{children}</dl>;
 }
 
 /**

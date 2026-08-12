@@ -3,7 +3,7 @@ import test from "node:test";
 import { percent, percentagePoints } from "../semantic/index.ts";
 import { bars, lines, slope } from "./charts.ts";
 import { barPath, escapeXml, hueMap, labelIndices, spread, ticks } from "./marks.ts";
-import { CATEGORICAL, DIVERGING, OTHERS, SURFACE } from "./palette.ts";
+import { CATEGORICAL, DIVERGING, LINE_SUBTLE, OTHERS, SURFACE, TEXT_MUTED, TEXT_PRIMARY } from "./palette.ts";
 
 const ELECTIONS = ["2011", "2016", "2021", "2026"] as const;
 
@@ -240,7 +240,9 @@ test("line markers are >= 8px and carry a 2px surface ring", () => {
     format: percent,
   });
   assert.equal([...c.svg.matchAll(/<circle /g)].length, 4);
-  assert.ok(c.svg.includes(`r="4" fill="${CATEGORICAL[0]}" stroke="#13111B" stroke-width="2"`));
+  // SURFACE, not a literal: the halo around a data point is the page's own panel colour, and hard-coding it
+  // is how a chart kept drawing itself on a surface the stylesheet had stopped painting.
+  assert.ok(c.svg.includes(`r="4" fill="${CATEGORICAL[0]}" stroke="${SURFACE}" stroke-width="2"`));
   assert.ok(c.svg.includes(`stroke="${CATEGORICAL[0]}" stroke-width="2"`), "2px line");
 });
 
@@ -281,7 +283,9 @@ test("direct labels land on the first, last and extreme values only", () => {
     format: percent,
   });
   assert.equal([...c.svg.matchAll(/<circle /g)].length, 6);
-  assert.equal([...c.svg.matchAll(/fill="#F2F0F7"/g)].length, 3, "three direct value labels");
+  // The TOKEN, not its value. Three of these assertions restated the hexes, so they failed the moment the
+  // palette was pointed at the stylesheet's own tokens — which is the palette being right, not wrong.
+  assert.equal([...c.svg.matchAll(new RegExp(`fill="${TEXT_PRIMARY}"`, "g"))].length, 3, "three direct value labels");
 });
 
 test("grid lines are line-subtle and drawn before the marks", () => {
@@ -293,9 +297,9 @@ test("grid lines are line-subtle and drawn before the marks", () => {
     series: [{ key: "ac", label: "This seat", values: [80, 81, 82, 83] }],
     format: percent,
   });
-  assert.ok(c.svg.includes('stroke="#201C2B"'), "grid in line-subtle");
-  assert.ok(c.svg.indexOf('stroke="#201C2B"') < c.svg.indexOf("<circle"), "grid is under the marks");
-  assert.ok(c.svg.includes('fill="#8A8399"'), "axis text recessive");
+  assert.ok(c.svg.includes(`stroke="${LINE_SUBTLE}"`), "grid in line-subtle");
+  assert.ok(c.svg.indexOf(`stroke="${LINE_SUBTLE}"`) < c.svg.indexOf("<circle"), "grid is under the marks");
+  assert.ok(c.svg.includes(`fill="${TEXT_MUTED}"`), "axis text recessive");
 });
 
 test("direct labels never stack on one baseline", () => {
@@ -315,7 +319,9 @@ test("direct labels never stack on one baseline", () => {
     ],
     format: percent,
   });
-  const valueYs = [...c.svg.matchAll(/<text x="56" y="([\d.]+)" fill="#F2F0F7"/g)].map((m) => Number(m[1]));
+  const valueYs = [
+    ...c.svg.matchAll(new RegExp(`<text x="56" y="([\\d.]+)" fill="${TEXT_PRIMARY}"`, "g")),
+  ].map((m) => Number(m[1]));
   assert.equal(valueYs.length, 3, "three 2011 values, one per series");
   const sortedYs = valueYs.slice().sort((a, b) => a - b);
   for (let n = 1; n < sortedYs.length; n += 1) {

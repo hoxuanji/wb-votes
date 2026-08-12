@@ -152,13 +152,23 @@ test("the layout collapses to one column on a phone rather than shrinking", () =
   const wide = CSS.slice(0, CSS.indexOf("@media (max-width: 1080px)"));
   const grids = new Set<string>();
   for (const m of wide.matchAll(/\.(iei-[a-z0-9-]+)[^{}]*\{([^}]*grid-template-columns:[^;]*;[^}]*)\}/g)) {
-    const cols = /grid-template-columns:([^;]*);/.exec(m[2] as string)?.[1] ?? "";
-    const n = (cols.match(/minmax|repeat\((\d+)/) ?? []).length;
-    const repeat = /repeat\((\d+)/.exec(cols);
-    const multi = repeat !== null ? Number(repeat[1]) > 1 : (cols.match(/minmax/g) ?? []).length > 1 || n > 1;
+    const cols = (/grid-template-columns:([^;]*);/.exec(m[2] as string)?.[1] ?? "").trim();
+    // `repeat(auto-fit, …)` has no fixed count and is responsive by construction, so it is not a grid that
+    // needs a breakpoint. Everything else is multi-column if it repeats more than once or names more than
+    // one track.
+    const fixedRepeat = /repeat\(\s*(\d+)/.exec(cols);
+    const tracks = (cols.match(/minmax\(|(?:^|\s)(?:auto|\d+(?:px|fr|%))/g) ?? []).length;
+    const multi = fixedRepeat !== null ? Number(fixedRepeat[1]) > 1 : !/auto-fit|auto-fill/.test(cols) && tracks > 1;
     if (multi) grids.add(m[1] as string);
   }
-  assert.ok(grids.size >= 4, `only ${grids.size} multi-column grids found — the parser has stopped matching`);
+  // Three: the two-column panel row, its wide variant, and the map split. The metric grid is deliberately
+  // NOT among them — `repeat(auto-fit, minmax(...))` is responsive by construction and has no column count
+  // to redeclare, which is also why it can never render an empty cell.
+  assert.ok(grids.size >= 3, `only ${grids.size} multi-column grids found — the parser has stopped matching`);
+  assert.ok(
+    !grids.has("iei-metrics"),
+    "the metric grid has a fixed column count again; auto-fit is what stops it painting an empty cell",
+  );
   for (const grid of grids) {
     assert.ok(
       new RegExp(`\\.${grid}[^{]*\\{[^}]*grid-template-columns`).test(narrow),
@@ -196,6 +206,8 @@ test("every length in the stylesheet comes from the scale", () => {
     "56px", // the minimum width of a bar column, so a bar is never a sliver
     "44px", // the minimum width of a magnitude track
     "320px", // the map's minimum column before the split stacks
+    "640px", // the authored width of a chart's viewBox, so its type is not scaled up
+    "200px", // the narrowest a metric tile may be before the grid drops a column
     "1040px", // the reading measure
     "300px",
     "380px",

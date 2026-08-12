@@ -3,6 +3,7 @@
 
 export type { Measure, Unit } from "./measures.ts";
 export {
+  ABSENT,
   MEASURES,
   enp,
   incumbency_retention,

@@ -47,21 +47,31 @@ const TRUNCATION =
 // percent and percentagePoints — are here.
 
 /** One decimal, always, so a column of them stays tabular. */
+/**
+ * The one string this layer emits for "the source published no figure".
+ *
+ * It is a dash because a formatted table needs a placeholder of a known width, and it is a CONSTANT because
+ * the display layer has to be able to recognise it: the product's rule is that an absence is rendered as
+ * words, never as a bare dash beside other numbers, and a component cannot apply that rule to a string it
+ * has to guess about. `Metric` turns this into "not reported" in the absence style.
+ */
+export const ABSENT = "—";
+
 export function percent(value: number | null): string {
-  return value === null ? "—" : `${value.toFixed(1)}%`;
+  return value === null ? ABSENT : `${value.toFixed(1)}%`;
 }
 
 /** Sign FIRST, so direction survives greyscale, a screen reader, and a colour-blind reader (§24,
  *  §27): colour may repeat the sign, never carry it alone. U+2212 minus, not a hyphen. */
 export function percentagePoints(value: number | null): string {
-  if (value === null) return "—";
+  if (value === null) return ABSENT;
   const sign = value > 0 ? "+" : value < 0 ? "−" : "±";
   return `${sign}${Math.abs(value).toFixed(1)} pp`;
 }
 
 /** Laakso–Taagepera and other pure counts read better at two decimals. */
 function twoDp(value: number | null): string {
-  return value === null ? "—" : value.toFixed(2);
+  return value === null ? ABSENT : value.toFixed(2);
 }
 
 function pct(part: number | null, whole: number | null): number | null {
@@ -191,7 +201,7 @@ export const incumbency_retention: Measure<{
     PROVENANCE,
   ],
   modelCard: "docs/methodology/incumbency_retention.md",
-  format: (v) => (v === null ? "—" : v === 1 ? "held" : v === 0 ? "changed hands" : percent(v * 100)),
+  format: (v) => (v === null ? ABSENT : v === 1 ? "held" : v === 0 ? "changed hands" : percent(v * 100)),
   compute: ({ winningPartyId, previousWinningPartyId, sameEpoch }) =>
     !sameEpoch || winningPartyId === null || previousWinningPartyId === null
       ? null
