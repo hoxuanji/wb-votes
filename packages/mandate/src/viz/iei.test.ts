@@ -128,6 +128,21 @@ test("focus is always visible, and forced-colors gets a real outline", () => {
   );
 });
 
+test("every context that can hold a link in prose has the one link treatment", () => {
+  // The defect this caught: the treatment covered `.iei-record a` and `.iei-foot a` and nothing else, so a
+  // link inside a section note, a caveat, a table caption, a data row's detail or the line under an answer
+  // fell through to the browser default — blue and underlined, on a page whose one stated rule is that hue is
+  // spent on data alone. Six contexts render prose that may contain a link; all six must be named.
+  const treated = /\.iei-record a,([\s\S]*?)\.iei-body-link \{/.exec(CSS)?.[1] ?? "";
+  for (const cls of ["iei-note", "iei-caveat", "iei-sub", "iei-empty", "iei-row-d", "iei-t caption"]) {
+    assert.ok(treated.includes(`.${cls} a,`), `.${cls} a is not in the link treatment`);
+  }
+  // And each has a hover and a focus rule, or the treatment is decoration rather than an affordance.
+  for (const state of ["hover", "focus-visible"]) {
+    assert.match(CSS, new RegExp(`\\.iei-note a:${state}`), `.iei-note a has no :${state}`);
+  }
+});
+
 test("motion is opt-out, and the reduced-motion rule covers pseudo-elements too", () => {
   assert.match(CSS, /@media \(prefers-reduced-motion: reduce\)/);
   const block = /@media \(prefers-reduced-motion: reduce\) \{([\s\S]*?)\n\}/.exec(CSS)?.[1] ?? "";

@@ -139,3 +139,42 @@ to discover it. Hiding a column that carried a figure would be worse.
   labels would drop the jurisdiction, which is the one thing that distinguishes one chip from the next.
 * **`/review/merges` was reviewed at 1440 only.** It is an internal queue, linked from nothing, with a
   mutating POST.
+
+## The question the phase ends on
+
+> *If I removed another 10% of the visible interface, would the product become worse?*
+
+**Yes — and this is the element-by-element answer rather than a shrug**, because a "no" here is only
+credible if every remaining thing has been asked to justify itself by name.
+
+The front page has four sections, one dateline, one sentence, four prose caveats and one footer. Going
+through them:
+
+| element | what it would cost to remove |
+| --- | --- |
+| The dateline's six counts | The page's only statement of its own scope. It already replaced a six-tile strip. |
+| The computed headline | The answer to "what is happening". Nothing else on the page is a sentence. |
+| Map + layer strip + legend | The primary visual and the primary navigation. |
+| The 36-row companion table | The exact answer the map can only approximate, and the only route to the eight jurisdictions too small to click — which is what the tile row under it exists for. |
+| Next, with its derived caveat | "No date on this list was announced by anyone" is the anti-fabrication statement. Without it the table reads as a schedule. |
+| The overdue note | The difference between "eight elections are coming" and "our data stops here". |
+| Just decided | "What just happened", and the only place coverage per election is surfaced at all. |
+| Party landscape | "Where does each party hold power". Its caveat prevents a misreading of the largest number on the page: 1,450 assembly seats summed across elections spanning 2014–2026. |
+| The Share column | A different fact from seats, and the one place `<0.1%` appears — the demonstration that a small share is not zero. |
+| The Trend sparklines | The only longitudinal view on the page; `vs 2019` is one step, the trend is five. |
+| Watch, with its disclaimer | Eight signals found eight different ways, and the product's position on prediction. |
+| The footer | What the product is, and the link to what it does not hold. |
+
+**One thing did fall out of asking.** The footer said "Nothing is modelled, predicted or filled in", and the
+Watch section says "Nothing here is a prediction. No model, no forecast, no probability" one screen above it,
+where it is load-bearing. The footer's copy is cut.
+
+And one defect fell out of looking again rather than of measuring: the link treatment covered the dateline
+and the footer and nothing else, so a link inside a section note, a caveat, a table caption, a data row's
+detail or the line under an answer fell through to the browser default — blue and underlined, on a page whose
+one stated rule is that hue is spent on data alone. Six contexts, now named in the stylesheet and asserted by
+`viz/iei.test.ts`.
+
+The measured position, from the rendered markup: **44% fewer sections, 43% fewer tables, 53% fewer rows, 55%
+fewer table cells, 64% fewer prose caveats, 52% fewer visible words, and no metric tiles at all.** The
+brief's target was 30–50%.

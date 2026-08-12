@@ -503,9 +503,11 @@ export default function Home({
 
       <footer className="iei-foot">
         <p>
+          {/* "Nothing is modelled, predicted or filled in" used to be here as well. The Watch section says
+              it one screen up, in the place where it is load-bearing. */}
           India Election Intelligence is a registry of Indian elections in which every figure carries its
-          source, its derivation and its uncertainty. Nothing is modelled, predicted or filled in. What is
-          loaded, what is not, and where the gaps are: <Link href="/coverage">/coverage</Link>.
+          source, its derivation and its uncertainty. What is loaded, what is not, and where the gaps are:{' '}
+          <Link href="/coverage">/coverage</Link>.
         </p>
       </footer>
     </Shell>

@@ -380,8 +380,19 @@ html {
   font-variant-numeric: tabular-nums;
 }
 
+/* ONE LINK TREATMENT FOR EVERY LINK IN PROSE, and the list is exhaustive on purpose.
+   It covered the dateline and the footer, and nothing else — so a link inside a section's note, a caveat, a
+   table caption, a data row's detail or the sub-line under an answer fell through to the browser default and
+   rendered as blue, underlined, on a page whose one stated rule is that hue is spent on data alone. There
+   were six of them: the Coverage link at the end of Next's overdue note was the visible one. */
 .iei-record a,
 .iei-foot a,
+.iei-note a,
+.iei-caveat a,
+.iei-sub a,
+.iei-empty a,
+.iei-row-d a,
+.iei-t caption a,
 .iei-body-link {
   color: var(--iei-ink-2);
   text-decoration: none;
@@ -390,12 +401,24 @@ html {
 
 .iei-record a:hover,
 .iei-foot a:hover,
+.iei-note a:hover,
+.iei-caveat a:hover,
+.iei-sub a:hover,
+.iei-empty a:hover,
+.iei-row-d a:hover,
+.iei-t caption a:hover,
 .iei-body-link:hover {
   color: var(--iei-ink);
 }
 
 .iei-record a:focus-visible,
 .iei-foot a:focus-visible,
+.iei-note a:focus-visible,
+.iei-caveat a:focus-visible,
+.iei-sub a:focus-visible,
+.iei-empty a:focus-visible,
+.iei-row-d a:focus-visible,
+.iei-t caption a:focus-visible,
 .iei-body-link:focus-visible {
   outline: none;
   color: var(--iei-ink);
@@ -1701,6 +1724,12 @@ html {
   .iei-row-h a:focus-visible,
   .iei-body-link:focus-visible,
   .iei-record a:focus-visible,
+  .iei-note a:focus-visible,
+  .iei-caveat a:focus-visible,
+  .iei-sub a:focus-visible,
+  .iei-empty a:focus-visible,
+  .iei-row-d a:focus-visible,
+  .iei-t caption a:focus-visible,
   .iei-foot a:focus-visible {
     outline: 2px solid CanvasText;
     outline-offset: 2px;
