@@ -43,8 +43,17 @@ export type CoverageRow = {
   seats: number;
   /** Seats with a declared winner. A seat with no result is not a geometry problem. */
   decided: number;
-  /** Seats the registry holds a polygon for. */
+  /**
+   * Seats the registry holds a polygon for IN ONE COORDINATE SPACE — the space most of them are in.
+   *
+   * Not simply the row count. `place_geometry.view_box` is per row because two geometry sources need not
+   * share a projection, and a map can only draw the polygons that agree about the plane. West Bengal held
+   * 276 constituencies from a published boundary set and 31 left over from a repo module in the old
+   * 400x580 frame; counting 307 would have reported COMPLETE for a map that draws 276.
+   */
   drawn: number;
+  /** Polygons in some other frame. Held, and undrawable beside the rest. */
+  otherFrames: number;
   /** Distinct projection frames among those polygons. More than one cannot be drawn together. */
   frames: string[];
   /** Publishers behind those polygons, from `source`. */
@@ -100,7 +109,9 @@ type GroupSql = {
   fullElections: number;
   seats: number;
   decided: number;
+  held: number;
   drawn: number;
+  mainFrame: string | null;
   frames: string | null;
   publishers: string | null;
 };
@@ -135,7 +146,16 @@ export function geometryCoverage(db: DatabaseSync): Coverage {
             SUM(CASE WHEN EXISTS (SELECT 1 FROM contest c JOIN result r ON r.contest_id = c.id
                                    WHERE c.place_version_id = s.version_id AND r.is_winner = 1)
                      THEN 1 ELSE 0 END) AS decided,
-            SUM(CASE WHEN g.place_version_id IS NULL THEN 0 ELSE 1 END) AS drawn,
+            SUM(CASE WHEN g.place_version_id IS NULL THEN 0 ELSE 1 END) AS held,
+            -- The frame most of this group's polygons are in, and how many are in it. A map draws those.
+            (SELECT g3.view_box FROM place_geometry g3 JOIN place_version pv3 ON pv3.id = g3.place_version_id
+              WHERE pv3.jurisdiction_id = s.j AND pv3.kind = s.house AND pv3.epoch_id = s.epoch
+              GROUP BY g3.view_box ORDER BY COUNT(*) DESC, g3.view_box LIMIT 1) AS mainFrame,
+            SUM(CASE WHEN g.view_box IS NOT NULL AND g.view_box = (
+                  SELECT g3.view_box FROM place_geometry g3 JOIN place_version pv3 ON pv3.id = g3.place_version_id
+                   WHERE pv3.jurisdiction_id = s.j AND pv3.kind = s.house AND pv3.epoch_id = s.epoch
+                   GROUP BY g3.view_box ORDER BY COUNT(*) DESC, g3.view_box LIMIT 1)
+                THEN 1 ELSE 0 END) AS drawn,
             -- char(31) as the separator, not a comma: a source title contains commas, and splitting on
             -- one turned "WB assembly constituency outlines, projected SVG" into two publishers.
             -- GROUP_CONCAT(DISTINCT x) refuses a separator argument, hence the nested DISTINCT.
@@ -174,6 +194,7 @@ export function geometryCoverage(db: DatabaseSync): Coverage {
     seats: g.seats,
     decided: g.decided,
     drawn: g.drawn,
+    otherFrames: g.held - g.drawn,
     frames: split(g.frames),
     publishers: split(g.publishers),
     status:

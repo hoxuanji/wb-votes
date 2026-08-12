@@ -28,7 +28,7 @@ const AC: Dataset = {
   publishedOn: null,
   fields: { state: "ST_NAME", number: "AC_NO", name: "AC_NAME", district: "DIST_NAME" },
   epochField: "STATUS",
-  epochWhen: { "Pre delimitation": "before-dpaco-2008", "": "after-dpaco-2008" },
+  epochVintage: { "Pre delimitation": "2008-02-18", "": "2014-11-24" },
   jurisdictions: {},
   caveats: [],
 };
@@ -99,6 +99,31 @@ test("a seat key drops a reservation tag, balanced or not", () => {
   assert.equal(seatKey("Kilvaithinankuppam(SC"), "kilvaithinankuppam");
   assert.equal(seatKey("Sulthanbathery (S"), "sulthanbathery");
   assert.equal(seatKey("Dr.Radhakrishnan Nagar"), "drradhakrishnannagar");
+  // A bracket does not always hold a tag. "Gandhinagar(South)" is the seat's name and the registry writes
+  // it "GANDHINAGAR SOUTH", so throwing the bracket away turned a match into a near-miss.
+  assert.equal(seatKey("Gandhinagar(South)"), "gandhinagarsouth");
+  assert.equal(seatKey("GANDHINAGAR SOUTH"), "gandhinagarsouth");
+  assert.equal(seatKey("Leh (Ladakh)"), "lehladakh");
+});
+
+test("an epoch that takes effect after the source's vintage cannot be chosen", () => {
+  // This is what keeps the 2014 parliamentary set off Assam's 2023 order and J&K's 2022 one. The earlier
+  // rule scored epochs by name agreement and could not separate 5 of 6 from 3.
+  const db = fixture();
+  db.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('delim-2022-xx', 'A later order', '2022-05-20');
+    INSERT INTO place (id, kind, parent_id, canonical_name) VALUES ('ka.new.001', 'ac', 'ka', 'Alpha');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name)
+      VALUES (8, 'ka.new.001', 'ka', 'ac', 'delim-2022-xx', 1, 'Alpha');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year)
+      VALUES ('ka-2024', 'assembly', 'state', 'ka', 'delim-2022-xx', 'Karnataka 2024', 'declared', 'ac', 2024);
+    INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('k6', 'ka-2024', 8, 'declared');
+  `);
+  const r = inspectGeometry(db, AC, [feature({ ST_NAME: "KARNATAKA", AC_NO: 1, AC_NAME: "Alpha" }, [square(77, 13)])]);
+  // Both epochs hold an "Alpha" at number 1, so names cannot separate them. The date can.
+  assert.equal(r.jurisdictions[0]?.epochId, "delim-2008");
+  assert.equal(r.links[0]?.versionId, 1);
+  db.close();
 });
 
 // ── projection ────────────────────────────────────────────────────────────────
@@ -158,7 +183,7 @@ test("a feature with no number or no name is unusable, dropped and counted", () 
 
 // ── epoch ─────────────────────────────────────────────────────────────────────
 
-test("the source's own declaration decides the side of DPACO 2008", () => {
+test("the source's own declared vintage decides which epoch was in force", () => {
   const db = fixture();
   const after = inspectGeometry(db, AC, [feature({ ST_NAME: "KARNATAKA", AC_NO: 1, AC_NAME: "Alpha" }, [square(77, 13)])]);
   assert.equal(after.jurisdictions[0]?.epochId, "delim-2008");

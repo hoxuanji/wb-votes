@@ -36,9 +36,10 @@
         "district": "DIST_NAME"
       },
       "epochField": "STATUS",
-      "epochWhen": {
-        "Pre delimitation": "before-dpaco-2008",
-        "": "after-dpaco-2008"
+      "epochVintage": {
+        "note": "WHEN each polygon's boundaries were in force. The epoch resolver takes the latest epoch the registry contests whose effective_from is on or before this date, which is a question with one answer instead of a threshold. Features the publisher marks pre-delimitation are the boundaries in force the day before DPACO 2008; everything else is the set in force when the shapefile was authored.",
+        "Pre delimitation": "2008-02-18",
+        "": "2014-11-24"
       },
       "jurisdictions": {
         "note": "Only where the source's own spelling does not normalise to a registry jurisdiction name, or where one source key covers several jurisdictions. Everything else resolves by name.",
@@ -81,8 +82,9 @@
         "reservation": "Res"
       },
       "epochField": null,
-      "epochWhen": {
-        "": "after-dpaco-2008"
+      "epochVintage": {
+        "note": "The 2014 Lok Sabha's constituencies, so the boundaries in force on polling day. This is what keeps the set off Assam's delim-2023-as and Jammu & Kashmir's delim-2022-jk: both orders take effect after this date, so neither can be selected.",
+        "": "2014-05-12"
       },
       "jurisdictions": {
         "note": "ST_NAME here is a two-letter code, which matches most registry ids already. These are the ones that do not.",

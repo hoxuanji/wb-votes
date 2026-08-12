@@ -75,10 +75,16 @@ export function StateMap({
 
   // The frame comes from the paths being drawn, whichever level that is — one shape of input, so the two
   // branches cannot disagree about what "the whole state" means.
+  //
+  // A FOCUS WITH NOTHING DRAWABLE FALLS BACK TO THE STATE, and says so. Some districts' seats are all in
+  // the staged list, and framing an empty set left `box` null, which fell through to the whole COUNTRY's
+  // viewBox — the one case where a district click could zoom out to India.
+  const inFocusDrawable = focus === null ? drawable : drawable.filter(inFocus);
+  const unframeable = focus !== null && constituencies && inFocusDrawable.length === 0;
   const framing: readonly { path: string | null }[] = constituencies
-    ? focus === null
+    ? unframeable
       ? drawable
-      : drawable.filter(inFocus)
+      : inFocusDrawable
     : outlines;
   const box = boxOf(framing, focusOutline);
   const viewBox = box === null ? (view.geometry.viewBox ?? '0 0 400 580') : frame(box);
@@ -170,10 +176,12 @@ export function StateMap({
               "BANGALORE" is "Bengaluru Urban" and "Bengaluru Rural" in the census geometry, so the map cannot
               frame it — and a map that quietly stayed at state level while the heading said BANGALORE would be
               answering a different question from the one it was asked. */}
-          {focus !== null && focusOutline === null && !constituencies ? (
+          {focus !== null && ((focusOutline === null && !constituencies) || unframeable) ? (
             <>
-              <b>{focus.name}</b> has no boundary in the 2011 census geometry under that name, so the map stays
-              at state level. The tally beside it is still this district&rsquo;s own.{' '}
+              The map stays at state level: the registry holds no boundary this map can frame{' '}
+              <b>{focus.name}</b> with
+              {unframeable ? ' — every one of its constituencies is in the staged list' : ' under that name'}.
+              The tally beside it is still this district&rsquo;s own.{' '}
             </>
           ) : null}
           {constituencies ? (

@@ -104,6 +104,15 @@ export type StateMapView = {
     epochs: string[];
     /** The epochs the registry holds ANY polygon for, in this jurisdiction. */
     epochsHeld: string[];
+    /**
+     * Polygons withheld because they are in a DIFFERENT COORDINATE SPACE from the rest.
+     *
+     * `place_geometry.view_box` is per row on purpose — two geometry sources need not share a projection —
+     * and this is the case it exists to catch. West Bengal held 276 constituencies from a published
+     * boundary set and 31 left over from a repo module in the old 400x580 frame; drawing them in one SVG
+     * puts 31 polygons somewhere they are not. Withheld and counted, rather than drawn wrongly.
+     */
+    otherFrames: number;
   };
 };
 
@@ -193,7 +202,7 @@ export function stateMapView(
         seats: [],
         districts: [],
         legend: [],
-        geometry: { viewBox: null, drawable: 0, total: 0, epochs: [], epochsHeld },
+        geometry: { viewBox: null, drawable: 0, total: 0, epochs: [], epochsHeld, otherFrames: 0 },
       };
     }
 
@@ -227,6 +236,17 @@ export function stateMapView(
       election.id,
     );
 
+    // ONE COORDINATE SPACE PER MAP. The frame most of this election's polygons are in wins, and a polygon
+    // in any other frame is withheld — a path is only meaningful beside the paths it shares a projection
+    // with, and `view_box` is stored per row precisely because nothing guarantees that.
+    const frames = new Map<string, number>();
+    for (const r of rows) {
+      if (r.viewBox === null || r.path === null) continue;
+      frames.set(r.viewBox, (frames.get(r.viewBox) ?? 0) + 1);
+    }
+    const frame = [...frames].sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const otherFrames = rows.filter((r) => r.path !== null && r.viewBox !== frame).length;
+
     const pct = (n: number | null, of: number | null): number | null =>
       n === null || of === null || of <= 0 ? null : Number(((100 * n) / of).toFixed(2));
 
@@ -252,7 +272,7 @@ export function stateMapView(
         x.stateId !== null && x.districtId !== null && x.districtId.startsWith(`${x.stateId}.`)
           ? `/pl/${x.stateId}/${x.districtId.slice(x.stateId.length + 1)}/${slug(x.name)}`
           : null,
-      path: x.path,
+      path: x.viewBox === frame ? x.path : null,
     }));
 
     // The tally, per district. Parties plural, and no winner — see the type.
@@ -297,11 +317,12 @@ export function stateMapView(
       districts,
       legend,
       geometry: {
-        viewBox: rows.find((r) => r.viewBox !== null)?.viewBox ?? null,
+        viewBox: frame,
         drawable: seats.filter((s) => s.path !== null).length,
         total: seats.length,
         epochs: [...new Set(rows.map((r) => r.epoch))].sort(),
         epochsHeld,
+        otherFrames,
       },
     };
   });

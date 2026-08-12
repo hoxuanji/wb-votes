@@ -113,6 +113,22 @@ test("a source title containing a comma stays one publisher", () => {
   db.close();
 });
 
+test("a polygon in another coordinate space is held, not counted as drawable", () => {
+  // `view_box` is per row because two sources need not share a projection, and a map can only draw the
+  // polygons that agree about the plane. Counting the row would report COMPLETE for a map with holes.
+  const db = fixture();
+  db.exec(`
+    INSERT INTO place_geometry (place_version_id, path, centroid_x, centroid_y, view_box, source_id) VALUES
+      (1, 'M0 0L1 0L1 1Z', 0.5, 0.5, '0 0 10 10', 'src-geo'),
+      (2, 'M2 0L3 0L3 1Z', 2.5, 0.5, '0 0 400 580', 'src-geo')`);
+  const r = rowFor(geometryCoverage(db), "ac", "new");
+  assert.equal(r?.drawn, 1);
+  assert.equal(r?.otherFrames, 1);
+  assert.equal(r?.status, "PARTIAL");
+  assert.equal(r?.frames.length, 2);
+  db.close();
+});
+
 test("elections carry their own drawability, and their epochs", () => {
   const db = fixture();
   db.exec(

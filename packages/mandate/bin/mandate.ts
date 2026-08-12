@@ -28,6 +28,7 @@ import { backfillGeography } from "../src/ingest/geography/backfill.ts";
 import { applyDelimitation } from "../src/ingest/geography/delimitation.ts";
 import { validateGeography } from "../src/ingest/geography/validate.ts";
 import { COVERAGE_PREFACE, formatCoverage, geometryCoverage } from "../src/ingest/geography/geometry-coverage.ts";
+import type { InspectReport } from "../src/ingest/geography/geometry.ts";
 import {
   importGeometry,
   inspectGeometry,
@@ -35,7 +36,7 @@ import {
   readDataset,
   sourceKindAvailable,
 } from "../src/ingest/geography/geometry.ts";
-import { formatGeometryReport } from "../src/ingest/geography/geometry-report.ts";
+import { formatGeometryReport, markdownGeometryReport } from "../src/ingest/geography/geometry-report.ts";
 import { httpGet } from "../src/ingest/sources/eci/transport.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
@@ -80,9 +81,10 @@ const USAGE = `mandate <command>
                                what the map can draw, per jurisdiction/house/boundary epoch
   geography fetch [--dataset=<id>]
                                acquire the declared boundary datasets and verify their sha256
-  geography inspect [--dataset=<id>] [--only=ka,up]
+  geography inspect [--dataset=<id>] [--only=ka,up] [--write]
                                resolve every polygon to a jurisdiction, epoch and place_version, and
                                report what would be written and what is staged for review
+                               (--write regenerates docs/geo/import.md, the review queue)
   geography import [--dataset=<id>] [--only=ka,up] [--apply] [--replace]
                                write what inspect decided (dry run without --apply)
   geography backfill [--apply] restore each constituency's own name per delimitation, from source
@@ -638,6 +640,7 @@ try {
         }
         const wanted = arg("dataset");
         const only = arg("only")?.split(",").filter((s) => s !== "");
+        const written: InspectReport[] = [];
         for (const d of manifest().datasets) {
           if (wanted !== undefined && d.id !== wanted) continue;
           const held = readDataset(d);
@@ -651,6 +654,7 @@ try {
                   replace: has("replace"),
                 });
           console.log(formatGeometryReport(r.report));
+          written.push(r.report);
           if (sub === "import") {
             console.log("");
             table([
@@ -664,6 +668,14 @@ try {
           }
         }
         db.close();
+        // The staged list IS the review queue, so it belongs in the repository rather than in a terminal
+        // that scrolled away. `--only` would write a partial record, so it refuses.
+        if (has("write")) {
+          if (only !== undefined || wanted !== undefined) fail("--write needs the whole run: drop --only and --dataset");
+          mkdirSync("docs/geo", { recursive: true });
+          writeFileSync("docs/geo/import.md", markdownGeometryReport(written));
+          console.log("\nwrote docs/geo/import.md");
+        }
         break;
       }
       fail("geography <validate|backfill|coverage|fetch|inspect|import>");

@@ -11,12 +11,20 @@
 // So getting the version right IS getting the epoch right, and there is no separate check to forget. What
 // this module has to do is refuse to guess, and it refuses in three ways.
 //
-// 1. THE EPOCH COMES FROM THE SOURCE'S OWN DECLARATION, confirmed by the data. The dataset carries
-//    `STATUS = "Pre delimitation"` per feature for the six states whose boundaries predate DPACO 2008, and
-//    the manifest maps that to a side of 2008-02-19. Intersect with the epochs the registry actually holds
-//    contests for, and one epoch usually remains. Where several do, they are scored by how many
-//    constituencies match on NUMBER AND NAME, and a winner has to be both good enough and clearly ahead —
-//    otherwise the whole jurisdiction is left alone.
+// 1. THE EPOCH IS A DATE QUESTION, and the registry answers it. The manifest declares WHEN each polygon's
+//    boundaries were in force — the dataset carries `STATUS = "Pre delimitation"` per feature for the six
+//    states whose boundaries predate DPACO 2008, so that value maps to 2008-02-18 and everything else to
+//    the day the shapefile was authored. The epoch is then the LATEST epoch the registry contests whose
+//    `effective_from` is on or before that date. One answer, no threshold.
+//
+//    This is what keeps the 2014 parliamentary set off Assam's `delim-2023-as` and Jammu & Kashmir's
+//    `delim-2022-jk`: both orders take effect after 2014, so neither can be selected, and a rule about
+//    dates does that without a list of exceptions. The earlier version of this scored epochs by name
+//    agreement and got J&K wrong — `delim-2008` scored 5 of 6 and `delim-2022-jk` scored 3, which no
+//    threshold separates cleanly, and the answer was never in the names to begin with.
+//
+//    The name-agreement score is still computed, and reported: a chosen epoch that few constituencies
+//    confirm is a finding worth seeing. It is evidence, not the decision.
 //
 // 2. ONE POLYGON MAY SERVE TWO EPOCHS, BUT ONLY WHERE THE ORDER SAYS SO. DPACO 2008 reproduced Assam's,
 //    Arunachal's, Manipur's, Nagaland's and J&K's constituencies from the earlier orders, verbatim, and said
@@ -52,11 +60,23 @@ import { boxOfRings, pathOfRings, project, ringArea, ringsOf, simplifyRing } fro
 /** Half the detail of the national basemap: a constituency is drawn at state scale, not country scale. */
 const TOLERANCE = 0.03;
 
-/** DPACO 2008's publication date, which is the line the source's `STATUS` field divides. */
-const DPACO_2008 = "2008-02-19";
-
-/** How far outside the basemap's state box a polygon may fall before it is refused, in projected units. */
-const CONTAINMENT_SLACK = 6;
+/**
+ * The containment check's two tolerances, and they measure different failures.
+ *
+ * An ABSOLUTE slack alone does not work. The two datasets have different coastlines and the publisher of
+ * this one declares "there is some shift in the data", so a real constituency can overhang its state's
+ * administrative box — Andaman & Nicobar's parliamentary polygon reaches 7 units further east than the
+ * census districts do, because it includes islands they omit. But an absolute slack generous enough for
+ * that is far too generous for a seat inside a large state.
+ *
+ * So: an overhang is measured against the JURISDICTION'S OWN SIZE, and the extent is measured too.
+ * Lakshadweep's parliamentary polygon spans 43 projected units where the territory's administrative box
+ * spans 0.7 — sixty times over, a sea area rather than a constituency — and only the extent test catches
+ * that.
+ */
+const OVERHANG_FLOOR = 3;
+const OVERHANG_SHARE = 0.25;
+const EXTENT_FACTOR = 3;
 
 export type Dataset = {
   id: string;
@@ -72,7 +92,8 @@ export type Dataset = {
   publishedOn: string | null;
   fields: { state: string; number: string; name: string; district?: string };
   epochField: string | null;
-  epochWhen: Record<string, "before-dpaco-2008" | "after-dpaco-2008">;
+  /** Value of `epochField` → the date those boundaries were in force. `note` is prose and is skipped. */
+  epochVintage: Record<string, string>;
   jurisdictions: Record<string, string[] | string>;
   caveats: string[];
 };
@@ -96,11 +117,11 @@ export type Candidate = {
   /** Rings that closed onto themselves at a repeated vertex — a pinch. Reported, never fixed silently. */
   pinches: number;
   /**
-   * Which side of DPACO 2008 the SOURCE says this constituency is on, read from its own epoch field and
-   * carried here so nothing has to go back to the features to ask. Going back was an O(features²) scan:
+   * The date the SOURCE says these boundaries were in force, from its own epoch field via the manifest.
+   * Carried here so nothing has to go back to the features to ask — going back was an O(features²) scan,
    * 44 seconds for one state.
    */
-  side: "before-dpaco-2008" | "after-dpaco-2008";
+  vintage: string;
 };
 
 export type Tier =
@@ -143,11 +164,13 @@ export type JurisdictionReport = {
   jurisdictionId: string;
   jurisdictionName: string;
   candidates: number;
-  side: "before-dpaco-2008" | "after-dpaco-2008";
-  /** Every epoch the registry holds contests for, on the declared side. */
-  offered: { epochId: string; seats: number; score: number }[];
+  /** The date the source says its boundaries were in force. */
+  vintage: string;
+  /** Every epoch the registry holds contests for, with its start date and how many names confirm it. */
+  offered: { epochId: string; from: string; seats: number; score: number }[];
   epochId: string | null;
-  decision: "RESOLVED" | "RESOLVED_BY_DECLARATION" | "AMBIGUOUS" | "NO_EPOCH";
+  /** WEAK still imports — the per-seat tiers are the real gate — and says the confirmation was thin. */
+  decision: "RESOLVED" | "WEAK" | "NO_EPOCH";
   why: string;
   seats: number;
   linked: number;
@@ -179,10 +202,14 @@ export type InspectReport = {
 export function seatKey(name: string): string {
   return String(name)
     .normalize("NFKD")
-    // From the FIRST bracket to the end — balanced or not. The source truncates its own names, so
-    // "Kilvaithinankuppam(SC" arrives with an unclosed bracket and a paired-bracket regex leaves the "SC"
-    // behind, which then fails a comparison it should have passed.
-    .replace(/[([].*$/, "")
+    // A RESERVATION TAG goes; anything else in brackets stays.
+    //
+    // Both halves are load-bearing. The source truncates its own names, so "Kilvaithinankuppam(SC" arrives
+    // with an unclosed bracket and a paired-bracket regex leaves the "SC" behind — hence "to the end"
+    // rather than "to the closing bracket". But a bracket does not always hold a tag: "Gandhinagar(South)"
+    // is the seat's name and the registry writes it "GANDHINAGAR SOUTH", so throwing the bracket away
+    // turned a match into a near-miss that only phonetics rescued.
+    .replace(/[([]\s*(sc|st|gen|s|g|se)\s*[)\]]?\s*$/i, "")
     .toLowerCase()
     .replace(/[^a-z0-9]/g, "");
 }
@@ -226,7 +253,7 @@ export function candidatesOf(dataset: Dataset, features: readonly Feature[]): { 
           name,
           district: f.district === undefined ? null : (String(p[f.district] ?? "") || null),
           polygons: 0,
-          side: dataset.epochWhen[status] ?? "after-dpaco-2008",
+          vintage: dataset.epochVintage[status] ?? dataset.epochVintage[""] ?? "9999-12-31",
         },
         rings: [],
         pinches: 0,
@@ -385,10 +412,12 @@ export function inspectGeometry(
       continue;
     }
 
-    // ── which side of DPACO 2008 the source says these are ──
-    const sides = new Set(group.map((c) => c.side));
-    const side = sides.size === 1 ? [...sides][0]! : "after-dpaco-2008";
-    if (sides.size > 1) note("mixed-epoch-declaration", `${sourceKey}: the source declares ${[...sides].join(" and ")}`);
+    // ── when the source says these boundaries were in force ──
+    const vintages = new Set(group.map((c) => c.vintage));
+    // One state, two vintages, is a source contradicting itself about its own content. Take the earliest,
+    // because attaching an older boundary to a newer epoch is the error that matters.
+    const vintage = [...vintages].sort()[0] ?? "9999-12-31";
+    if (vintages.size > 1) note("mixed-epoch-declaration", `${sourceKey}: the source declares ${[...vintages].sort().join(" and ")}`);
 
     // Candidates are matched per jurisdiction; a source key covering two (Andhra Pradesh, which still holds
     // Telangana's seats) has its constituencies split by which registry it can be found in.
@@ -406,10 +435,11 @@ export function inspectGeometry(
           GROUP BY pv.epoch_id`,
         jid,
         dataset.house,
-      ).filter((e) => {
-        const from = epochFrom.get(e.epochId) ?? "";
-        return side === "before-dpaco-2008" ? from < DPACO_2008 : from >= DPACO_2008;
-      });
+      )
+        .map((e) => ({ ...e, from: epochFrom.get(e.epochId) ?? "" }))
+        // In force at the source's own vintage. An order that takes effect later cannot be what this
+        // polygon is, whatever its constituencies happen to be called.
+        .filter((e) => e.from !== "" && e.from <= vintage);
 
       const versionsIn = (epochId: string): Version[] =>
         all<Version>(
@@ -433,9 +463,10 @@ export function inspectGeometry(
             const v = byNo.get(c.number);
             if (v !== undefined && strongMatch(c, v)) score += 1;
           }
-          return { epochId: e.epochId, seats: e.seats, score };
+          return { epochId: e.epochId, from: e.from, seats: e.seats, score };
         })
-        .sort((a, b) => b.score - a.score || b.seats - a.seats);
+        // The one in force at the vintage is the LATEST that had started by then.
+        .sort((a, b) => (a.from < b.from ? 1 : a.from > b.from ? -1 : 0));
 
       const best = scored[0];
       let decision: JurisdictionReport["decision"];
@@ -443,22 +474,17 @@ export function inspectGeometry(
       let epochId: string | null;
       if (best === undefined) {
         decision = "NO_EPOCH";
-        why = `the registry holds no ${dataset.house} contest for ${jname} on the ${side.replace("-dpaco-2008", "")} side of DPACO 2008`;
+        why = `the registry contests no ${dataset.house} epoch for ${jname} that had taken effect by ${vintage}`;
         epochId = null;
-      } else if (scored.length === 1) {
-        decision = "RESOLVED_BY_DECLARATION";
-        why = `the source declares ${side} and ${best.epochId} is the only such epoch the registry contests for ${jname}`;
-        epochId = best.epochId;
       } else {
-        const runner = scored[1]!;
-        const good = best.score >= 0.5 * best.seats;
-        const clear = best.score >= 2 * runner.score;
-        decision = good && clear ? "RESOLVED" : "AMBIGUOUS";
+        const weak = best.score < 0.5 * best.seats;
+        decision = weak ? "WEAK" : "RESOLVED";
+        epochId = best.epochId;
         why =
-          good && clear
-            ? `${best.score} of ${best.seats} match on number and name, against ${runner.score} for ${runner.epochId}`
-            : `${best.epochId} scores ${best.score} of ${best.seats} and ${runner.epochId} scores ${runner.score} — not clear enough to choose`;
-        epochId = decision === "RESOLVED" ? best.epochId : null;
+          `in force at ${vintage} (effective ${best.from}` +
+          (scored.length > 1 ? `, ahead of ${scored.slice(1).map((e) => e.epochId).join(" and ")}` : "") +
+          `); ${best.score} of ${best.seats} constituencies confirm it by number and name`;
+        if (weak) note("epoch-weakly-confirmed", `${jid} ${best.epochId}: ${best.score} of ${best.seats} names confirm it`);
       }
 
       const report: JurisdictionReport = {
@@ -466,7 +492,7 @@ export function inspectGeometry(
         jurisdictionId: jid,
         jurisdictionName: jname,
         candidates: group.length,
-        side,
+        vintage,
         offered: scored,
         epochId,
         decision,
@@ -500,12 +526,14 @@ export function inspectGeometry(
         if (c.path === "") {
           staged.push({ sourceKey, number: c.number, name: c.name, jurisdictionId: jid, reason: "empty-geometry", detail: "no ring survived simplification" });
           note("empty-geometry", `${jid} ${c.number} ${c.name}`);
+          report.staged += 1;
           claimed.add(c);
           continue;
         }
         if (stateBox !== null && !within(c.box, stateBox)) {
           staged.push({ sourceKey, number: c.number, name: c.name, jurisdictionId: jid, reason: "outside-jurisdiction", detail: `box ${c.box.map((n) => n.toFixed(0)).join(" ")} falls outside ${jname}'s ${stateBox.map((n) => n.toFixed(0)).join(" ")}` });
           note("outside-jurisdiction", `${jid} ${c.number} ${c.name}`);
+          report.staged += 1;
           claimed.add(c);
           continue;
         }
@@ -513,12 +541,14 @@ export function inspectGeometry(
         if (already !== undefined) {
           staged.push({ sourceKey, number: c.number, name: c.name, jurisdictionId: jid, reason: "duplicate-path", detail: `identical geometry to place_version ${already}` });
           note("duplicate-path-in-epoch", `${jid} ${c.number} ${c.name}`);
+          report.staged += 1;
           claimed.add(c);
           continue;
         }
         if (taken.has(found.version.id)) {
           staged.push({ sourceKey, number: c.number, name: c.name, jurisdictionId: jid, reason: "duplicate-path", detail: `place_version ${found.version.id} already claimed by another polygon` });
           note("version-claimed-twice", `${jid} ${c.number} ${c.name}`);
+          report.staged += 1;
           claimed.add(c);
           continue;
         }
@@ -543,24 +573,25 @@ export function inspectGeometry(
       const total = sum(mine.map((c) => c.area));
       for (const c of mine) {
         if (c.area <= 0) note("zero-area", `${jid} ${c.number} ${c.name}`);
-        else if (total > 0 && c.area > 0.25 * total) {
+        // Only where there are enough seats for "one polygon covers the state" to be surprising. Chandigarh
+        // has one parliamentary constituency and it is 100% of Chandigarh, which is not a finding.
+        else if (mine.length >= 8 && total > 0 && c.area > 0.25 * total) {
           note("area-covers-the-state", `${jid} ${c.number} ${c.name}: ${((100 * c.area) / total).toFixed(0)}% of the jurisdiction`);
         }
       }
     }
 
+    // Anything the candidate jurisdictions did not claim. Attributed to ONE of them — the first that got
+    // an epoch — because counting it against every candidate made Ladakh report six staged seats for a
+    // one-seat union territory.
+    const tried = jurisdictions.filter((j) => j.sourceKey === sourceKey);
+    const owner = tried.find((j) => j.epochId !== null) ?? tried[0];
     for (const c of group) {
       if (claimed.has(c)) continue;
-      const worst = jurisdictions.filter((j) => j.sourceKey === sourceKey);
-      const reason: Staged["reason"] =
-        worst.every((j) => j.decision === "AMBIGUOUS")
-          ? "epoch-ambiguous"
-          : worst.every((j) => j.decision === "NO_EPOCH")
-            ? "no-epoch"
-            : "no-version";
-      const where = worst.map((j) => `${j.jurisdictionId}/${j.epochId ?? j.decision}`).join(", ");
-      staged.push({ sourceKey, number: c.number, name: c.name, jurisdictionId: ids[0] ?? null, reason, detail: `no place_version matched in ${where}` });
-      for (const j of worst) j.staged += 1;
+      const reason: Staged["reason"] = tried.every((j) => j.decision === "NO_EPOCH") ? "no-epoch" : "no-version";
+      const where = tried.map((j) => `${j.jurisdictionId}/${j.epochId ?? j.decision}`).join(", ");
+      staged.push({ sourceKey, number: c.number, name: c.name, jurisdictionId: owner?.jurisdictionId ?? null, reason, detail: `no place_version matched in ${where}` });
+      if (owner !== undefined) owner.staged += 1;
       note(reason, `${sourceKey} ${c.number} ${c.name}`);
     }
   }
@@ -584,7 +615,11 @@ export function inspectGeometry(
     staged,
     findings: [...findings].map(([kind, v]) => ({ kind, n: v.n, examples: v.examples })).sort((a, b) => b.n - a.n),
     totals: {
-      seats: sum(jurisdictions.map((j) => (j.epochId === null ? 0 : j.seats))),
+      // Distinct (jurisdiction, epoch): two source keys can resolve to one jurisdiction — DD and DN both
+      // mean Dadra and Nagar Haveli and Daman and Diu — and counting its seats twice doubled the target.
+      seats: sum(
+        [...new Map(jurisdictions.filter((j) => j.epochId !== null).map((j) => [`${j.jurisdictionId}:${j.epochId}`, j.seats])).values()],
+      ),
       linked: links.length,
       restated: sum(links.map((l) => l.restated.length)),
       staged: staged.length,
@@ -655,11 +690,14 @@ function restatedVersions(db: DatabaseSync, versionId: number): { versionId: num
   );
 }
 
-/** Is a box inside another, with slack? The two datasets have different coastlines and one declares a shift. */
+/** Is a box inside another? See the tolerances above for why there are two tests and not one. */
 function within(box: readonly number[], outer: readonly number[]): boolean {
   const [x, y, w, h] = box as [number, number, number, number];
   const [ox, oy, ow, oh] = outer as [number, number, number, number];
-  return x >= ox - CONTAINMENT_SLACK && y >= oy - CONTAINMENT_SLACK && x + w <= ox + ow + CONTAINMENT_SLACK && y + h <= oy + oh + CONTAINMENT_SLACK;
+  const sx = Math.max(OVERHANG_FLOOR, OVERHANG_SHARE * ow);
+  const sy = Math.max(OVERHANG_FLOOR, OVERHANG_SHARE * oh);
+  if (w > EXTENT_FACTOR * ow || h > EXTENT_FACTOR * oh) return false;
+  return x >= ox - sx && y >= oy - sy && x + w <= ox + ow + sx && y + h <= oy + oh + sy;
 }
 
 // ── import ────────────────────────────────────────────────────────────────────
