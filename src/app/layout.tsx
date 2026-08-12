@@ -1,19 +1,23 @@
 import type { Metadata, Viewport } from 'next';
-import './globals.css';
 
 /**
- * The root layout owns html/body and nothing else.
+ * The root layout owns html, body and the canvas colour, and nothing else.
  *
- * Everything that used to be here — Header, Footer, BottomNav, Disclaimer, LanguageProvider,
- * Analytics — is now in src/app/(legacy)/layout.tsx and applies only to the WB Votes routes.
- * Nested layouts compose, so while that chrome sat at the root it wrapped every MANDATE surface
- * too, which is why /pl and /p looked like the old app with new content inside them.
+ * There is no globals.css any more, and no Tailwind. Both existed for the West Bengal dashboard, which
+ * this phase deleted. What they contributed to the surfaces that remain was a global
+ * `*:focus-visible { outline: 2px solid #3b82f6 }` competing with iei.css's own focus treatment, a
+ * `main { animation: fadeIn }` that faded the map in on every navigation, and a light-grey scrollbar
+ * thumb on a near-black page. The four rules worth keeping — smooth anchor scrolling, a stable
+ * scrollbar gutter, and iOS's two text-size behaviours — moved into iei.css, which is now the only
+ * stylesheet the product has.
  *
- * globals.css stays at the root because it carries Tailwind's preflight, which the legacy
- * components' utility classes need; the MANDATE tokens are scoped to `.mandate` and override it.
+ * The Noto Sans Bengali <link> went with them. It was loaded on every route for a `.font-bengali`
+ * class in globals.css, and the registry holds no Bengali name strings at all: the source's nameBn
+ * field is empty for every candidate. A webfont fetched on every page load to render text that does
+ * not exist is the clearest case of paying for something no reader receives.
  *
- * ponytail: no shell component here. A shell that must render on both a Situation Room and a
- * legacy quiz page is two shells wearing one name.
+ * ponytail: still no shell component here. Shell is mounted by the pages, because /review/merges is an
+ * internal resolution queue and must not wear the product's chrome.
  */
 
 export const viewport: Viewport = {
@@ -29,11 +33,11 @@ export const metadata: Metadata = {
     template: '%s · India Election Intelligence',
   },
   description:
-    'A canonical registry of Indian politicians, parties and places, with every figure carrying the source it came from.',
+    'A canonical registry of Indian elections, in which every figure carries the source it came from, how it was derived, and what is missing.',
   openGraph: {
     title: 'India Election Intelligence',
     description:
-      'Every figure carries its source. 6,167 people, 294 seats, four elections, and an honest account of what has not been verified.',
+      'Every figure carries its source. Assembly and Lok Sabha elections across 36 states and union territories, and a counted account of what is not loaded.',
     type: 'website',
     locale: 'en_IN',
     siteName: 'India Election Intelligence',
@@ -44,16 +48,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      {/* The canvas lives here rather than in a stylesheet: body used to carry Tailwind's
-          bg-slate-950, that class went down to (legacy), and a body with no background flashes
-          white on both trees. Two tokens are not worth a third stylesheet. */}
-      <body style={{ background: '#0c0a11', color: '#f2f0f7', margin: 0 }}>{children}</body>
+      {/* The canvas is inline rather than in a stylesheet: a body with no background flashes white
+          before the route's own CSS arrives, and two declarations are not worth a file. The hex is
+          --iei-bg; there is one other copy of it, in iei.css, and no third. */}
+      <body style={{ background: '#07070b', color: '#f2f2f7', margin: 0 }}>{children}</body>
     </html>
   );
 }

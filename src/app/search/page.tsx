@@ -127,8 +127,7 @@ export default function SearchPage({
           </span>
           <Link href="/pl/wb">Places</Link>
           <Link href="/search">People</Link>
-          <Link href="/mandate">Build</Link>
-          <Link href="/classic">WB Votes</Link>
+          <Link href="/coverage">Coverage</Link>
         </nav>
 
         <p className="sr-eyebrow">People</p>
@@ -197,7 +196,7 @@ export default function SearchPage({
           Names are matched phonetically across scripts. The registry itself stores no Bengali name
           strings — the affidavit source leaves that field empty for all {IN.format(2920)}{' '}
           candidates — so a Bengali query works, while a Bengali <em>record</em> does not yet exist to
-          be found. <Link href="/mandate">How this works</Link>.
+          be found. <Link href="/coverage">What is loaded</Link>.
         </p>
       </div>
     </main>

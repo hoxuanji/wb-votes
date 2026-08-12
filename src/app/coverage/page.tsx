@@ -204,7 +204,7 @@ function Body({ c }: { c: Coverage }) {
       <p className="sr-foot">
         The model behind this table is <code>docs/platform/00-model.md</code>; the numbers come from{' '}
         <code>repo/coverage.ts</code> and change when the registry does.{' '}
-        <Link href="/mandate">How it was built</Link> · <Link href="/">Situation room</Link>
+        <Link href="/">India</Link>
       </p>
     </>
   );
@@ -231,7 +231,6 @@ export default function CoveragePage() {
           <Link href="/search">People</Link>
           <Link href="/review/merges">Review</Link>
           <Link href="/coverage">Coverage</Link>
-          <Link href="/classic">WB Votes</Link>
         </nav>
         {c === null ? (
           <>

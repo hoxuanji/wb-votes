@@ -8,8 +8,6 @@
     "start": "next start",
     "lint": "next lint",
     "type-check": "tsc --noEmit",
-    "db:migrate": "node scripts/migrate.js",
-    "db:seed": "node scripts/seed.js",
     "data:build": "node scripts/build-data.js",
     "data:historical": "node scripts/build-historical.js",
     "data:demographics": "node scripts/build-demographics.js",
@@ -21,7 +19,6 @@
     "scrape:prs-mp": "node scripts/scraper/prs-wb-mp.js",
     "data:wbmps-performance": "node scripts/build-wbmps-performance.js",
     "data:wbmps": "node scripts/build-wbmps.js",
-    "seed:civic-reports": "node scripts/seed-civic-reports.js",
     "data:scrape": "node scripts/scraper/myneta-direct.js",
     "scrape": "node scripts/scraper/myneta-2026.js",
     "scrape:2026": "node scripts/scraper/myneta-2026.js",
@@ -36,25 +33,16 @@
     "registry:typecheck": "tsc --noEmit -p packages/mandate/tsconfig.json 2>&1 | grep \"error TS\" | grep \"^packages/mandate\" && exit 1 || echo \"typecheck clean (packages/mandate)\""
   },
   "dependencies": {
-    "@upstash/redis": "^1.37.0",
-    "@vercel/analytics": "^2.0.1",
-    "clsx": "^2.1.1",
-    "lucide-react": "^0.378.0",
     "next": "14.2.5",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "recharts": "^2.12.7",
-    "tailwind-merge": "^2.3.0"
+    "react-dom": "^18.3.1"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "autoprefixer": "^10.4.19",
     "eslint": "^8",
     "eslint-config-next": "14.2.5",
-    "postcss": "^8.4.38",
-    "tailwindcss": "^3.4.4",
     "typescript": "^5"
   }
 }

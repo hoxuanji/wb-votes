@@ -25,10 +25,8 @@ import * as elections from "./elections.ts";
 import * as place from "./place.ts";
 import * as placeAnalysis from "./place-analysis.ts";
 import * as person from "./person.ts";
-import * as map from "./map.ts";
-import * as situation from "./situation.ts";
+import * as home from "./home.ts";
 import * as review from "./review.ts";
-import * as room from "./room.ts";
 import * as coverage from "./coverage.ts";
 import * as legacy from "./legacy.ts";
 import { placeView } from "./place-page.ts";
@@ -156,8 +154,6 @@ test("elections: every query runs, for a big, a small and a middling jurisdictio
   }
   ran("bypolls", () => elections.bypolls(d, 5));
   ran("upcoming", () => elections.upcoming(d, 2026, "assembly", 5));
-  ran("changeLog", () => room.changeLog(d, 5));
-  ran("calendar", () => room.calendar(d));
 
   for (const j of f.jurisdictions) {
     const id = f.latest.get(j);
@@ -245,20 +241,45 @@ test("party history: a party's record across elections runs", { skip }, () => {
       `${id}: party seats ${seatsFromParties} exceed ${summary.seatsContested} contested`,
     );
   }
-  // partyMomentum takes the latest YEAR, not a kind — tsc caught this call, which is the other half of
-  // what this suite is for: the arguments have to be right as well as the SQL.
-  const latestYear = Number(
-    Object.values(get<{ y: number }>(d, "SELECT MAX(year) AS y FROM election") ?? {})[0] ?? 2026,
-  );
-  ran("partyMomentum", () => situation.partyMomentum(d, latestYear, "assembly"));
+  d.close();
+});
+
+/**
+ * The homepage's data layer, every layer and every section, against the real registry.
+ *
+ * It was not in this suite before, which was the gap that mattered most: `/` is the one route every
+ * reader hits, `homeView` fans out to eight queries, and six of them are only reachable through a
+ * `?layer=` the tests never varied. A sequential layer that throws on a state with no turnout row would
+ * have been invisible until someone clicked "Turnout".
+ */
+test("the homepage's every layer and section run", { skip }, () => {
+  const d = db();
+  for (const l of home.LAYERS) {
+    const view = ran(`homeView(layer=${l.key})`, () =>
+      home.homeView(d, { layer: l.key, thisYear: 2026 }),
+    );
+    assert.ok(view.layer.cells.length > 0, `layer ${l.key} produced no cells`);
+    // Every cell must carry a destination, because the map is the page's navigation.
+    for (const c of view.layer.cells) {
+      assert.match(c.href, /^\/pl\//, `layer ${l.key}: ${c.jurisdictionId} has no place link`);
+    }
+  }
+  for (const house of ["ac", "pc"] as const) {
+    ran(`homeView(house=${house})`, () => home.homeView(d, { house, thisYear: 2026 }));
+  }
+  // An election id from the picker, which is the other parameter the page accepts.
+  const view = home.homeView(d, { thisYear: 2026 });
+  const first = view.choices[0];
+  if (first !== undefined) {
+    ran(`homeView(election=${first.id})`, () =>
+      home.homeView(d, { election: first.id, thisYear: 2026 }),
+    );
+  }
   d.close();
 });
 
 test("state and national summaries run", { skip }, () => {
   const d = db();
-  ran("getSituation", () => situation.getSituation(d));
-  ran("getMap(margin)", () => map.getMap(d, "margin"));
-  ran("getMap(party)", () => map.getMap(d, "party"));
   ran("getCoverage", () => coverage.getCoverage(d));
   ran("coverage.verticals", () => coverage.verticals(d));
   ran("coverage.jurisdictions", () => coverage.jurisdictions(d));

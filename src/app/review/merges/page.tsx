@@ -156,7 +156,7 @@ export default function MergeReview({
           <Link href="/pl/wb">Places</Link>
           <Link href="/search">People</Link>
           <Link href="/review/merges">Review</Link>
-          <Link href="/mandate">Build</Link>
+          <Link href="/coverage">Coverage</Link>
         </nav>
 
         <p className="sr-eyebrow">Merge review · recall measurement</p>
