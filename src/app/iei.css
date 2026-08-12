@@ -1497,6 +1497,62 @@ html {
   margin-top: var(--iei-2);
 }
 
+/* A state's electoral map. Taller than the national one because a state is taller than it is wide more often
+   than not, and it is the only thing in its column. */
+.iei-map-state svg {
+  max-height: 70vh;
+}
+
+/* Districts drawn as containers rather than as results: the panel surface, with a visible edge. Never a
+   party's colour, because a district does not elect anybody. */
+.iei-map-state .iei-map-neutral path {
+  fill: var(--iei-raised);
+  /* The OUTLINE carries these, not the fill. A container has to be visible as a shape without reading as a
+     value, so the edge clears the mark floor and the interior stays at the panel tier — 30 dark boxes with a
+     hairline round them read as an empty frame, which is what the first attempt looked like. */
+  stroke: var(--iei-ink-3);
+  stroke-width: 0.7;
+}
+
+.iei-map-state .iei-map-neutral a:hover path {
+  fill: var(--iei-panel);
+  stroke: var(--iei-ink);
+  stroke-width: 1.4;
+}
+
+.iei-map-state .iei-map-neutral a:focus-visible {
+  outline: none;
+}
+
+.iei-map-state .iei-map-neutral a:focus-visible path {
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+}
+
+/* A constituency polygon needs a hairline of the surface between it and its neighbour, or 294 adjacent fills
+   read as one blob. */
+.iei-map-state .iei-map-fills:not(.iei-map-neutral) path {
+  stroke: var(--iei-bg);
+  stroke-width: 0.4;
+}
+
+.iei-map-state .iei-map-fills:not(.iei-map-neutral) a:hover path {
+  stroke: var(--iei-ink);
+  stroke-width: 1.4;
+}
+
+/* The prefix has to match the rule that replaces the outline, or the focus test cannot see the pairing —
+   and it is right not to: an SVG anchor with `outline: none` and no treatment on its path is a control that
+   takes focus and shows nothing. */
+.iei-map-state .iei-map-fills:not(.iei-map-neutral) a:focus-visible {
+  outline: none;
+}
+
+.iei-map-state .iei-map-fills:not(.iei-map-neutral) a:focus-visible path {
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+}
+
 /* ── legend ── */
 
 .iei-legend {

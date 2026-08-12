@@ -314,6 +314,86 @@ test("URL state restores the map, and the layer strip carries it", live, () => {
   assert.ok(links.includes("layer=loksabha"), "there is no way to stop isolating the party");
 });
 
+/* ────────────────────────────── the state's electoral map ────────────────────────────── */
+
+test("a state map answers who won each constituency, and says which election", live, () => {
+  // West Bengal is the one jurisdiction whose constituency polygons the registry holds, so it is the one place
+  // the real electoral map can be drawn. The heading has to carry WHAT, WHEN and at which LEVEL.
+  const t = text(render("/pl", "", "wb"));
+  assert.match(t, /West Bengal · Assembly winners · \d{4}/, "the state map does not name its layer and year");
+  assert.match(t, /Which party won each constituency\?/, "the state map does not state its claim");
+  // And it is a DIFFERENT claim from the national map's, which is the whole point of the phase.
+  assert.ok(!t.includes("Government"), "the state map is labelled with the national map's layer");
+  // 294 polygons, drawn on the boundaries the results were recorded under.
+  const html = render("/pl", "", "wb");
+  const fills = html.slice(html.indexOf('class="iei-map-fills"'));
+  assert.ok((fills.match(/<path /g) ?? []).length >= 290, "the state map draws almost no constituencies");
+  assert.match(t, /294 of 294 constituencies drawn/, "the map does not say how much of the election it drew");
+});
+
+test("a historical election is not drawn on boundaries it never had", live, () => {
+  // The rule the brief states most firmly. It is enforced by the data model rather than by a check:
+  // place_geometry is keyed by place_version_id, and a contest names its own version — so a 2006 result can
+  // only resolve to a 1976-epoch version, for which the registry holds no polygon.
+  const t = text(render("/pl", "election=wb-assembly-2006", "wb"));
+  assert.match(t, /Assembly winners · 2006/, "the 2006 election did not load");
+  assert.match(t, /CPM\n176|CPM 176/, "the 2006 winners are missing");
+  // No constituency map, and the reason given rather than a map with holes.
+  assert.ok(!t.includes("constituencies drawn"), "a 2006 result was drawn on 2008 boundaries");
+  assert.match(t, /holds no constituency boundary|drawn neutral/, "the map does not say why it cannot draw");
+});
+
+test("a district is offered as a container, never as a winner", live, () => {
+  // Karnataka has no constituency geometry, so the map is its districts — drawn NEUTRAL, because a district
+  // does not elect anybody.
+  const t = text(render("/pl", "", "ka"));
+  assert.match(t, /A district does not elect anybody/, "the district table does not disclaim a district winner");
+  // Every tally row is a count of the seats inside, phrased as one.
+  assert.match(t, /\d+ of \d+ won by [A-Z]/, "no district tally is phrased as a count");
+  // And the forbidden phrasing is absent: not "Bangalore won by INC", in any form.
+  assert.ok(!/BANGALORE\nwon by/i.test(t), "a district is described as having been won");
+  assert.ok(!/District winner/i.test(t), "a district is given a winner");
+  // The polygons carry no party fill at all.
+  const html = render("/pl", "", "ka");
+  const neutral = html.slice(html.indexOf("iei-map-neutral"));
+  assert.ok(!/fill="#[0-9a-f]{6}"/.test(neutral.slice(0, 4000)), "a district polygon carries a party colour");
+});
+
+test("selecting a district reframes the map, and the URL carries it", live, () => {
+  const wb = render("/pl", "district=wb.cooch-behar", "wb");
+  const t = text(wb);
+  assert.match(t, /Which party won each constituency in Cooch Behar\?/, "the question did not follow the focus");
+  assert.match(t, /Framed on/, "the map does not say it is framed on a district");
+  // The frame is a real viewBox change, not a caption: Cooch Behar is a small part of West Bengal.
+  const whole = /viewBox="([^"]+)"/.exec(render("/pl", "", "wb"))?.[1] ?? "";
+  const framed = /viewBox="([^"]+)"/.exec(wb)?.[1] ?? "";
+  assert.notEqual(framed, whole, "focusing a district did not reframe the map");
+  const area = (v: string): number => {
+    const [, , w, h] = v.split(" ").map(Number);
+    return (w ?? 0) * (h ?? 0);
+  };
+  assert.ok(area(framed) < area(whole) * 0.5, "the framed map is not meaningfully closer in");
+
+  // A district that the 2011 census geometry does not carry under that name cannot frame itself, and says so
+  // rather than staying at state level while the heading claims otherwise.
+  const ka = text(render("/pl", "district=ka.bangalore", "ka"));
+  assert.match(ka, /Which party won each constituency in BANGALORE\?/);
+  assert.match(ka, /no boundary in the 2011 census geometry under that name/, "an unframeable focus is silent");
+
+  // Validated by membership: a district this state does not have is ignored rather than emptying the map.
+  assert.ok(!text(render("/pl", "district=nonsense", "wb")).includes("Framed on"), "a bogus district was honoured");
+});
+
+test("the election selector changes every part of the map's context together", live, () => {
+  const a = text(render("/pl", "", "wb"));
+  const b = text(render("/pl", "election=wb-assembly-2021", "wb"));
+  assert.notEqual(a, b, "changing the election changed nothing");
+  assert.match(b, /Assembly winners · 2021/, "the heading did not follow the election");
+  // The legend counts must be the 2021 counts, not the default election's.
+  assert.ok(!b.includes("BJP 192"), "the legend is showing another election's counts");
+  assert.match(b, /TMC \d+/, "the 2021 winners are missing");
+});
+
 /* ────────────────────────────── navigation ────────────────────────────── */
 
 test("every place the front page links to actually resolves", live, () => {

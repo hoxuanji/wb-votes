@@ -8,6 +8,11 @@ import {
   placeTiles,
   placeView,
 } from "../../../../packages/mandate/src/repo/place-page.ts";
+import { stateMapView } from "../../../../packages/mandate/src/repo/state-map.ts";
+import type { StateMapView } from "../../../../packages/mandate/src/repo/state-map.ts";
+import { openRead } from "../../../../packages/mandate/src/db/open.ts";
+import { fillFor } from "../../../../packages/mandate/src/viz/party-ink.ts";
+import { StateMap } from "../../../components/iei/StateMap.tsx";
 import { Shell } from "../../../components/iei/Shell.tsx";
 import {
   BasisChip,
@@ -53,6 +58,54 @@ export const dynamic = "force-dynamic";
 
 const RESERVATION: Record<string, string> = { general: "General", sc: "Reserved SC", st: "Reserved ST" };
 
+type Params = Record<string, string | string[] | undefined> | undefined;
+
+function first(v: string | string[] | undefined): string | undefined {
+  return Array.isArray(v) ? v[0] : v;
+}
+
+/**
+ * A link to this page with parameters changed and the rest kept, anchored at the map.
+ *
+ * An empty value DROPS the parameter, so "show every party" and "show the whole state" produce the URL a
+ * reader would have arrived at rather than a longer one meaning the same thing.
+ */
+function link(base: string, params: Params, change: Record<string, string>): string {
+  const q = new URLSearchParams();
+  for (const [k, val] of Object.entries(params ?? {})) {
+    const one = first(val);
+    if (one !== undefined && one !== "") q.set(k, one);
+  }
+  for (const [k, val] of Object.entries(change)) {
+    if (val === "") q.delete(k);
+    else q.set(k, val);
+  }
+  const s = q.toString();
+  return s === "" ? `${base}#map` : `${base}?${s}#map`;
+}
+
+/**
+ * The state's map data, read on its own handle.
+ *
+ * `placeView` opens and closes its own connection and this needs a second read; opening one here keeps the
+ * two independent, and a jurisdiction whose registry cannot be read renders the page without a map rather
+ * than failing the whole route.
+ */
+function readMap(jurisdictionId: string, params: NonNullable<Params>): StateMapView | null {
+  let db: ReturnType<typeof openRead> | null = null;
+  try {
+    db = openRead();
+    return stateMapView(db, jurisdictionId, {
+      election: first(params["election"]),
+      house: first(params["house"]),
+    });
+  } catch {
+    return null;
+  } finally {
+    db?.close();
+  }
+}
+
 /** The house a row is about, in the words a reader uses. */
 function houseWord(house: string): string {
   return house === "pc" ? "Lok Sabha" : house === "ac" ? "Assembly" : house;
@@ -88,14 +141,139 @@ export default async function PlacePage({
   }
 
   if (view.kind === "parent") {
+    // The electoral map, for a STATE. A district page is a list of its seats and has no map of its own: the
+    // district level of the map is reached by selecting a district on the state's map, which reframes it.
+    const map = view.level === "state" ? readMap(segments[0] as string, searchParams ?? {}) : null;
+    const party =
+      map !== null && map.legend.some((l) => l.key === first(searchParams?.["party"]))
+        ? (first(searchParams?.["party"]) as string)
+        : null;
+    const focus =
+      map !== null && map.districts.some((d) => d.id === first(searchParams?.["district"]))
+        ? (first(searchParams?.["district"]) as string)
+        : null;
+    const base = `/pl/${segments.join("/")}`;
+    const mapHref = (change: Record<string, string>): string => link(base, searchParams, change);
+
     return (
-      <Shell here="place" reading>
+      <Shell here="place" reading={map === null}>
         <Crumbs trail={view.trail} />
         <div className="iei-head">
           <p className="iei-eyebrow">{view.level === "state" ? "State or union territory" : "District"}</p>
           <h1 className="iei-answer">{view.name}</h1>
           <p className="iei-sub">{view.headline}</p>
         </div>
+
+        {map === null || map.election === null ? null : (
+          <Panel
+            id="map"
+            /* WHAT, WHEN, AND AT WHICH LEVEL, in the heading, at a glance. "Assembly winners" is a claim about
+               each constituency — the opposite end of the product from the national map's "Government", which
+               is one figure for a whole state. A reader must never have to guess which they are looking at. */
+            title={`${map.jurisdictionName} · ${map.election.house === "pc" ? "Lok Sabha" : "Assembly"} winners · ${map.election.year}`}
+            question={
+              focus === null
+                ? "Which party won each constituency?"
+                : `Which party won each constituency in ${map.districts.find((d) => d.id === focus)?.name ?? focus}?`
+            }
+            basis="measured"
+          >
+            {/* THE ELECTION SELECTOR. Plain links, so the election is URL state: the map, the legend, the
+                counts and the heading all change together and none of them can go stale. */}
+            <Tabs
+              label="Election"
+              current={map.election.id}
+              choices={map.elections.slice(0, 12).map((e) => ({
+                key: e.id,
+                label: `${e.house === "pc" ? "LS" : ""}${e.year}${e.kind === "bypoll" ? " by" : ""}`,
+                href: link(base, searchParams, { election: e.id, district: "" }),
+              }))}
+            />
+
+            <div className="iei-map-split">
+              <StateMap view={map} highlight={party} district={focus} hrefFor={mapHref} />
+
+              <div>
+                <ul className="iei-legend">
+                  {map.legend.slice(0, 8).map((l) => (
+                    <li key={l.key}>
+                      <Link
+                        href={mapHref({ party: party === l.key ? "" : l.key })}
+                        className={party === null ? undefined : party === l.key ? "iei-legend-on" : "iei-legend-off"}
+                        aria-pressed={party === l.key}
+                      >
+                        <span className="iei-sw" style={{ background: fillFor(l.key) }} aria-hidden="true" />
+                        {l.label}
+                        <b>{l.n}</b>
+                      </Link>
+                    </li>
+                  ))}
+                  {map.legend.length <= 8 ? null : (
+                    <li className="iei-legend-off">
+                      + {map.legend.length - 8} more {map.legend.length - 8 === 1 ? "party" : "parties"}
+                    </li>
+                  )}
+                </ul>
+                {party === null && focus === null ? null : (
+                  <p className="iei-note">
+                    {party === null ? null : (
+                      <>
+                        Showing only <b>{map.legend.find((l) => l.key === party)?.label ?? party}</b>.{" "}
+                        <Link href={mapHref({ party: "" })}>Every party</Link>.{" "}
+                      </>
+                    )}
+                    {focus === null ? null : (
+                      <>
+                        Framed on <b>{map.districts.find((d) => d.id === focus)?.name}</b>.{" "}
+                        <Link href={mapHref({ district: "" })}>Whole state</Link>.
+                      </>
+                    )}
+                  </p>
+                )}
+
+                {/* A DISTRICT NEVER HAS A WINNER. Every row is "N of M won by", plural, because a district
+                    does not elect anybody — its constituencies do. */}
+                <Table
+                  label="Districts and what their constituencies came to"
+                  caption={`Every district's constituencies in ${map.election.year}. A district does not elect anybody, so each row is a count of the seats inside it.`}
+                  captionVisible
+                  tight={map.districts.length > 20}
+                  tall={map.districts.length > 18}
+                  head={
+                    <>
+                      <th scope="col">District</th>
+                      <th scope="col" className="iei-n">
+                        Seats
+                      </th>
+                      <th scope="col">Went to</th>
+                    </>
+                  }
+                >
+                  {map.districts.map((d) => (
+                    <tr key={d.id} className={focus !== null && focus !== d.id ? "iei-legend-off" : undefined}>
+                      <th scope="row">
+                        <Link href={mapHref({ district: focus === d.id ? "" : d.id })}>{d.name}</Link>
+                      </th>
+                      <td className="iei-n">{d.seats}</td>
+                      <td>
+                        {d.parties.length === 0 ? (
+                          <Value value={null} absent="no winner recorded" />
+                        ) : (
+                          d.parties.slice(0, 3).map((q) => (
+                            <span key={q.key} className="iei-rule">
+                              <span className="iei-sw" style={{ background: fillFor(q.key) }} aria-hidden="true" />
+                              {q.n} of {d.seats} won by {q.label}
+                            </span>
+                          ))
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </Table>
+              </div>
+            </div>
+          </Panel>
+        )}
 
         <Panel
           title={view.level === "state" ? "Districts" : "Seats"}

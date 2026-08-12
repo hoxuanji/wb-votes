@@ -336,9 +336,15 @@ test("P5: nothing rendered on the person surface uses that word for a declared c
 // module format in with it (root package.json has no "type", so NodeNext reads those .ts files as
 // CommonJS and every export is TS1287). Cycle 2 did that with the /v1 envelope and the person
 // brief; both now live in this directory, where the strict gate can fail on them.
-// ponytail: no allow-list any more. Cycle 4 moved the seed data to data/seed/*.json, which the
-// ingest reads with readFileSync instead of importing, so the rule is now absolute.
-test("no file in this package imports a file from the old app's src/", async () => {
+// ONE EXEMPTION, and it is narrow: a `.json` import from `data/`.
+//
+// The rule's reason is module format and error-gate coverage — a .ts file under the old app's src/ is read as
+// CommonJS by NodeNext and every export becomes TS1287. A JSON import has no module format and no exports, so
+// neither problem applies to it. Phase 2.6 needed one: viz/party-ink.ts holds the party colour config, and the
+// config has to be IMPORTED rather than read, because `readFileSync(new URL(...))` works under Node and fails
+// under webpack's fs shim — the production build died on exactly that. The ingest still uses readFileSync for
+// data/seed/*.json, and can, because the CLI is never bundled.
+test("no file in this package imports code from outside it", async () => {
   const { readdirSync, readFileSync } = await import("node:fs");
   const src = new URL("../", import.meta.url);
   const pkg = new URL("../../", import.meta.url).href;
@@ -349,6 +355,7 @@ test("no file in this package imports a file from the old app's src/", async () 
     for (const m of readFileSync(file, "utf8").matchAll(/(?:from|import)\s*\(?\s*["']([^"']+)["']/g)) {
       const spec = m[1]!;
       if (!spec.startsWith(".")) continue;
+      if (spec.endsWith(".json") && spec.includes("/data/")) continue;
       assert.ok(new URL(spec, file).href.startsWith(pkg), `${rel} imports ${spec}`);
     }
   }
