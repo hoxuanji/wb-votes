@@ -34,7 +34,7 @@ import {
   SEQUENTIAL,
   availability,
   electionCoverage,
-  history,
+  electionCoverageView,
   homeView,
   hueOf,
   isLayer,
@@ -571,8 +571,12 @@ test("every watch signal is traceable, thresholded and honest about its basis", 
       assert.ok(s.threshold.trim().length > 0, `${s.rule} states no threshold`);
       assert.ok(s.detail.trim().length > 0, `${s.rule} has no detail`);
       assert.match(s.href, /^\/pl\//, `${s.subject} does not link anywhere`);
-      // A five-year term is arithmetic on a past date, not an announcement, and must say so.
-      if (s.basis === "derived") assert.match(s.detail, /no date has been announced/i);
+      // EVERY SIGNAL IS MEASURED, and that is a deliberate property rather than an accident of the data.
+      // The one derived rule was a five-year term expiry, which is what the Upcoming section prints, from
+      // the same arithmetic on the same rows, labelled derived there too. It outranked every measured
+      // count and fired for eleven jurisdictions. If a derived rule comes back, it needs a reason to be
+      // here rather than there.
+      assert.equal(s.basis, "measured", `${s.subject} is ${s.basis} — is it Upcoming's fact under another name?`);
       // Nothing here may read as a forecast.
       assert.doesNotMatch(
         `${s.rule} ${s.detail}`,
@@ -666,59 +670,6 @@ test("the party landscape totals reconcile with the seats the registry holds", l
   }
 });
 
-test("the history grid is honest about depth — no padding, no assumed five", live, () => {
-  const d = db();
-  try {
-    for (const house of ["ac", "pc"] as const) {
-      const rows = history(d, house);
-      assert.ok(rows.length > 0, `no ${house} history`);
-      for (const r of rows) {
-        assert.ok(r.cells.length >= 1 && r.cells.length <= 5, `${r.jurisdictionId} has ${r.cells.length} cells`);
-        for (let i = 1; i < r.cells.length; i += 1) {
-          const prev = r.cells[i - 1];
-          const now = r.cells[i];
-          // Non-increasing years, and strictly increasing rank. Two elections in ONE year is not a
-          // defect — Bihar held one in February 2005 and another in October — but losing their order is,
-          // which is why the cells are ranked rather than sorted on the year.
-          assert.ok((now?.year ?? 0) <= (prev?.year ?? 0), `${r.jurisdictionId} is not newest-first`);
-          assert.ok(
-            (now?.rank ?? 0) > (prev?.rank ?? 0),
-            `${r.jurisdictionId}: ${prev?.electionId} and ${now?.electionId} are not in chronological order`,
-          );
-        }
-        // Whatever the years, the ranks must be the run 1..n with no gaps.
-        assert.deepEqual(
-          r.cells.map((c) => c.rank),
-          r.cells.map((_, i) => i + 1),
-          `${r.jurisdictionId}'s ranks are not a contiguous run`,
-        );
-        // A cell exists because an election exists. The count must match what the registry holds.
-        const held = get<{ n: number }>(
-          d,
-          `SELECT COUNT(*) AS n FROM election WHERE house = ? AND kind <> 'bypoll'
-            AND jurisdiction_place_id = ?`,
-          house,
-          r.jurisdictionId,
-        );
-        if (house === "ac") {
-          assert.equal(
-            r.cells.length,
-            Math.min(5, held?.n ?? 0),
-            `${r.jurisdictionId} shows ${r.cells.length} of ${held?.n} elections`,
-          );
-        }
-        for (const c of r.cells) {
-          assert.ok(c.leaderSeats <= c.seatsContested, `${c.electionId}: leader holds more seats than contested`);
-        }
-      }
-      // The grid must be national, not one state repeated.
-      assert.ok(new Set(rows.map((r) => r.jurisdictionId)).size === rows.length, "a jurisdiction appears twice");
-    }
-  } finally {
-    d.close();
-  }
-});
-
 /* ────────────────────────────── the whole view ────────────────────────────── */
 
 test("homeView renders for every layer, and falls back rather than throwing on a bad parameter", live, () => {
@@ -729,16 +680,35 @@ test("homeView renders for every layer, and falls back rather than throwing on a
       const expected = isLayer(l as string | undefined) ? l : DEFAULT_LAYER;
       assert.equal(v.layer.key, expected, `layer=${String(l)} resolved to ${v.layer.key}`);
     }
-    // An election id that is not on offer must fall back to the newest rather than reach the SQL.
-    const v = homeView(d, { election: "'; DROP TABLE result; --", thisYear: THIS_YEAR });
-    assert.equal(v.coverage?.electionId, v.choices[0]?.id, "a bogus election id did not fall back");
-    assert.ok(v.choices.length > 0);
-    for (let i = 1; i < v.choices.length; i += 1) {
-      assert.ok((v.choices[i]?.year ?? 0) <= (v.choices[i - 1]?.year ?? 0), "the election picker is out of order");
+    // `layer` is the ONLY parameter the front page still takes. `?election=` and `?house=` went with the
+    // coverage panel and the history grid; the membership check that made a hand-edited `?election=` safe
+    // moved to electionCoverageView, and is asserted below rather than lost.
+    assert.deepEqual(
+      Object.keys(homeView(d, { thisYear: THIS_YEAR })).sort(),
+      ["announced", "coverageOf", "headline", "held", "ink", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
+      "homeView returns something the page does not render, or has stopped returning something it does",
+    );
+  } finally {
+    d.close();
+  }
+});
+
+test("a hand-edited election id falls back to the newest rather than reaching the SQL", live, () => {
+  const d = db();
+  try {
+    const bogus = electionCoverageView(d, "'; DROP TABLE result; --");
+    assert.ok(bogus.choices.length > 0, "no elections are on offer at all");
+    assert.equal(bogus.chosen?.electionId, bogus.choices[0]?.id, "a bogus election id did not fall back");
+    for (let i = 1; i < bogus.choices.length; i += 1) {
+      assert.ok(
+        (bogus.choices[i]?.year ?? 0) <= (bogus.choices[i - 1]?.year ?? 0),
+        "the election list is out of order",
+      );
     }
-    // house is validated the same way.
-    assert.equal(homeView(d, { house: "pc", thisYear: THIS_YEAR }).historyHouse, "pc");
-    assert.equal(homeView(d, { house: "senate", thisYear: THIS_YEAR }).historyHouse, "ac");
+    // And a real one is honoured, or the fallback is doing all the work.
+    const real = bogus.choices.at(-1);
+    assert.ok(real !== undefined);
+    assert.equal(electionCoverageView(d, real.id).chosen?.electionId, real.id, "a real id was not honoured");
   } finally {
     d.close();
   }

@@ -264,16 +264,13 @@ test("the homepage's every layer and section run", { skip }, () => {
       assert.match(c.href, /^\/pl\//, `layer ${l.key}: ${c.jurisdictionId} has no place link`);
     }
   }
-  for (const house of ["ac", "pc"] as const) {
-    ran(`homeView(house=${house})`, () => home.homeView(d, { house, thisYear: 2026 }));
-  }
-  // An election id from the picker, which is the other parameter the page accepts.
-  const view = home.homeView(d, { thisYear: 2026 });
-  const first = view.choices[0];
-  if (first !== undefined) {
-    ran(`homeView(election=${first.id})`, () =>
-      home.homeView(d, { election: first.id, thisYear: 2026 }),
-    );
+  // Per-election coverage is /coverage's data layer now. Exercise every election it offers, not just the
+  // newest: the panel used to be reachable only through a <select> whose other 23 options no test opened.
+  const offered = home.electionCoverageView(d, undefined);
+  assert.ok(offered.choices.length > 0, "no election is on offer for the coverage page");
+  for (const c of offered.choices) {
+    const got = ran(`electionCoverageView(${c.id})`, () => home.electionCoverageView(d, c.id));
+    assert.equal(got.chosen?.electionId, c.id, `${c.id} did not resolve to itself`);
   }
   d.close();
 });

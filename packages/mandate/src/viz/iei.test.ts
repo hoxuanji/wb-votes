@@ -136,17 +136,136 @@ test("motion is opt-out, and the reduced-motion rule covers pseudo-elements too"
 });
 
 test("the layout collapses to one column on a phone rather than shrinking", () => {
-  // "Do not simply shrink the desktop dashboard": the multi-column grids must each be redeclared as one
-  // column inside a narrow breakpoint, not merely scaled by a smaller font.
-  const narrow = [...CSS.matchAll(/@media \(max-width: (\d+)px\) \{([\s\S]*?)\n\}/g)]
+  // "Do not simply shrink the desktop dashboard": every multi-column grid must be redeclared as one
+  // column — or as fewer columns — inside a narrow breakpoint, not merely scaled by a smaller font.
+  //
+  // The list of grids is DERIVED rather than written down. The previous version named four classes, and
+  // the moment one of them stopped being a grid the test was asserting something about a rule that no
+  // longer existed while saying nothing about the grids that had replaced it.
+  const narrow = [...CSS.matchAll(/@media \(max-width: (\d+)px\)/g)]
     .filter((m) => Number(m[1]) <= 1080)
-    .map((m) => m[2] as string)
+    .map((m) => CSS.slice((m.index ?? 0) + (m[0] as string).length))
     .join("\n");
   assert.ok(narrow.length > 0, "no narrow breakpoint at all");
-  for (const grid of ["iei-hero", "iei-two", "iei-map-split", "iei-metrics"]) {
+
+  // Grids declared outside any breakpoint, with more than one column.
+  const wide = CSS.slice(0, CSS.indexOf("@media (max-width: 1080px)"));
+  const grids = new Set<string>();
+  for (const m of wide.matchAll(/\.(iei-[a-z0-9-]+)[^{}]*\{([^}]*grid-template-columns:[^;]*;[^}]*)\}/g)) {
+    const cols = /grid-template-columns:([^;]*);/.exec(m[2] as string)?.[1] ?? "";
+    const n = (cols.match(/minmax|repeat\((\d+)/) ?? []).length;
+    const repeat = /repeat\((\d+)/.exec(cols);
+    const multi = repeat !== null ? Number(repeat[1]) > 1 : (cols.match(/minmax/g) ?? []).length > 1 || n > 1;
+    if (multi) grids.add(m[1] as string);
+  }
+  assert.ok(grids.size >= 4, `only ${grids.size} multi-column grids found — the parser has stopped matching`);
+  for (const grid of grids) {
     assert.ok(
       new RegExp(`\\.${grid}[^{]*\\{[^}]*grid-template-columns`).test(narrow),
       `.${grid} keeps its desktop column count on a phone`,
     );
   }
+});
+
+/* ────────────────────────────── the token discipline ────────────────────────────── */
+
+test("every length in the stylesheet comes from the scale", () => {
+  // Phase 2.5's second rule: a rule that wants 18px has not decided whether it means 16 or 24. The scale
+  // is declared once and this test is what keeps it from growing a tenth value by accident — the file it
+  // replaced had thirteen font sizes and cell padding at 3, 6, 10 and 12 pixels.
+  //
+  // Everything outside the :root token block, and outside the exemptions named below, must use a var().
+  const root = /:root \{([\s\S]*?)\n\}/.exec(CSS);
+  assert.ok(root !== null, ":root token block not found");
+  // Comments come out first. This file argues with itself in prose — "6px, 8px, 10px and 12px of cell
+  // padding", "25px, not 64px" — and a scanner that reads the argument as a declaration reports the
+  // problem being described as the problem existing.
+  const body = CSS.replace(root[0] as string, "").replace(/\/\*[\s\S]*?\*\//g, "");
+
+  // Hairlines, sub-pixel strokes and the handful of shapes whose size IS their meaning. Each is listed
+  // rather than pattern-matched, so adding one is a decision someone makes here.
+  const EXEMPT = new Set([
+    "1px", // every hairline border, and there is only one border width
+    "2px", // the focus underline and the provenance rule — both are "twice a hairline"
+    "0px",
+    "6px", // the magnitude bar's height and the scrollbar's width: marks, not spacing
+    "7px", // the coverage chip's square
+    "9px", // the party swatch
+    "16px", // the sparkline's height, and iOS's minimum input size
+    "64px", // the sparkline's width
+    "56px", // the minimum width of a bar column, so a bar is never a sliver
+    "44px", // the minimum width of a magnitude track
+    "320px", // the map's minimum column before the split stacks
+    "1040px", // the reading measure
+    "300px",
+    "380px",
+    "460px", // the three scroll-region heights, which are viewport decisions
+    "640px", // the map's maximum height on a laptop
+    "900px",
+    "1080px", // the two breakpoints
+    "21px", // the answer at the narrow breakpoint, declared as a token override
+    "420px", // the command bar's maximum width
+  ]);
+
+  const offenders = new Map<string, number>();
+  for (const m of body.matchAll(/(?<![-\w])(\d+(?:\.\d+)?px)/g)) {
+    const px = m[1] as string;
+    if (EXEMPT.has(px)) continue;
+    offenders.set(px, (offenders.get(px) ?? 0) + 1);
+  }
+  assert.deepEqual(
+    [...offenders.entries()].sort(),
+    [],
+    `raw pixel values outside the scale: ${[...offenders.entries()].map(([px, n]) => `${px}×${n}`).join(", ")}`,
+  );
+});
+
+test("the spacing scale is the one the brief specifies, and there is no eighth step", () => {
+  const t = [...CSS.matchAll(/--iei-(\d+):\s*(\d+)px/g)].map((m) => [Number(m[1]), Number(m[2])] as const);
+  assert.deepEqual(
+    t,
+    [
+      [1, 4],
+      [2, 8],
+      [3, 12],
+      [4, 16],
+      [6, 24],
+      [8, 32],
+      [12, 48],
+    ],
+    "the spacing scale is not 4·8·12·16·24·32·48",
+  );
+  // The step number IS the multiple of 4, so --iei-6 is 24px and there is no arithmetic to remember.
+  for (const [step, px] of t) assert.equal(px, step * 4, `--iei-${step} is not ${step * 4}px`);
+});
+
+test("there are seven type sizes and every one of them is used", () => {
+  // The :root block only. A breakpoint may REDECLARE a token — that is the point of having them — and the
+  // override for the answer at 900px is not an eighth size.
+  const root = /:root \{([\s\S]*?)\n\}/.exec(CSS)?.[1] ?? "";
+  const declared = [...root.matchAll(/--iei-f-([a-z]+):\s*([\d.]+)px/g)].map(
+    (m) => [m[1] as string, Number(m[2])] as const,
+  );
+  assert.equal(
+    declared.length,
+    7,
+    `${declared.length} type sizes declared, not 7: ${declared.map(([n]) => n).join(", ")}`,
+  );
+  for (const [name] of declared) {
+    const uses = (CSS.match(new RegExp(`var\\(--iei-f-${name}\\)`, "g")) ?? []).length;
+    assert.ok(uses > 0, `--iei-f-${name} is declared and never used`);
+  }
+  // Monotonic, so the scale is a scale rather than seven names.
+  const px = declared.map(([, v]) => v);
+  assert.deepEqual(px, [...px].sort((a, b) => a - b), "the type sizes are not declared smallest-first");
+});
+
+test("radius is one token and it does not grow", () => {
+  assert.match(CSS, /--iei-r:\s*2px/, "the radius token is not 2px");
+  // A rounded-card dashboard reads as a marketing page with data in it. The exceptions are a circle (the
+  // live dot) and the 1px square of the coverage mark.
+  const radii = [...CSS.matchAll(/border-radius:\s*([^;]+);/g)]
+    .map((m) => (m[1] as string).trim())
+    .filter((v) => !v.includes("var(--iei-r)") && v !== "50%" && v !== "1px");
+  assert.deepEqual(radii, [], `border-radius values that are not the token: ${radii.join(", ")}`);
 });

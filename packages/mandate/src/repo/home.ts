@@ -117,7 +117,7 @@ export function partyInk(standings: readonly Standing[]): PartyInk {
         note: `${n} jurisdictions`,
       })),
       ...(regional > 0
-        ? [{ label: "Leads one only", fill: REGIONAL_HUE, note: `${regional} parties` }]
+        ? [{ label: "Others", fill: REGIONAL_HUE, note: `${regional} parties, one assembly each` }]
         : []),
     ],
     regional,
@@ -659,6 +659,18 @@ export const ARRIVAL_SEATS = 5;
 /** How many rows any one rule may contribute, so the section is a mix of ways of looking. */
 export const PER_RULE = 2;
 
+/**
+ * A share, as a sentence prints it: one decimal, or the words for its absence.
+ *
+ * A small-but-real share must not round to "0.0%" — a party that polled a real share and won a seat did not
+ * receive no votes — so anything under 0.05 is "<0.1%", the same rule the `Value` component applies.
+ */
+function pct1(v: number | null): string {
+  if (v === null) return "a share the source did not publish";
+  if (v !== 0 && Number(v.toFixed(1)) === 0) return "<0.1%";
+  return `${v.toFixed(1)}%`;
+}
+
 export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, limit = 8): Signal[] {
   return read(() => {
     const out: Signal[] = [];
@@ -667,21 +679,15 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
       const href = `/pl/${s.jurisdictionId}`;
       const seats = spine.seats.filter((x) => x.electionId === s.electionId);
 
-      // 1. A term derived to expire. DERIVED: the Commission announces dates and this registry holds none.
-      const dueYear = s.year + 5;
-      if (dueYear >= thisYear && dueYear <= thisYear + 1) {
-        out.push({
-          rule: "five-year term from the last election",
-          threshold: `expiring in ${thisYear} or ${thisYear + 1}`,
-          subject: s.jurisdictionName,
-          href,
-          detail: `Assembly last elected in ${s.year}, so a term of five years ends in ${dueYear}. No date has been announced and none is held here.`,
-          basis: "derived",
-          weight: 1_000 - (dueYear - thisYear),
-        });
-      }
+      // THERE IS NO TERM-EXPIRY RULE HERE, and its absence is deliberate.
+      //
+      // There was one: "assembly last elected in 2021, so a five-year term ends in 2026, derived". It
+      // outranked every measured count, because a due date is the thing a reader most wants at the top,
+      // and it fired for all eleven jurisdictions due within a year. It is also, word for word and basis
+      // for basis, what the Upcoming section prints — the same arithmetic on the same rows, labelled
+      // derived in both places. One fact, one home: Upcoming owns it, and what is left here is measured.
 
-      // 2. Knife-edge seats in the most recent election.
+      // 1. Knife-edge seats in the most recent election.
       const knife = seats.filter(
         (x) => x.marginVotes !== null && x.voters !== null && x.voters > 0 && (100 * Math.abs(x.marginVotes)) / x.voters < KNIFE_PP,
       );
@@ -700,7 +706,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
         });
       }
 
-      // 3. Seats that changed hands against the previous election of the same kind, seat by seat.
+      // 2. Seats that changed hands against the previous election of the same kind, seat by seat.
       const thenId = spine.previousOf(s.electionId);
       if (thenId !== null) {
         const before = new Map(
@@ -723,7 +729,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
           });
         }
 
-        // 4 and 5. Vote-share movement, and a party arriving from nothing.
+        // 3 and 4. Vote-share movement, and a party arriving from nothing.
         for (const r of spine.swingOf(s.electionId, thenId)) {
           if (r.changePp !== null && Math.abs(r.changePp) >= MOVE_PP) {
             out.push({
@@ -731,7 +737,13 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
               threshold: `≥ ${MOVE_PP} percentage points`,
               subject: `${r.label} in ${s.jurisdictionName}`,
               href,
-              detail: `${r.thenPct}% in ${spine.yearOf(thenId)} to ${r.nowPct}% in ${s.year} — ${r.changePp > 0 ? "+" : ""}${r.changePp}pp, with ${r.thenSeats} seats becoming ${r.nowSeats}.`,
+              // ROUNDED HERE, not in swingRows. A vote share is a ratio of two counts and carries the
+              // float that division produced — "50.0220697882493251% in 2014 to 17.009326330450175% in
+              // 2019" is what this sentence said until the first screenshot, and sixteen decimal places
+              // is not precision, it is the absence of a decision about precision. The stored value keeps
+              // its full precision because a caller computing with it should have it; a sentence built for
+              // a reader states one decimal, which is what the rest of the product prints.
+              detail: `${pct1(r.thenPct)} in ${spine.yearOf(thenId)} to ${pct1(r.nowPct)} in ${s.year} — ${r.changePp > 0 ? "+" : ""}${r.changePp}pp, with ${r.thenSeats} seats becoming ${r.nowSeats}.`,
               basis: "measured",
               weight: Math.abs(r.changePp),
             });
@@ -751,7 +763,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
       }
     }
 
-    // 6. The most recent by-election, which is its own kind of signal.
+    // 5. The most recent by-election, which is its own kind of signal.
     const poll = spine.bypoll;
     if (poll !== null) {
       out.push({
@@ -770,10 +782,10 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
 
     // One signal per subject, and at most PER_RULE of any one rule.
     //
-    // Without the quota this section was eight rows of "a term expires" — the derived rule fires for every
-    // one of the eleven jurisdictions due in 2026 or 2027, and a term expiry outranks any measured count
-    // because it is the thing a reader most wants at the top. Eight rows about eight places, each found a
-    // different way, is the section the brief describes; eight rows of one rule is a list of due dates.
+    // The quota is what keeps this from becoming eight rows found the same way. Before the term-expiry rule
+    // was removed it was eight rows of "a term expires"; without the quota now it would be eight rows of
+    // "seats changed hands", ranked by the states with the most seats, which is a list of big states.
+    // Eight rows about eight places, each found a different way, is the section this is for.
     const perRule = new Map<string, number>();
     const seen = new Set<string>();
     return out
@@ -1033,106 +1045,71 @@ function sourceIdsOf(db: DatabaseSync, electionId: string): string[] {
   ).map((r) => r.id);
 }
 
-/** Completeness for many elections at once, for the recent-elections cards. */
+/** Completeness for many elections at once, for the recent-elections rows. */
 export function completenessOf(db: DatabaseSync, electionIds: readonly string[]): Map<string, Completeness> {
   const out = new Map<string, Completeness>();
   for (const id of electionIds) out.set(id, electionCoverage(db, id)?.completeness ?? "unavailable");
   return out;
 }
 
-/* ────────────────────────────── historical exploration ────────────────────────────── */
+/** An election as the coverage picker needs it: the formal name, and a short one that fits in a strip. */
+export type ElectionChoice = { id: string; name: string; year: number; short: string };
 
-export type HistoryCell = {
-  electionId: string;
-  year: number;
-  /** 1 for the newest, ascending backwards. From row_number over CHRONO_DESC, so two elections in one
-   *  year keep their calendar order — Bihar held one in February 2005 and another in October. */
-  rank: number;
-  leaderLabel: string | null;
-  leaderSeats: number;
-  seatsContested: number;
-};
-
-export type HistoryRow = {
-  jurisdictionId: string;
-  jurisdictionName: string;
-  /** Newest first, up to `depth`. Shorter than `depth` where the registry holds fewer — never padded. */
-  cells: HistoryCell[];
-};
-
-/** How many elections back the history grid reaches. */
-export const HISTORY_DEPTH = 5;
+/** How many elections the picker offers. Twelve is two rows of chips at a laptop width; twenty-four was
+ *  six, which is more chrome than the panel it filters. Older elections are reachable by `?election=`. */
+export const ELECTION_CHOICES = 12;
 
 /**
- * The last few elections of one house in every jurisdiction that has any.
+ * Per-election coverage as `/coverage` asks for it: every election on offer, and the one being reported.
  *
- * Winners only — the grid shows who led and by how many seats, and reading every losing row of 155
- * elections to compute a share nothing displays is the difference between 300,000 rows and 31,000.
+ * This is the panel that used to sit at the bottom of the front page, driven by a `<select>` in the chrome
+ * that existed for nothing else. It moved to the page whose entire subject is the question, and the
+ * validation moved with it — which is the part that matters.
  *
- * Coverage is honest by construction: a jurisdiction with two elections on record gets two cells. There
- * is no padding, no "n/a" column and no assumption that everyone has five.
+ * THE PARAMETER IS VALIDATED BY MEMBERSHIP, NOT BY PARSING. An id that is not in `choices` falls back to
+ * the newest rather than reaching the SQL, so a hand-edited `?election=` cannot produce a broken page or an
+ * injection. That guarantee had one test and it was written against `homeView`; it is tested here now.
  */
-export function history(db: DatabaseSync, house: "ac" | "pc", depth = HISTORY_DEPTH): HistoryRow[] {
-  return read(() => {
-    const rows = all<{ id: string; j: string; year: number; seats: number; rn: number }>(
-      db,
-      // For a general election the contests are spread across every jurisdiction, so the grid is keyed on
-      // the jurisdiction the SEATS are in, not the one that called the election — which is 'in' for all
-      // eighteen of them and would make one row of the whole country.
-      house === "pc"
-        ? `SELECT id, j, year, seats, rn FROM (
-             SELECT e.id AS id, x.j AS j, e.year AS year, x.n AS seats,
-                    row_number() OVER (PARTITION BY x.j ORDER BY ${CHRONO_DESC}) AS rn
-               FROM election e
-               JOIN (SELECT c.election_id AS eid,
-                            CASE WHEN dis.kind = 'district' THEN dis.parent_id ELSE pl.parent_id END AS j,
-                            COUNT(*) AS n
-                       FROM contest c
-                       JOIN place_version pvv ON pvv.id = c.place_version_id
-                       JOIN place pl          ON pl.id = pvv.place_id
-                       LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)
-                      GROUP BY 1, 2) x ON x.eid = e.id
-              WHERE e.house = 'pc' AND e.kind <> 'bypoll'
-           ) WHERE rn <= ?`
-        : `SELECT id, j, year, seats, rn FROM (
-             SELECT e.id AS id, e.jurisdiction_place_id AS j, e.year AS year,
-                    (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats,
-                    row_number() OVER (PARTITION BY e.jurisdiction_place_id ORDER BY ${CHRONO_DESC}) AS rn
-               FROM election e WHERE e.house = 'ac' AND e.kind <> 'bypoll'
-           ) WHERE rn <= ?`,
-      depth,
-    );
-    const won = seatsWonBy(db, [...new Set(rows.map((r) => r.id))]);
-    const byJurisdiction = new Map<string, HistoryRow>();
-    for (const r of rows) {
-      const name = r.j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === r.j)?.name ?? r.j);
-      const at = byJurisdiction.get(r.j) ?? { jurisdictionId: r.j, jurisdictionName: name, cells: [] };
-      const top = won
-        .filter((w) => w.electionId === r.id && w.jurisdictionId === r.j)
-        .sort((a, b) => b.seats - a.seats || a.key.localeCompare(b.key))[0];
-      at.cells.push({
-        electionId: r.id,
-        year: r.year,
-        rank: r.rn,
-        leaderLabel: top?.label ?? null,
-        leaderSeats: top?.seats ?? 0,
-        seatsContested: r.seats,
-      });
-      byJurisdiction.set(r.j, at);
-    }
-    return [...byJurisdiction.values()]
-      // BY RANK, not by year. Bihar's February and October 2005 elections share a year, and sorting on
-      // year alone left their order to whatever the array happened to hold — which is the same collapse
-      // migration 013 split those two ids apart to prevent. `rank` is row_number over CHRONO_DESC.
-      .map((row) => ({ ...row, cells: [...row.cells].sort((a, b) => a.rank - b.rank) }))
-      .filter((row) => row.cells.length > 0)
-      .sort(
-        (a, b) =>
-          (b.cells[0]?.year ?? 0) - (a.cells[0]?.year ?? 0) ||
-          a.jurisdictionName.localeCompare(b.jurisdictionName),
-      );
-  });
+export function electionCoverageView(
+  db: DatabaseSync,
+  asked: string | undefined,
+  limit = ELECTION_CHOICES,
+): { choices: ElectionChoice[]; chosen: ElectionCoverage | null } {
+  const rows = all<{ id: string; name: string; year: number; j: string; house: string }>(
+    db,
+    `SELECT e.id AS id, e.name AS name, e.year AS year, e.jurisdiction_place_id AS j, e.house AS house
+       FROM election e WHERE e.kind <> 'bypoll' ORDER BY ${CHRONO_DESC} LIMIT ?`,
+    limit,
+  );
+  // A SHORT LABEL, BUILT HERE. `election.name` is the registry's formal name — "West Bengal Legislative
+  // Assembly election, 2026" — and a strip of twenty-four of those is six rows of chrome above the figures
+  // it filters. The jurisdiction and the house are the two facts that distinguish one row from the next.
+  const choices = rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    year: r.year,
+    short: `${r.j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === r.j)?.name ?? r.j)} ${
+      r.house === "pc" ? "Lok Sabha" : "Assembly"
+    } ${r.year}`,
+  }));
+  const id = choices.find((c) => c.id === asked)?.id ?? choices[0]?.id ?? null;
+  return { choices, chosen: id === null ? null : electionCoverage(db, id) };
 }
+
+/* ────────────────────────────── historical exploration ────────────────────────────── */
+
+/*
+ * THE HISTORY GRID IS GONE, and this note is where it was.
+ *
+ * `history()` built the last five elections of one house in every jurisdiction — a 36-row, 5-column grid,
+ * 180 cells, the single heaviest thing on the front page and the one section that was unambiguously an
+ * attempt to expose the whole database on the landing surface. Every cell linked to
+ * `/pl/<state>?election=<id>`, which is to say the grid was a table of contents for the state pages.
+ *
+ * It is not simply deleted. A state's own run of elections is a real thing to want and the state page did
+ * not have it; that is where the question belongs, one level down, beside the districts. See
+ * `place-page.ts`, where a state view now carries its elections.
+ */
 
 /* ────────────────────────────── the spine ────────────────────────────── */
 
@@ -1376,14 +1353,22 @@ export function headline(snap: Snapshot, parties: PartyLandscape): string {
 }
 
 export type HomeParams = {
+  /** Which choropleth to draw. Validated by MEMBERSHIP against LAYERS, never parsed. */
   layer?: string | undefined;
-  /** The election the coverage panel reports on. Validated against the registry, never trusted. */
-  election?: string | undefined;
-  /** The house the history grid shows. */
-  house?: string | undefined;
   /** The year the page reasons about, injected so a term-expiry list cannot change under a test. */
   thisYear: number;
 };
+
+/*
+ * TWO PARAMETERS WENT AWAY WITH THE SECTIONS THAT READ THEM.
+ *
+ * `?election=` drove one thing: the front page's Data coverage panel, and the `<select>` in the chrome that
+ * fed it. Per-election coverage is `/coverage`'s question, so the panel moved there and the parameter with
+ * it — `/coverage?election=ls-2024` is the same deep link, on the page that is about it.
+ *
+ * `?house=` switched the history grid between assembly and Lok Sabha. The grid is gone; see the note above
+ * `spine` for where a state's elections live now.
+ */
 
 export type HomeView = {
   snapshot: Snapshot;
@@ -1399,15 +1384,10 @@ export type HomeView = {
   upcoming: Dated[];
   overdue: Dated[];
   held: Dated[];
+  /** How completely each recently-held election is represented, for the chip on its row. */
   coverageOf: Map<string, Completeness>;
   parties: PartyLandscape;
-  fights: CloseFight[];
   signals: Signal[];
-  historyHouse: "ac" | "pc";
-  history: HistoryRow[];
-  coverage: ElectionCoverage | null;
-  /** Elections the coverage panel offers, newest first. */
-  choices: { id: string; name: string; year: number }[];
   ink: PartyInk;
 };
 
@@ -1436,14 +1416,6 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     available: l.key === key ? chosen.available : (can.get(l.key) ?? false),
   }));
 
-  const historyHouse: "ac" | "pc" = p.house === "pc" ? "pc" : "ac";
-  const choices = all<{ id: string; name: string; year: number }>(
-    db,
-    `SELECT id, name, year FROM election e WHERE e.kind <> 'bypoll' ORDER BY ${CHRONO_DESC} LIMIT 24`,
-  );
-  const asked = choices.find((c) => c.id === p.election);
-  const coverageId = asked?.id ?? choices[0]?.id ?? null;
-
   const next = upcoming(db, p.thisYear);
   const snap = snapshot(db, sp.standings, sp.states, sp.houseStandings, held[0] ?? null, p.thisYear);
   const parties = partyLandscape(db, withPoll);
@@ -1460,12 +1432,7 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     held,
     coverageOf: completenessOf(db, held.map((h) => h.id)),
     parties,
-    fights: closeFights(db, "assembly", 10),
     signals: watchSignals(db, withPoll, p.thisYear),
-    historyHouse,
-    history: history(db, historyHouse),
-    coverage: coverageId === null ? null : electionCoverage(db, coverageId),
-    choices,
     ink: sp.ink,
   };
 }

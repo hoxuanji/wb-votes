@@ -2,11 +2,28 @@ import Link from 'next/link';
 import { CommandKey } from './CommandKey.tsx';
 
 /**
- * The product shell: wordmark, command bar, two selectors, a live indicator, and the section strip.
+ * The product shell: wordmark, one command bar, two destinations, and a live indicator.
  *
- * STRUCTURAL ONLY — it opens no database and holds no list of states. Everything it renders arrives as a
- * prop, because a component that queries the registry cannot be mounted on a page that has already closed
- * its handle, and because the same shell has to serve `/`, `/pl/<state>` and `/coverage`.
+ * WHAT IT LOST, AND WHY. It used to carry a search field, a state `<select>`, an election `<select>` and a
+ * six-item strip of in-page anchors. That is four controls and six links above the map, and it was the
+ * clearest instance of the defect this phase exists to fix:
+ *
+ *  · The two `<select>`s were search fields that could each reach one kind of thing. A reader had to
+ *    classify their own query — is "Chikkodi" a state, an election or a seat? — before they could type it.
+ *    One command bar over one grouped result surface answers all five kinds, and `/search` is where the
+ *    grouping happens.
+ *  · The election `<select>` existed for exactly one consumer: the homepage's Data coverage panel. That
+ *    panel is gone (`/coverage` is a page for exactly that question), so the control that drove it went
+ *    with it.
+ *  · The six anchors were a table of contents for a page with nine sections. The page has four now, each
+ *    one screen apart, and a strip that jumps within one document is not navigation.
+ *
+ * What is left is the honest answer to "where can I go next": the country, the coverage ledger, and a
+ * field that reaches everything else. The hierarchy inside a state is carried by breadcrumbs, on the page,
+ * beside the thing they are about.
+ *
+ * STRUCTURAL ONLY — it opens no database and holds no list of states. The same shell serves `/`,
+ * `/pl/<path>`, `/p/<person>`, `/search` and `/coverage`.
  *
  * THE LIVE INDICATOR IS CONDITIONAL AND CURRENTLY ABSENT. `election.lifecycle` is 'declared' for all 1,202
  * rows and `election_phase` holds none, so there is no election running and the dot does not appear. A
@@ -14,49 +31,35 @@ import { CommandKey } from './CommandKey.tsx';
  * the same prop lights it.
  */
 
-export type Section = 'overview' | 'elections' | 'states' | 'map' | 'watch' | 'data';
+export type Section = 'india' | 'coverage' | 'search' | 'place' | 'person';
 
-/** A jurisdiction as the picker needs it. `hasData` disables rather than hides: the 36 are the country. */
-export type JumpTarget = { id: string; name: string; hasData: boolean };
-
-/** An election as the picker needs it. */
-export type ElectionChoice = { id: string; name: string; year: number };
-
-type Dest = { key: Section; label: string; href: string };
-
-/**
- * Six destinations, all of which resolve to something that exists. The previous strip listed ten and
- * rendered four of them as inert text with a tooltip explaining the absence — an honest gesture that in
- * practice put six dead words in the most valuable row on the page. The unbuilt surfaces are disclosed on
- * /coverage, which is a page for exactly that, rather than in the navigation.
- */
-const DESTINATIONS: readonly Dest[] = [
-  { key: 'overview', label: 'Overview', href: '/' },
-  { key: 'elections', label: 'Elections', href: '/#elections' },
-  { key: 'states', label: 'States', href: '/#states' },
-  { key: 'map', label: 'Map', href: '/#map' },
-  { key: 'watch', label: 'Watch', href: '/#watch' },
-  { key: 'data', label: 'Data', href: '/coverage' },
+/** Two destinations, both of which are pages. A strip that mixes pages with in-page anchors reads as one
+ *  list of six equivalent places and is not one. */
+const DESTINATIONS: readonly { key: Section; label: string; href: string }[] = [
+  { key: 'india', label: 'India', href: '/' },
+  { key: 'coverage', label: 'Coverage', href: '/coverage' },
 ];
 
 export function Shell({
   here,
-  states,
-  elections,
+  q,
+  /** A narrower measure for the surfaces that are prose and one table rather than a map. */
+  reading = false,
   live = false,
   children,
 }: {
   here: Section;
-  states?: readonly JumpTarget[];
-  elections?: readonly ElectionChoice[];
+  /** The current query, so the bar shows what was searched rather than emptying itself. */
+  q?: string;
+  reading?: boolean;
   /** True only while an election's own lifecycle says it is running. */
   live?: boolean;
   children: React.ReactNode;
 }) {
   return (
     <div className="iei">
-      {/* Skip link first in the tab order: the shell has a search field, two selects and six links before
-          the content, which is a lot of keyboard between the top of the page and the map. */}
+      {/* Skip link first in the tab order: the shell has a search field and two links before the content,
+          which is less keyboard than it was but still keyboard. */}
       <a className="iei-skip" href="#main">
         Skip to content
       </a>
@@ -66,58 +69,24 @@ export function Shell({
           <span className="iei-mark-b">Election Intelligence</span>
         </Link>
 
-        <div className="iei-controls">
-          <form className="iei-cmd" action="/search" method="get" role="search">
-            <label htmlFor="iei-q" className="iei-sr">
-              Search people, seats and parties
-            </label>
-            <input id="iei-q" name="q" type="search" placeholder="Search" autoComplete="off" />
-            {/* The hint is a <kbd>, not placeholder text: it must stay visible once the field has focus,
-                which is exactly when someone is deciding whether the shortcut exists. */}
-            <kbd aria-hidden="true">⌘K</kbd>
-          </form>
-
-          {states === undefined || states.length === 0 ? null : (
-            <form className="iei-pick" action="/pl" method="get">
-              <label htmlFor="iei-state" className="iei-sr">
-                Go to a state or union territory
-              </label>
-              <select id="iei-state" name="to" defaultValue="">
-                <option value="" disabled>
-                  State / UT
-                </option>
-                {states.map((s) => (
-                  <option key={s.id} value={s.id} disabled={!s.hasData}>
-                    {s.name}
-                    {s.hasData ? '' : ' — not loaded'}
-                  </option>
-                ))}
-              </select>
-              <button type="submit">Go</button>
-            </form>
-          )}
-
-          {elections === undefined || elections.length === 0 ? null : (
-            // A GET back to this page: the election is URL state, so the choice survives a reload and can
-            // be sent to someone. `?election=` is read by the coverage panel.
-            <form className="iei-pick" action="/" method="get">
-              <label htmlFor="iei-election" className="iei-sr">
-                Report coverage for an election
-              </label>
-              <select id="iei-election" name="election" defaultValue="">
-                <option value="" disabled>
-                  Election
-                </option>
-                {elections.map((e) => (
-                  <option key={e.id} value={e.id}>
-                    {e.name}
-                  </option>
-                ))}
-              </select>
-              <button type="submit">Go</button>
-            </form>
-          )}
-        </div>
+        {/* A real <form method="get">, so search works with JavaScript off, is linkable, and is correct
+            with the back button. ⌘K focuses it; the shortcut is an enhancement and never the only way in. */}
+        <form className="iei-cmd" action="/search" method="get" role="search">
+          <label htmlFor="iei-q" className="iei-sr">
+            Search India — states, elections, constituencies, people and parties
+          </label>
+          <input
+            id="iei-q"
+            name="q"
+            type="search"
+            defaultValue={q}
+            placeholder="Search states, elections, seats, people, parties"
+            autoComplete="off"
+          />
+          {/* A <kbd>, not placeholder text: it must stay visible once the field has focus, which is
+              exactly when someone is deciding whether the shortcut exists. */}
+          <kbd aria-hidden="true">⌘K</kbd>
+        </form>
 
         <nav className="iei-nav" aria-label="Sections">
           {DESTINATIONS.map((d) => (
@@ -139,7 +108,7 @@ export function Shell({
         </nav>
       </header>
       <CommandKey target="iei-q" />
-      <main className="iei-body" id="main">
+      <main className={reading ? 'iei-body iei-body-read' : 'iei-body'} id="main">
         {children}
       </main>
     </div>

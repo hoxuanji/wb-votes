@@ -66,19 +66,56 @@ test("the homepage renders, and says what it is in the first screen", live, () =
   assert.match(t, /INDIA\nElection Intelligence/, "the wordmark is not the first thing");
   assert.match(t, /India · current electoral landscape/);
   assert.match(t, /assemblies on record/, "the headline does not say what it counted");
-  // Every section the brief names.
-  for (const heading of [
-    "Who governs",
-    "Upcoming",
-    "Recently held",
-    "Party landscape",
-    "Close fights",
-    "What to watch",
-    "Historical elections",
-    "Data coverage",
-  ]) {
+  // FOUR SECTIONS, and the four the brief's Phase E names: the map, what is next, what was just decided,
+  // who holds power, and which signals stand out.
+  for (const heading of ["Assembly control", "Next", "Just decided", "Party landscape", "What to watch"]) {
     assert.ok(t.includes(heading), `the "${heading}" section is missing`);
   }
+  // And the five that were removed must stay removed, each for a reason recorded in page.tsx: every one of
+  // them printed a fact that has a home elsewhere on the same screen or one level down.
+  for (const [heading, why] of [
+    ["Who governs", "the map's companion table is the same 36 rows with the same links"],
+    ["Close fights", "Watch's knife-edge rule is the same fact at the same threshold"],
+    ["Historical elections", "180 cells of links to the state pages the map already reaches"],
+    ["Data coverage", "/coverage is a page whose whole subject is that question"],
+  ] as const) {
+    assert.ok(!t.includes(heading), `"${heading}" is back on the front page — ${why}`);
+  }
+  // The hero's six metric tiles are gone too, and their labels are the cheapest way to detect a return.
+  for (const label of ["Governing parties", "Terms expiring", "Elections held"]) {
+    assert.ok(!t.includes(label), `the hero metric "${label}" is back; it is printed in the dateline already`);
+  }
+});
+
+test("the front page is materially lighter than the nine-section version it replaced", live, () => {
+  // Phase 2.5's target, measured rather than felt: 30–50% of the visible information and container
+  // complexity removed. The baseline is the rendered markup of c2c81c7, recorded in
+  // docs/product/consolidation-audit.md. These are ceilings, not equalities — a state loading tomorrow adds
+  // rows — so each is the audited "after" with headroom, and the point of the test is that the page cannot
+  // drift back to nine sections without someone deciding to.
+  const html = render("/");
+  const count = (re: RegExp): number => (html.match(re) ?? []).length;
+  const before = { sections: 9, tables: 7, rows: 141, cells: 726, tiles: 12, notes: 11 };
+  const now = {
+    sections: count(/<section/g),
+    tables: count(/<table/g),
+    rows: count(/<tr/g),
+    cells: count(/<t[dh][ >]/g),
+    tiles: count(/class="iei-metric"/g),
+    notes: count(/class="iei-(note|caveat)"/g),
+  };
+  for (const k of Object.keys(before) as (keyof typeof before)[]) {
+    assert.ok(
+      now[k] <= before[k],
+      `${k}: ${now[k]} is not fewer than the ${before[k]} this phase set out to reduce`,
+    );
+  }
+  // Containers and tiles are where the "assembled widgets" feeling came from, so those are held hardest.
+  assert.ok(now.sections <= 5, `${now.sections} sections — the target structure is four plus the map`);
+  assert.equal(now.tiles, 0, "the front page has metric tiles again; the dateline carries those counts");
+  assert.ok(now.notes <= 4, `${now.notes} prose caveats on the front page`);
+  // And the single largest reduction: the 36×5 history grid plus the duplicate 36-row standings table.
+  assert.ok(now.cells <= before.cells * 0.6, `${now.cells} table cells, against ${before.cells} before`);
 });
 
 test("the homepage never prints a fabricated figure", live, () => {
@@ -113,7 +150,7 @@ test("the homepage never prints a fabricated figure", live, () => {
 });
 
 test("the unopposed seat is never counted among the numeric results", live, () => {
-  const t = text(render("/", "election=ls-2024"));
+  const t = text(render("/coverage", "election=ls-2024"));
   // The brief's rule, on the rendered page: 543 constituencies, 542 numeric, 1 unopposed. A page showing
   // 543 numeric winners would be the exact failure it names.
   const numeric = /Numeric results\n([\d,]+)/.exec(t)?.[1];
@@ -147,34 +184,49 @@ test("every map layer renders, and an unknown one falls back instead of breaking
 });
 
 test("URL state survives, so a view can be sent to someone", live, () => {
-  // Two parameters at once: changing the layer must not silently reset the election, and vice versa.
-  const html = render("/", "layer=turnout&election=ka-assembly-2023&house=pc");
-  const t = text(html);
-  assert.match(t, /Turnout/, "the layer parameter was ignored");
-  assert.match(t, /Karnataka Legislative Assembly election, 2023/, "the election parameter was ignored");
-  assert.match(t, /general elections in each jurisdiction/, "the house parameter was ignored");
-  // Every layer link must carry the other two parameters forward.
+  // ONE parameter on the front page now. It used to take three, and carrying `?election=` and `?house=`
+  // through every layer link was the machinery that kept a coverage panel and a history grid from resetting
+  // when a reader changed the map. Both sections are gone; the layer is the only view state left, and every
+  // layer link anchors to #map so changing it returns the browser to the section that changed.
+  const html = render("/", "layer=turnout");
+  assert.match(text(html), /Turnout/, "the layer parameter was ignored");
   const links = [...html.matchAll(/href="\/\?([^"]*)#map"/g)].map((m) => m[1] as string);
   assert.ok(links.length >= 5, "the layer strip did not render links");
   for (const q of links) {
-    assert.match(q, /election=ka-assembly-2023/, `a layer link drops the election: ${q}`);
-    assert.match(q, /house=pc/, `a layer link drops the house: ${q}`);
+    assert.match(q, /^layer=[a-z]+$/, `a layer link carries state the page no longer has: ${q}`);
   }
+});
+
+test("the election deep link moved to the page that is about it", live, () => {
+  // `/coverage?election=` is the same URL state the front page used to hold, on the surface whose whole
+  // subject is the question. A view of one election's coverage is still shareable.
+  const t = text(render("/coverage", "election=ls-2024"));
+  assert.match(t, /Lok Sabha/, "the election parameter was ignored");
+  // And a hand-edited one falls back rather than breaking.
+  const bogus = text(render("/coverage", "election=%27%3B+DROP+TABLE+result%3B+--"));
+  assert.match(bogus, /How much of this election do we actually hold/, "a bogus election id broke the page");
 });
 
 /* ────────────────────────────── navigation ────────────────────────────── */
 
-test("every jurisdiction the map links to actually resolves", live, () => {
+test("every place the front page links to actually resolves", live, () => {
   const html = render("/");
-  // Taken FROM the rendered page, not from a list: these are the links a reader can click.
-  const targets = [...new Set([...html.matchAll(/href="\/pl\/([a-z]{2})"/g)].map((m) => m[1] as string))];
-  assert.equal(targets.length, 36, `the map offers ${targets.length} jurisdictions, not 36`);
+  // EVERY /pl link, with or without a query string. The earlier version of this test matched only
+  // `href="/pl/xx"` with nothing after it, and the general election's row linked to `/pl/in?election=…` —
+  // so a link to a 404 sat on the front page behind a query string the regex did not see. India's page is
+  // the front page; the row names the nation in plain text now, and the assertion below is what catches the
+  // next one.
+  const targets = [...new Set([...html.matchAll(/href="\/pl\/([a-z]{2})(?:[?#"])/g)].map((m) => m[1] as string))];
+  assert.ok(targets.length > 0, "the front page links to no place at all");
   for (const id of targets) {
     // A 404 throws inside the render, so this asserting-by-not-throwing is the assertion.
     const page = text(render("/pl", "", id));
     assert.ok(page.length > 50, `/pl/${id} rendered almost nothing`);
     assert.doesNotMatch(page, /not built in this checkout/, `/pl/${id} could not read the registry`);
   }
+  // And the map specifically must reach all 36, which is the country.
+  const onMap = [...new Set([...html.matchAll(/id="iei-j-([a-z]{2})"/g)].map((m) => m[1] as string))];
+  assert.equal(onMap.length, 36, `the map offers ${onMap.length} jurisdictions, not 36`);
 });
 
 test("the five jurisdictions the brief names each render their own name and result", live, () => {

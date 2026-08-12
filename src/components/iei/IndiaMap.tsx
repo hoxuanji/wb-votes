@@ -72,7 +72,13 @@ export function IndiaMap({
   });
 
   return (
-    <>
+    // ONE ELEMENT, and that is a fix rather than a tidy-up. This used to return a fragment of three
+    // children — a <style>, the <figure>, and the tile row — and the page mounts it as the first child of a
+    // two-column grid. A fragment does not create a box, so the grid saw three items instead of one: the
+    // map took column 1, THE TILE ROW TOOK COLUMN 2, and the legend and the 36-row table that belong there
+    // wrapped to a third cell underneath. The right-hand half of the front page was empty and its table was
+    // under the map, at every width, and no markup assertion could see it. The first real screenshot did.
+    <div className="iei-map-col">
       <style dangerouslySetInnerHTML={{ __html: linkRules(layer.cells) }} />
       <figure className="iei-map">
         <svg
@@ -113,7 +119,7 @@ export function IndiaMap({
           ))}
         </ul>
       )}
-    </>
+    </div>
   );
 }
 

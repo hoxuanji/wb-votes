@@ -1,4 +1,10 @@
-/* INDIA ELECTION INTELLIGENCE — the product shell.
+/* INDIA ELECTION INTELLIGENCE — the design system. One stylesheet, and the only one the product has.
+
+   There used to be four. iei.css served `/`, mandate.css and place.css served `/pl` and `/p`,
+   situation.css and its two children served `/coverage`, `/search` and `/map`, and Tailwind served the
+   West Bengal dashboard. Three of them declared their own copy of the same dark palette two hexes apart,
+   two of them set a different base font size, and each had its own table treatment — which is why the
+   product read as assembled widgets: a component written for one page could not be mounted on the next.
 
    THE ONE RULE THIS FILE ENFORCES: the interface is monochrome, and only DATA is coloured.
 
@@ -9,16 +15,24 @@
    exists to be read map-first. It also removes the collision the alternative creates: any accent close
    enough to feel deliberate sits next to one of the four party fills.
 
+   THE SECOND RULE: every length is a token. A rule that wants 18px is a rule that has not decided
+   whether it means 16 or 24. The scale is 4·8·12·16·24·32·48 and there are seven type sizes; both are
+   declared once, below, and redeclared at breakpoints rather than overridden rule by rule.
+
    The rest follows from the same instinct:
    · No gradients, no glass, no shadows, no card that floats for decoration. Sections are divided by
      hairlines, which is how a document divides sections.
    · Every NUMBER and every piece of metadata is monospace and tabular. Prose is not. That single split is
      what lets a table run at 12px and stay readable.
-   · Radius tops out at 2px. A dashboard of rounded cards reads as a marketing page with data in it.
+   · Radius is one token and it is 2px. A dashboard of rounded cards reads as a marketing page with data
+     in it.
    · Focus is a 2px bright-ink underline on the control itself, never a ring. forced-colors gets a real
      outline, because there the system owns the treatment. */
 
 :root {
+  /* ── surfaces and ink ──
+     Locked by packages/mandate/src/viz/iei.test.ts, which parses this block and computes the contrast of
+     every ink against every surface. Do not change a hex here without running it. */
   --iei-bg: #07070b;
   --iei-panel: #0d0d13;
   --iei-raised: #14141c;
@@ -46,22 +60,92 @@
   --iei-warn: #e0b458;
   --iei-alert: #e8927c;
 
+  /* The no-data ink. Deliberately below the 3:1 mark floor: an unlit polygon must not read as a mark,
+     because it is the absence of one. Named here so the map and the legend cannot disagree about it. */
+  --iei-void: #1d1b26;
+
   --iei-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --iei-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+
+  /* ── space ──
+     Seven steps. Every margin, padding and gap in this file is one of them, and a rule that needs a value
+     between two of them is a rule that has not decided which it means. */
+  --iei-1: 4px;
+  --iei-2: 8px;
+  --iei-3: 12px;
+  --iei-4: 16px;
+  --iei-6: 24px;
+  --iei-8: 32px;
+  --iei-12: 48px;
+
+  /* ── type ──
+     Seven sizes, each with a job. The two smallest are mono-only: `mark` is an uppercase label and never
+     a sentence, `meta` is mono at reading size. `data` is a table cell, `body` is prose. */
+  --iei-f-mark: 9.5px;
+  --iei-f-meta: 11px;
+  --iei-f-data: 12px;
+  --iei-f-body: 13px;
+  --iei-f-title: 14px;
+  --iei-f-lead: 19px;
+  --iei-f-answer: 25px;
+
+  /* ── frame ── */
+  --iei-r: 2px;
+  --iei-max: 1340px;
+  --iei-gutter: var(--iei-4);
+  /* One row density, and one tighter one for the 36-row jurisdiction lists. Both are on the scale, and
+     `tight` exists so that a table of every state in India fits a screen — a documented reason, which is
+     the only kind this file allows. */
+  /* The map's maximum height, and the height of the table that sits beside it. One value, because the two
+     are one row of the layout and a mismatch reads as an unfinished column. */
+  --iei-map-h: 640px;
+  --iei-cell-y: var(--iei-2);
+  --iei-cell-y-tight: var(--iei-1);
+  --iei-cell-x: var(--iei-3);
+}
+
+/* ══════════════════════════ document ══════════════════════════
+   The four rules worth rescuing from the deleted globals.css. Everything else it declared — a blue focus
+   ring on every element, a fade-in on <main>, a light-grey scrollbar thumb — was fighting this file. */
+
+html {
+  /* The section strip and the layer links are in-page anchors, so this is functional, not decorative.
+     It is switched off with the rest of the motion below. */
+  scroll-behavior: smooth;
+  /* Without it the page shifts horizontally the moment a scrollbar appears, which on a choropleth means
+     every polygon moves. */
+  scrollbar-gutter: stable;
+  -webkit-text-size-adjust: 100%;
 }
 
 .iei {
   background: var(--iei-bg);
   color: var(--iei-ink);
   font-family: var(--iei-sans);
-  font-size: 13px;
+  font-size: var(--iei-f-body);
   line-height: 1.5;
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .iei * {
   box-sizing: border-box;
+}
+
+/* A dark thumb, because the page is near-black and the browser default is not. */
+.iei ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.iei ::-webkit-scrollbar-thumb {
+  background: var(--iei-line-2);
+  border-radius: var(--iei-r);
+}
+
+.iei ::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 .iei-sr,
@@ -77,18 +161,18 @@
 /* The skip link is the first thing in the tab order and must become visible when it takes focus. */
 .iei-skip:focus {
   position: fixed;
-  top: 6px;
-  left: 6px;
+  top: var(--iei-2);
+  left: var(--iei-2);
   z-index: 40;
   width: auto;
   height: auto;
   clip-path: none;
-  padding: 6px 10px;
+  padding: var(--iei-1) var(--iei-3);
   background: var(--iei-ink);
   color: var(--iei-bg);
   font-family: var(--iei-mono);
-  font-size: 11px;
-  border-radius: 2px;
+  font-size: var(--iei-f-meta);
+  border-radius: var(--iei-r);
 }
 
 /* ══════════════════════════ top bar ══════════════════════════ */
@@ -97,9 +181,9 @@
   display: grid;
   grid-template-columns: auto 1fr auto;
   align-items: center;
-  gap: 8px 20px;
-  padding: 0 18px;
-  min-height: 48px;
+  gap: var(--iei-2) var(--iei-6);
+  padding: 0 var(--iei-gutter);
+  min-height: var(--iei-12);
   border-bottom: 1px solid var(--iei-line);
   background: var(--iei-panel);
   position: sticky;
@@ -109,7 +193,7 @@
 
 .iei-mark {
   display: flex;
-  gap: 8px;
+  gap: var(--iei-2);
   align-items: baseline;
   text-decoration: none;
   white-space: nowrap;
@@ -117,7 +201,7 @@
 
 .iei-mark-a {
   font-family: var(--iei-sans);
-  font-size: 14px;
+  font-size: var(--iei-f-title);
   font-weight: 800;
   letter-spacing: -0.02em;
   color: var(--iei-ink);
@@ -125,104 +209,76 @@
 
 .iei-mark-b {
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: var(--iei-f-mark);
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--iei-ink-3);
 }
 
-/* One bordered cluster: type a name, jump to a state, or change the election. Three ways into the same
-   registry, read as one control rather than three strays with a hundred pixels between them. */
-.iei-controls {
+.iei-mark:focus-visible {
+  outline: none;
+}
+
+.iei-mark:focus-visible .iei-mark-a {
+  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
+}
+
+/* ── the command bar ──
+   One control, and the product's only search field. It replaced three: this input (people only), a state
+   <select> that submitted to /pl, and an election <select> that submitted back to /. Three inputs side by
+   side, each able to reach one kind of thing, is not a search system — it is a menu that makes the reader
+   classify their own query before they type it. */
+.iei-cmd {
   display: flex;
   align-items: stretch;
   min-width: 0;
   border: 1px solid var(--iei-line-2);
-  border-radius: 2px;
+  border-radius: var(--iei-r);
   background: var(--iei-raised);
-  overflow: hidden;
   justify-self: start;
+  position: relative;
+  max-width: 420px;
+  flex: 1 1 320px;
 }
 
-.iei-controls form {
-  display: flex;
-  align-items: stretch;
-  min-width: 0;
-}
-
-.iei-controls input,
-.iei-controls select,
-.iei-controls button {
+.iei-cmd input {
   background: transparent;
   border: 0;
   color: var(--iei-ink);
   font-family: var(--iei-mono);
-  font-size: 11px;
-  padding: 8px 10px;
+  font-size: var(--iei-f-meta);
+  padding: var(--iei-2) var(--iei-8) var(--iei-2) var(--iei-3);
+  width: 100%;
   min-width: 0;
-}
-
-.iei-cmd {
-  position: relative;
-}
-
-.iei-cmd input {
-  width: 210px;
-  max-width: 26vw;
-  padding-right: 40px;
 }
 
 .iei-cmd input::placeholder {
   color: var(--iei-ink-3);
 }
 
+/* The hint is a <kbd>, not placeholder text: it must stay visible once the field has focus, which is
+   exactly when someone is deciding whether the shortcut exists. */
 .iei-cmd kbd {
   position: absolute;
-  right: 7px;
+  right: var(--iei-2);
   top: 50%;
   transform: translateY(-50%);
   font-family: var(--iei-mono);
-  font-size: 9px;
+  font-size: var(--iei-f-mark);
   letter-spacing: 0.04em;
   color: var(--iei-ink-3);
   border: 1px solid var(--iei-line-2);
-  border-radius: 2px;
-  padding: 1px 4px;
+  border-radius: var(--iei-r);
+  padding: 0 var(--iei-1);
   pointer-events: none;
 }
 
-.iei-pick {
-  border-left: 1px solid var(--iei-line-2);
-}
-
-.iei-pick select {
-  color: var(--iei-ink-2);
-  max-width: 150px;
-  cursor: pointer;
-}
-
-.iei-pick button {
-  color: var(--iei-ink-3);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  font-size: 9px;
-  cursor: pointer;
-  padding: 8px 8px;
-}
-
-.iei-pick button:hover,
-.iei-pick select:hover {
-  color: var(--iei-ink);
-}
-
-/* Focus shows on the GROUP, so a joined control never looks broken apart, and on the field itself. */
-.iei-controls:focus-within {
+/* Focus shows on the group as well as the field, so a joined control never looks broken apart. */
+.iei-cmd:focus-within {
   border-color: var(--iei-ink-3);
 }
 
-.iei-controls input:focus-visible,
-.iei-controls select:focus-visible,
-.iei-controls button:focus-visible {
+.iei-cmd input:focus-visible {
   outline: none;
   color: var(--iei-ink);
   box-shadow: inset 0 -2px 0 0 var(--iei-ink);
@@ -231,7 +287,7 @@
 .iei-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 16px;
+  gap: 0 var(--iei-4);
   align-items: center;
   justify-self: end;
   min-width: 0;
@@ -239,12 +295,12 @@
 
 .iei-nav a {
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: var(--iei-f-mark);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   text-decoration: none;
   color: var(--iei-ink-3);
-  padding: 4px 0 3px;
+  padding: var(--iei-1) 0;
   border-bottom: 2px solid transparent;
   white-space: nowrap;
 }
@@ -268,7 +324,7 @@
   display: inline-flex;
   align-items: center;
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: var(--iei-f-mark);
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--iei-alert);
@@ -279,7 +335,7 @@
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  margin-right: 6px;
+  margin-right: var(--iei-1);
   background: currentColor;
 }
 
@@ -287,12 +343,20 @@
   background: var(--iei-alert);
 }
 
-/* ══════════════════════════ page frame ══════════════════════════ */
+/* ══════════════════════════ page frame ══════════════════════════
+   One grid, one gutter, one max width, and every primary page uses it. /pl and /p used to be 880px wide
+   at a 16px base inside a 1340px shell that did not exist on them. */
 
 .iei-body {
-  max-width: 1340px;
+  max-width: var(--iei-max);
   margin: 0 auto;
-  padding: 0 18px 72px;
+  padding: 0 var(--iei-gutter) var(--iei-12);
+}
+
+/* A narrower measure for the pages that are mostly prose and one table — a person, a seat, the coverage
+   ledger. Same gutter, same rhythm, a column that does not run to 1340px of 12px text. */
+.iei-body-read {
+  max-width: 1040px;
 }
 
 /* The record strip: the dateline of the whole page, and the first thing under the chrome. Every figure in
@@ -300,12 +364,12 @@
 .iei-record {
   display: flex;
   flex-wrap: wrap;
-  gap: 2px 26px;
+  gap: 0 var(--iei-6);
   align-items: baseline;
   border-bottom: 1px solid var(--iei-line);
-  padding: 11px 0;
+  padding: var(--iei-3) 0;
   font-family: var(--iei-mono);
-  font-size: 10.5px;
+  font-size: var(--iei-f-mark);
   letter-spacing: 0.05em;
   color: var(--iei-ink-3);
 }
@@ -316,52 +380,56 @@
   font-variant-numeric: tabular-nums;
 }
 
-.iei-record a {
+.iei-record a,
+.iei-foot a,
+.iei-body-link {
   color: var(--iei-ink-2);
   text-decoration: none;
   border-bottom: 1px solid var(--iei-line-2);
 }
 
-.iei-record a:hover {
+.iei-record a:hover,
+.iei-foot a:hover,
+.iei-body-link:hover {
   color: var(--iei-ink);
 }
 
-.iei-record a:focus-visible {
+.iei-record a:focus-visible,
+.iei-foot a:focus-visible,
+.iei-body-link:focus-visible {
   outline: none;
   color: var(--iei-ink);
   border-bottom: 2px solid var(--iei-ink);
 }
 
-/* ══════════════════════════ hero ══════════════════════════
-   A data surface, not a marketing block. One sentence that is computed, then the six counts behind it. */
+/* ══════════════════════════ the answer ══════════════════════════
+   A computed sentence, and the only thing on a page that is allowed to be large. There is no six-metric
+   strip beside it any more: every one of those six figures was printed again in the record strip above or
+   in a section below, which is the clearest case of one fact with two homes. */
 
-.iei-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
-  gap: 10px 40px;
-  align-items: end;
-  padding: 26px 0 20px;
+.iei-head {
+  padding: var(--iei-6) 0;
   border-bottom: 1px solid var(--iei-line);
 }
 
 .iei-eyebrow {
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: var(--iei-f-mark);
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--iei-ink-3);
-  margin: 0 0 10px;
+  margin: 0 0 var(--iei-2);
 }
 
-/* The answer. 26px, not 64px: the brief forbids a giant hero, and a sentence this specific does not need
-   size to land — it needs to be a sentence rather than a slogan. */
+/* 25px, not 64px: a sentence this specific does not need size to land — it needs to be a sentence rather
+   than a slogan. */
 .iei-answer {
-  font-size: 25px;
+  font-size: var(--iei-f-answer);
   line-height: 1.25;
   font-weight: 600;
   letter-spacing: -0.015em;
   margin: 0;
-  max-width: 34ch;
+  max-width: 46ch;
   text-wrap: balance;
 }
 
@@ -372,86 +440,56 @@
   letter-spacing: -0.02em;
 }
 
+/* The one line under the answer, where a page needs it. Not a manifesto: the footer says what the product
+   is, and saying it twice on one screen is the repetition this phase exists to remove. */
 .iei-sub {
-  margin: 10px 0 0;
-  font-size: 13px;
+  margin: var(--iei-2) 0 0;
+  font-size: var(--iei-f-body);
   color: var(--iei-ink-2);
-  max-width: 52ch;
-}
-
-.iei-metrics {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 1px;
-  margin: 0;
-  background: var(--iei-line);
-}
-
-.iei-metric {
-  background: var(--iei-bg);
-  padding: 10px 12px 11px;
-}
-
-.iei-metric dt {
-  font-family: var(--iei-mono);
-  font-size: 9.5px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--iei-ink-3);
-  margin: 0 0 3px;
-}
-
-.iei-metric dd {
-  margin: 0;
-  font-family: var(--iei-mono);
-  font-size: 19px;
-  font-weight: 600;
-  letter-spacing: -0.02em;
-  font-variant-numeric: tabular-nums;
-  line-height: 1.15;
-}
-
-.iei-metric small {
-  display: block;
-  font-family: var(--iei-sans);
-  font-size: 10.5px;
-  font-weight: 400;
-  color: var(--iei-ink-3);
-  letter-spacing: 0;
-  margin-top: 3px;
-  line-height: 1.35;
-}
-
-.iei-of {
-  color: var(--iei-ink-3);
-  font-size: 0.66em;
-  font-weight: 400;
-  letter-spacing: 0;
+  max-width: 68ch;
 }
 
 /* ══════════════════════════ sections ══════════════════════════ */
 
 .iei-sec {
   border-bottom: 1px solid var(--iei-line);
-  padding: 22px 0 24px;
+  padding: var(--iei-6) 0;
 }
 
 .iei-sec:last-of-type {
   border-bottom: none;
 }
 
+/* Title and question on the left, provenance on the right.
+   They used to be `space-between` with the question in the right-hand group, which on a 1,340px page put
+   "Which party leads each assembly now?" a thousand pixels from the words ASSEMBLY CONTROL it belongs to.
+   A caption that far from its heading is not a caption. */
 .iei-h {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 10px 20px;
+  gap: var(--iei-2) var(--iei-6);
   flex-wrap: wrap;
-  margin: 0 0 14px;
+  margin: 0 0 var(--iei-4);
+}
+
+.iei-h-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--iei-3);
+  flex-wrap: wrap;
+  min-width: 0;
+}
+
+.iei-h-title p {
+  margin: 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-3);
 }
 
 .iei-h h2 {
   font-family: var(--iei-mono);
-  font-size: 11px;
+  font-size: var(--iei-f-meta);
   font-weight: 700;
   letter-spacing: 0.14em;
   text-transform: uppercase;
@@ -462,7 +500,7 @@
 .iei-h-meta {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--iei-3);
   flex-wrap: wrap;
   justify-content: flex-end;
   min-width: 0;
@@ -470,25 +508,35 @@
 
 .iei-h-meta p {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--iei-f-data);
   color: var(--iei-ink-3);
   text-align: right;
 }
 
 .iei-caveat {
-  margin: -6px 0 12px;
-  font-size: 12px;
+  margin: 0 0 var(--iei-3);
+  font-size: var(--iei-f-data);
   color: var(--iei-ink-2);
   border-left: 2px solid var(--iei-line-2);
-  padding-left: 10px;
+  padding-left: var(--iei-3);
   max-width: 88ch;
 }
 
 .iei-two {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-  gap: 28px;
+  gap: var(--iei-8);
   align-items: start;
+  /* THE RULE BELONGS TO THE ROW, NOT TO EACH PANEL IN IT. Two sections side by side each drew their own
+     bottom hairline, and their content is never the same height, so the page carried two parallel rules
+     thirty pixels apart — which reads as a misalignment because it is one. */
+  border-bottom: 1px solid var(--iei-line);
+  padding-bottom: var(--iei-6);
+}
+
+.iei-two > .iei-sec {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .iei-two-wide {
@@ -501,7 +549,7 @@
 
 .iei-basis {
   font-family: var(--iei-mono);
-  font-size: 9px;
+  font-size: var(--iei-f-mark);
   font-weight: 600;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -543,39 +591,52 @@
   letter-spacing: 0.02em;
 }
 
-/* ══════════════════════════ tables ══════════════════════════ */
+/* ══════════════════════════ tables ══════════════════════════
+   One treatment. Header typography, row height, padding, alignment, borders and hover are declared here
+   and nowhere else, because the audit found four table idioms with 6px, 8px, 10px and 12px of cell padding
+   and three different header weights. Numbers right, text left, headers with their columns. */
 
 .iei-t {
   width: 100%;
   border-collapse: collapse;
-  font-size: 12.5px;
+  font-size: var(--iei-f-data);
 }
 
 .iei-t caption {
   text-align: left;
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: var(--iei-f-mark);
   letter-spacing: 0.08em;
-  text-transform: uppercase;
   color: var(--iei-ink-3);
-  padding-bottom: 6px;
+  padding-bottom: var(--iei-2);
+  max-width: 88ch;
 }
 
 .iei-t th {
   text-align: left;
   font-family: var(--iei-mono);
-  font-size: 9.5px;
+  font-size: var(--iei-f-mark);
   font-weight: 500;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--iei-ink-3);
-  padding: 0 10px 6px 0;
+  padding: 0 var(--iei-cell-x) var(--iei-2) 0;
   border-bottom: 1px solid var(--iei-line-2);
+  /* A TEXT HEADER MAY WRAP. It used to be `nowrap`, which made "LEADING PARTY" an 88px floor on its column
+     and pushed the seat denominator past the right edge of the map's companion table at 1024 — the header
+     was setting the layout instead of describing it. A numeric header stays on one line, because those are
+     one or two words and their column is sized by its figures. */
+  white-space: normal;
+  vertical-align: bottom;
+}
+
+.iei-t th.iei-n,
+.iei-t th.iei-den {
   white-space: nowrap;
 }
 
 .iei-t td {
-  padding: 6px 10px 6px 0;
+  padding: var(--iei-cell-y) var(--iei-cell-x) var(--iei-cell-y) 0;
   border-bottom: 1px solid var(--iei-line);
   vertical-align: baseline;
 }
@@ -589,7 +650,28 @@
   padding-right: 0;
 }
 
-/* Numbers are monospace and tabular, always. */
+/* A row that is a link target lights up as one. The whole row, not the cell — the cell is not the thing
+   being chosen. */
+.iei-t tbody tr:hover td {
+  background: var(--iei-panel);
+}
+
+/* The denominator of the cell to its left, in its own column.
+   "150 of 175" inside one right-aligned cell aligns the DENOMINATORS and leaves the figures ragged — 150,
+   41, 60, 75, 156 stepping left and right down a column whose entire purpose is that numbers line up. Two
+   columns: the figure right-aligned against its own edge, the denominator left-aligned after it. */
+.iei-t .iei-den {
+  font-family: var(--iei-mono);
+  font-size: 0.86em;
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink-3);
+  text-align: left;
+  white-space: nowrap;
+  padding-left: var(--iei-1);
+  width: 1%;
+}
+
+/* Numbers are monospace and tabular, always, and right-aligned, always. */
 .iei-n {
   font-family: var(--iei-mono);
   font-variant-numeric: tabular-nums;
@@ -598,10 +680,36 @@
   color: var(--iei-ink);
 }
 
+/* AND SO IS THE HEADER OVER THEM. `.iei-t th` sets `text-align: left` and outspecifies a bare `.iei-n`
+   (a class plus a type beats a class), so every numeric column had a left-aligned header sitting over
+   right-aligned figures — "ASSEMBLY SEATS" starting 58px left of where "1,450" ended. Phase H's rule is
+   that headers align with their columns; this is the declaration that makes it true rather than intended. */
+.iei-t th.iei-n {
+  text-align: right;
+}
+
+/* A row header — a state name, a seat number, a year — reads as a label, not as a heading. */
+.iei-t th[scope="row"] {
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-data);
+  font-weight: 400;
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--iei-ink);
+  padding: var(--iei-cell-y) var(--iei-cell-x) var(--iei-cell-y) 0;
+  border-bottom: 1px solid var(--iei-line);
+  vertical-align: baseline;
+}
+
+/* NO RESTING UNDERLINE IN A TABLE, and this is the one place that rule is safe.
+   Prose needs an underline, because a link inside a sentence is distinguishable from the sentence by
+   nothing else. A data table's first column is links in every row — 36 of them under the states — and an
+   underline on all of them is a stripe pattern rather than an affordance. The row hover, the cursor and the
+   uniformity of the column carry it, and focus draws a real 2px rule. */
 .iei-t a {
   color: var(--iei-ink);
   text-decoration: none;
-  border-bottom: 1px solid var(--iei-line-2);
+  border-bottom: 1px solid transparent;
 }
 
 .iei-t a:hover {
@@ -613,15 +721,40 @@
   border-bottom: 2px solid var(--iei-ink);
 }
 
-.iei-t-tight td {
-  padding: 3px 10px 3px 0;
-  font-size: 11.5px;
+/* The tighter density, for the lists that are every jurisdiction in India. The only reason a second
+   density exists, and the reason is that 36 rows should fit a screen. */
+.iei-t-tight td,
+.iei-t-tight th[scope="row"] {
+  padding-top: var(--iei-cell-y-tight);
+  padding-bottom: var(--iei-cell-y-tight);
 }
 
+/* A column a phone does not get.
+   The sparkline is the one thing in any table here whose value is also printed beside it as a number, so it
+   is the only column that can go without losing a fact. Everything else scrolls sideways inside its own
+   region, which is the honest answer for a genuinely wide table and is already keyboard- and touch-
+   reachable. Hiding a column that carried a figure would not be. */
+@media (max-width: 640px) {
+  .iei-drop {
+    display: none;
+  }
+}
+
+/* A cell whose content must not push the table wider than the page. */
+.iei-clip {
+  max-width: 22ch;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Every table lives inside one of these: a named, keyboard-focusable region that scrolls SIDEWAYS rather
+   than widening the document. All three of `role`, `tabindex` and a name, always — a scroll container that
+   is not focusable is unreachable without a pointer, and an unnamed region is announced as "region" with
+   no indication of what it holds. That is the difference between a responsive table and a table whose
+   right-hand half a phone user cannot read. */
 .iei-scroll {
-  max-height: 460px;
-  overflow-y: auto;
-  /* A scroll region needs to be keyboard-focusable or its content is unreachable without a mouse. */
+  overflow-x: auto;
   scrollbar-width: thin;
 }
 
@@ -630,20 +763,98 @@
   box-shadow: inset 0 0 0 2px var(--iei-ink-3);
 }
 
-.iei-note {
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  line-height: 1.6;
-  color: var(--iei-ink-3);
-  margin: 8px 0 0;
+/* A list of every jurisdiction in India is 36 rows and would push the sections below the map off the
+   third screen. It keeps its own vertical scroll rather than growing the document. */
+.iei-scroll-tall {
+  /* The map's own maximum height, so the table beside it ends where the map ends rather than leaving 180px
+     of empty column. One value, shared: see --iei-map-h. */
+  max-height: var(--iei-map-h);
+  overflow-y: auto;
 }
 
-.iei-rule {
+.iei-note {
   font-family: var(--iei-mono);
-  font-size: 9.5px;
+  font-size: var(--iei-f-mark);
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+  margin: var(--iei-2) 0 0;
+  max-width: 96ch;
+}
+
+/* The second line of a cell: a year under a state, a seat count under a party, a source under a figure.
+   `display: block` is the whole rule and it is not cosmetic — as an inline span it ran straight on from the
+   text above it, so every row of "Just decided" read "West BengalAssembly 2026" and every party cell read
+   "BJP192 of 294". Four tables and the coverage ledger were affected, at every width, and no markup
+   assertion could see it. */
+.iei-rule {
+  display: block;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
   line-height: 1.55;
   color: var(--iei-ink-3);
-  margin: 3px 0 0;
+  margin: 0;
+}
+
+/* ══════════════════════════ metrics ══════════════════════════
+   A figure with its label and, where one exists, its denominator. One primitive for the tile grids that
+   /pl and /coverage each had their own version of. */
+
+.iei-metrics {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1px;
+  margin: 0;
+  background: var(--iei-line);
+}
+
+.iei-metrics-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.iei-metrics-6 {
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.iei-metric {
+  background: var(--iei-bg);
+  padding: var(--iei-3);
+}
+
+.iei-metric dt {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+  margin: 0 0 var(--iei-1);
+}
+
+.iei-metric dd {
+  margin: 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-lead);
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.15;
+}
+
+.iei-metric small {
+  display: block;
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-meta);
+  font-weight: 400;
+  color: var(--iei-ink-3);
+  letter-spacing: 0;
+  margin-top: var(--iei-1);
+  line-height: 1.35;
+}
+
+.iei-of {
+  color: var(--iei-ink-3);
+  font-size: 0.66em;
+  font-weight: 400;
+  letter-spacing: 0;
 }
 
 /* ══════════════════════════ marks ══════════════════════════ */
@@ -654,7 +865,7 @@
   min-width: 44px;
   height: 6px;
   background: var(--iei-line);
-  border-radius: 2px;
+  border-radius: var(--iei-r);
   overflow: hidden;
 }
 
@@ -662,7 +873,7 @@
   display: block;
   height: 100%;
   /* 2px rounded data-end anchored to the baseline, per the mark spec. */
-  border-radius: 0 2px 2px 0;
+  border-radius: 0 var(--iei-r) var(--iei-r) 0;
 }
 
 .iei-col-track {
@@ -679,7 +890,7 @@
 
 .iei-chip {
   font-family: var(--iei-mono);
-  font-size: 11px;
+  font-size: var(--iei-f-meta);
   font-weight: 600;
   letter-spacing: 0.02em;
   white-space: nowrap;
@@ -690,8 +901,8 @@
   display: inline-block;
   width: 9px;
   height: 9px;
-  border-radius: 2px;
-  margin-right: 6px;
+  border-radius: var(--iei-r);
+  margin-right: var(--iei-1);
   vertical-align: -1px;
 }
 
@@ -713,9 +924,9 @@
 .iei-cov {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--iei-1);
   font-family: var(--iei-mono);
-  font-size: 9.5px;
+  font-size: var(--iei-f-mark);
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -727,6 +938,7 @@
   height: 7px;
   border-radius: 1px;
   border: 1px solid currentColor;
+  flex: none;
 }
 
 .iei-cov-complete {
@@ -754,11 +966,16 @@
   border-style: dotted;
 }
 
-/* ══════════════════════════ evidence ══════════════════════════ */
+/* ══════════════════════════ evidence ══════════════════════════
+   The whole provenance record, behind one ⓘ. A native <details>, so the drawer is keyboard-reachable,
+   printable and costs no client JavaScript. This is the only place a source url, a hash, a retrieval date
+   or a methodology note may appear: the surface shows the figure, and the drawer shows where it came
+   from. /pl used to print a four-line provenance paragraph above its numbers and a source list below
+   them, on every page, for every reader. */
 
 .iei-ev {
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: var(--iei-f-mark);
 }
 
 .iei-ev summary {
@@ -769,6 +986,9 @@
   padding-bottom: 2px;
   border-bottom: 2px solid var(--iei-line-2);
   white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iei-1);
 }
 
 .iei-ev summary::-webkit-details-marker {
@@ -786,22 +1006,26 @@
 }
 
 .iei-ev-body {
-  margin-top: 10px;
+  margin-top: var(--iei-3);
   border: 1px solid var(--iei-line);
   background: var(--iei-panel);
-  padding: 10px 12px;
+  padding: var(--iei-3);
   text-align: left;
-  max-width: 62ch;
+  max-width: 72ch;
+}
+
+.iei-ev-body > p:first-child {
+  margin-top: 0;
 }
 
 .iei-ev-body ul {
   list-style: none;
-  margin: 8px 0 0;
+  margin: var(--iei-2) 0 0;
   padding: 0;
 }
 
 .iei-ev-body li {
-  padding: 7px 0;
+  padding: var(--iei-2) 0;
   border-top: 1px solid var(--iei-line);
 }
 
@@ -809,15 +1033,15 @@
   display: block;
   color: var(--iei-ink);
   font-weight: 600;
-  font-size: 10.5px;
+  font-size: var(--iei-f-meta);
 }
 
 .iei-ev-t {
   display: block;
   font-family: var(--iei-sans);
-  font-size: 11px;
+  font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
-  margin: 1px 0;
+  margin: 2px 0;
 }
 
 .iei-ev-a {
@@ -835,133 +1059,197 @@
   border-bottom: 2px solid var(--iei-ink);
 }
 
-/* ══════════════════════════ footer ══════════════════════════ */
-
-.iei-foot {
-  border-top: 1px solid var(--iei-line);
-  margin-top: 10px;
-  padding-top: 16px;
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  line-height: 1.8;
-  letter-spacing: 0.04em;
-  color: var(--iei-ink-3);
-  max-width: 88ch;
+/* The inline affordance, for a figure inside a table or beside a tile: the mark alone, no count. */
+.iei-ev-inline {
+  display: inline-block;
+  margin-left: var(--iei-1);
 }
 
-.iei-foot a {
-  color: var(--iei-ink-2);
+.iei-ev-inline summary {
+  border-bottom: 0;
+  padding: 0;
+}
+
+.iei-ev-inline .iei-ev-body {
+  position: absolute;
+  z-index: 30;
+  width: min(46ch, 80vw);
+  margin-top: var(--iei-1);
+}
+
+/* ══════════════════════════ tabs ══════════════════════════
+   One primitive for three things that were three: the map's layer strip, the history house switch, and
+   /pl's Brief/Analysis lens. All three are plain links, so the choice is URL state — a view can be sent
+   to someone, survives a reload, and works with JavaScript off. */
+
+.iei-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1);
+  margin: 0 0 var(--iei-4);
+  padding: 0;
+  list-style: none;
+}
+
+.iei-tab {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  text-decoration: none;
+  color: var(--iei-ink-3);
+  background: var(--iei-panel);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  padding: var(--iei-1) var(--iei-2);
+  white-space: nowrap;
+}
+
+.iei-tab:hover {
+  color: var(--iei-ink);
+  border-color: var(--iei-line-2);
+}
+
+.iei-tab:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-color: var(--iei-ink);
+}
+
+.iei-tab-on {
+  color: var(--iei-ink) !important;
+  background: var(--iei-raised) !important;
+  border-color: var(--iei-ink-3) !important;
+}
+
+/* Unavailable, not "coming soon": there is nothing behind it, and the strip says so rather than offering a
+   layer that would shade a country in a colour standing for nothing. */
+.iei-tab-off {
+  color: var(--iei-ink-3);
+  border-style: dashed;
+  cursor: not-allowed;
+}
+
+/* ══════════════════════════ data list ══════════════════════════
+   A titled row with its detail under it: a watch signal, a coverage vertical, a search result group. The
+   three had three implementations and one shape. */
+
+.iei-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.iei-list > li {
+  padding: var(--iei-3) 0;
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-list > li:first-child {
+  padding-top: 0;
+}
+
+.iei-list > li:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.iei-row-h {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--iei-3);
+}
+
+.iei-row-h a,
+.iei-row-t {
+  font-size: var(--iei-f-body);
+  font-weight: 600;
+  color: var(--iei-ink);
   text-decoration: none;
   border-bottom: 1px solid var(--iei-line-2);
 }
 
-.iei-foot a:hover {
-  color: var(--iei-ink);
+.iei-row-t {
+  border-bottom: 0;
 }
 
-.iei-foot a:focus-visible {
+.iei-row-h a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-row-h a:focus-visible {
+  outline: none;
+  border-bottom: 2px solid var(--iei-ink);
+}
+
+.iei-row-d {
+  margin: var(--iei-1) 0 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+  max-width: 88ch;
+}
+
+/* ══════════════════════════ breadcrumbs ══════════════════════════
+   The place path, walkable: every ancestor in the URL is a place with its own page. India is the first
+   crumb and is a real link, which is how a reader gets from a seat back to the country. */
+
+.iei-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0 var(--iei-1);
+  margin: var(--iei-3) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-crumbs a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+}
+
+.iei-crumbs a:hover {
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-line-2);
+}
+
+.iei-crumbs a:focus-visible {
   outline: none;
   color: var(--iei-ink);
   border-bottom: 2px solid var(--iei-ink);
 }
 
-/* ══════════════════════════ responsive ══════════════════════════
-   A different hierarchy, not a shrunk desktop. */
-
-@media (max-width: 1080px) {
-  .iei-hero {
-    grid-template-columns: minmax(0, 1fr);
-    align-items: start;
-  }
+.iei-crumbs [aria-current] {
+  color: var(--iei-ink);
 }
 
-@media (max-width: 900px) {
-  .iei-top {
-    grid-template-columns: 1fr auto;
-    padding: 8px 12px;
-    row-gap: 8px;
-  }
+/* ══════════════════════════ empty state ══════════════════════════
+   One wording, one shape. There were five: the homepage, /pl, /p, /coverage and /search each said "the
+   registry is not built" differently, and two of them said it without the command that builds it. */
 
-  .iei-controls {
-    grid-column: 1 / -1;
-    order: 3;
-    width: 100%;
-  }
-
-  .iei-cmd {
-    flex: 1 1 auto;
-  }
-
-  .iei-cmd input {
-    width: 100%;
-    max-width: none;
-  }
-
-  .iei-nav {
-    order: 4;
-    grid-column: 1 / -1;
-    /* Horizontal scroll beats wrapping to three rows and pushing the map off the first screen. */
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: 16px;
-    padding-bottom: 2px;
-  }
-
-  .iei-two,
-  .iei-two-wide {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 22px;
-  }
-
-  .iei-body {
-    padding: 0 12px 56px;
-  }
-
-  .iei-answer {
-    font-size: 21px;
-    max-width: none;
-  }
-
-  .iei-metrics {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+.iei-empty {
+  padding: var(--iei-12) 0;
+  max-width: 72ch;
 }
 
-@media (max-width: 560px) {
-  .iei-pick select {
-    max-width: 92px;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .iei *,
-  .iei *::before,
-  .iei *::after {
-    transition: none !important;
-    animation: none !important;
-    scroll-behavior: auto !important;
-  }
-}
-
-/* In forced-colors the system owns colour, so every treatment that relied on ours needs a real outline. */
-@media (forced-colors: active) {
-  .iei-nav a:focus-visible,
-  .iei-controls:focus-within,
-  .iei-controls input:focus-visible,
-  .iei-controls select:focus-visible,
-  .iei-controls button:focus-visible,
-  .iei-t a:focus-visible,
-  .iei-ev summary:focus-visible,
-  .iei-scroll:focus-visible,
-  .iei-foot a:focus-visible {
-    outline: 2px solid CanvasText;
-    outline-offset: 2px;
-  }
-
-  .iei-cov-mark,
-  .iei-sw {
-    border: 1px solid CanvasText;
-  }
+.iei-empty code,
+.iei-note code,
+.iei-caveat code,
+.iei-sub code,
+.iei-row-d code {
+  font-family: var(--iei-mono);
+  font-size: 0.92em;
+  color: var(--iei-ink);
+  background: var(--iei-raised);
+  border-radius: var(--iei-r);
+  padding: 1px var(--iei-1);
 }
 
 /* ══════════════════════════ the map ══════════════════════════
@@ -969,9 +1257,15 @@
 
 .iei-map-split {
   display: grid;
-  grid-template-columns: minmax(320px, 1.05fr) minmax(0, 1fr);
-  gap: 12px 32px;
+  grid-template-columns: minmax(320px, 1.1fr) minmax(0, 1fr);
+  gap: var(--iei-3) var(--iei-8);
   align-items: start;
+}
+
+/* The map column: the choropleth and the tile row for the jurisdictions too small to click. One box, so
+   the grid above sees one item — see IndiaMap.tsx for the fragment this replaced and what it did. */
+.iei-map-col {
+  min-width: 0;
 }
 
 .iei-map {
@@ -982,7 +1276,7 @@
 .iei-map svg {
   width: 100%;
   height: auto;
-  max-height: 640px;
+  max-height: var(--iei-map-h);
   display: block;
   overflow: visible;
 }
@@ -1033,58 +1327,10 @@
 
 .iei-map figcaption {
   font-family: var(--iei-mono);
-  font-size: 9.5px;
+  font-size: var(--iei-f-mark);
   line-height: 1.6;
   color: var(--iei-ink-3);
-  margin-top: 8px;
-}
-
-/* ── layer strip ── */
-
-.iei-layers {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 0 0 14px;
-}
-
-.iei-layer {
-  font-family: var(--iei-mono);
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--iei-ink-3);
-  background: var(--iei-panel);
-  border: 1px solid var(--iei-line);
-  border-radius: 2px;
-  padding: 5px 9px;
-  white-space: nowrap;
-}
-
-.iei-layer:hover {
-  color: var(--iei-ink);
-  border-color: var(--iei-line-2);
-}
-
-.iei-layer:focus-visible {
-  outline: none;
-  color: var(--iei-ink);
-  border-color: var(--iei-ink);
-}
-
-.iei-layer-on {
-  color: var(--iei-ink) !important;
-  background: var(--iei-raised) !important;
-  border-color: var(--iei-ink-3) !important;
-}
-
-/* Unavailable, not "coming soon": there is nothing behind it, and the strip says so rather than offering a
-   layer that would shade a country in a colour standing for nothing. */
-.iei-layer-off {
-  color: var(--iei-ink-3);
-  border-style: dashed;
-  cursor: not-allowed;
+  margin-top: var(--iei-2);
 }
 
 /* ── legend ── */
@@ -1092,12 +1338,12 @@
 .iei-legend {
   display: flex;
   flex-wrap: wrap;
-  gap: 5px 18px;
-  margin: 0 0 14px;
+  gap: var(--iei-1) var(--iei-4);
+  margin: 0 0 var(--iei-3);
   padding: 0;
   list-style: none;
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: var(--iei-f-mark);
   letter-spacing: 0.04em;
   color: var(--iei-ink-2);
 }
@@ -1111,12 +1357,12 @@
 .iei-legend b {
   color: var(--iei-ink-3);
   font-weight: 400;
-  margin-left: 5px;
+  margin-left: var(--iei-1);
   font-variant-numeric: tabular-nums;
 }
 
 .iei-sw-none {
-  background: #1d1b26;
+  background: var(--iei-void);
   border: 1px dashed var(--iei-line-2);
 }
 
@@ -1126,8 +1372,8 @@
 .iei-tiles {
   display: flex;
   flex-wrap: wrap;
-  gap: 3px;
-  margin: 10px 0 0;
+  gap: var(--iei-1);
+  margin: var(--iei-2) 0 0;
   padding: 0;
   list-style: none;
 }
@@ -1135,15 +1381,15 @@
 .iei-tiles a {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: var(--iei-1);
   font-family: var(--iei-mono);
-  font-size: 10px;
+  font-size: var(--iei-f-mark);
   text-decoration: none;
   color: var(--iei-ink-2);
   background: var(--iei-panel);
   border: 1px solid var(--iei-line);
-  border-radius: 2px;
-  padding: 4px 7px;
+  border-radius: var(--iei-r);
+  padding: var(--iei-1) var(--iei-2);
   white-space: nowrap;
 }
 
@@ -1167,117 +1413,24 @@
   color: var(--iei-ink-3);
 }
 
-@media (max-width: 1080px) {
-  .iei-map-split {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .iei-map svg {
-    max-height: 72vh;
-  }
-}
-
-@media (forced-colors: active) {
-  .iei-layer-on,
-  .iei-layer:focus-visible,
-  .iei-tiles a:focus-visible,
-  .iei-map a:focus-visible path {
-    outline: 2px solid CanvasText;
-    outline-offset: 1px;
-  }
-}
-
-/* ══════════════════════════ signals ══════════════════════════ */
-
-.iei-signals {
-  list-style: none;
-  padding: 0;
-  margin: 0;
-}
-
-.iei-signals li {
-  padding: 10px 0;
-  border-bottom: 1px solid var(--iei-line);
-}
-
-.iei-signals li:last-child {
-  border-bottom: none;
-}
-
-.iei-sig-h {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.iei-sig-h a {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--iei-ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--iei-line-2);
-}
-
-.iei-sig-h a:hover {
-  border-bottom-color: var(--iei-ink);
-}
-
-.iei-sig-h a:focus-visible {
-  outline: none;
-  border-bottom: 2px solid var(--iei-ink);
-}
-
-.iei-sig-d {
-  margin: 3px 0 0;
-  font-size: 12.5px;
-  color: var(--iei-ink-2);
-  max-width: 70ch;
-}
-
 /* ══════════════════════════ the history grid ══════════════════════════
-   Five columns of the same shape, so a row reads left-to-right as a run of elections. A jurisdiction with
+   Columns of the same shape, so a row reads left-to-right as a run of elections. A jurisdiction with
    fewer gets fewer cells — never a padded one. */
-
-.iei-hist th[scope='row'] {
-  text-align: left;
-  font-weight: 400;
-  font-family: var(--iei-sans);
-  font-size: 12px;
-  padding: 4px 10px 4px 0;
-  border-bottom: 1px solid var(--iei-line);
-  white-space: nowrap;
-}
-
-.iei-hist th[scope='row'] a {
-  color: var(--iei-ink);
-  text-decoration: none;
-  border-bottom: 1px solid var(--iei-line-2);
-}
-
-.iei-hist th[scope='row'] a:hover {
-  border-bottom-color: var(--iei-ink);
-}
-
-.iei-hist th[scope='row'] a:focus-visible {
-  outline: none;
-  border-bottom: 2px solid var(--iei-ink);
-}
 
 .iei-cell {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0 7px;
+  gap: 0 var(--iei-1);
   align-items: baseline;
   text-decoration: none;
   color: var(--iei-ink-2);
-  padding: 2px 4px 2px 0;
-  border-radius: 2px;
+  padding: 2px var(--iei-1) 2px 0;
+  border-radius: var(--iei-r);
 }
 
 .iei-cell b {
   font-family: var(--iei-mono);
-  font-size: 11px;
+  font-size: var(--iei-f-meta);
   font-weight: 600;
   color: var(--iei-ink-3);
   font-variant-numeric: tabular-nums;
@@ -1289,7 +1442,6 @@
 
 .iei-cell .iei-rule {
   grid-column: 2;
-  margin: 0;
 }
 
 .iei-cell:hover {
@@ -1302,67 +1454,21 @@
   box-shadow: inset 0 0 0 1px var(--iei-ink);
 }
 
-@media (forced-colors: active) {
-  .iei-cell:focus-visible {
-    outline: 2px solid CanvasText;
-  }
-}
-
-/* ══════════════════════════ coverage panel ══════════════════════════ */
-
-.iei-cov-h {
-  display: flex;
-  align-items: baseline;
-  gap: 14px;
-  flex-wrap: wrap;
-  margin: 0 0 12px;
-  font-size: 14px;
-}
-
-.iei-cov-h b {
-  font-weight: 600;
-}
-
-.iei-metrics-6 {
-  grid-template-columns: repeat(6, minmax(0, 1fr));
-}
+/* ══════════════════════════ gaps and anomalies ══════════════════════════ */
 
 .iei-gaps {
   list-style: none;
-  margin: 10px 0 0;
+  margin: var(--iei-2) 0 0;
   padding: 0;
   font-family: var(--iei-mono);
-  font-size: 11px;
+  font-size: var(--iei-f-meta);
   color: var(--iei-warn);
 }
 
 .iei-gaps li {
-  padding: 4px 0 4px 12px;
+  padding: var(--iei-1) 0 var(--iei-1) var(--iei-3);
   border-left: 2px solid var(--iei-warn);
-  margin-bottom: 3px;
-}
-
-.iei-note code,
-.iei-caveat code,
-.iei-sub code {
-  font-family: var(--iei-mono);
-  font-size: 0.92em;
-  color: var(--iei-ink);
-  background: var(--iei-raised);
-  border-radius: 2px;
-  padding: 1px 4px;
-}
-
-@media (max-width: 1080px) {
-  .iei-metrics-6 {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-}
-
-@media (max-width: 900px) {
-  .iei-metrics-6 {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
+  margin-bottom: var(--iei-1);
 }
 
 /* An anomaly is present-and-wrong, not missing, and must not read as a gap. */
@@ -1375,39 +1481,112 @@
   border-left-style: dashed;
 }
 
-/* ══════════════════════════ the phone hierarchy ══════════════════════════
-   Not a shrunk dashboard: a different reading order, and a map sized so that something after it is
-   visible without scrolling. A full-height choropleth on a phone is a page with one section in it. */
+/* ══════════════════════════ footer ══════════════════════════ */
+
+.iei-foot {
+  border-top: 1px solid var(--iei-line);
+  margin-top: var(--iei-6);
+  padding-top: var(--iei-4);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1.8;
+  letter-spacing: 0.04em;
+  color: var(--iei-ink-3);
+  max-width: 88ch;
+}
+
+/* ══════════════════════════ responsive ══════════════════════════
+   A different hierarchy, not a shrunk desktop. Breakpoints redefine TOKENS where they can, so a size
+   change is one declaration rather than a second copy of a rule. */
+
+@media (max-width: 1080px) {
+  .iei-two,
+  .iei-two-wide {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--iei-6);
+  }
+
+  .iei-metrics-6 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .iei-scroll-tall {
+    max-height: 380px;
+  }
+}
 
 @media (max-width: 900px) {
+  :root {
+    --iei-gutter: var(--iei-3);
+    --iei-f-answer: 21px;
+    /* Tables stay dense but stop being cramped: a 4px cell is not a reachable touch target. */
+    --iei-cell-y-tight: var(--iei-2);
+  }
+
+  .iei-top {
+    grid-template-columns: 1fr auto;
+    padding: var(--iei-2) var(--iei-gutter);
+    row-gap: var(--iei-2);
+  }
+
+  .iei-cmd {
+    grid-column: 1 / -1;
+    order: 3;
+    width: 100%;
+    max-width: none;
+  }
+
+  .iei-nav {
+    order: 4;
+    grid-column: 1 / -1;
+    /* Horizontal scroll beats wrapping to three rows and pushing the map off the first screen. */
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    gap: var(--iei-4);
+    padding-bottom: 2px;
+  }
+
+  /* THE SPLIT STACKS HERE, NOT AT 1080.
+     It used to stack at 1080, which meant a 1024×768 laptop got a full-width map: 330px of chrome above it
+     and a 553px map below, so the whole first screen was one polygon and the reader had to scroll to learn
+     that anything followed. At 1024 the two columns are 503px and 457px, which is a legible choropleth with
+     all 36 jurisdictions listed beside it — a better use of that screen than either alone.
+     Below 900 it genuinely has to stack, and then the map is capped so the legend and the first rows of the
+     table are still above the fold. A full-height choropleth is a page with one section in it. */
+  .iei-map-split {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   .iei-map svg {
     max-height: 52vh;
   }
 
-  /* The map's companion table is 36 rows. On a phone it would push every panel below the map off the
-     third screen, so it keeps its own scroll region rather than growing the document. */
-  .iei-scroll {
+  .iei-scroll-tall {
     max-height: 300px;
   }
 
   .iei-record {
-    gap: 2px 16px;
-    font-size: 10px;
+    gap: 0 var(--iei-4);
   }
 
-  .iei-sec {
-    padding: 18px 0 20px;
+  .iei-sec,
+  .iei-head {
+    padding: var(--iei-4) 0;
   }
 
-  /* A section header on a phone reads top-to-bottom: title, then what it answers, then how. Right-aligned
-     metadata beside a title only works when there is room beside the title. */
+  .iei-answer {
+    max-width: none;
+  }
+
+  /* A section header on a phone reads top-to-bottom: title, then what it answers, then how.
+     Right-aligned metadata beside a title only works when there is room beside the title. */
   .iei-h {
     display: block;
   }
 
   .iei-h-meta {
     justify-content: flex-start;
-    margin-top: 6px;
+    margin-top: var(--iei-2);
   }
 
   .iei-h-meta p {
@@ -1418,22 +1597,70 @@
     max-width: none;
   }
 
-  /* Tables stay dense but stop being cramped: a 6px cell on a touch target is not reachable. */
-  .iei-t td,
-  .iei-t-tight td {
-    padding-top: 8px;
-    padding-bottom: 8px;
-  }
-
-  .iei-tiles a {
-    padding: 7px 9px;
+  .iei-metrics,
+  .iei-metrics-4,
+  .iei-metrics-6 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 
-/* Wider than a phone and narrower than a laptop: the map and its table stack, but the metric strip and the
-   two-column panels do not need to. */
-@media (min-width: 901px) and (max-width: 1080px) {
-  .iei-scroll {
-    max-height: 380px;
+/* iOS Safari zooms the page when a focused input's text is under 16px, which on a sticky header means the
+   whole layout jumps sideways on the first tap into search. 16px only where a touch keyboard exists. */
+@media (max-width: 900px) and (pointer: coarse) {
+  .iei-cmd input {
+    font-size: 16px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  .iei *,
+  .iei *::before,
+  .iei *::after {
+    transition: none !important;
+    animation: none !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* In forced-colors the system owns colour, so every treatment that relied on ours needs a real outline.
+   Three rules rather than one, because the offset that reads correctly differs by shape: text needs room,
+   a bordered control needs almost none, and an SVG polygon needs the outline on the path itself. */
+@media (forced-colors: active) {
+  .iei-nav a:focus-visible,
+  .iei-mark:focus-visible,
+  .iei-cmd:focus-within,
+  .iei-cmd input:focus-visible,
+  .iei-t a:focus-visible,
+  .iei-ev summary:focus-visible,
+  .iei-ev-a:focus-visible,
+  .iei-scroll:focus-visible,
+  .iei-crumbs a:focus-visible,
+  .iei-row-h a:focus-visible,
+  .iei-body-link:focus-visible,
+  .iei-record a:focus-visible,
+  .iei-foot a:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+
+  .iei-tab-on,
+  .iei-tab:focus-visible,
+  .iei-tiles a:focus-visible,
+  .iei-cell:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 1px;
+  }
+
+  .iei-map a:focus-visible path {
+    outline: 2px solid CanvasText;
+  }
+
+  .iei-cov-mark,
+  .iei-sw {
+    border: 1px solid CanvasText;
   }
 }
