@@ -92,10 +92,22 @@ export function StateMap({
 
   const marks: { x: number; y: number; text: string }[] = [];
 
+  const [, , frameW, frameH] = viewBox.split(' ').map(Number) as [number, number, number, number];
+  const aspect = frameH > 0 ? frameW / frameH : 1;
+
   return (
-    <div className="iei-map-col">
+    // The width a figure of these proportions needs to use the height it is allowed. 70vh is the cap in
+    // iei.css; below the map-split breakpoint the column is full width and this is ignored.
+    <div className="iei-map-col" style={{ ['--iei-map-w' as string]: `calc(70vh * ${aspect.toFixed(3)})` }}>
       <figure className="iei-map iei-map-state">
-        <svg viewBox={viewBox} role="img" aria-label={ariaLabel(view, constituencies, focus?.name ?? null)}>
+        <svg
+          viewBox={viewBox}
+          role="img"
+          aria-label={ariaLabel(view, constituencies, focus?.name ?? null)}
+          /* The frame's own proportions, so the figure claims the width its shape needs and no more. Every
+             state is taller than it is wide, and a column sized by a fraction letterboxed all of them. */
+          style={{ aspectRatio: `${viewBox.split(' ')[2]} / ${viewBox.split(' ')[3]}` }}
+        >
           {constituencies ? (
             <g className="iei-map-fills">
               {drawable.map((s) => {

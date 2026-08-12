@@ -1357,15 +1357,27 @@ html {
 
 .iei-map-split {
   display: grid;
-  grid-template-columns: minmax(320px, 1.1fr) minmax(0, 1fr);
+  /* THE MAP COLUMN IS SIZED BY THE MAP, not by a fraction.
+     India is wider than it is tall and every state is taller than it is wide, so a fixed fraction letterboxed
+     every state page: Karnataka drew 356px of polygon inside a 680px column and the 320px left over was
+     nothing. `max-content` on a column whose figure declares its own aspect-ratio (see .iei-map-state svg)
+     gives the map exactly the width its shape needs and the table everything else. */
+  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
   gap: var(--iei-3) var(--iei-8);
   align-items: start;
 }
 
 /* The map column: the choropleth and the tile row for the jurisdictions too small to click. One box, so
-   the grid above sees one item — see IndiaMap.tsx for the fragment this replaced and what it did. */
+   the grid above sees one item — see IndiaMap.tsx for the fragment this replaced and what it did.
+
+   ITS WIDTH COMES FROM THE MAP'S OWN SHAPE, which StateMap sets inline: `--iei-map-w` is the width a figure
+   of this frame's proportions needs to fill the height it is allowed. India is wider than it is tall and
+   every state is taller than it is wide, so one fixed fraction letterboxed all thirty-six — Karnataka drew
+   330px of polygon inside a 680px column and the rest was nothing. */
 .iei-map-col {
   min-width: 0;
+  width: var(--iei-map-w, 100%);
+  max-width: 100%;
 }
 
 .iei-map {
@@ -1512,7 +1524,12 @@ html {
 /* A state's electoral map. Taller than the national one because a state is taller than it is wide more often
    than not, and it is the only thing in its column. */
 .iei-map-state svg {
+  /* ASPECT-RATIO FROM THE VIEWBOX, set inline by StateMap because only the component knows the frame. It
+     makes the figure's intrinsic width computable, which is what lets the column above be max-content.
+     Height is still bounded, so a very tall state does not push the table off the screen. */
   max-height: 70vh;
+  max-width: 100%;
+  height: auto;
 }
 
 /* Districts drawn as containers rather than as results: the panel surface, with a visible edge. Never a

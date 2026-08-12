@@ -115,7 +115,16 @@ function edgeOf(l: number, c: number, h: number): string {
 /** The party key a token is looked up by: trimmed, and never empty. */
 export function partyKey(raw: string | null | undefined): string {
   const k = String(raw ?? "").trim();
-  return k === "" ? "unattached" : k;
+  if (k === "") return "unattached";
+  // CASE IS NOT IDENTITY. The registry holds `NCP` and `ncp`, and `CPI` and `cpi`, as separate party rows —
+  // two sources spelling one id differently — so the Nationalist Congress Party arrived on the 2024 map in
+  // its own colour and in a generated one, three ΔE apart. Case-folding to a curated key is a VISUAL
+  // normalisation and nothing more: the party rows are untouched, `partyKey` still returns the id it was
+  // given when no curated entry matches, and the duplication is reported in docs/release/RC-1.md rather than
+  // quietly resolved here.
+  if (CONFIG.parties[k] !== undefined) return k;
+  const folded = Object.keys(CONFIG.parties).find((c) => c.toLowerCase() === k.toLowerCase());
+  return folded ?? k;
 }
 
 const cache = new Map<string, PartyToken>();

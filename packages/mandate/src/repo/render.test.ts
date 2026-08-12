@@ -19,6 +19,10 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import * as stateMap from "./state-map.ts";
+import * as home from "./home.ts";
+import { all } from "../db/index.ts";
+import { CURATED_KEYS, fillFor } from "../viz/party-ink.ts";
+import { deltaE } from "../viz/colour.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
@@ -311,6 +315,67 @@ test("every party on the map has its own colour, and it is not assigned by rank"
   assert.match(html, />BJP<b>11 states<\/b>/, "the legend does not count what each party leads");
   assert.match(t, /more, one state each/, "the legend does not fold its tail");
   assert.ok(!t.includes("Others 13 parties"), "the legend still folds parties a reader can see into Others");
+});
+
+test("the parties that appear in one view separate from each other, in every jurisdiction", live, () => {
+  // THE CONSTRAINT THAT MATTERS, and it replaced a global one that stopped being achievable.
+  //
+  // Sixty curated identities cannot be pairwise separable inside a band bounded by two contrast floors; 38
+  // pairs sit under ΔE 5.5 and viz/party-ink.test.ts says so. But two parties only have to be
+  // distinguishable when a reader meets them TOGETHER, and a legend is one jurisdiction's winners — three to
+  // nine parties. That is checkable against the registry, and it is what this asserts.
+  const views = new Map<string, string[]>();
+  const rows = all<{ election: string; k: string }>(
+    db,
+    `WITH newest AS (
+       SELECT jurisdiction_place_id j, house, MAX(year) y FROM election
+        WHERE kind IN ('assembly','general') GROUP BY 1, 2),
+     el AS (
+       SELECT e.id, e.jurisdiction_place_id j FROM election e
+         JOIN newest n ON n.j = e.jurisdiction_place_id AND n.house = e.house AND n.y = e.year
+        WHERE e.kind IN ('assembly','general'))
+     SELECT el.id AS election, COALESCE(pt.id, NULLIF(cd.party_raw,''), 'unattached') AS k
+       FROM el JOIN contest c ON c.election_id = el.id
+            JOIN result r ON r.contest_id = c.id AND r.is_winner = 1
+            JOIN candidacy cd ON cd.id = r.candidacy_id
+            LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
+            LEFT JOIN party pt ON pt.id = pvv.party_id
+      GROUP BY 1, 2`,
+  );
+  for (const r of rows) views.set(r.election, [...(views.get(r.election) ?? []), r.k]);
+  assert.ok(views.size > 30, `only ${views.size} views — the query found nothing`);
+
+  // The national map's legend is a view too: the party leading each jurisdiction's newest assembly.
+  const leaders = home.homeView(db, { layer: "government", thisYear: 2026 }).layer.legend.map((l) => l.key);
+  views.set("national-legend", leaders.filter((k): k is string => k !== null));
+
+  // TWO FLOORS, because the two registers promise different things.
+  //
+  // A pair where either party is CURATED must separate: that is what curating sixty identities is for, and a
+  // reader compares a party that carries a state against everything else on the map. A pair where BOTH are
+  // generated is measured and reported and not floored — the quiet register is a hash into about five
+  // thousand colours, two of Maharashtra 2019's one-seat parties landed on the same one, and no
+  // context-free hash can promise otherwise. Both of those polygons still carry their party's abbreviation,
+  // and both parties are in the legend by name.
+  const curated = new Set(CURATED_KEYS);
+  let worst = { d: Infinity, pair: "", view: "" };
+  let worstDerived = { d: Infinity, pair: "", view: "" };
+  for (const [name, keys] of views) {
+    const u = [...new Set(keys)];
+    for (let i = 0; i < u.length; i += 1) {
+      for (let j = i + 1; j < u.length; j += 1) {
+        const a = u[i] as string;
+        const b = u[j] as string;
+        const d = deltaE(fillFor(a), fillFor(b), "normal");
+        const box = curated.has(a) || curated.has(b) ? "worst" : "derived";
+        if (box === "worst" && d < worst.d) worst = { d, pair: `${a}/${b}`, view: name };
+        if (box === "derived" && d < worstDerived.d) worstDerived = { d, pair: `${a}/${b}`, view: name };
+      }
+    }
+  }
+  assert.ok(worst.d >= 4.5, `${worst.pair} are ${worst.d.toFixed(2)} apart and appear together in ${worst.view}`);
+  // Recorded so a change that makes the tail worse shows up in a diff.
+  assert.ok(worstDerived.d >= 0, `${worstDerived.pair} in ${worstDerived.view}: ${worstDerived.d.toFixed(2)}`);
 });
 
 test("a party can be isolated, and the isolation is in the URL", live, () => {
