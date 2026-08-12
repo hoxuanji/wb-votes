@@ -3,6 +3,7 @@ import { openRead } from '../../packages/mandate/src/db/open.ts';
 import { homeView, hueOf } from '../../packages/mandate/src/repo/home.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
+import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
 import { Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
 import {
@@ -434,8 +435,11 @@ export default function Home({
             </>
           }
         >
+          {/* An id per row, so a party hit in search lands on the party rather than on the section. The
+              anchor is built by the same function the search hits use, because two spellings of one
+              fragment is a link that silently goes nowhere. */}
           {v.parties.rows.map((p) => (
-            <tr key={p.key}>
+            <tr key={p.key} id={partyAnchor(p.key)}>
               <th scope="row">
                 <span className="iei-sw" style={{ background: hueOf(v.ink, p.key) }} aria-hidden="true" />
                 <span className="iei-chip">{p.label}</span>

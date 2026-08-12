@@ -282,6 +282,35 @@ test("no state is hardcoded anywhere in the feature", () => {
   }
 });
 
+/* ────────────────────────────── the command bar ────────────────────────────── */
+
+test("one field answers for every kind of thing, and every group it offers is navigable", live, () => {
+  // Phase G's requirement, on the rendered page: ONE search surface, results GROUPED, and every group
+  // reachable from the shell's single field. The page it replaced answered for people only — and carried a
+  // second copy of the same field twelve pixels below the shell's.
+  const t = text(render("/search", "q=north"));
+  assert.ok(t.includes("Constituencies"), "a seat query does not produce a constituencies group");
+  // "ram" is a fragment of a state, a party, several seats and many names, so one query exercises all five
+  // groups. A single letter does not: `searchPersons` blocks on name keys and will not fire on one character,
+  // which is a property of that index rather than of this page.
+  const html = render("/search", "q=ram");
+  for (const group of ["States", "Elections", "Constituencies", "People", "Parties"]) {
+    assert.ok(text(html).includes(group), `the "${group}" group is missing for a query that matches all five`);
+  }
+  // Exactly one search input on the page — the shell's. The old page had two.
+  assert.equal((html.match(/<input[^>]*type="search"/g) ?? []).length, 1, "there is more than one search field");
+  // And no <select> anywhere in the chrome: the state and election pickers are what the bar replaced.
+  const shell = html.slice(0, html.indexOf("</header>") + 1);
+  assert.ok(!shell.includes("<select"), "the header still carries a picker");
+});
+
+test("an empty query explains itself rather than listing the registry", live, () => {
+  const t = text(render("/search", ""));
+  assert.match(t, /Search India/, "the empty state does not say what is searchable");
+  // The word appears in the "what is searchable" list; a result GROUP is a heading followed by its question.
+  assert.ok(!t.includes("Which seat?"), "an empty query rendered a result group");
+});
+
 test("the render harness is test scaffolding and nothing imports it", () => {
   // It compiles .tsx and stubs CSS. If the application ever depended on it, the production build would be
   // relying on a probe.

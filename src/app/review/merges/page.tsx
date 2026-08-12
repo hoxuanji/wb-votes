@@ -7,8 +7,9 @@ import {
   recallEstimate,
 } from '../../../../packages/mandate/src/repo/review.ts';
 import type { Candidate, Pair } from '../../../../packages/mandate/src/repo/review.ts';
-import '../../p/mandate.css';
-import '../../situation.css';
+import { Shell } from '../../../components/iei/Shell.tsx';
+import { RegistryMissing, Table } from '../../../components/iei/parts.tsx';
+import '../../iei.css';
 import './review.css';
 
 /**
@@ -23,6 +24,12 @@ import './review.css';
  *
  * Deciding here does NOT merge. It records a judgement. Mutating person rows needs the undo tape and
  * the claim moves, and that lives in `mandate resolve --apply-reviewed`.
+ *
+ * IT IS AN INTERNAL TOOL AND IT IS ON THE PRODUCT'S SHELL ANYWAY. The audit classified it LEGACY-isolated
+ * because it is a maintainer's queue with a mutating POST, not a reader's surface — nothing in the shell
+ * links here. But it had the last hand-rolled navigation bar in the repository, and one navigation model
+ * means one, so it mounts Shell like everything else and review.css keeps only the classes that are about
+ * judging a pair.
  */
 
 export const runtime = 'nodejs';
@@ -46,30 +53,30 @@ function Side({ c, other }: { c: Candidate; other: Candidate }) {
         <dt>Born</dt>
         <dd>
           {c.birthYear === null ? (
-            <span className="sr-na">not reported</span>
+            <span className="iei-absent">not reported</span>
           ) : (
             `${c.birthYear}${c.birthYearConfidence === null ? '' : ` (${c.birthYearConfidence})`}`
           )}
         </dd>
         <dt>Sex</dt>
-        <dd>{c.sex ?? <span className="sr-na">not reported</span>}</dd>
+        <dd>{c.sex ?? <span className="iei-absent">not reported</span>}</dd>
         <dt>Names on file</dt>
-        <dd>{c.aliases.length === 0 ? <span className="sr-na">none</span> : c.aliases.join(' · ')}</dd>
+        <dd>{c.aliases.length === 0 ? <span className="iei-absent">none</span> : c.aliases.join(' · ')}</dd>
       </dl>
-      <table className="sr-table rv-contests">
+      <table className="iei-t iei-t-tight rv-contests">
         <thead>
           <tr>
             <th>Year</th>
             <th>Seat</th>
-            <th className="n">Party</th>
-            <th className="n">Age</th>
-            <th className="n">Result</th>
+            <th className="iei-n">Party</th>
+            <th className="iei-n">Age</th>
+            <th className="iei-n">Result</th>
           </tr>
         </thead>
         <tbody>
           {c.contests.length === 0 ? (
             <tr>
-              <td colSpan={5} className="sr-na">
+              <td colSpan={5} className="iei-absent">
                 no recorded contest
               </td>
             </tr>
@@ -78,9 +85,9 @@ function Side({ c, other }: { c: Candidate; other: Candidate }) {
               <tr key={`${x.year}-${x.place}-${i}`}>
                 <td>{x.year}</td>
                 <td>{x.place}</td>
-                <td className="n">{x.party ?? <span className="sr-na">—</span>}</td>
-                <td className="n">{x.ageDeclared ?? <span className="sr-na">—</span>}</td>
-                <td className="n">{x.isWinner ? 'won' : x.status}</td>
+                <td className="iei-n">{x.party ?? <span className="iei-absent">—</span>}</td>
+                <td className="iei-n">{x.ageDeclared ?? <span className="iei-absent">—</span>}</td>
+                <td className="iei-n">{x.isWinner ? 'won' : x.status}</td>
               </tr>
             ))
           )}
@@ -99,23 +106,23 @@ function Side({ c, other }: { c: Candidate; other: Candidate }) {
 function Evidence({ p }: { p: Pair }) {
   const e = p.evidence;
   if (e === null || typeof e !== 'object') {
-    return <p className="sr-rule">evidence: {String(e)}</p>;
+    return <p className="iei-rule">evidence: {String(e)}</p>;
   }
   const rows = Object.entries(e as Record<string, unknown>);
   return (
     <details className="rv-ev">
       <summary>Why the resolver scored this {p.score.toFixed(3)}</summary>
-      <table className="sr-table">
+      <table className="iei-t iei-t-tight">
         <tbody>
           {rows.map(([k, v]) => (
             <tr key={k}>
               <td>{k}</td>
-              <td className="n">{v === null ? 'null' : String(v)}</td>
+              <td className="iei-n">{v === null ? 'null' : String(v)}</td>
             </tr>
           ))}
         </tbody>
       </table>
-      <p className="sr-rule">
+      <p className="iei-rule">
         Blocked by <strong>{p.blockedBy}</strong>. Scored below the {AUTO_MERGE_AT} auto-merge line and
         at or above the {QUEUE_AT} queue floor, which is why a human is looking at it.
       </p>
@@ -145,33 +152,17 @@ export default function MergeReview({
   }
 
   return (
-    <main className="mandate">
-      <div className="sr">
-        <nav className="sr-nav">
-          <span className="sr-mark">
-            <Link href="/" style={{ color: 'inherit', textDecoration: 'none' }}>
-              MANDATE
-            </Link>
-          </span>
-          <Link href="/pl/wb">Places</Link>
-          <Link href="/search">People</Link>
-          <Link href="/review/merges">Review</Link>
-          <Link href="/coverage">Coverage</Link>
-        </nav>
+    <Shell here="india" reading>
+        <div className="iei-head">
+          <p className="iei-eyebrow">Merge review · recall measurement</p>
+          <h1 className="iei-answer">Are these two records the same person?</h1>
+        </div>
 
-        <p className="sr-eyebrow">Merge review · recall measurement</p>
-        <h1 className="sr-answer">Are these two records the same person?</h1>
-
-        {unavailable && (
-          <p className="sr-corpus">
-            The registry cannot be read right now. Build it with{' '}
-            <code>npm run registry:migrate &amp;&amp; npm run registry:ingest</code>.
-          </p>
-        )}
+        {unavailable && <RegistryMissing />}
 
         {est !== null && (
           <>
-            <p className="sr-sub">
+            <p className="iei-sub">
               The resolver merged <strong>{IN.format(est.autoMerges)}</strong> pairs on its own and left{' '}
               <strong>{IN.format(est.bands.reduce((n, b) => n + b.size, 0))}</strong> for a human. Of
               those, <strong>{IN.format(est.reviewed)}</strong> have been decided and{' '}
@@ -179,42 +170,54 @@ export default function MergeReview({
               resolver missed.
             </p>
 
-            <table className="sr-table rv-bands">
-              <thead>
-                <tr>
-                  <th>Score band</th>
-                  <th className="n">Pairs</th>
-                  <th className="n">Reviewed</th>
-                  <th className="n">Same</th>
-                  <th className="n">Duplicate rate</th>
-                  <th className="n sr-drop">Implies missed</th>
-                </tr>
-              </thead>
-              <tbody>
+            <Table
+              label="Score bands and their measured duplicate rate"
+              caption="Every score band, its size, how much of it has been reviewed, and what that implies"
+              captionVisible
+              head={
+                <>
+                  <th scope="col">Score band</th>
+                  <th scope="col" className="iei-n">
+                    Pairs
+                  </th>
+                  <th scope="col" className="iei-n">
+                    Reviewed
+                  </th>
+                  <th scope="col" className="iei-n">
+                    Same
+                  </th>
+                  <th scope="col" className="iei-n">
+                    Duplicate rate
+                  </th>
+                  <th scope="col" className="iei-n iei-drop">
+                    Implies missed
+                  </th>
+                </>
+              }
+            >
                 {est.bands.map((b) => (
                   <tr key={b.label}>
-                    <td>{b.label}</td>
-                    <td className="n">{IN.format(b.size)}</td>
-                    <td className="n">
+                    <th scope="row">{b.label}</th>
+                    <td className="iei-n">{IN.format(b.size)}</td>
+                    <td className="iei-n">
                       {b.reviewed} of {b.target}
                     </td>
-                    <td className="n">{b.sameCount}</td>
-                    <td className="n">
-                      {b.ratePct === null ? <span className="sr-na">unsampled</span> : pct1(b.ratePct)}
+                    <td className="iei-n">{b.sameCount}</td>
+                    <td className="iei-n">
+                      {b.ratePct === null ? <span className="iei-absent">unsampled</span> : pct1(b.ratePct)}
                     </td>
-                    <td className="n sr-drop">
+                    <td className="iei-n iei-drop">
                       {b.weighted === null ? (
-                        <span className="sr-na">—</span>
+                        <span className="iei-absent">—</span>
                       ) : (
                         `~${IN.format(Math.round(b.weighted))}`
                       )}
                     </td>
                   </tr>
                 ))}
-              </tbody>
-            </table>
+            </Table>
 
-            <p className="sr-corpus rv-est">
+            <p className="iei-note rv-est">
               {est.recallPct === null ? (
                 <>
                   <strong>No recall figure yet.</strong> {est.unsampled.length} of{' '}
@@ -266,13 +269,13 @@ export default function MergeReview({
         )}
 
         {pair === null && !unavailable ? (
-          <p className="sr-corpus">
+          <p className="iei-note">
             Nothing pending. Every candidate pair has been decided, which means the estimate above is
             a census rather than a sample.
           </p>
         ) : pair === null ? null : (
           <>
-            <section className="sr-sec rv-pair">
+            <section className="rv-pair">
               <Side c={pair.a} other={pair.b} />
               <Side c={pair.b} other={pair.a} />
             </section>
@@ -292,14 +295,13 @@ export default function MergeReview({
                 Cannot tell from this
               </button>
             </form>
-            <p className="sr-rule">
+            <p className="iei-rule">
               &ldquo;Cannot tell&rdquo; is a real answer and is recorded as one — the pair leaves the
               queue and is excluded from the rate, because a forced guess would corrupt the very number
               this page exists to produce.
             </p>
           </>
         )}
-      </div>
-    </main>
+    </Shell>
   );
 }

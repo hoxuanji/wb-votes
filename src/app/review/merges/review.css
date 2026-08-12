@@ -1,190 +1,176 @@
-/* Merge review. Adds only what a two-record comparison needs; tokens and the no-outline focus rules
-   come from mandate.css and situation.css. */
+/* The merge review queue's own classes, and only the ones that are about judging a pair.
+   Tokens, primitives, tables, chrome and focus treatments all come from iei.css — this file used to sit on
+   top of mandate.css and situation.css, both of which Phase 2.5 deleted, and it carried a second copy of
+   their palette names. Every var() below is an --iei-* property. */
 
+/* Two records, side by side, because sameness is judged on the differences. */
 .rv-pair {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-  align-items: start;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--iei-4);
+  margin: var(--iei-6) 0;
 }
 
 .rv-side {
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--panel);
-  padding: 14px 16px;
+  border: 1px solid var(--iei-line);
+  background: var(--iei-panel);
+  padding: var(--iei-3);
   min-width: 0;
 }
 
-.rv-name {
-  font-size: 17px;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+.rv-side dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--iei-1) var(--iei-3);
+  margin: 0 0 var(--iei-3);
+  font-size: var(--iei-f-data);
+}
+
+.rv-side dt {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.rv-side dd {
   margin: 0;
-  /* a long affidavit name must wrap rather than widen the column and desync the two sides */
-  overflow-wrap: anywhere;
+  color: var(--iei-ink);
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.rv-name {
+  font-size: var(--iei-f-title);
+  font-weight: 600;
+  margin: 0 0 var(--iei-2);
 }
 
 .rv-id {
-  display: inline-block;
-  color: var(--muted);
-  font-size: 11px;
-  text-decoration: none;
-  border-bottom: 2px solid transparent;
-  margin: 2px 0 12px;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
 }
 
-.rv-id:hover {
-  color: var(--text-2);
-}
-
-.rv-id:focus-visible {
-  outline: none;
-  color: var(--text);
-  border-bottom-color: var(--ink-400);
+/* A fact the two records disagree on. The rule under it is what makes the difference visible without
+   spending a hue: this page has three buttons that already need the only colours it may use. */
+.rv-warn {
+  border-bottom: 2px solid var(--iei-warn);
+  color: var(--iei-ink);
 }
 
 .rv-facts {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 2px 10px;
-  margin: 0 0 12px;
-  font-size: 13px;
+  font-size: var(--iei-f-data);
 }
 
-.rv-facts dt {
-  color: var(--muted);
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  align-self: baseline;
-}
-
-.rv-facts dd {
-  margin: 0;
-  color: var(--text-2);
-  overflow-wrap: anywhere;
-}
-
-.rv-contests {
-  font-size: 13px;
-}
-
-/* the one place this app raises its voice: a same-year clash is the classic wrong merge */
-.rv-warn {
-  border-left: 3px solid #e8927c;
-  background: var(--raised);
-  color: var(--text-2);
-  font-size: 12px;
-  line-height: 1.5;
-  margin: 10px 0 0;
-  padding: 8px 10px;
-}
-
+/* The resolver's own scoring, behind a disclosure — the same idea as the evidence drawer. */
 .rv-ev {
-  border: 1px solid var(--line);
-  border-radius: 4px;
-  background: var(--panel);
-  padding: 10px 14px;
-  margin: 12px 0 0;
-  font-size: 13px;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  margin: var(--iei-4) 0;
 }
 
 .rv-ev summary {
-  color: var(--text-2);
   cursor: pointer;
-  /* the disclosure triangle is the affordance; a focus ring would be a second one */
-  border-bottom: 2px solid transparent;
+  color: var(--iei-ink-3);
+  letter-spacing: 0.06em;
+  list-style: none;
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--iei-line-2);
   display: inline-block;
+}
+
+.rv-ev summary::-webkit-details-marker {
+  display: none;
+}
+
+.rv-ev summary:hover {
+  color: var(--iei-ink);
 }
 
 .rv-ev summary:focus-visible {
   outline: none;
-  color: var(--text);
-  border-bottom-color: var(--ink-400);
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-ink);
 }
 
-.rv-bands {
-  margin: 0 0 16px;
+.rv-ev table {
+  margin-top: var(--iei-3);
+  max-width: 72ch;
 }
 
-.rv-est {
-  margin: 0 0 24px;
-}
-
-.rv-saved {
-  border: 1px solid var(--line);
-  border-left: 3px solid #7fd4a8;
-  border-radius: 3px;
-  background: var(--panel);
-  color: var(--text-2);
-  font-size: 13px;
-  padding: 10px 14px;
-  margin: 0 0 20px;
-}
-
-/* ---------- the three answers ---------- */
-
+/* Three decisions, and the third is a real answer. */
 .rv-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
-  margin: 16px 0 0;
+  gap: var(--iei-2);
+  margin: var(--iei-4) 0 var(--iei-2);
 }
 
 .rv-actions button {
-  background: var(--raised);
-  border: 1px solid var(--line);
-  /* reserved focus channel, transparent until focus, so the row never reflows */
-  border-bottom: 2px solid var(--line);
-  border-radius: 3px;
-  color: var(--text);
-  font: inherit;
-  font-size: 14px;
-  padding: 11px 18px;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  letter-spacing: 0.06em;
+  color: var(--iei-ink);
+  background: var(--iei-raised);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  padding: var(--iei-2) var(--iei-3);
   cursor: pointer;
 }
 
 .rv-actions button:hover {
-  background: var(--line);
+  border-color: var(--iei-ink-3);
 }
 
 .rv-actions button:focus-visible {
   outline: none;
-  border-bottom-color: var(--ink-400);
-  background: var(--line);
+  border-color: var(--iei-ink);
+  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
 }
 
-/* Weight, not colour, carries the primary action: these three are a judgement, not a good/bad pair,
-   and colouring "same" green would nudge the answer this page exists to measure. */
+/* The two judgements that assert something get the two hues this product spends on direction. "Cannot tell"
+   gets none, because it asserts nothing. */
 .rv-same {
-  font-weight: 600;
+  border-color: var(--iei-good) !important;
 }
 
-.rv-skip {
-  color: var(--text-2);
+.rv-diff {
+  border-color: var(--iei-alert) !important;
 }
 
-@media (max-width: 720px) {
+.rv-est {
+  max-width: 88ch;
+}
+
+/* What was recorded. Shown for all three outcomes, because a decision that silently failed to record is the
+   one failure mode that would corrupt the measurement while looking like progress. */
+.rv-saved {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  line-height: 1.6;
+  color: var(--iei-ink-2);
+  border-left: 2px solid var(--iei-good);
+  padding-left: var(--iei-3);
+  margin: var(--iei-4) 0;
+  max-width: 88ch;
+}
+
+.rv-stale {
+  border-left-color: var(--iei-warn);
+}
+
+@media (max-width: 900px) {
   .rv-pair {
-    grid-template-columns: 1fr;
-  }
-
-  .rv-actions button {
-    flex: 1 1 100%;
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 
 @media (forced-colors: active) {
-  .rv-id:focus-visible,
-  .rv-ev summary:focus-visible,
-  .rv-actions button:focus-visible {
+  .rv-actions button:focus-visible,
+  .rv-ev summary:focus-visible {
     outline: 2px solid CanvasText;
     outline-offset: 2px;
   }
-}
-
-/* the neutral variant of the banner: nothing was written, so it must not wear the success bar */
-.rv-stale {
-  border-left-color: var(--muted);
 }
