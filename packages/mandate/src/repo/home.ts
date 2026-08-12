@@ -42,87 +42,33 @@ import {
   type SwingRow,
 } from "./elections.ts";
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
+import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
 
 /* ────────────────────────────── palette ──────────────────────────────
-   Three identity hues, one neutral, computed rather than chosen.
+   THE PARTY COLOURS ARE NOT HERE ANY MORE, and that is the fix rather than a move.
 
-   The map is a choropleth of 36 polygons that all touch each other, so adjacency is unknown and the
-   separation test is ALL PAIRS, not neighbours-in-a-legend. These four were found by searching OKLCH at
-   restrained chroma (≤0.14) and lightness (0.56–0.80) for the set whose worst-case OKLab ΔE across
-   normal, protan, deutan and tritan vision is largest. That worst case is 14.8 — above the ≥8 target and
-   above the 15-point normal-vision floor on every pair but one, which is why the figure is asserted in
-   home.test.ts rather than described here. Every hue also clears 3:1 against the panel.
+   This module used to own them: three hues handed out BY RANK, so the party leading the most jurisdictions
+   took slot one and everything else folded into a single grey. Two consequences. A party's colour changed
+   when its rank did — the same party was two colours on two pages, and on a map of 2004 it was a third — and
+   427 of the 430 parties that have ever won a seat shared one grey, so on a Karnataka map JD(S) with 19 seats
+   looked exactly like a party with one.
 
-   Lightness varies on purpose. A dichromat loses one chromatic axis, so hue alone cannot separate a set
-   under both deuteranopia and tritanopia; the project's own three-hue cap (viz/palette.ts) is what
-   happens when only hue is allowed to vary.
+   A colour belongs to a party identity and to nothing about the context it is drawn in. That makes it a pure
+   function of the party key, which means it needs no view model, no plumbing through HomeView, and no
+   `ink` argument: see viz/party-ink.ts, and `fillFor` below. */
 
-   Slots are handed out by RANK — jurisdictions governed — not by a party lookup table. A table mapping
-   BJP to saffron would be a hardcoded list of parties and would also read as campaign livery; ranking
-   means the country's largest governing party takes slot 1 whoever that turns out to be. */
-export const PARTY_HUES = ["#cd702f", "#6fa4fc", "#e1a6a2"] as const;
-
-/** The fold target: a party that leads exactly one jurisdiction. Chroma-poor because it is not an
- *  identity — thirteen different parties share it, and that fact is the category. */
-export const REGIONAL_HUE = "#7b7490";
-
-/** No election of this kind is loaded here. Never a fill that could be mistaken for a result. */
-export const NO_DATA_HUE = "#1d1b26";
-
-/** The single hue every magnitude layer ramps along, light to dark. One hue, never a rainbow. */
+/** The magnitude ramp: one hue, light to dark, for the layers that encode a number rather than an identity. */
 export const SEQUENTIAL = ["#241d38", "#3a2c5c", "#523d80", "#6e54a8", "#8f74cf", "#b39ae8"] as const;
 
-export type Swatch = { label: string; fill: string; note?: string };
+/** "No election of this kind is loaded here." Deliberately below the mark floor: absence is not a mark. */
+export const NO_DATA_HUE = NOT_HELD;
 
 /**
- * Party colour for the WHOLE PAGE, assigned once so a party wears one hue in the map, the table and the
- * party landscape alike. Ranked by jurisdictions governed, then by name so the order is deterministic
- * when two parties govern the same number.
+ * A legend entry. `key` is what makes the legend interactive — clicking a party highlights its polygons —
+ * and it is the party's own key, so the link it builds is stable and shareable.
  */
-export type PartyInk = {
-  /** party key -> hue, for the parties that earned a slot. Plain data rather than a closure: a view model
-   *  holding a function cannot cross a cache, an API boundary or a server/client boundary, and this one
-   *  will eventually have to do all three. `hueOf` applies it. */
-  hues: Record<string, string>;
-  legend: Swatch[];
-  /** Parties that lead exactly one jurisdiction — the neutral's constituency, counted. */
-  regional: number;
-};
-
-/** The hue a party wears, with the two fold cases named rather than implied. */
-export function hueOf(ink: PartyInk, partyKey: string | null): string {
-  if (partyKey === null) return NO_DATA_HUE;
-  return ink.hues[partyKey] ?? REGIONAL_HUE;
-}
-
-export function partyInk(standings: readonly Standing[]): PartyInk {
-  const govern = new Map<string, number>();
-  const labels = new Map<string, string>();
-  for (const s of standings) {
-    if (s.leaderKey === null) continue;
-    govern.set(s.leaderKey, (govern.get(s.leaderKey) ?? 0) + 1);
-    labels.set(s.leaderKey, s.leaderLabel ?? s.leaderKey);
-  }
-  const ranked = [...govern].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
-  const named = ranked.filter(([, n]) => n > 1).slice(0, PARTY_HUES.length);
-  const assigned = new Map(named.map(([k], i) => [k, PARTY_HUES[i] as string]));
-  const regional = ranked.filter(([k]) => !assigned.has(k)).length;
-  return {
-    hues: Object.fromEntries(assigned),
-    legend: [
-      ...named.map(([k, n]) => ({
-        label: labels.get(k) ?? k,
-        fill: assigned.get(k) as string,
-        note: `${n} jurisdictions`,
-      })),
-      ...(regional > 0
-        ? [{ label: "Others", fill: REGIONAL_HUE, note: `${regional} parties, one assembly each` }]
-        : []),
-    ],
-    regional,
-  };
-}
+export type Swatch = { key: string | null; label: string; fill: string; note?: string };
 
 /* ────────────────────────────── the national snapshot ────────────────────────────── */
 
@@ -206,14 +152,21 @@ export function snapshot(
 
 /* ────────────────────────────── map layers ────────────────────────────── */
 
-export type LayerKey = "assembly" | "loksabha" | "voteshare" | "turnout" | "margin" | "year";
+export type LayerKey = "government" | "loksabha" | "voteshare" | "turnout" | "margin" | "year";
 
-export const DEFAULT_LAYER: LayerKey = "assembly";
+export const DEFAULT_LAYER: LayerKey = "government";
 
 /** A jurisdiction as one layer sees it. `label` is what a reader reads; `fill` is reinforcement. */
 export type Cell = {
   jurisdictionId: string;
   jurisdictionName: string;
+  /**
+   * The party this cell's colour belongs to, or null where the colour is a magnitude rather than an identity.
+   *
+   * What makes the legend interactive: `?party=` mutes every cell whose key does not match. Null on the
+   * sequential layers because there is nothing to isolate — a turnout band is not a party.
+   */
+  partyKey: string | null;
   /** Direct label on the polygon — the abbreviation, or a formatted number. Null when nothing is held. */
   label: string | null;
   fill: string;
@@ -240,9 +193,21 @@ export type Layer = {
   available: boolean;
 };
 
+/**
+ * The layers, and their names are the product's most load-bearing words.
+ *
+ * "GOVERNMENT", NOT "ASSEMBLY CONTROL" AND NEVER "ELECTION WINNERS". The colour on a state polygon is the
+ * party leading that state's most recent assembly election — a claim about who governs, aggregated over a
+ * whole election. It is NOT a claim that the area under the polygon voted for that party, and the previous
+ * label plus visible district lines inside the fill invited exactly that reading. A layer whose name does not
+ * say which of the two it means is the failure mode this phase exists to remove.
+ *
+ * The Lok Sabha layer has the same shape of problem and the same answer: at state-polygon level it can only
+ * be "which party won MOST of this state's seats", so it says that rather than "winners".
+ */
 export const LAYERS: readonly { key: LayerKey; label: string; question: string; encoding: "categorical" | "sequential" }[] = [
-  { key: "assembly", label: "Assembly control", question: "Which party leads each assembly now?", encoding: "categorical" },
-  { key: "loksabha", label: "Latest Lok Sabha", question: "Which party took most of each state's parliamentary seats?", encoding: "categorical" },
+  { key: "government", label: "Government", question: "Which party leads each state's assembly now?", encoding: "categorical" },
+  { key: "loksabha", label: "Lok Sabha · most seats", question: "Which party won most of each state's Lok Sabha seats?", encoding: "categorical" },
   { key: "voteshare", label: "Vote share", question: "What share of the vote did the leading party take?", encoding: "sequential" },
   { key: "turnout", label: "Turnout", question: "What share of electors voted?", encoding: "sequential" },
   { key: "margin", label: "Margin", question: "How close was the median seat?", encoding: "sequential" },
@@ -314,6 +279,9 @@ function ramp(value: number, lo: number, hi: number, invert = false): string {
 function bandLegend(lo: number, hi: number, unit: string, invert = false): Swatch[] {
   const step = (hi - lo) / SEQUENTIAL.length;
   return SEQUENTIAL.map((_, i) => ({
+    // A magnitude band is not a party, so it has no key and cannot be highlighted: there is nothing to
+    // isolate. `null` says that rather than inventing an id for a number.
+    key: null,
     label: `${(lo + i * step).toFixed(step < 1 ? 1 : 0)}–${(lo + (i + 1) * step).toFixed(step < 1 ? 1 : 0)}${unit}`,
     fill: ramp(lo + (i + 0.5) * step, lo, hi, invert),
   }));
@@ -338,16 +306,16 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     electionId: null,
     year: null,
     detail: [],
+    partyKey: null,
   });
 
-  if (key === "assembly" || key === "loksabha") {
-    const ink = key === "assembly" ? spine.ink : partyInk(spine.houseStandings);
-    const rows = key === "assembly" ? spine.standings : spine.houseStandings;
+  if (key === "government" || key === "loksabha") {
+    const rows = key === "government" ? spine.standings : spine.houseStandings;
     const byId = new Map(rows.map((r) => [r.jurisdictionId, r]));
     // The party breakdown behind each polygon, from the winners-only read already in the spine. Three
     // parties, because a hover card that lists sixteen is a table in a tooltip — and the leader alone
     // ("INC 135 of 224") does not tell a reader who came second, which is the thing they want next.
-    const seatRows = key === "assembly" ? spine.latestAssemblySeats : spine.houseSeatRows;
+    const seatRows = key === "government" ? spine.latestAssemblySeats : spine.houseSeatRows;
     const breakdown = new Map<string, SeatsWon[]>();
     for (const r of seatRows) {
       breakdown.set(r.jurisdictionId, [...(breakdown.get(r.jurisdictionId) ?? []), r]);
@@ -361,11 +329,12 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
       cells.push({
         ...base(j),
         label: s.leaderLabel,
-        fill: hueOf(ink, s.leaderKey),
+        fill: fillFor(s.leaderKey),
+        partyKey: s.leaderKey,
         electionId: s.electionId,
         year: s.year,
         detail: [
-          `${key === "assembly" ? "Assembly" : "Lok Sabha"} ${s.year} · ${s.seatsContested} seats`,
+          `${key === "government" ? "Assembly" : "Lok Sabha"} ${s.year} · ${s.seatsContested} seats`,
           ...[...(breakdown.get(j.id) ?? [])]
             .sort((a, b) => b.seats - a.seats || a.key.localeCompare(b.key))
             .slice(0, 3)
@@ -374,9 +343,27 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
         ],
       });
     }
-    legend = ink.legend;
+    // A CONTEXTUAL LEGEND: the parties this layer actually shows, with how many jurisdictions each leads,
+    // biggest first. Not a list of every party in the registry, and not three slots plus "others" — if six
+    // parties lead a state, six are named, because a legend that folds a party a reader can see on the map
+    // into "Others" has stopped being a key.
+    const led = new Map<string, { label: string; n: number }>();
+    for (const s of rows) {
+      if (s.leaderKey === null) continue;
+      const at = led.get(s.leaderKey) ?? { label: s.leaderLabel ?? s.leaderKey, n: 0 };
+      at.n += 1;
+      led.set(s.leaderKey, at);
+    }
+    legend = [...led]
+      .sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]))
+      .map(([k, v]) => ({
+        key: k,
+        label: v.label,
+        fill: fillFor(k),
+        note: `${v.n} ${v.n === 1 ? "state" : "states"}`,
+      }));
     unknownWhy =
-      key === "assembly"
+      key === "government"
         ? "no assembly election is loaded for them, or they have no assembly"
         : "no seat of the latest Lok Sabha is loaded for them";
   } else if (key === "year") {
@@ -503,7 +490,7 @@ export function availability(spine: Spine): Map<LayerKey, boolean> {
   const anyTurnout = spine.seats.some((x) => x.voters !== null && x.voters > 0 && x.electors !== null && x.electors > 0);
   const anyMargin = spine.seats.some((x) => x.marginVotes !== null && x.voters !== null && x.voters > 0);
   return new Map<LayerKey, boolean>([
-    ["assembly", spine.standings.some((s) => s.leaderKey !== null)],
+    ["government", spine.standings.some((s) => s.leaderKey !== null)],
     ["loksabha", spine.houseStandings.some((s) => s.leaderKey !== null)],
     // `counted`, not `leaderShare()`. Asking the shares whether they exist would compute all 31 of them —
     // a 550ms read to answer a yes/no question the strip needs on every request, including the five
@@ -1127,7 +1114,6 @@ export type Spine = {
   /** Each jurisdiction's slice of the latest Lok Sabha, in the same shape as an assembly standing. */
   houseStandings: readonly Standing[];
   house: LatestElection | null;
-  ink: PartyInk;
   seats: readonly SeatFact[];
   latestAssemblySeats: readonly SeatsWon[];
   /** Seats by party per jurisdiction in the latest Lok Sabha — the breakdown that layer's cards show. */
@@ -1308,7 +1294,6 @@ export function spine(db: DatabaseSync): Spine {
     standings,
     houseStandings,
     house: houseRow,
-    ink: partyInk(standings),
     seats: facts,
     latestAssemblySeats,
     houseSeatRows,
@@ -1388,7 +1373,6 @@ export type HomeView = {
   coverageOf: Map<string, Completeness>;
   parties: PartyLandscape;
   signals: Signal[];
-  ink: PartyInk;
 };
 
 /**
@@ -1433,6 +1417,5 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     coverageOf: completenessOf(db, held.map((h) => h.id)),
     parties,
     signals: watchSignals(db, withPoll, p.thisYear),
-    ink: sp.ink,
   };
 }

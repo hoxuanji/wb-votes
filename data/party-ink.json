@@ -1,0 +1,191 @@
+{
+  "source": {
+    "publisher": "India Election Intelligence \u2014 editorial",
+    "retrievedAt": "2026-08-12",
+    "note": "A curated colour is an EDITORIAL association, not a measurement, and is recorded as such: `confidence: editorial` on every token this file produces. The hue is the one Indian election graphics and the parties' own flags and symbols have long used \u2014 saffron for the BJP, sky blue for the Congress, red for the communist parties, green for the Trinamool and the Dravidian parties. No party publishes a hex value, so none is quoted as though it had. Lightness and chroma are NOT the association: they are chosen inside a measured band so the colour is legible on this product's surfaces, and so that parties sharing a hue family separate on the axis a dichromat keeps."
+  },
+  "band": {
+    "lMin": 0.5,
+    "lMax": 0.86,
+    "cMin": 0.07,
+    "cMax": 0.16,
+    "note": "The range curated lightnesses sit in. It documents intent; the FLOORS are what is enforced, by viz/party-ink.test.ts: every fill clears 3:1 against all three surfaces, and one of the two inks clears 4.5:1 on top of it. Around the crossover where neither ink clears, no lightness is legal at all \u2014 which is why two of these values are not round numbers."
+  },
+  "derived": {
+    "chroma": 0.055,
+    "lightnesses": [
+      0.52,
+      0.66,
+      0.8
+    ],
+    "note": "Three lightnesses, each legal for EVERY hue: 0.54-0.58 is a dead band where the light ink has stopped clearing 4.5:1 and the dark ink has not started, so no generated colour may land there."
+  },
+  "ink": {
+    "light": "#f2f2f7",
+    "dark": "#0d0d13",
+    "floor": 4.5
+  },
+  "parties": {
+    "BJP": {
+      "name": "Bharatiya Janata Party",
+      "l": 0.76,
+      "c": 0.15,
+      "h": 62,
+      "note": "saffron, the party's own and the one every Indian election graphic uses"
+    },
+    "INC": {
+      "name": "Indian National Congress",
+      "l": 0.7,
+      "c": 0.14,
+      "h": 240,
+      "note": "sky blue, long-standing in Indian election graphics"
+    },
+    "AITC": {
+      "name": "All India Trinamool Congress",
+      "l": 0.72,
+      "c": 0.14,
+      "h": 156,
+      "note": "green, from the party's flag"
+    },
+    "CPM": {
+      "name": "Communist Party of India (Marxist)",
+      "l": 0.68,
+      "c": 0.15,
+      "h": 28,
+      "note": "red, from the party's own flag"
+    },
+    "CPI": {
+      "name": "Communist Party of India",
+      "l": 0.54,
+      "c": 0.12,
+      "h": 22,
+      "note": "red, darker than the CPM's so the two separate on lightness"
+    },
+    "DMK": {
+      "name": "Dravida Munnetra Kazhagam",
+      "l": 0.6,
+      "c": 0.14,
+      "h": 12,
+      "note": "red-black, from the party's flag; the darker of the two Dravidian majors"
+    },
+    "ADMK": {
+      "name": "All India Anna Dravida Munnetra Kazhagam",
+      "l": 0.66,
+      "c": 0.13,
+      "h": 130,
+      "note": "the party's green, against the DMK's red"
+    },
+    "AAAP": {
+      "name": "Aam Aadmi Party",
+      "l": 0.78,
+      "c": 0.12,
+      "h": 270,
+      "note": "blue, from the party's own material"
+    },
+    "BSP": {
+      "name": "Bahujan Samaj Party",
+      "l": 0.62,
+      "c": 0.15,
+      "h": 288,
+      "note": "deep blue, from the party's flag"
+    },
+    "SP": {
+      "name": "Samajwadi Party",
+      "l": 0.8,
+      "c": 0.13,
+      "h": 44,
+      "note": "red-and-green flag; the warmer half, lightened away from the BJP's saffron"
+    },
+    "TDP": {
+      "name": "Telugu Desam Party",
+      "l": 0.86,
+      "c": 0.14,
+      "h": 96,
+      "note": "yellow, from the party's flag"
+    },
+    "YSRCP": {
+      "name": "YSR Congress Party",
+      "l": 0.8,
+      "c": 0.1,
+      "h": 224,
+      "note": "blue, from the party's own material"
+    },
+    "BJD": {
+      "name": "Biju Janata Dal",
+      "l": 0.78,
+      "c": 0.09,
+      "h": 182,
+      "note": "green-teal, from the party's flag, shifted off the Trinamool's green"
+    },
+    "SHS": {
+      "name": "Shiv Sena",
+      "l": 0.62,
+      "c": 0.14,
+      "h": 58,
+      "note": "saffron, from the party's flag, darker than the BJP's"
+    },
+    "JD(U)": {
+      "name": "Janata Dal (United)",
+      "l": 0.58,
+      "c": 0.1,
+      "h": 168,
+      "note": "green, from the party's flag, darker than the Trinamool's"
+    },
+    "RJD": {
+      "name": "Rashtriya Janata Dal",
+      "l": 0.8,
+      "c": 0.11,
+      "h": 142,
+      "note": "green, from the party's flag, between the JD(U)'s and the Trinamool's"
+    },
+    "JMM": {
+      "name": "Jharkhand Mukti Morcha",
+      "l": 0.58,
+      "c": 0.09,
+      "h": 208,
+      "note": "green, from the party's flag, teal-shifted off the JD(U)'s"
+    },
+    "TRS": {
+      "name": "Telangana Rashtra Samithi / Bharat Rashtra Samithi",
+      "l": 0.72,
+      "c": 0.14,
+      "h": 344,
+      "note": "pink, from the party's own material"
+    },
+    "NCP": {
+      "name": "Nationalist Congress Party",
+      "l": 0.68,
+      "c": 0.11,
+      "h": 196,
+      "note": "turquoise, from the party's flag"
+    },
+    "SAD": {
+      "name": "Shiromani Akali Dal",
+      "l": 0.6,
+      "c": 0.13,
+      "h": 256,
+      "note": "navy, from the party's flag"
+    },
+    "NPP": {
+      "name": "National People's Party",
+      "l": 0.84,
+      "c": 0.1,
+      "h": 312,
+      "note": "violet, from the party's own material"
+    },
+    "IND": {
+      "name": "Independent",
+      "l": 0.7,
+      "c": 0.0,
+      "h": 0,
+      "note": "NOT A PARTY. An independent has no party identity, so it gets no hue \u2014 a neutral grey, and the 3,455 seats independents have won are not one party's colour"
+    },
+    "unattached": {
+      "name": "No party recorded",
+      "l": 0.52,
+      "c": 0.0,
+      "h": 0,
+      "note": "the source printed no party for this candidacy; a darker neutral, and never a hue"
+    }
+  }
+}

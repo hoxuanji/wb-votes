@@ -1372,11 +1372,33 @@ html {
   overflow: visible;
 }
 
-/* A 0.6px stroke in the surface colour is the 2px inter-mark gap at this scale: without it, 36 adjacent
-   fills read as one landmass. */
-.iei-map path {
+/* ── the three layers, and the order is the argument ──
+   The fills carry NO stroke. They used to carry one, and because a state's path was every district ring
+   concatenated, that stroke drew every district boundary in the fill's own gap colour — so a party-coloured
+   state arrived divided into party-coloured districts, which is a claim about districts that the data does not
+   make. Nothing inside a state is drawn from the party's colour now. */
+.iei-map-fills path {
+  stroke: none;
+}
+
+/* Administrative texture. A hairline in a neutral ink, over the fills: it shows where the districts are
+   without asserting that any of them voted for anything. Deliberately below the mark floor — it is not data,
+   it is the frame the data sits in. */
+.iei-map-districts {
+  fill: none;
   stroke: var(--iei-bg);
-  stroke-width: 0.6;
+  stroke-width: 0.35;
+  stroke-opacity: 0.55;
+  pointer-events: none;
+}
+
+/* A state border reads as a border: the canvas colour, heavier than a district line, from the states' own
+   outline geometry rather than as a by-product of a fill. That is the border hierarchy. */
+.iei-map-borders path {
+  fill: none;
+  stroke: var(--iei-bg);
+  stroke-width: 1.1;
+  pointer-events: none;
 }
 
 /* Hover and focus change the STROKE, never the fill. Changing a choropleth's fill on hover destroys the
@@ -1384,6 +1406,12 @@ html {
 .iei-map a:hover path {
   stroke: var(--iei-ink);
   stroke-width: 1.8;
+}
+
+/* A muted polygon is a polygon a party highlight has set aside. Opacity rather than a second colour: the
+   fill is the party's identity and must not be replaced, only turned down. */
+.iei-map-fills path[opacity] {
+  transition: opacity 120ms linear;
 }
 
 .iei-map a:focus-visible {
@@ -1395,8 +1423,53 @@ html {
   stroke-width: 2.4;
 }
 
+/* Geometry with no jurisdiction behind it: drawn so the country is whole, never coloured, never linked. */
 .iei-map-off {
+  fill: var(--iei-void);
   stroke: var(--iei-line);
+  stroke-width: 0.35;
+}
+
+/* ── the legend, when its entries are parties you can isolate ── */
+
+.iei-legend a {
+  display: flex;
+  align-items: center;
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  white-space: nowrap;
+}
+
+.iei-legend a:hover {
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-line-2);
+}
+
+.iei-legend a:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom: 2px solid var(--iei-ink);
+}
+
+/* The party currently isolated. A word and a rule, so the state is not carried by the swatch alone. */
+.iei-legend-on {
+  color: var(--iei-ink) !important;
+  border-bottom: 2px solid var(--iei-ink-3) !important;
+}
+
+.iei-legend-off {
+  opacity: 0.5;
+}
+
+/* The folded tail of a legend. A <details>, so it is keyboard-reachable and costs no JavaScript. */
+.iei-legend-more {
+  margin: 0 0 var(--iei-3);
+}
+
+.iei-legend-rest {
+  margin-top: var(--iei-2);
+  margin-bottom: 0;
 }
 
 /* Direct labels: the secondary encoding that makes four fills legal, and the thing that makes the map

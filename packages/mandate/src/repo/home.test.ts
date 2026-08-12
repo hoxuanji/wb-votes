@@ -26,20 +26,16 @@ import {
   DEFAULT_LAYER,
   KNIFE_PP,
   LAYERS,
-  MOVE_PP,
   NO_DATA_HUE,
-  PARTY_HUES,
+  MOVE_PP,
   PER_RULE,
-  REGIONAL_HUE,
   SEQUENTIAL,
   availability,
   electionCoverage,
   electionCoverageView,
   homeView,
-  hueOf,
   isLayer,
   layer,
-  partyInk,
   partyLandscape,
   snapshot,
   spine,
@@ -142,108 +138,15 @@ const contrast = (a: string, b: string): number => {
   return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
 };
 
-test("the map palette separates under normal, protan, deutan and tritan vision — all pairs", () => {
-  // ALL PAIRS, not adjacent ones. A choropleth of 36 polygons puts any two fills side by side, so the
-  // legend-adjacency exemption the dataviz rules allow for a bar chart does not apply here.
-  const fills = [...PARTY_HUES, REGIONAL_HUE];
-  let worst = { d: Infinity, why: "" };
-  for (let i = 0; i < fills.length; i += 1) {
-    for (let j = i + 1; j < fills.length; j += 1) {
-      for (const mode of MODES) {
-        const d = deltaE(fills[i] as string, fills[j] as string, mode);
-        if (d < worst.d) worst = { d, why: `${fills[i]} vs ${fills[j]} under ${mode}` };
-      }
-    }
-  }
-  // 8 is the dataviz target; the set in home.ts measures 14.8, and the assertion is the target so a future
-  // hue swap has room to move without silently dropping below the floor.
-  assert.ok(worst.d >= 8, `worst-case ΔE is ${worst.d.toFixed(1)} (${worst.why}) — below the 8 floor`);
-  // And the figure the palette comment states, so the prose cannot drift from the values.
-  assert.ok(worst.d >= 14, `home.ts claims a worst case of 14.8; measured ${worst.d.toFixed(1)}`);
-});
-
-test("every fill is visible as a mark on the panel it is drawn on", () => {
-  for (const fill of [...PARTY_HUES, REGIONAL_HUE]) {
-    const c = contrast(fill, PANEL);
-    assert.ok(c >= 3, `${fill} is ${c.toFixed(2)}:1 against ${PANEL} — a mark needs 3:1`);
-  }
-  // The no-data ink must NOT clear it: an unlit jurisdiction has to read as absent, not as a fourth party.
-  assert.ok(contrast(NO_DATA_HUE, PANEL) < 2, "the no-data ink must recede toward the surface");
-});
-
-test("the magnitude ramp is one hue, light to dark, and monotonic", () => {
-  const ls = SEQUENTIAL.map((h) => luminance(h));
-  for (let i = 1; i < ls.length; i += 1) {
-    assert.ok((ls[i] as number) > (ls[i - 1] as number), `step ${i} is not lighter than ${i - 1}`);
-  }
-  // One hue: every step's OKLab hue angle within a narrow arc. A rainbow ramp is the anti-pattern.
-  const angles = SEQUENTIAL.map((h) => {
-    const [, a, b] = oklab(lin(h));
-    return (Math.atan2(b, a) * 180) / Math.PI;
-  });
-  const span = Math.max(...angles) - Math.min(...angles);
-  assert.ok(span < 30, `the ramp spans ${span.toFixed(0)}° of hue — a sequential scale is one hue`);
-});
-
-/* ────────────────────────────── pure logic ────────────────────────────── */
-
-test("party ink is assigned by rank, and a party leading one jurisdiction folds to the neutral", () => {
-  const stand = (j: string, key: string) => ({
-    jurisdictionId: j,
-    jurisdictionName: j,
-    electionId: `${j}-assembly-2024`,
-    year: 2024,
-    seatsContested: 100,
-    leaderKey: key,
-    leaderLabel: key,
-    leaderSeats: 60,
-    majority: true,
-  });
-  const ink = partyInk([
-    stand("a", "BIG"),
-    stand("b", "BIG"),
-    stand("c", "BIG"),
-    stand("d", "MID"),
-    stand("e", "MID"),
-    stand("f", "ONE"),
-    stand("g", "TWO"),
-  ]);
-  assert.equal(hueOf(ink, "BIG"), PARTY_HUES[0], "the party governing most takes the first slot");
-  assert.equal(hueOf(ink, "MID"), PARTY_HUES[1]);
-  assert.equal(hueOf(ink, "ONE"), REGIONAL_HUE, "one jurisdiction only is not an identity");
-  assert.equal(hueOf(ink, "TWO"), REGIONAL_HUE);
-  assert.equal(hueOf(ink, null), NO_DATA_HUE);
-  assert.equal(ink.regional, 2);
-  // The legend must name every fill in use, because colour is never the only channel.
-  assert.deepEqual(ink.legend.map((l) => l.fill), [PARTY_HUES[0], PARTY_HUES[1], REGIONAL_HUE]);
-  assert.ok(ink.legend.every((l) => l.label.trim().length > 0));
-});
-
-test("ink is stable when a jurisdiction drops out — colour follows the party, not its position", () => {
-  const stand = (j: string, key: string) => ({
-    jurisdictionId: j, jurisdictionName: j, electionId: `${j}-a-2024`, year: 2024,
-    seatsContested: 10, leaderKey: key, leaderLabel: key, leaderSeats: 6, majority: true,
-  });
-  const rows = [stand("a", "P"), stand("b", "P"), stand("c", "Q"), stand("d", "Q"), stand("e", "R"), stand("f", "R")];
-  const before = partyInk(rows);
-  // Drop one of R's two: R now leads one jurisdiction and folds, and P and Q must NOT be repainted.
-  const after = partyInk(rows.filter((r) => r.jurisdictionId !== "f"));
-  assert.equal(hueOf(after, "P"), hueOf(before, "P"));
-  assert.equal(hueOf(after, "Q"), hueOf(before, "Q"));
-  assert.equal(hueOf(after, "R"), REGIONAL_HUE);
-});
-
-test("a layer key from a URL is validated by membership, never parsed", () => {
-  for (const l of LAYERS) assert.ok(isLayer(l.key));
-  for (const bad of ["", "ASSEMBLY", "assembly ", "'; DROP TABLE result; --", undefined]) {
-    assert.equal(isLayer(bad as string | undefined), false, `${String(bad)} must not be a layer`);
-  }
-  assert.ok(isLayer(DEFAULT_LAYER));
-  assert.equal(new Set(LAYERS.map((l) => l.key)).size, LAYERS.length, "duplicate layer key");
-  for (const l of LAYERS) {
-    assert.ok(l.question.trim().endsWith("?"), `${l.key} does not state the question it answers`);
-  }
-});
+/* ────────────────────────────── the palette moved, and so did its tests ──────────────────────────────
+ *
+ * Four tests lived here: all-pairs CVD separation of PARTY_HUES, mark contrast on the panel, assignment by
+ * rank, and stability when a jurisdiction drops out. The first two are now in viz/party-ink.test.ts, over the
+ * real 23-colour curated set and a 600-party sample of the generated one. The other two asserted the defect:
+ * "party ink is assigned by rank" and "colour follows the party, not its position" were describing a system
+ * where rank determined colour and the mitigation was that rank happened to be stable. Rank no longer touches
+ * colour at all, and the test for that is party-ink.test.ts's first one.
+ */
 
 /* ────────────────────────────── chronology ────────────────────────────── */
 
@@ -685,7 +588,9 @@ test("homeView renders for every layer, and falls back rather than throwing on a
     // moved to electionCoverageView, and is asserted below rather than lost.
     assert.deepEqual(
       Object.keys(homeView(d, { thisYear: THIS_YEAR })).sort(),
-      ["announced", "coverageOf", "headline", "held", "ink", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
+      // No `ink`. A party's colour is a pure function of its key now (viz/party-ink.ts), so there is nothing
+      // to thread through a view model — which is the shape of the fix as well as its consequence.
+      ["announced", "coverageOf", "headline", "held", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
       "homeView returns something the page does not render, or has stopped returning something it does",
     );
   } finally {

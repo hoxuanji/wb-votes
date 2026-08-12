@@ -68,7 +68,7 @@ test("the homepage renders, and says what it is in the first screen", live, () =
   assert.match(t, /assemblies on record/, "the headline does not say what it counted");
   // FOUR SECTIONS, and the four the brief's Phase E names: the map, what is next, what was just decided,
   // who holds power, and which signals stand out.
-  for (const heading of ["Assembly control", "Next", "Just decided", "Party landscape", "What to watch"]) {
+  for (const heading of ["India · Government", "Next", "Just decided", "Party landscape", "What to watch"]) {
     assert.ok(t.includes(heading), `the "${heading}" section is missing`);
   }
   // And the five that were removed must stay removed, each for a reason recorded in page.tsx: every one of
@@ -168,19 +168,27 @@ test("the unopposed seat is never counted among the numeric results", live, () =
 });
 
 test("every map layer renders, and an unknown one falls back instead of breaking", live, () => {
-  const layers = ["assembly", "loksabha", "voteshare", "turnout", "margin", "year"];
+  const layers = ["government", "loksabha", "voteshare", "turnout", "margin", "year"];
   for (const layer of layers) {
     const html = render("/", `layer=${layer}`);
     const t = text(html);
-    // 36 polygons every time, whatever the layer.
-    assert.equal((html.match(/<path /g) ?? []).length, 36, `${layer} does not draw 36 polygons`);
+    // 36 filled polygons every time, whatever the layer. Counted INSIDE the fills layer: the document also
+    // holds 36 border paths and one district-hairline path, which are frame rather than data.
+    // One <a id="iei-j-xx"> per jurisdiction is the invariant that matters: 36 polygons AND 36 of them
+    // reachable. Counting <path> would also count the 36 border paths and the district hairline, which are
+    // frame rather than data.
+    assert.equal(
+      new Set([...html.matchAll(/id="iei-j-([a-z]{2})"/g)].map((m) => m[1])).size,
+      36,
+      `${layer} does not draw 36 reachable jurisdictions`,
+    );
     // At least one label, or the layer is a colour-matching exercise.
     assert.ok((html.match(/<text /g) ?? []).length > 20, `${layer} labels almost nothing`);
     assert.ok(t.includes("Boundaries:"), `${layer} does not credit its geometry`);
   }
   // A hand-edited layer must not reach the SQL or produce a broken page.
   const fallback = text(render("/", "layer=%27%3B+DROP+TABLE+result%3B+--"));
-  assert.match(fallback, /Assembly control/, "a bogus layer did not fall back to the default");
+  assert.match(fallback, /India · Government/, "a bogus layer did not fall back to the default");
 });
 
 test("URL state survives, so a view can be sent to someone", live, () => {
@@ -205,6 +213,105 @@ test("the election deep link moved to the page that is about it", live, () => {
   // And a hand-edited one falls back rather than breaking.
   const bogus = text(render("/coverage", "election=%27%3B+DROP+TABLE+result%3B+--"));
   assert.match(bogus, /How much of this election do we actually hold/, "a bogus election id broke the page");
+});
+
+/* ────────────────────────────── the map's semantics ────────────────────────────── */
+
+test("the map says which claim its colour is making, and never the other one", live, () => {
+  // The defect this replaced: a layer called "Assembly control" over state paths that were every district ring
+  // concatenated and stroked, so a party-coloured state arrived divided into party-coloured districts. The
+  // available reading was "this district elected this party". The figure is the party leading that state's most
+  // recent assembly election.
+  const t = text(render("/"));
+  assert.match(t, /India · Government/, "the map does not name its layer");
+  assert.match(t, /Which party leads each state's assembly now\?/, "the government layer does not state its claim");
+  // "Election winners" is the phrase the brief forbids for this layer, because at state level it is not one.
+  assert.ok(!/Election winners/i.test(t), "the government layer is labelled as election winners");
+  assert.ok(!t.includes("Assembly control"), "the ambiguous label is back");
+
+  // The Lok Sabha layer has the same shape of problem and must also say what it aggregates.
+  const lok = text(render("/", "layer=loksabha"));
+  assert.match(lok, /most seats/i, "the Lok Sabha layer does not say it is an aggregate");
+  assert.match(lok, /Which party won most of each state's Lok Sabha seats\?/);
+});
+
+test("a district is drawn as a subdivision, not as a result", live, () => {
+  const html = render("/");
+  // Three layers, in this order: fills with no stroke, district hairlines, state borders. The fills must not
+  // stroke, or the district edges inside them come back in the party's own gap colour.
+  assert.match(html, /class="iei-map-fills"/, "the fills are not their own layer");
+  assert.match(html, /class="iei-map-districts"/, "the district hairlines are not drawn");
+  assert.match(html, /class="iei-map-borders"/, "the state borders are not their own layer");
+  assert.ok(
+    html.indexOf('class="iei-map-fills"') < html.indexOf('class="iei-map-districts"'),
+    "the district lines are painted under the fills, where they cannot be seen",
+  );
+  assert.ok(
+    html.indexOf('class="iei-map-districts"') < html.indexOf('class="iei-map-borders"'),
+    "a district line is painted over a state border",
+  );
+  // The district layer is ONE path with no fill: it cannot carry a party's colour even by accident.
+  const districts = /class="iei-map-districts" d="([^"]+)"/.exec(html);
+  assert.ok(districts !== null, "the district layer has no geometry");
+  assert.ok((districts[1] as string).length > 50_000, "the district layer is too small to be 726 districts");
+  assert.ok(!/class="iei-map-districts"[^>]*fill="#/.test(html), "the district layer has a fill");
+  // And the caption has to say what epoch the boundaries are, because they are 2011 and India has moved on.
+  assert.match(text(html), /2011 census districts/, "the map does not date its boundaries");
+  assert.match(text(html), /not a claim about any district/i, "the map does not disclaim the district reading");
+});
+
+test("every party on the map has its own colour, and it is not assigned by rank", live, () => {
+  const html = render("/");
+  const fills = [...html.matchAll(/<path d="[^"]*" fill="(#[0-9a-f]{6})"/g)].map((m) => m[1] as string);
+  assert.ok(fills.length >= 30, `only ${fills.length} polygons carry a fill`);
+  // Seventeen parties lead a state. The old system had three hues and one grey, so at most four distinct
+  // fills could ever appear; anything under ten means the identity system is not feeding the map.
+  assert.ok(new Set(fills).size >= 10, `the map draws ${new Set(fills).size} distinct fills — is rank-based ink back?`);
+  // The legend is CONTEXTUAL: parties that lead a state, with counts, and a folded tail rather than a
+  // hundred-row key or a three-slot one with "Others".
+  const t = text(html);
+  // On the markup, not the stripped text: the count is its own element, so `text()` puts it on the next line.
+  assert.match(html, />BJP<b>11 states<\/b>/, "the legend does not count what each party leads");
+  assert.match(t, /more, one state each/, "the legend does not fold its tail");
+  assert.ok(!t.includes("Others 13 parties"), "the legend still folds parties a reader can see into Others");
+});
+
+test("a party can be isolated, and the isolation is in the URL", live, () => {
+  const plain = render("/");
+  const only = render("/", "party=BJP");
+  // On the markup: the party's name is its own element, so `text()` puts it on a line of its own.
+  assert.match(only, /Showing only where <b>BJP<\/b> leads/, "the map does not say it is filtered");
+  assert.match(only, /href="\/#map"/, "there is no way back to every party");
+  assert.match(only, /aria-pressed="true"/, "the isolated party is not marked as pressed");
+  // Muting is opacity on the fill, never a different colour: the fill is the party's identity.
+  assert.ok(/opacity="0\.22"/.test(only), "nothing is muted");
+  assert.ok(!/opacity="0\.22"/.test(plain), "the unfiltered map mutes something");
+  // The labels of muted polygons go with them — 36 abbreviations over a dimmed map is noise.
+  const labels = (s: string): number => (s.match(/<text /g) ?? []).length;
+  assert.ok(labels(only) < labels(plain), "isolating a party did not reduce the labels");
+  assert.ok(labels(only) > 0, "isolating a party removed every label");
+
+  // Validated by MEMBERSHIP. A party that leads nothing, a party absent from this layer, and an injection all
+  // fall back to showing everything rather than to an empty map.
+  for (const q of ["party=NOTAPARTY", "party=%27%20OR%201%3D1", "layer=turnout&party=BJP"]) {
+    assert.ok(!render("/", q).includes("Showing only where"), `${q} was honoured as a filter`);
+  }
+});
+
+test("URL state restores the map, and the layer strip carries it", live, () => {
+  const html = render("/", "layer=loksabha&party=BJP");
+  assert.match(text(html), /Lok Sabha · most seats/, "the layer did not restore");
+  assert.match(html, /Showing only where <b>BJP<\/b> leads/, "the isolation did not restore");
+  // Switching to a DIFFERENT layer keeps the party, so the strip does not silently drop the reader's filter.
+  // The one link that legitimately drops it is the legend's own entry for BJP, which is the toggle that turns
+  // the isolation off, so it is excluded by looking only at links to another layer.
+  const links = [...html.matchAll(/href="\/\?([^"]*)#map"/g)].map((m) => (m[1] as string).replace(/&amp;/g, "&"));
+  assert.ok(links.length >= 5, "the layer strip did not render links");
+  const toOtherLayers = links.filter((q) => /layer=/.test(q) && !q.includes("layer=loksabha"));
+  assert.ok(toOtherLayers.length >= 4, `only ${toOtherLayers.length} links to another layer`);
+  assert.ok(toOtherLayers.every((q) => q.includes("party=BJP")), "a layer link drops the party");
+  // And the toggle exists: one link back to this layer with no party at all.
+  assert.ok(links.includes("layer=loksabha"), "there is no way to stop isolating the party");
 });
 
 /* ────────────────────────────── navigation ────────────────────────────── */

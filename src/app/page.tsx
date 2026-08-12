@@ -1,9 +1,10 @@
 import Link from 'next/link';
 import { openRead } from '../../packages/mandate/src/db/open.ts';
-import { homeView, hueOf } from '../../packages/mandate/src/repo/home.ts';
+import { homeView } from '../../packages/mandate/src/repo/home.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
+import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
 import {
@@ -68,8 +69,32 @@ export const dynamic = 'force-dynamic';
  */
 const THIS_YEAR = 2026;
 
+type Params = Record<string, string | string[] | undefined> | undefined;
+
 function first(v: string | string[] | undefined): string | undefined {
   return Array.isArray(v) ? v[0] : v;
+}
+
+/**
+ * A link to this page with one parameter changed and the rest kept, anchored at the map.
+ *
+ * An empty value DROPS the parameter rather than writing `party=`, so "show every party" produces the URL a
+ * reader would have arrived at, not a longer one that means the same thing. The anchor is `#map` because every
+ * parameter this page takes changes the map, and a reader who clicks a legend entry should not be returned to
+ * the top of the document.
+ */
+function href(params: Params, change: Record<string, string>): string {
+  const q = new URLSearchParams();
+  for (const [k, val] of Object.entries(params ?? {})) {
+    const one = first(val);
+    if (one !== undefined && one !== '') q.set(k, one);
+  }
+  for (const [k, val] of Object.entries(change)) {
+    if (val === '') q.delete(k);
+    else q.set(k, val);
+  }
+  const s = q.toString();
+  return s === '' ? '/#map' : `/?${s}#map`;
 }
 
 /** The span of the elections the party table sums over, so its caveat states its own range. */
@@ -168,6 +193,16 @@ export default function Home({
 
   const at = new Date().toISOString().slice(11, 16) + ' UTC';
   const next = [...v.announced, ...v.upcoming];
+  // VALIDATED BY MEMBERSHIP, never parsed: `?party=` has to name a party the CURRENT layer actually shows, so
+  // a hand-edited value cannot isolate nothing, cannot reach the SQL, and cannot survive a layer switch that
+  // makes it meaningless. Switching to the turnout layer drops it, because a turnout band is not a party.
+  const asked = first(searchParams?.['party']);
+  const party = v.layer.legend.some((l) => l.key === asked) ? (asked as string) : null;
+  // The legend names the parties leading more than one state, and always the one being isolated. Everything
+  // else is one state each and folds into a disclosure below.
+  const many = v.layer.legend.filter((l) => l.key === null || l.key === party || !/^1 state$/.test(l.note ?? ''));
+  const shown = many.length > 0 ? many : v.layer.legend.slice(0, 8);
+  const rest = v.layer.legend.filter((l) => !shown.includes(l));
   return (
     <Shell here="india" live={v.snapshot.live}>
       <Dateline v={v} at={at} />
@@ -177,10 +212,10 @@ export default function Home({
         <h1 className="iei-answer">{v.headline}</h1>
       </div>
 
-      {/* ── the map, and the page's primary navigation ── */}
+      {/* ── the map: the product's primary analytical instrument, and its primary navigation ── */}
       <Panel
         id="map"
-        title={v.layer.label}
+        title={`India · ${v.layer.label}`}
         question={v.layer.question}
         basis={v.layer.key === 'year' ? 'reference' : 'measured'}
       >
@@ -190,21 +225,40 @@ export default function Home({
           choices={v.layers.map((l) => ({
             key: l.key,
             label: l.label,
-            href: `/?layer=${l.key}#map`,
+            href: href(searchParams, { layer: l.key }),
             available: l.available,
           }))}
         />
 
         <div className="iei-linked iei-map-split">
-          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} />
+          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} highlight={party} />
 
           <div>
+            {/* A CONTEXTUAL LEGEND, and an interactive one. It names the parties this layer actually shows —
+                not three slots and an "Others" bucket, and not every party in the registry — and each entry is
+                a link that isolates that party on the map. The isolation is URL state, so it is shareable and
+                costs no client JavaScript. */}
             <ul className="iei-legend">
-              {v.layer.legend.map((l) => (
+              {shown.map((l) => (
                 <li key={l.label}>
-                  <span className="iei-sw" style={{ background: l.fill }} aria-hidden="true" />
-                  {l.label}
-                  {l.note === undefined ? null : <b>{l.note}</b>}
+                  {l.key === null ? (
+                    <>
+                      <span className="iei-sw" style={{ background: l.fill }} aria-hidden="true" />
+                      {l.label}
+                      {l.note === undefined ? null : <b>{l.note}</b>}
+                    </>
+                  ) : (
+                    <Link
+                      href={href(searchParams, party === l.key ? { party: '' } : { party: l.key })}
+                      className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
+                      aria-pressed={party === l.key}
+                      title={party === l.key ? `Stop isolating ${l.label}` : `Show only where ${l.label} leads`}
+                    >
+                      <span className="iei-sw" style={{ background: l.fill }} aria-hidden="true" />
+                      {l.label}
+                      {l.note === undefined ? null : <b>{l.note}</b>}
+                    </Link>
+                  )}
                 </li>
               ))}
               {v.layer.unknown === 0 ? null : (
@@ -214,6 +268,36 @@ export default function Home({
                 </li>
               )}
             </ul>
+            {/* THE TAIL, FOLDED BUT NOT DROPPED. Seventeen parties lead a state, and a legend of seventeen is
+                three rows of chrome above the map. The ones leading more than one state are named; the rest go
+                behind a disclosure — reachable, isolable, and safe to fold because every polygon on the map
+                carries its party's abbreviation, so the legend is a secondary aid rather than the only key. */}
+            {rest.length === 0 ? null : (
+              <details className="iei-ev iei-legend-more">
+                <summary>
+                  + {rest.length} more, one state each
+                </summary>
+                <ul className="iei-legend iei-legend-rest">
+                  {rest.map((l) => (
+                    <li key={l.label}>
+                      <Link
+                        href={href(searchParams, party === l.key ? { party: '' } : { party: l.key as string })}
+                        className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
+                      >
+                        <span className="iei-sw" style={{ background: l.fill }} aria-hidden="true" />
+                        {l.label}
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
+            {party === null ? null : (
+              <p className="iei-note">
+                Showing only where <b>{v.layer.legend.find((l) => l.key === party)?.label ?? party}</b> leads.{' '}
+                <Link href={href(searchParams, { party: '' })}>Show every party</Link>
+              </p>
+            )}
 
             {/* THIS IS "WHO GOVERNS". There is no second table of it below: the panel that used to hold
                 one printed the same 36 rows, the same four columns and the same links, with a bar. */}
@@ -242,8 +326,11 @@ export default function Home({
             >
               {v.layer.cells.map((c) => {
                 const s = v.standings.find((x) => x.jurisdictionId === c.jurisdictionId);
+                // The table mutes with the map. A highlight that dimmed the polygons and left the rows at full
+                // strength would be two answers to one question on one screen.
+                const muted = party !== null && c.partyKey !== party;
                 return (
-                  <tr key={c.jurisdictionId} data-j={c.jurisdictionId}>
+                  <tr key={c.jurisdictionId} data-j={c.jurisdictionId} className={muted ? 'iei-legend-off' : undefined}>
                     <th scope="row">
                       <Link href={c.href}>{c.jurisdictionName}</Link>
                     </th>
@@ -441,7 +528,7 @@ export default function Home({
           {v.parties.rows.map((p) => (
             <tr key={p.key} id={partyAnchor(p.key)}>
               <th scope="row">
-                <span className="iei-sw" style={{ background: hueOf(v.ink, p.key) }} aria-hidden="true" />
+                <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
                 <span className="iei-chip">{p.label}</span>
               </th>
               {/* THE COUNT ONLY. It used to carry "5 with a majority" as an inline suffix, which put two
@@ -465,7 +552,7 @@ export default function Home({
               <td className="iei-drop">
                 <Sparkline
                   points={p.spark}
-                  fill={hueOf(v.ink, p.key)}
+                  fill={fillFor(p.key)}
                   label={`${p.label} Lok Sabha seats: ${p.spark.map((s) => `${s.year} ${s.seats}`).join(', ')}`}
                 />
               </td>
