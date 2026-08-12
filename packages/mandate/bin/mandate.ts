@@ -13,7 +13,7 @@
 //   mandate export                       rebuild data/seed/*.json FROM the registry and report
 //                                        what does not come back (a measurement, never a migration)
 
-import { rmSync } from "node:fs";
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { blockingKeys } from "../src/core/indic/index.ts";
 import { DEV_DB_PATH, all, get, open, openRead } from "../src/db/index.ts";
 import { migrate } from "../src/db/migrate.ts";
@@ -25,6 +25,7 @@ import { auditSample, resolvePersons, unmerge } from "../src/ingest/resolve/inde
 import { backfillGeography } from "../src/ingest/geography/backfill.ts";
 import { applyDelimitation } from "../src/ingest/geography/delimitation.ts";
 import { validateGeography } from "../src/ingest/geography/validate.ts";
+import { COVERAGE_PREFACE, formatCoverage, geometryCoverage } from "../src/ingest/geography/geometry-coverage.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
 import { formatReport as formatEciReport, runLs2024 } from "../src/ingest/sources/eci/ls2024.ts";
@@ -64,6 +65,8 @@ const USAGE = `mandate <command>
   query person <term>          find people by name / blocking key
   coverage                     per-table row counts and citation coverage
   geography validate           ten checks on constituency identity, with before/after metrics
+  geography coverage [--all] [--write]
+                               what the map can draw, per jurisdiction/house/boundary epoch
   geography backfill [--apply] restore each constituency's own name per delimitation, from source
   geography delimitation [--apply]
                                register the delimitation orders, their dates and their derivations
@@ -562,10 +565,28 @@ try {
         db.close();
         break;
       }
-      fail("geography <validate|backfill>");
+      if (sub === "coverage") {
+        // Stage 1 of Phase 3: what the product can draw, measured. `--write` regenerates
+        // docs/geo/coverage.md, because the brief forbids typing the final table by hand.
+        const db = openRead();
+        const c = geometryCoverage(db);
+        db.close();
+        const md = formatCoverage(c, has("all") ? {} : { only: "current" });
+        console.log(md);
+        if (has("write")) {
+          mkdirSync("docs/geo", { recursive: true });
+          writeFileSync(
+            "docs/geo/coverage.md",
+            `${COVERAGE_PREFACE}\n\n## Current epoch of each house\n\n${formatCoverage(c, { only: "current" })}\n\n` +
+              `## Every epoch\n\n${formatCoverage(c)}\n`,
+          );
+          console.log("\nwrote docs/geo/coverage.md");
+        }
+        break;
+      }
+      fail("geography <validate|backfill|coverage>");
       break;
     }
-
     default:
       console.log(USAGE);
       if (cmd !== "" && cmd !== "help" && cmd !== "--help") process.exit(1);
