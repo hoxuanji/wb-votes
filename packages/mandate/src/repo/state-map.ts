@@ -162,12 +162,21 @@ export function stateMapView(
       get<{ n: string }>(db, `SELECT canonical_name AS n FROM place WHERE id = ?`, jurisdictionId)?.n ??
       jurisdictionId;
 
+    // EVERY ELECTION THAT CONTESTED A SEAT IN THIS JURISDICTION, which is not the same as every election
+    // this jurisdiction held. A general election belongs to the union — `ls-2024`'s jurisdiction_place_id is
+    // `in` — so filtering on that column offered a state its parliamentary BY-ELECTIONS and never the Lok
+    // Sabha itself. A state's Lok Sabha map was unreachable, which is a requirement rather than a nicety.
+    //
+    // `seats` is counted WITHIN the jurisdiction too: West Bengal's row for ls-2024 says 42, not 543.
     const elections = all<ElectionChoice>(
       db,
       `SELECT e.id AS id, e.name AS name, e.year AS year, e.house AS house, e.kind AS kind,
-              (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
+              COUNT(*) AS seats
          FROM election e
-        WHERE e.jurisdiction_place_id = ?
+         JOIN contest c ON c.election_id = e.id
+         JOIN place_version pv ON pv.id = c.place_version_id
+        WHERE pv.jurisdiction_id = ?
+        GROUP BY e.id
         ORDER BY ${CHRONO_DESC}`,
       jurisdictionId,
     );
@@ -176,11 +185,18 @@ export function stateMapView(
     // the Lok Sabha elections, and if there are none they should be told, not silently shown an assembly.
     const house = p.house === "pc" || p.house === "ac" ? p.house : null;
     const offered = house === null ? elections : elections.filter((e) => e.house === house);
-    // A FULL ELECTION IS THE DEFAULT, not merely the newest one. Jammu & Kashmir's newest row is a
-    // single-seat 2017 by-election, and opening the state's map on one polygon out of 87 answers no question
-    // anyone arrived with. A by-poll is still selectable; it is just not what the map opens on.
+    // THE DEFAULT IS THE LATEST FULL ASSEMBLY ELECTION, in that order of preference.
+    //
+    //  · Not merely the newest row: Jammu & Kashmir's newest is a single-seat 2017 by-election, and opening
+    //    a state's map on one polygon out of 87 answers no question anyone arrived with.
+    //  · Not merely the newest full election either, now that the Lok Sabha is offered here: Madhya
+    //    Pradesh's newest assembly is 2018 and ls-2024 is newer, so "newest" would open a state page on the
+    //    parliamentary map. A state's own house is what a reader came for.
+    //
+    // Both are still selectable; neither is what the map opens on.
     const election =
       offered.find((e) => e.id === p.election) ??
+      offered.find((e) => e.kind !== "bypoll" && e.house === "ac") ??
       offered.find((e) => e.kind !== "bypoll") ??
       offered[0] ??
       null;
@@ -231,9 +247,10 @@ export function stateMapView(
          LEFT JOIN person per  ON per.id = cd.person_id
          LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
          LEFT JOIN party pt          ON pt.id = pvv.party_id
-        WHERE c.election_id = ?
+        WHERE c.election_id = ? AND pv.jurisdiction_id = ?
         ORDER BY pv.number, pv.canonical_name`,
       election.id,
+      jurisdictionId,
     );
 
     // ONE COORDINATE SPACE PER MAP. The frame most of this election's polygons are in wins, and a polygon

@@ -390,6 +390,54 @@ test("a polygon in another coordinate space is withheld rather than drawn in the
   assert.ok(v.geometry.viewBox !== null);
 });
 
+test("a state's Lok Sabha map exists, is a different geography, and says so", live, () => {
+  // The requirement: parliamentary constituency maps where parliamentary data exists. They were
+  // unreachable, because a general election belongs to the UNION — ls-2024's jurisdiction_place_id is `in` —
+  // and the state's election list filtered on that column, so a state was offered its parliamentary
+  // by-elections and never the Lok Sabha.
+  const html = render("/pl", "election=ls-2024", "wb");
+  const t = text(html);
+  assert.match(t, /West Bengal · Lok Sabha winners · 2024/, "the parliamentary map does not name its house");
+  const fills = html.slice(html.indexOf('class="iei-map-fills"'));
+  const drawn = (fills.match(/<path /g) ?? []).length;
+  assert.ok(drawn >= 40 && drawn <= 42, `${drawn} parliamentary polygons — West Bengal has 42`);
+  assert.match(t, /4[12] of 42 constituencies drawn/, "the parliamentary map does not say how much it drew");
+
+  // A DIFFERENT ELECTORAL GEOMETRY, not the assembly's. 42 polygons against 294, from a separately
+  // declared, separately hashed dataset.
+  const ac = render("/pl", "", "wb");
+  const acDrawn = (ac.slice(ac.indexOf('class="iei-map-fills"')).match(/<path /g) ?? []).length;
+  assert.ok(acDrawn > drawn * 4, "the parliamentary map is drawing assembly constituencies");
+  const v = stateMap.stateMapView(db, "wb", { election: "ls-2024" });
+  assert.deepEqual([...new Set(v.seats.map((x) => x.name))].length, v.seats.length);
+
+  // …and the house is selectable, so a reader can get here.
+  assert.match(ac, /href="\/pl\/wb\?election=ls-2024[^"]*"/, "the election selector does not offer the Lok Sabha");
+});
+
+test("the table beside the map answers for the geography the map is drawing", live, () => {
+  // A parliamentary constituency is not inside a district — district_place_id is null for every one — so
+  // the district tally rendered a caption promising districts above a table with no rows.
+  const pc = text(render("/pl", "election=ls-2024", "wb"));
+  assert.doesNotMatch(pc, /Every district's constituencies in 2024/, "a Lok Sabha map still promises districts");
+  assert.match(pc, /42 parliamentary constituencies in 2024/, "the Lok Sabha map has no companion table");
+  assert.match(pc, /Cooch Behar/, "the constituency table has no rows");
+  // The assembly map keeps the district tally, and keeps refusing to give a district a winner.
+  const ac = text(render("/pl", "", "ka"));
+  assert.match(ac, /Every district's constituencies in \d{4}/);
+  assert.match(ac, /\d+ of \d+ won by [A-Z]/);
+});
+
+test("the state page opens on the state's own house, not the newest election", live, () => {
+  // Madhya Pradesh's newest assembly is 2018 and ls-2024 is newer. Offering the Lok Sabha here made
+  // "newest full election" open a state page on the parliamentary map, which is not what a reader came for.
+  for (const j of ["mp", "rj", "wb", "ka"]) {
+    const v = stateMap.stateMapView(db, j);
+    assert.equal(v.election?.house, "ac", `${j} opens on ${v.election?.id}`);
+    assert.notEqual(v.election?.kind, "bypoll", `${j} opens on a by-election`);
+  }
+});
+
 test("a historical election is not drawn on boundaries it never had", live, () => {
   // The rule the brief states most firmly. It is enforced by the data model rather than by a check:
   // place_geometry is keyed by place_version_id, and a contest names its own version — so a 2006 result can

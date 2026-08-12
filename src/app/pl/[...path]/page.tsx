@@ -230,8 +230,58 @@ export default async function PlacePage({
                   </p>
                 )}
 
-                {/* A DISTRICT NEVER HAS A WINNER. Every row is "N of M won by", plural, because a district
-                    does not elect anybody — its constituencies do. */}
+                {/* WHAT SITS BESIDE THE MAP DEPENDS ON WHAT THE ELECTION HAS.
+                    An assembly constituency belongs to a district, so the companion is the district tally.
+                    A PARLIAMENTARY constituency does not — `place_version.district_place_id` is null for
+                    every one of them — so for a Lok Sabha election the tally was a caption promising
+                    districts over a table with no rows. The seats themselves are the answer there. */}
+                {map.districts.length === 0 ? (
+                  <Table
+                    label="Constituencies and who won them"
+                    caption={`${map.jurisdictionName}'s ${map.seats.length} parliamentary constituencies in ${map.election.year}, in seat order. A parliamentary constituency is not inside a district, so there is no district tally to show.`}
+                    captionVisible
+                    tight={map.seats.length > 20}
+                    tall={map.seats.length > 18}
+                    head={
+                      <>
+                        <th scope="col">Constituency</th>
+                        <th scope="col">Won by</th>
+                        <th scope="col" className="iei-n">
+                          Margin
+                        </th>
+                      </>
+                    }
+                  >
+                    {map.seats.map((sm) => (
+                      <tr key={sm.versionId}>
+                        <th scope="row">{sm.name}</th>
+                        <td>
+                          {sm.partyKey === null ? (
+                            <Value value={null} absent="no winner recorded" />
+                          ) : (
+                            <span className="iei-mark">
+                              <span className="iei-sw" style={{ background: fillFor(sm.partyKey) }} aria-hidden="true" />
+                              {sm.partyLabel}
+                            </span>
+                          )}
+                          {sm.winnerPersonId === null ? null : (
+                            <>
+                              {" "}
+                              <Link href={`/p/${sm.winnerPersonId}`}>{sm.winnerName}</Link>
+                            </>
+                          )}
+                        </td>
+                        <td className="iei-n">
+                          {sm.marginVotes === null ? (
+                            <Value value={null} absent="not reported" />
+                          ) : (
+                            inr(Math.abs(sm.marginVotes))
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
+                ) : (
                 <Table
                   label="Districts and what their constituencies came to"
                   caption={`Every district's constituencies in ${map.election.year}. A district does not elect anybody, so each row is a count of the seats inside it.`}
@@ -269,6 +319,7 @@ export default async function PlacePage({
                     </tr>
                   ))}
                 </Table>
+                )}
               </div>
             </div>
           </Panel>
