@@ -11,8 +11,10 @@
 // party-coloured state came divided into party-coloured districts. A district did not elect that party; the
 // state's most recent assembly did. See ops/geo/build-india.mjs.
 //
-// The geometry's own URL, publisher, sha256 and EPOCH are recorded inside the JSON and surfaced in the map's
-// caption. A boundary set is a source like any other, and a dated one has to say so.
+// The geometry's own URL, publisher, sha256 and EPOCH are recorded inside the JSON. A boundary set is a source
+// like any other, so `GEOMETRY_SOURCE` shapes it as one and it goes into the same evidence drawer as every
+// registry citation. What stays in the map's caption is the EPOCH and the semantic disclaimer — the two things
+// a reader has to know while looking at the polygons, rather than who published them.
 
 import geo from '../../data/geo/india-states.json' with { type: 'json' };
 import { anchorOf, type Anchor } from '../../packages/mandate/src/viz/anchors.ts';
@@ -40,7 +42,15 @@ export type DistrictShape = {
 };
 
 type Asset = {
-  source: { publisher: string; url: string; sha256: string; note: string; epoch: string; retrievedAt: string };
+  source: {
+    publisher: string;
+    url: string;
+    sha256: string;
+    note: string;
+    epoch: string;
+    retrievedAt: string;
+    features: number;
+  };
   viewBox: string;
   states: Record<string, { path: string; box: number[] }>;
   districts: Record<string, { name: string; code: string; path: string; box: number[] }[]>;
@@ -51,6 +61,32 @@ const asset = geo as unknown as Asset;
 export const INDIA_VIEWBOX: string = asset.viewBox;
 
 export const INDIA_SOURCE: Asset['source'] = asset.source;
+
+/**
+ * The geometry, as a source row like any other.
+ *
+ * A boundary set IS a source: it has a publisher, a URL, a hash over the bytes and a retrieval date, and the
+ * asset records all four. Shaping it as a `SourceRef` means it goes into the SAME evidence drawer as every
+ * registry citation instead of being spelled out in the map's caption — which is where the publisher used to
+ * be, in the primary interface, on every request.
+ *
+ * `retrievalKind: "fetched"` and `hashKind: "document_bytes"` are both true and were both verified in this
+ * phase: the file was re-fetched and its sha256 matched the hash recorded in the asset byte for byte.
+ */
+export const GEOMETRY_SOURCE = {
+  id: `geo:${asset.source.sha256.slice(0, 12)}`,
+  // `census`, from the registry's own source-kind union, and it is accurate rather than a convenience: these
+  // are 2011 census district boundaries. Widening that union for one asset would be describing the registry's
+  // vocabulary in terms of a file on disk.
+  kind: 'census' as const,
+  publisher: asset.source.publisher,
+  title: `${asset.source.epoch} — ${asset.source.features} features, state outlines and district rings`,
+  url: asset.source.url,
+  retrievedAt: `${asset.source.retrievedAt}T00:00:00.000Z`,
+  publishedOn: null,
+  retrievalKind: 'fetched' as const,
+  hashKind: 'document_bytes' as const,
+};
 
 export const INDIA_SHAPES: readonly StateShape[] = Object.entries(asset.states).map(([name, s]) => ({
   name,

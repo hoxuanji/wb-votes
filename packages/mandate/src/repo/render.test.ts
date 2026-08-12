@@ -260,6 +260,39 @@ test("a district is drawn as a subdivision, not as a result", live, () => {
   assert.match(text(html), /not a claim about any district/i, "the map does not disclaim the district reading");
 });
 
+test("the geometry's provenance is in the drawer, not in the caption", live, () => {
+  const html = render("/");
+  const caption = /<figcaption>([\s\S]*?)<\/figcaption>/.exec(html)?.[1] ?? "";
+  assert.ok(caption.length > 0, "the map has no caption");
+  // A boundary set is a source like any other, so its publisher, URL and hash belong where every other
+  // citation is — behind one ⓘ — and not in the primary interface on every request.
+  assert.ok(!caption.includes("udit-001"), "the publisher is back in the caption");
+  assert.ok(!/sha256|githubusercontent/.test(caption), "a hash or a URL is in the caption");
+  // But present in the drawer, with the two things that make a citation honest: how the bytes were obtained,
+  // and what the hash is over.
+  const t = text(html);
+  assert.match(t, /udit-001/, "the geometry has no attribution anywhere");
+  assert.match(t, /retrieved 2026-08-12/, "the geometry's retrieval date is not disclosed");
+  assert.match(t, /sha256/, "the geometry's hash is not disclosed");
+  assert.match(t, /had their bytes retrieved and hashed/, "the drawer does not say how the source was obtained");
+});
+
+test("provenance is not repeated once a page has already offered it", live, () => {
+  // The footers of /pl and /p each carried a second copy of the whole source list plus a paragraph explaining
+  // what the ⓘ does. One affordance per fact; the drawer teaches itself.
+  for (const [route, segments] of [["/pl", "wb/cooch-behar/mekliganj"], ["/p", "mamata-banerjee-4a681f"]] as const) {
+    const html = render(route, "", segments);
+    const drawers = (html.match(/class="iei-ev(?:\s|")/g) ?? []).length;
+    assert.ok(drawers > 0, `${route} offers no evidence at all`);
+    const t = text(html);
+    assert.ok(!/open the ⓘ beside/.test(t), `${route} explains the evidence mechanism in prose`);
+    // The retrieval date appears inside drawers, and must not also be printed beside a figure.
+    const outsideDrawers = html.replace(/<details class="iei-ev[\s\S]*?<\/details>/g, " ");
+    assert.ok(!/retrieved \d{4}-\d{2}-\d{2}/.test(outsideDrawers), `${route} prints a retrieval date outside a drawer`);
+    assert.ok(!/sha256/.test(outsideDrawers), `${route} prints a hash outside a drawer`);
+  }
+});
+
 test("every party on the map has its own colour, and it is not assigned by rank", live, () => {
   const html = render("/");
   const fills = [...html.matchAll(/<path d="[^"]*" fill="(#[0-9a-f]{6})"/g)].map((m) => m[1] as string);

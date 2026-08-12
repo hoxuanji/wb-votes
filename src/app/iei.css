@@ -916,6 +916,15 @@ html {
   white-space: nowrap;
 }
 
+/* A swatch and its label are ONE mark and must not be broken across lines. At 390px the party landscape's
+   row header wrapped between the two, so the swatch sat on one line and "AAAP" on the next, under the numbers
+   it belonged beside. */
+.iei-mark {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
 /* A swatch beside a label, so identity is never colour alone. */
 .iei-sw {
   display: inline-block;

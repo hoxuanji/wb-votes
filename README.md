@@ -10,8 +10,8 @@ there is no figure, never as a zero. A date nobody announced is marked **derived
 
 | route | what it answers |
 | --- | --- |
-| `/` | What is happening across India? Who governs, what is next, what was just decided, which signals stand out. A choropleth of 36 jurisdictions with six layers, and the page's primary navigation. |
-| `/pl/<state>` | How is this state made up, and what has it voted in? |
+| `/` | What is happening across India? A choropleth of 36 jurisdictions — coloured by **government**, which is not a claim about any district inside them — with six layers, a contextual legend, party isolation, and the page's primary navigation. |
+| `/pl/<state>` | Who won each constituency, in which election? A map where the boundaries are held, a district tally everywhere. |
 | `/pl/<state>/<district>` | Which seats does this district elect? |
 | `/pl/<state>/<district>/<seat>` | Who has won this seat, and by how much? |
 | `/pl/<...>/<seat>/analysis` | How did this seat get this way? Turnout against a baseline, swing, effective parties, seat-by-seat retention. |
@@ -41,7 +41,9 @@ than returning a 500.
 ```text
 src/app/                     one route per surface, and one stylesheet
   iei.css                    the design system: tokens, primitives, grid, breakpoints
-src/components/iei/          Shell, IndiaMap, and the primitives every page is built from
+src/components/iei/          Shell, IndiaMap, StateMap, and the primitives every page is built from
+data/party-ink.json          party visual identity: curated hues as OKLCH, with their provenance
+data/geo/india-states.json   state outlines and named district rings, with their hash and epoch
 packages/mandate/            the registry: schema, migrations, ingestion, entity resolution, read layer
   src/repo/                  one module per surface's data contract — no SQL reaches a component
   src/semantic/              how a measure is defined and how it is written
@@ -81,6 +83,9 @@ Three suites are worth knowing about, because between them they cover what `tsc`
 * `docs/methodology/` — one card per measure: what it is, how it is computed, what it does not capture
 * `docs/platform/00-model.md` — the eighteen subject areas, four of which hold data
 * `docs/product/consolidation-audit.md` — the Phase 2.5 audit
+* `docs/product/map-validation.md` — what geometry exists, at what epoch, and what that bounds
+* `docs/product/evidence.md` — where provenance lives and where it does not, and the sweep that checked
+* `docs/product/map-visual-qa.md` — the Phase 2.6 visual QA
 * `docs/product/visual-qa.md` — what was rendered, at what sizes, and what the screenshots do not prove
 * `docs/product/removed-features.md` — what the West Bengal dashboard was, and why each part is gone
 * `docs/adr/` — the decisions

@@ -5,6 +5,7 @@ import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
 import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
+import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
 import { Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
 import {
@@ -218,6 +219,9 @@ export default function Home({
         title={`India · ${v.layer.label}`}
         question={v.layer.question}
         basis={v.layer.key === 'year' ? 'reference' : 'measured'}
+        /* The geometry's provenance, in the same drawer as everything else. It used to be spelled out in the
+           map's caption on every request. */
+        sources={[GEOMETRY_SOURCE]}
       >
         <Tabs
           label="Map layer"
@@ -528,8 +532,10 @@ export default function Home({
           {v.parties.rows.map((p) => (
             <tr key={p.key} id={partyAnchor(p.key)}>
               <th scope="row">
-                <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
-                <span className="iei-chip">{p.label}</span>
+                <span className="iei-mark">
+                  <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
+                  <span className="iei-chip">{p.label}</span>
+                </span>
               </th>
               {/* THE COUNT ONLY. It used to carry "5 with a majority" as an inline suffix, which put two
                   numbers in one right-aligned tabular cell — "11 5 with a majority" — and made the column

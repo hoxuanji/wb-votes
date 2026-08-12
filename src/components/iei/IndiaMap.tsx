@@ -1,10 +1,5 @@
 import Link from 'next/link';
-import {
-  INDIA_SHAPES,
-  INDIA_SOURCE,
-  INDIA_VIEWBOX,
-  everyDistrictPath,
-} from '../../lib/india-geo.ts';
+import { INDIA_SHAPES, INDIA_SOURCE, INDIA_VIEWBOX, everyDistrictPath } from '../../lib/india-geo.ts';
 import { labelFits } from '../../../packages/mandate/src/viz/anchors.ts';
 import type { Cell, Layer } from '../../../packages/mandate/src/repo/home.ts';
 
@@ -121,10 +116,14 @@ export function IndiaMap({
             </g>
           )}
         </svg>
+        {/* THE EPOCH AND THE DISCLAIMER, and nothing else. The publisher, the URL and the hash used to be here
+            too, in the primary interface, on every request; they are in the panel's evidence drawer now
+            (GEOMETRY_SOURCE), because a boundary set is a source like any other. What a reader has to know
+            while looking at the polygons is which snapshot they are and what the colour does not mean. */}
         <figcaption>
-          Boundaries: {INDIA_SOURCE.publisher}, {INDIA_SOURCE.epoch} — a dated administrative snapshot, not
-          today&rsquo;s districts. District outlines are neutral: the fill is a state&rsquo;s government, which
-          is not a claim about any district in it.
+          Boundaries: {INDIA_SOURCE.epoch} — a dated administrative snapshot, not today&rsquo;s districts.
+          District outlines are neutral: the fill is a state&rsquo;s government, which is not a claim about any
+          district in it.
           {layer.unknown === 0 ? null : (
             <>
               {' '}

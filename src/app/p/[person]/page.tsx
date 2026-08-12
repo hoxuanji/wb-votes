@@ -17,7 +17,6 @@ import { Shell } from "../../../components/iei/Shell.tsx";
 import {
   Crumbs,
   EmptyState,
-  Evidence,
   Metric,
   Metrics,
   Panel,
@@ -277,11 +276,11 @@ export default async function PersonBriefPage({ params }: { params: { person: st
       )}
 
       <footer className="iei-foot">
+        {/* ONE EVIDENCE AFFORDANCE PER FACT, and the panels above own them. This used to repeat the whole
+            source list here as well, plus a paragraph explaining the ⓘ — a mechanism described in prose on
+            every page is the scattering this consolidation removes, and the drawer teaches itself. */}
         <p>
-          Every figure here carries the source it came from — open the <span aria-hidden="true">ⓘ</span> beside
-          a section for the publisher, the retrieval date and the hash. What this registry holds and does not:{" "}
-          <Link href="/coverage">/coverage</Link>.{" "}
-          <Evidence sources={brief.sources} label={brief.person.canonicalName} />
+          What this registry holds and does not: <Link href="/coverage">/coverage</Link>.
         </p>
       </footer>
     </Shell>
