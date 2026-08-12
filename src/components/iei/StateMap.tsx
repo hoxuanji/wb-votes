@@ -31,7 +31,16 @@ import { districtsOf, frame } from '../../lib/india-geo.ts';
  * back button, and costs no client JavaScript. There is no pan-and-zoom engine here and nothing to hydrate.
  */
 
-const LABEL_PX = 7;
+/**
+ * A label's size is a fraction of the FRAME, not a constant.
+ *
+ * This is the one thing that breaks when zoom is a viewBox rather than a transform. The map renders into a
+ * box of fixed pixel height whatever the viewBox says, so a font size in user units means a different number
+ * of pixels at every level: 7 units is 7px across the country and 340px inside Bengaluru Urban. Measured on
+ * the country frame — 597 units wide rendering at ~600px — 1/85th of the width is the 7px the design system
+ * asks for, and it stays 7px at every other level by construction.
+ */
+const LABEL_FRACTION = 1 / 85;
 
 export function StateMap({
   view,
@@ -73,6 +82,7 @@ export function StateMap({
     : outlines;
   const box = boxOf(framing, focusOutline);
   const viewBox = box === null ? (view.geometry.viewBox ?? '0 0 400 580') : frame(box);
+  const labelPx = Math.max(Number(viewBox.split(' ')[2] ?? 600), 1) * LABEL_FRACTION;
 
   const marks: { x: number; y: number; text: string }[] = [];
 
@@ -93,7 +103,7 @@ export function StateMap({
                   focus !== null &&
                   a !== null &&
                   s.partyLabel !== null &&
-                  labelFits(a, s.partyLabel.length, LABEL_PX)
+                  labelFits(a, s.partyLabel.length, labelPx)
                 ) {
                   marks.push({ x: a.x, y: a.y, text: s.partyLabel });
                 }
@@ -140,9 +150,14 @@ export function StateMap({
             </g>
           )}
           {marks.length === 0 ? null : (
-            <g className="iei-map-labels" aria-hidden="true">
+            // The halo behind the glyphs is in user units too, so it scales with the label or swallows it.
+            <g
+              className="iei-map-labels"
+              aria-hidden="true"
+              style={{ ['--iei-label-stroke' as string]: `${(labelPx * 0.32).toFixed(2)}` }}
+            >
               {marks.map((l) => (
-                <text key={`${l.x}-${l.y}-${l.text}`} x={l.x} y={l.y} fontSize={LABEL_PX}>
+                <text key={`${l.x}-${l.y}-${l.text}`} x={l.x} y={l.y} fontSize={labelPx.toFixed(2)}>
                   {l.text}
                 </text>
               ))}

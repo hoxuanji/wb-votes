@@ -1494,7 +1494,10 @@ html {
   /* A hairline of the fill's own darkness behind the glyphs, so a label stays readable over the lightest
      ramp step and the darkest alike. */
   stroke: rgba(255, 255, 255, 0.55);
-  stroke-width: 2.2;
+  /* In USER UNITS, so it has to scale with the label. A state map's frame is 12 units across at district
+     level and 597 across the country; a fixed 2.2 is a hairline at one and swallows the glyphs at the
+     other. StateMap sets the variable from its own viewBox. */
+  stroke-width: var(--iei-label-stroke, 2.2);
   stroke-linejoin: round;
 }
 
