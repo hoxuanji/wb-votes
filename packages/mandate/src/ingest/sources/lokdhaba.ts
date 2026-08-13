@@ -40,7 +40,7 @@ import { all, insertMany } from "../../db/index.ts";
 import { slug } from "../../core/ids.ts";
 import { DISTRICT_ALIAS } from "../districts.ts";
 import { JURISDICTIONS } from "../india.ts";
-import { eventKey, int, planFromRows } from "../elections/event.ts";
+import { eventJurisdiction, eventKey, int, planFromRows } from "../elections/event.ts";
 
 export type ElectionType = "AE" | "GE";
 
@@ -606,8 +606,10 @@ export function importLokdhaba(
     // April and May and keying on the month would split one election per phase.
     // docs/model/election-identity.md.
     const isBypoll = pollNo > 0;
+    // `eventJurisdiction`, not `j.id`. The plan keys a general parliamentary election under `in`; asking for
+    // it under the state missed every one of them and skipped the rows.
     const plannedEvent = plannedEvents.get(
-      eventKey({ jurisdictionId: j.id, house, year, houseOrdinal, pollNo }),
+      eventKey({ jurisdictionId: eventJurisdiction(house, pollNo, j.id), house, year, houseOrdinal, pollNo }),
     );
     if (plannedEvent === undefined) {
       skip(`row names an election event the pre-pass did not find (year ${year}, Assembly_No ${houseOrdinal ?? "?"}, Poll_No ${pollNo})`);

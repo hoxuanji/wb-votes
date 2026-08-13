@@ -174,11 +174,12 @@ export const MODULE_KEYS = [
   "demographics",
   "cabinet",
   "mps",
-  // The two geometry modules. Loaded last because nothing else depends on them, and loaded AT ALL
-  // because `place_version.geometry_ref` had been null for all 336 rows since 001: 294 constituency
-  // outlines and 19 district outlines sat in data/seed/ unread, which is why the round-trip reported
-  // 1,546 values as unreconstructable and why the product had no map.
-  "acPaths",
+  // DISTRICT outlines. The constituency module that used to sit beside this one left the seed in Phase 3's
+  // closure: the registry holds published constituency geometry now, from a hashed and licensed source in
+  // the product's shared projection, so a repo module in a West Bengal-only frame had nothing left to add.
+  // These 19 remain because nothing replaces them, and nothing reads them either — a district frames itself
+  // from its own constituencies now. They are the only rows in the legacy projection and PHASE-3-FINAL.md
+  // says so.
   "districtPaths",
 ] as const;
 export type ModuleKey = (typeof MODULE_KEYS)[number];
@@ -192,7 +193,6 @@ const MODULE_FILES: Record<ModuleKey, string> = {
   demographics: "demographics.json",
   cabinet: "cabinet.json",
   mps: "wbmps.json",
-  acPaths: "wb-ac-paths.json",
   districtPaths: "wb-districts.json",
 };
 
@@ -211,7 +211,6 @@ export type StaticBundle = {
   demographics: readonly DemographicsRow[];
   cabinet: readonly CabinetRow[];
   mps: readonly MPRow[];
-  acPaths: readonly AcPathRow[];
   districtPaths: readonly DistrictPathRow[];
 };
 
@@ -281,7 +280,6 @@ export async function loadStaticBundle(dir: string = DATA_DIR): Promise<StaticBu
     demographics: rows.demographics as readonly DemographicsRow[],
     cabinet: rows.cabinet as readonly CabinetRow[],
     mps: rows.mps as readonly MPRow[],
-    acPaths: rows.acPaths as readonly AcPathRow[],
     districtPaths: rows.districtPaths as readonly DistrictPathRow[],
   };
 }
@@ -501,12 +499,6 @@ function ingest(
       kind: "static_module",
       publisher: "wb-votes",
       title: "West Bengal Lok Sabha MPs, 2024 (repo module)",
-      licence: null,
-    },
-    acPaths: {
-      kind: "static_module",
-      publisher: null,
-      title: "WB assembly constituency outlines, projected SVG (repo module)",
       licence: null,
     },
     districtPaths: {
@@ -1520,14 +1512,16 @@ function ingest(
     districtVersionOf.set(dId, next);
     return next;
   };
-  for (const g of b.acPaths) {
-    const acNo = Number(String(g.id).replace(/^c0*/, ""));
-    if (!Number.isFinite(acNo) || acNo < 1) continue;
-    // No per-row URL: the outline's provenance IS the module artefact, so cite that rather than
-    // synthesising a link that resolves to nothing.
-    const source = src("acPaths");
-    placeGeometryRows.push([acNo, g.path, g.centroid.x, g.centroid.y, VIEW_BOX, source]);
-  }
+  // CONSTITUENCY GEOMETRY NO LONGER COMES FROM THE SEED, and that is Phase 3's closure rather than a
+  // regression. This wrote 294 West Bengal outlines from `wb-ac-paths.json` — a repo module with no
+  // publisher, no upstream URL and a West Bengal-only projection — and the registry now holds 4,950
+  // constituency polygons from two hashed, licensed, published boundary sets in the projection the whole
+  // product shares (`mandate geography fetch && geography import`). Keeping both meant two coordinate
+  // spaces in one table and a round-trip measurement of a contract that no longer held.
+  //
+  // A fresh registry therefore has NO constituency geometry until the geography import runs. That is the
+  // honest bootstrap: DEPLOYMENT.md names the two commands, and a state page with no polygons falls back to
+  // its district tally and says so.
   const districtPlaceIds = new Set(placeRows.filter((r) => r[1] === "district").map((r) => String(r[0])));
   const unmatchedDistricts: string[] = [];
   for (const g of b.districtPaths) {

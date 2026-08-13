@@ -57,6 +57,11 @@ const seatId = (n: number): string => `c${String(n).padStart(4, "0")}`;
  */
 const unReservation = (r: string | null): string | undefined =>
   r === null || r === "" ? undefined : r.length <= 2 ? r.toUpperCase() : r.slice(0, 1).toUpperCase() + r.slice(1);
+/** The seed's percentage: two decimals, null when either figure is absent or the denominator is 0. */
+const pctOf = (part: number | null | undefined, whole: number | null | undefined): number | null =>
+  part === null || part === undefined || whole === null || whole === undefined || whole <= 0
+    ? null
+    : Number(((100 * Math.abs(part)) / whole).toFixed(2));
 const genderOf = (sex: string | null): string | undefined =>
   sex === "m" ? "Male" : sex === "f" ? "Female" : sex === "o" ? "Other" : undefined;
 const bn = (names: string | null): string | undefined => {
@@ -92,7 +97,11 @@ const ABSENCE_AS_ZERO: ReadonlySet<string> = new Set([
 const NOT_STORED: Record<string, readonly string[]> = {
   "constituencies.json": ["nameBn", "districtBn"],
   "parties.json": ["color"],
-  "historical-results.json": ["marginPct"],
+  // marginPct is NOT on this list. It was, and that was wrong: it is DERIVED from two figures the registry
+  // holds and reconstructs exactly — the winner's margin and the contest's votes polled — so "the registry
+  // has no home for it" was never true of it. 1,135 values, and the reason it went unnoticed is that a
+  // derived field looks like a missing column. See `marginPct` in reconstruct() for the definition and for
+  // why it is the SEED's rather than the product's semantic measure.
   "cabinet.json": ["lat", "lng", "inducted", "bio"],
   "wbmps.json": ["lsNumber"],
 };
@@ -107,7 +116,6 @@ const KEY: Record<string, (r: Row) => string> = {
   "demographics.json": (r) => String(r["constituencyId"]),
   "cabinet.json": (r) => String(r["constituencyId"] ?? slug(String(r["name"]))),
   "wbmps.json": (r) => String(r["lsConstituency"]),
-  "wb-ac-paths.json": (r) => String(r["id"]),
   "wb-districts.json": (r) => String(r["name"]),
 };
 
@@ -135,24 +143,6 @@ const MODULES = Object.keys(KEY);
 // Empty since migration 008 gave geometry a table: both modules are ingested and reconstructable, so
 // the two figures below now differ only by rows the ingest drops, not by whole modules nothing reads.
 // Kept as a mechanism rather than deleted — the next unreadable module should land here, reported.
-/**
- * Seed modules the registry does not aim to reproduce, and WHY — printed, never silent.
- *
- * Excluded from the ratcheted figure and kept in the whole-seed one, which is the two-number design the
- * comment above describes and the reason it exists.
- *
- * `wb-ac-paths.json` is here because Phase 3 REPLACED what it holds. Its 294 paths and 294 centroids are a
- * West Bengal-only projection from a repo module with no publisher; the registry now holds 5,000
- * constituency polygons from a hashed, licensed, published boundary set in the projection the whole product
- * shares. The registry cannot reproduce the old frame and should not be asked to — "superseded" is the
- * accurate word and 40% would read as a regression. Deleting the module from the report was how a previous
- * commit took the headline from 85.9% to 94.1%, so it stays reported, at 0%, with this sentence attached.
- */
-const NOT_REPRODUCED: Record<string, string> = {
-  "wb-ac-paths.json":
-    "superseded in Phase 3: the registry holds published constituency geometry in the product's shared " +
-    "projection, not this module's West Bengal frame",
-};
 
 // ─── reading the seed ────────────────────────────────────────────────────────
 
@@ -258,7 +248,6 @@ export function reconstruct(db: DatabaseSync): Seed {
     "demographics.json": demographics(db, reg),
     "cabinet.json": cabinet(db, reg),
     "wbmps.json": mps(db, reg),
-    "wb-ac-paths.json": geometry(db, "ac"),
     "wb-districts.json": geometry(db, "district"),
   };
 }
@@ -463,6 +452,13 @@ function historicalResults(db: DatabaseSync, reg: Registry): Row[] {
       ...(rows.length > 1 ? { topContestants: rows.map(contestant) } : {}),
       turnoutPct: claimValue(reg, `contest:${contestId}`, "turnout_pct") ?? null,
       marginVotes: winner.margin ?? null,
+      // THE SEED'S DEFINITION, deliberately, and it is not the product's `margin_pct`.
+      //
+      // docs/methodology/margin_pct.md declares the semantic measure as margin over VALID votes at 1 dp.
+      // The field this module has to reproduce is the old application's: margin over VOTES POLLED at 2 dp.
+      // Two different measures with one name, and the exporter's job is to reproduce the seed's rather than
+      // to restate the registry's — a round trip that "corrects" its input is not measuring a round trip.
+      marginPct: pctOf(winner.margin, t?.voters ?? null),
       totalVotes: t?.voters ?? null,
       totalElectors: t?.electors ?? null,
     });
@@ -807,7 +803,7 @@ export function diff(seed: Seed, rebuilt: Seed): DiffReport {
         const want = seedFlat.get(p);
         const have = gotFlat.get(p);
         if (have === undefined) {
-          if (notStored.has(field) || NOT_REPRODUCED[file] !== undefined) bump(field, "notStored");
+          if (notStored.has(field)) bump(field, "notStored");
           else bump(field, "diff", { row: k, seed: show(want), got: "—" });
           continue;
         }
@@ -875,7 +871,12 @@ export function diff(seed: Seed, rebuilt: Seed): DiffReport {
   }
   const values = modules.reduce((n, m) => n + m.values, 0);
   const exact = modules.reduce((n, m) => n + m.exact, 0);
-  const ingested = modules.filter((m) => NOT_REPRODUCED[m.file] === undefined);
+  // NOTHING IS EXCLUDED. The mechanism that was here — a per-file "not reproduced" table — was an
+  // accounting exception, and Phase 3's closure removed the thing it was excusing rather than the excuse:
+  // `wb-ac-paths.json` is gone from the seed because the registry replaced what it held. Both figures are
+  // the same number again, which is the state a round-trip measurement should be in. If a module ever has
+  // to leave the denominator, delete the module or fix the registry; do not add the table back.
+  const ingested = modules;
   const ingestedValues = ingested.reduce((n, m) => n + m.values, 0);
   const ingestedExact = ingested.reduce((n, m) => n + m.exact, 0);
   return {
@@ -905,7 +906,15 @@ export function diffAgainstSeed(db: DatabaseSync, dir?: string): DiffReport {
  * This one is a RATCHET — it only ever goes up, and it goes up in the commit that makes the number
  * go up. What blocks 100% is in ADR 0004.
  */
-export const THRESHOLD_PCT = 94.1;
+/**
+ * The floor, RAISED in the commit that raised the number, which is the only direction it moves.
+ *
+ * 94.1 -> 95.0 in Phase 3's closure, and both halves of that are earned rather than arranged. The number
+ * rose because `marginPct` stopped being listed as something the registry has no home for — it is derived
+ * from two figures the registry reconstructs exactly, 1,135 of them. The denominator shrank because
+ * `wb-ac-paths.json` left the seed, the registry having replaced its contents with published geometry.
+ */
+export const THRESHOLD_PCT = 95.0;
 
 export function formatReport(r: DiffReport): string {
   const out: string[] = [];
@@ -918,9 +927,6 @@ export function formatReport(r: DiffReport): string {
         (m.inventedRows > 0 ? ` / invented by rebuild ${m.inventedRows}` : "") +
         `   values ${m.exact}/${m.values} exact  ${pct(m.pct)}`,
     );
-    // Why a module is outside the ratcheted figure, on the line above its numbers rather than in a doc.
-    const why = NOT_REPRODUCED[m.file];
-    if (why !== undefined) out.push(`  NOT REPRODUCED — ${why}`);
     const w = Math.max(5, ...m.fields.map((f) => f.field.length));
     for (const f of m.fields) {
       const bits = [`exact ${f.exact}`];

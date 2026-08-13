@@ -104,10 +104,13 @@ test("the same candidate winning the same seat twice is two results, not a colli
     rows.map((r) => [r.election_id, r.votes]),
     [["br-assembly-2005-02", 59151], ["br-assembly-2005-11", 60794]],
   );
-  // The source spells him PURNAMASI RAM in February and PURNMASI RAM in November — which is why the two
-  // rows could never have been one candidacy, and why the merge queue exists. The regex accepts both
-  // rather than picking a spelling the source does not consistently use.
-  for (const r of rows) assert.match(r.winner, /PURNA?MASI RAM/i, `got ${r.winner}`);
+  // THE SPELLING IS NOT THE PROPERTY, and pinning it was the mistake. The source spells him PURANMASI RAM in
+  // February and PURNMASI RAM in November, and a third seat's winner is PURANWASI RAM; the regex here once
+  // accepted two of those three, so a registry rebuilt from the same bytes failed the test by holding what
+  // the source actually says. What matters is the invariant the merge queue exists for: two events, two
+  // candidacies, TWO PERSON ROWS for one human, because no two of the spellings are equal.
+  for (const r of rows) assert.match(r.winner, /^PUR[AN]*[MW]ASI RAM$/i, `got ${r.winner}`);
+  assert.equal(new Set(rows.map((r) => r.winner)).size, 2, "the two spellings collapsed into one");
   d.close();
 });
 
@@ -208,17 +211,32 @@ test("every contest, result and place version hangs off exactly one event", { sk
   d.close();
 });
 
-test("the split is recorded in the public correction ledger", { skip }, () => {
+test("the split is recorded in the ledger IF it ever had to happen", { skip }, () => {
+  // WHAT IS BEING ASSERTED IS THE OUTCOME, not the repair. Bihar held two assembly elections in 2005 and they
+  // collapsed into one id; `elections repair` split them and wrote the ledger entry. The importer has since
+  // learned to key an election by its event, so a registry built from these bytes today creates
+  // `br-assembly-2005-02` and `-11` directly and there is nothing to correct — a clean build has no ledger
+  // row, which is not a regression but the defect never occurring.
+  //
+  // So: the collapsed id must NOT exist, and if it ever did the correction must be there. Requiring the row
+  // unconditionally made a correctly built registry fail for being correctly built.
   const d = db();
+  const collapsed = all<{ id: string }>(d, `SELECT id FROM election WHERE id = 'br-assembly-2005'`);
+  assert.equal(collapsed.length, 0, "the collapsed election id is still present");
+  const split = all<{ id: string }>(d, `SELECT id FROM election WHERE id LIKE 'br-assembly-2005-%' ORDER BY id`);
+  assert.deepEqual(split.map((r) => r.id), ["br-assembly-2005-02", "br-assembly-2005-11"]);
+
   const rows = all<{ entity_ref: string; new_value: string; reason: string }>(
     d,
     `SELECT entity_ref, new_value, reason FROM correction
       WHERE entity_ref = 'election:br-assembly-2005' AND field = 'id'`,
   );
-  assert.equal(rows.length, 1, "one correction for the Bihar split");
-  assert.match(rows[0]?.new_value ?? "", /br-assembly-2005-02/);
-  assert.match(rows[0]?.new_value ?? "", /br-assembly-2005-11/);
-  assert.match(rows[0]?.reason ?? "", /distinct electoral events/);
+  if (rows.length > 0) {
+    assert.equal(rows.length, 1, "one correction for the Bihar split");
+    assert.match(rows[0]?.new_value ?? "", /br-assembly-2005-02/);
+    assert.match(rows[0]?.new_value ?? "", /br-assembly-2005-11/);
+    assert.match(rows[0]?.reason ?? "", /distinct electoral events/);
+  }
   d.close();
 });
 

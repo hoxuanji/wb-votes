@@ -14,10 +14,10 @@
 | &nbsp;&nbsp;of those, general (Lok Sabha) | **18** |
 | &nbsp;&nbsp;of those, by-elections | **829** |
 | contests | **64033** |
-| candidacies | **569269** |
+| candidacies | **569284** |
 | result rows | **566580** |
 | declared winners | **63944** |
-| persons | **454322** |
+| persons | **454284** |
 | parties | **3330** |
 | places | **5813** |
 | place versions | **16829** |
@@ -29,10 +29,10 @@
 
 | | |
 | --- | --- |
-| sources | **3010** |
-| &nbsp;&nbsp;bytes fetched and hashed | **86** — the rest are cited by locator and have never been held |
+| sources | **3009** |
+| &nbsp;&nbsp;bytes fetched and hashed | **85** — the rest are cited by locator and have never been held |
 | &nbsp;&nbsp;never fetched (url_only) | **2924** |
-| &nbsp;&nbsp;a repo module rather than a publication | **7** |
+| &nbsp;&nbsp;a repo module rather than a publication | **6** |
 | &nbsp;&nbsp;boundary datasets | **2** |
 | results carrying a source | **566580** — of 566580 |
 | claims with a citation | **25517** — of 25517 |
@@ -42,8 +42,8 @@
 | | |
 | --- | --- |
 | candidacies with an unresolved party string | **554962** |
-| person merges applied | **1202** |
-| merge candidates awaiting review | **52187** |
+| person merges applied | **1251** |
+| merge candidates awaiting review | **147612** |
 | place versions two sources disagree about | **220** — the name at a seat number differs between sources |
 | party ids differing from another only in case | **4** |
 
@@ -51,7 +51,7 @@
 
 | | |
 | --- | --- |
-| constituency polygons | **5000** |
+| constituency polygons | **4969** |
 | &nbsp;&nbsp;coordinate spaces they are in | **2** — more than one cannot be drawn together |
 | seats contested in the current epoch | **4812** |
 | &nbsp;&nbsp;of those, drawable | **4445** |

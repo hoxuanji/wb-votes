@@ -37,6 +37,8 @@ import {
   sourceKindAvailable,
 } from "../src/ingest/geography/geometry.ts";
 import { formatGeometryReport, markdownGeometryReport } from "../src/ingest/geography/geometry-report.ts";
+import { markdownMissing, missingGeometry } from "../src/ingest/geography/missing.ts";
+import { validateGeometry } from "../src/ingest/geography/geometry-validate.ts";
 import { httpGet } from "../src/ingest/sources/eci/transport.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
@@ -80,6 +82,9 @@ const USAGE = `mandate <command>
   geography validate           ten checks on constituency identity, with before/after metrics
   geography coverage [--all] [--write]
                                what the map can draw, per jurisdiction/house/boundary epoch
+  geography missing [--write]  every current-epoch seat that is NOT drawable, one row each, with the reason
+  geography check              eleven checks on the geometry the registry holds: rings, duplicates, epochs,
+                               containment, centroids, source hash and publisher
   geography fetch [--dataset=<id>]
                                acquire the declared boundary datasets and verify their sha256
   geography inspect [--dataset=<id>] [--only=ka,up] [--write]
@@ -603,6 +608,94 @@ try {
         db.close();
         break;
       }
+      if (sub === "check") {
+        // Eleven checks on the geometry the registry HOLDS, as opposed to `validate` (constituency identity)
+        // and the import's own validation (a source, before it is written).
+        const db = openRead();
+        const v = validateGeometry(db);
+        db.close();
+        for (const c of v.checks) {
+          const cap = c.severity === "recorded" ? (c.baseline ?? 0) : 0;
+          const verdict =
+            c.skipped === true
+              ? "SKIPPED"
+              : c.violations === 0
+                ? "pass"
+                : c.violations <= cap
+                  ? `${c.violations} RECORDED (baseline ${cap})`
+                  : `${c.violations} VIOLATIONS`;
+          console.log(`${String(c.n).padStart(2)}. ${c.name.padEnd(62)} ${verdict}`);
+          if (c.skipped === true) console.log(`      not asked: ${c.why ?? "no reason given"}`);
+          if (c.severity === "recorded" && c.why !== undefined) console.log(`      not fixed here: ${c.why}`);
+          for (const ex of c.examples) console.log(`      ${ex}`);
+        }
+        console.log("\nmetrics");
+        table([
+          ["polygons", v.metrics.polygons],
+          ["coordinate spaces", v.metrics.frames],
+          ["jurisdictions", v.metrics.jurisdictions],
+          ["boundary epochs", v.metrics.epochs],
+          ["multipart polygons", v.metrics.multipart],
+          ["distinct sources", v.metrics.sources],
+        ]);
+        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        if (!v.ok) process.exit(1);
+        break;
+      }
+      if (sub === "missing") {
+        // Phase 3's closure: every current-epoch seat that is not drawable, with the reason. A total is not
+        // an audit. `covers` comes from the manifest, so "no source claims this" and "a source claims it and
+        // the epoch did not resolve" are different rows.
+        const db = openRead();
+        // The newest date any declared source claims to describe, per jurisdiction and house. A dataset's
+        // vintage block is a map of its epoch-field values to dates; the newest of them is what it can cover.
+        const vintages = new Map<string, string>();
+        const note = (key: string, when: string): void => {
+          const held = vintages.get(key);
+          if (held === undefined || held < when) vintages.set(key, when);
+        };
+        for (const d of manifest().datasets) {
+          const newest = Object.entries(d.epochVintage)
+            .filter(([k]) => k !== "note")
+            .map(([, v]) => String(v))
+            .sort()
+            .at(-1);
+          if (newest === undefined) continue;
+          for (const j of Object.values(d.jurisdictions)) {
+            for (const id of Array.isArray(j) ? j : []) note(`${id}:${d.house}`, newest);
+          }
+          // Most jurisdictions resolve by name rather than by a declared alias, so the registry's own answer
+          // completes the picture: any jurisdiction and house this dataset actually wrote a polygon for.
+          for (const r of all<{ k: string }>(
+            db,
+            `SELECT DISTINCT pv.jurisdiction_id || ':' || pv.kind AS k
+               FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id
+              WHERE pv.kind = ?`,
+            d.house,
+          )) {
+            note(r.k, newest);
+          }
+        }
+        const r = missingGeometry(db, vintages);
+        db.close();
+        table([
+          ["current-epoch seats", r.totals.currentSeats],
+          ["drawable", r.totals.drawn],
+          ["not drawable", r.totals.missing],
+        ]);
+        console.log("");
+        table(Object.entries(r.byStatus).sort((a, b) => b[1] - a[1]) as [string, unknown][]);
+        console.log("\nby jurisdiction");
+        for (const g of r.byJurisdiction) {
+          console.log(`  ${g.jurisdictionId.padEnd(4)} ${g.house}  ${g.epochId.padEnd(14)} ${String(g.missing).padStart(4)} of ${String(g.seats).padStart(4)}  ${g.status}`);
+        }
+        if (has("write")) {
+          mkdirSync("docs/release", { recursive: true });
+          writeFileSync("docs/release/geometry-coverage.md", markdownMissing(r));
+          console.log("\nwrote docs/release/geometry-coverage.md");
+        }
+        break;
+      }
       if (sub === "coverage") {
         // Stage 1 of Phase 3: what the product can draw, measured. `--write` regenerates
         // docs/geo/coverage.md, because the brief forbids typing the final table by hand.
@@ -696,7 +789,7 @@ try {
         }
         break;
       }
-      fail("geography <validate|backfill|coverage|fetch|inspect|import>");
+      fail("geography <validate|check|coverage|missing|backfill|fetch|inspect|import>");
       break;
     }
     default:

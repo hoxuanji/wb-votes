@@ -200,19 +200,8 @@ export const RULES: Record<ModuleKey, Record<string, Rule>> = {
     },
   },
 
-  // Geometry, ingested by migration 008. Every field gets a probe: these two modules were the last 0%
-  // in the round-trip report, and their absence is why the product had no map for eight cycles.
-  acPaths: {
-    id: { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'ac'" },
-    acNo: {
-      probe:
-        "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id WHERE pv.number IS NOT NULL",
-      partial: "district outlines share this table and have no seat number",
-    },
-    path: { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'ac' AND length(g.path) > 0" },
-    "centroid.x": { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'ac' AND g.centroid_x IS NOT NULL" },
-    "centroid.y": { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'ac' AND g.centroid_y IS NOT NULL" },
-  },
+  // District geometry, ingested by migration 008. The constituency module that sat beside it left the seed
+  // in Phase 3's closure — the registry holds published constituency geometry now — so only these remain.
   districtPaths: {
     name: { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'district'" },
     path: { probe: "SELECT COUNT(*) AS n FROM place_geometry g JOIN place_version pv ON pv.id = g.place_version_id JOIN place p ON p.id = pv.place_id WHERE p.kind = 'district' AND length(g.path) > 0" },
@@ -387,7 +376,6 @@ const MINISTRY_RANK = ["CM", "Cabinet", "MoS-Independent", "MoS"] as const;
 const ELECTION_YEAR = [2011, 2016, 2021, 2026] as const;
 
 const SHAPES: Record<ModuleKey, Shape> = {
-  acPaths: { required: ["id", "acNo", "path", "centroid"] },
   districtPaths: { required: ["name", "path", "centroid"] },
   constituencies: {
     required: ["id", "name", "nameBn", "district", "districtBn", "reservation", "assemblyNumber"],

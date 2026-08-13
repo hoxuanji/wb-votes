@@ -60,6 +60,7 @@ jobs:
         run: |
           npm run mandate -- geography validate
           npm run mandate -- elections validate
+          npm run mandate -- geography check
 
       # ONE test is classified and expected to fail: searchPersons ranking/order-independence, in
       # packages/mandate/src/repo/person.test.ts. `|| true` would hide a second failure as well, so the
@@ -77,3 +78,20 @@ jobs:
       # verification build replacing that directory broke a running server three times.
       - name: Production build
         run: MANDATE_DIST=.next-verify npx next build
+
+      # The round-trip ratchet. Its floor moves UP only, in the commit that raises the number — the failure
+      # message says so and Phase 3's closure earned 94.1 -> 95.0 rather than arranging it. A red here means
+      # the registry gives back less of data/seed/ than it did.
+      - name: Seed round trip
+        run: npm run mandate -- export
+
+      # And the reports, regenerated and checked for drift. A generated document that is stale in the tree is
+      # a document that lies, and one that changes on a second run with no new data is not generated from the
+      # data at all — Phase 3 found `provenance.json` doing exactly that with the run clock.
+      - name: Generated reports are current and deterministic
+        run: |
+          npm run mandate -- geography coverage --write
+          npm run mandate -- geography missing --write
+          npm run mandate -- geography inspect --write
+          npm run mandate -- release --write
+          git diff --exit-code -- docs/geo docs/release

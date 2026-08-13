@@ -146,10 +146,6 @@ function fixture(): StaticBundle {
         sourceUrl: "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal",
       },
     ],
-    acPaths: [
-      { id: "c0001", acNo: 1, path: "M10,10 L20,10 L20,20 Z", centroid: { x: 15, y: 15 } },
-      { id: "c0002", acNo: 2, path: "M30,10 L40,10 L40,20 Z", centroid: { x: 35, y: 15 } },
-    ],
     // "Kochbihar", the census spelling, because that is what wb-districts.json actually uses — the
     // disagreement districts.ts bridges. A fixture using the ECI spelling tests the wrong thing.
     districtPaths: [{ name: "Kochbihar", path: "M5,5 L50,5 L50,50 Z", centroid: { x: 27, y: 27 } }],
@@ -334,8 +330,9 @@ test("boundary epoch, place versions and contests line up on delim-2008 (P4)", a
   assert.equal(Number(db.prepare("SELECT COUNT(*) AS n FROM place_version").get()?.n), 4);
   assert.equal(
     Number(db.prepare("SELECT COUNT(*) AS n FROM place_geometry").get()?.n),
-    3,
-    "2 constituency outlines + 1 district outline should be stored",
+    1,
+    "one district outline — constituency geometry left the seed in Phase 3's closure, the registry " +
+      "holding published polygons in its place, so the ingest writes only districts now",
   );
   assert.equal(
     Number(db.prepare("SELECT COUNT(*) AS n FROM place_version WHERE geometry_ref IS NOT NULL").get()?.n),

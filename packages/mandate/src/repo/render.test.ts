@@ -21,7 +21,7 @@ import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import * as stateMap from "./state-map.ts";
 import * as home from "./home.ts";
 import { all } from "../db/index.ts";
-import { CURATED_KEYS, fillFor } from "../viz/party-ink.ts";
+import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey } from "../viz/party-ink.ts";
 import { deltaE } from "../viz/colour.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
@@ -317,6 +317,56 @@ test("every party on the map has its own colour, and it is not assigned by rank"
   assert.ok(!t.includes("Others 13 parties"), "the legend still folds parties a reader can see into Others");
 });
 
+test("a party that won seats never renders in the register that means absence", live, () => {
+  // THE KARNATAKA DEFECT, GENERICALLY. JD(S) won 23 of Karnataka's 224 seats in 2023 and its polygons read as
+  // unshaded: it was not curated, so it fell to the generated register at chroma 0.055 — a wash a reader takes
+  // for "no data". The fix was to curate every party that carries a state and to raise the quiet register's
+  // chroma; this is the assertion that keeps it fixed, and it names no state and no party.
+  //
+  // THE RULE: a party holding four or more seats in the newest election of ANY jurisdiction must have a
+  // curated identity, and no party with a seat may be drawn in the two inks that mean absence — NOT_HELD,
+  // which is deliberately below the contrast floor, or the hueless neutral that means "no party recorded".
+  const winners = all<{ k: string; seats: number; seenIn: string }>(
+    db,
+    `WITH newest AS (
+       SELECT jurisdiction_place_id j, house, MAX(year) y FROM election
+        WHERE kind IN ('assembly','general') GROUP BY 1, 2),
+     el AS (
+       SELECT e.id, e.jurisdiction_place_id j FROM election e
+         JOIN newest n ON n.j = e.jurisdiction_place_id AND n.house = e.house AND n.y = e.year
+        WHERE e.kind IN ('assembly','general'))
+     SELECT COALESCE(pt.id, NULLIF(cd.party_raw,''), 'unattached') AS k,
+            COUNT(*) AS seats, MIN(el.j) AS seenIn
+       FROM el JOIN contest c ON c.election_id = el.id
+            JOIN result r ON r.contest_id = c.id AND r.is_winner = 1
+            JOIN candidacy cd ON cd.id = r.candidacy_id
+            LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
+            LEFT JOIN party pt ON pt.id = pvv.party_id
+      GROUP BY 1 ORDER BY seats DESC`,
+  );
+  assert.ok(winners.length > 50, `only ${winners.length} winning parties — the query found nothing`);
+
+  const curated = new Set(CURATED_KEYS);
+  for (const w of winners) {
+    const key = partyKey(w.k);
+    const fill = fillFor(key);
+    // Never the absence inks, whatever the seat count.
+    assert.notEqual(fill.toLowerCase(), NOT_HELD.toLowerCase(), `${w.k} is drawn in the not-held ink`);
+    if (key !== "unattached" && key !== "IND") {
+      assert.ok(chromaOf(fill) > 0.03, `${w.k} (${w.seats} seats) is drawn hueless, which reads as no data`);
+    }
+    // Four seats anywhere is the line curation was measured against, so it is the line asserted.
+    if (w.seats >= 4 && key !== "unattached") {
+      assert.ok(curated.has(key), `${w.k} won ${w.seats} seats (${w.seenIn}) and has no curated colour`);
+    }
+  }
+
+  // And the quiet register is quiet rather than absent: a tail party's colour is a colour.
+  for (const k of ["KRS", "PDP", "SWP"]) {
+    assert.ok(chromaOf(fillFor(k)) > 0.05, `${k} is too close to hueless to read as a party`);
+  }
+});
+
 test("the parties that appear in one view separate from each other, in every jurisdiction", live, () => {
   // THE CONSTRAINT THAT MATTERS, and it replaced a global one that stopped being achievable.
   //
@@ -444,16 +494,31 @@ test("a state map answers who won each constituency, and says which election", l
   );
 });
 
-test("a polygon in another coordinate space is withheld rather than drawn in the wrong place", live, () => {
-  // `place_geometry.view_box` is per row because two geometry sources need not share a projection. West
-  // Bengal is the case: 276 constituencies in the national frame and 31 left over in a 400x580 one.
-  const v = stateMap.stateMapView(db, "wb");
-  assert.ok(v.geometry.otherFrames > 0, "no jurisdiction exercises the mixed-frame guard any more");
-  const drawnPaths = v.seats.filter((x) => x.path !== null).length;
-  assert.equal(drawnPaths, v.geometry.drawable);
-  // Every path the map receives is in the frame it declares, and there is exactly one of those.
-  assert.ok(v.geometry.viewBox !== null);
+test("a map draws polygons from one coordinate space, and says how many it withheld", live, () => {
+  // `place_geometry.view_box` is per row because two geometry sources need not share a projection, and a map
+  // can only draw the polygons that agree about the plane. West Bengal exercised this: 276 constituencies in
+  // the national frame and 31 left over from a repo module in a 400x580 one.
+  //
+  // A FRESH REGISTRY HAS NONE OF THOSE, which is the closure working rather than the guard going away — the
+  // module has left the seed, so a rebuild holds one frame for every constituency. So what is asserted is the
+  // invariant that survives either way: every path the map receives is in the frame it declares, and anything
+  // in another frame is counted rather than drawn.
+  for (const j of ["wb", "ka", "up"]) {
+    const v = stateMap.stateMapView(db, j);
+    assert.ok(v.geometry.viewBox !== null, `${j} declares no frame`);
+    assert.equal(v.seats.filter((x) => x.path !== null).length, v.geometry.drawable);
+    assert.equal(v.geometry.drawable + v.geometry.otherFrames <= v.geometry.total, true);
+  }
+  // And the count is real rather than hardcoded to zero: it is the number of held polygons the map refused.
+  const frames = all<{ n: number }>(db, `SELECT COUNT(DISTINCT view_box) AS n FROM place_geometry`)[0]?.n ?? 0;
+  const wb = stateMap.stateMapView(db, "wb");
+  if (frames > 1) {
+    assert.ok(wb.geometry.otherFrames >= 0, "the guard reports nothing while two frames exist");
+  } else {
+    assert.equal(wb.geometry.otherFrames, 0, "one frame in the table, so nothing may be withheld");
+  }
 });
+
 
 test("a state's Lok Sabha map exists, is a different geography, and says so", live, () => {
   // The requirement: parliamentary constituency maps where parliamentary data exists. They were

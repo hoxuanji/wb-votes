@@ -72,15 +72,32 @@ npm test                     # 465 tests; one classified failure (searchPersons 
 MANDATE_DIST=.next-verify npx next build
 npm run mandate -- geography validate   # constituency identity
 npm run mandate -- elections validate   # election-event identity
+npm run mandate -- geography check      # the stored polygons: rings, epochs, containment, provenance
 npm run mandate -- release              # the national coverage report
-npm run mandate -- export               # the seed round-trip ratchet — SEE docs/release/RC-1.md
+npm run mandate -- export               # the seed round-trip ratchet
 ```
 
-`export` currently exits non-zero at 94.0% against a 94.1% floor. That is the one open release blocker and
-it is a measurement rather than a defect in the product: Phase 3 replaced a seed geometry module with a
-published boundary set, so the registry can no longer reproduce what the seed holds. `docs/release/RC-1.md`
-carries the problem, the evidence, three options and a recommendation. Do not lower the floor to make it
-pass — its own failure message forbids exactly that.
+`export` passes at 95.0% against a 95.0% floor. **The floor moves up only**, in the commit that raises the
+number — its own failure message says so, and Phase 3's closure earned 94.1 → 95.0 by deriving a field the
+registry already held rather than by moving the line. If it goes red, the registry gives back less of
+data/seed/ than it did; `docs/release/PHASE-3-FINAL.md` records how the last move was earned.
+
+## Rebuilding the registry from scratch
+
+```bash
+node ops/rebuild.mjs .data/next.db                            # ~12 min, from cached hashed sources
+node ops/rebuild-compare.mjs .data/registry.db .data/next.db  # must print REPRODUCIBLE — same content
+```
+
+`rebuild.mjs` writes to a **separate file** on purpose: `ingest --fresh` deletes the working registry, and a
+verification that destroys what it verifies gets run once and never again. It reads bytes from
+`.data/cache/{lokdhaba,eci,geo}`, every one content-addressed, so the same bytes give the same registry —
+verified by building twice and comparing every table's row count and a content hash over the rows a reader
+meets.
+
+**The step order matters and the script encodes why.** `geography delimitation` has to register
+`delim-2023-as` and `delim-2022-jk` before the ECI 2024 import, or that import refuses with nineteen
+quarantined seats — Assam's fourteen and Jammu & Kashmir's five have no epoch to belong to until it has run.
 
 `npm test` includes `repo/smoke.test.ts`, which calls every read function against the real registry, and
 `repo/render.test.ts`, which renders the real routes. Both skip cleanly when `.data/registry.db` is absent,

@@ -51,6 +51,23 @@ export const groupKey = (e: {
 }): string => `${e.jurisdictionId} ${e.house} ${e.year} ${e.pollNo > 0 ? "by" : "gen"}`;
 
 /** Full event key: what makes two rows the same election. */
+/**
+ * WHOSE ELECTION IT IS — one rule, in one place, because it was in two and they disagreed.
+ *
+ * A GENERAL parliamentary election is ONE NATIONAL EVENT: every state's Lokdhaba file describes its own slice
+ * of the 2019 Lok Sabha, so keying it by the file's state made one event per state — 1,571 "events" against
+ * 1,188 elections, and whichever state imported last owned the row. A parliamentary BY-election is not
+ * national: `up-bypoll-ge-1970` is Uttar Pradesh's, and the existing ids say so.
+ *
+ * WHY IT IS A FUNCTION NOW. `eventsFromRows` applied this rule when it BUILT the plan and `importLokdhaba`
+ * did not when it READ the plan — it asked for `ap pc 1962 …` where the plan held `in pc 1962 …`. Every
+ * historical general-election row therefore missed the lookup and was skipped, with the reason printed and
+ * nobody reading it: 86,454 results and seventeen elections silently absent from any registry rebuilt with
+ * this code. Phase 3's rebuild check is what found it, by rebuilding and comparing.
+ */
+export const eventJurisdiction = (house: House, pollNo: number, jurisdictionId: string): string =>
+  house === "pc" && pollNo === 0 ? "in" : jurisdictionId;
+
 export const eventKey = (e: {
   jurisdictionId: string;
   house: House;
@@ -135,12 +152,7 @@ export function eventsFromRows(
     const year = int(r["Year"]);
     if (house === null || year === null) continue;
     const pollNo = int(r["Poll_No"]) ?? 0;
-    // A GENERAL parliamentary election is ONE NATIONAL EVENT. Every state file describes its own slice of
-    // the 2019 Lok Sabha election, so keying it by the file's state made one event per state — 1,571
-    // "events" against 1,188 elections, and whichever state was imported last would have owned the row's
-    // occurrence and source. A parliamentary BY-election is not national: 'up-bypoll-ge-1970' is Uttar
-    // Pradesh's, and the existing ids say so.
-    const jid = house === "pc" && pollNo === 0 ? "in" : jurisdictionId;
+    const jid = eventJurisdiction(house, pollNo, jurisdictionId);
     const draft = {
       jurisdictionId: jid,
       house,

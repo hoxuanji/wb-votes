@@ -101,10 +101,6 @@ function fixture(): StaticBundle {
         sourceUrl: "https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal",
       },
     ],
-    acPaths: [
-      { id: "c0001", acNo: 1, path: "M10,10 L20,10 L20,20 Z", centroid: { x: 15, y: 15 } },
-      { id: "c0002", acNo: 2, path: "M30,10 L40,10 L40,20 Z", centroid: { x: 35, y: 15 } },
-    ],
     // "Kochbihar", the census spelling, because that is what wb-districts.json actually uses — the
     // disagreement districts.ts bridges. A fixture using the ECI spelling tests the wrong thing.
     districtPaths: [{ name: "Kochbihar", path: "M5,5 L50,5 L50,50 Z", centroid: { x: 27, y: 27 } }],
@@ -122,7 +118,6 @@ function seedOf(b: StaticBundle): Seed {
     "demographics.json": b.demographics as unknown as Row[],
     "cabinet.json": b.cabinet as unknown as Row[],
     "wbmps.json": b.mps as unknown as Row[],
-    "wb-ac-paths.json": b.acPaths as unknown as Row[],
     "wb-districts.json": b.districtPaths as unknown as Row[],
   };
 }
@@ -153,7 +148,8 @@ test("the registry rebuilds one row per seed row for every module it ingests", a
       "demographics.json": 1,
       "cabinet.json": 1,
       "wbmps.json": 1,
-      "wb-ac-paths.json": 2,
+      // No wb-ac-paths.json: the module left the seed in Phase 3's closure, the registry holding published
+      // constituency geometry in its place. District outlines stay — nothing replaces them.
       "wb-districts.json": 1,
     },
   );
@@ -318,38 +314,37 @@ test("every seed file on disk appears in the report", async () => {
   );
 });
 
-test("a module excluded from the ratcheted figure is declared, reported and still counted once", async () => {
+test("nothing is excluded from the ratcheted figure, and the two bases agree", async () => {
   const db = await ingested();
-  // seedOf(fixture()), not readSeed(): readSeed reads the real 294-seat data/seed/ while this database
-  // holds a two-seat fixture, so comparing them scores everything at ~0% and says nothing.
+  // seedOf(fixture()), not readSeed(): readSeed reads the real data/seed/ while this database holds a
+  // two-seat fixture, so comparing them scores everything at ~0% and says nothing.
   const r = diff(seedOf(fixture()), reconstruct(db));
   db.close();
 
-  // THE TWO FIGURES DIVERGE AGAIN, and that is the point of having two.
+  // THE TWO FIGURES AGREE AGAIN, and getting them to agree was the work rather than the accounting.
   //
-  // They were identical while nothing was excluded: migration 008 gave geometry a table and both geometry
-  // modules round-tripped at 100%. Phase 3 replaced the constituency geometry with a published, hashed,
-  // licensed boundary set in the product's shared projection, so the registry no longer stores what
-  // `wb-ac-paths.json` holds and cannot reproduce it. It is declared superseded, with its reason, excluded
-  // from the ratcheted figure and kept at 0% in the whole-seed one.
+  // They diverged once before, when the geometry modules were 1,546 values nothing could store, and migration
+  // 008 closed that. They diverged again in Phase 3 when published constituency geometry replaced
+  // `wb-ac-paths.json`: the registry no longer stored what that module held, and a per-file "not reproduced"
+  // table excused it. An exception in an accounting gate is a gate with an exception, so the closure removed
+  // the thing being excused instead — the module left the seed — and the table went with it.
   //
-  // What is asserted is that the exclusion is DECLARED rather than silent, and that everything else still
-  // round-trips. Deleting a module from the report was how a previous commit took the headline from 85.9%
-  // to 94.1%; excluding one without a stated reason would be the same move with better manners.
-  assert.ok(r.ingestedValues < r.values, "nothing is excluded, so the superseded module was lost silently");
-  // Which way the two figures move is a property of the DATA, not of the mechanism: on the real registry
-  // the superseded module reconstructs at 40% and excluding it raises the ratcheted number; on this
-  // two-seat fixture the geometry is the seed's own and reconstructs at 100%, so excluding it lowers it.
-  // Asserting a direction would be asserting a fixture.
-  assert.notEqual(r.ingestedPct, r.pct, "the exclusion had no effect, so it is not doing what it says");
+  // If a module ever has to leave the denominator again: delete the module, or fix the registry. Do not add
+  // the table back. That is what this asserts.
+  assert.equal(r.values, r.ingestedValues, "a module is excluded from the whole-seed denominator");
+  assert.equal(r.exact, r.ingestedExact);
+  assert.equal(
+    Math.round(r.pct * 100),
+    Math.round(r.ingestedPct * 100),
+    "the two figures diverged, which means something left the denominator without saying so",
+  );
 
-  // District geometry is NOT superseded and must not silently join it.
+  // District geometry is still reported and still round-trips.
   const districts = r.modules.find((x) => x.file === "wb-districts.json");
   assert.ok(districts !== undefined, "wb-districts.json is missing from the report");
   assert.ok((districts?.pct ?? 0) > 99, `wb-districts.json reconstructs at ${districts?.pct?.toFixed(1)}%`);
 
-  // And the superseded one is still reported, with its numbers, rather than dropped.
-  const paths = r.modules.find((x) => x.file === "wb-ac-paths.json");
-  assert.ok(paths !== undefined, "the superseded module was dropped from the report instead of explained");
-  assert.ok((paths?.seedRows ?? 0) > 0);
+  // And the superseded module is not silently still there.
+  assert.equal(r.modules.find((x) => x.file === "wb-ac-paths.json"), undefined);
 });
+
