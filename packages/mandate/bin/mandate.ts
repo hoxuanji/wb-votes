@@ -41,6 +41,7 @@ import { httpGet } from "../src/ingest/sources/eci/transport.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
 import { formatReport as formatEciReport, runLs2024 } from "../src/ingest/sources/eci/ls2024.ts";
+import { formatRelease, markdownRelease, releaseReport } from "../src/ingest/release/report.ts";
 
 const argv = process.argv.slice(2);
 const cmd = argv[0] ?? "";
@@ -96,6 +97,8 @@ const USAGE = `mandate <command>
   eci ls-2024 [--apply] [--refresh]
                                discover, hash, parse, stage, validate and import the 2024 Lok Sabha
                                from the ECI's own statistical reports (dry run without --apply)
+  release [--write]            the national coverage report: what is loaded, what is drawable, what is
+                               unresolved, every figure a query (--write updates docs/release/coverage.md)
   export                       rebuild the seed from the registry and report what differs`;
 
 /** Two columns, right-aligned values. Every subcommand prints through this so output is one shape. */
@@ -374,6 +377,21 @@ try {
         ["uncited values", countUncited(db)],
       ]);
       db.close();
+      break;
+    }
+
+    case "release": {
+      // Stage 10 of Phase 3. Nothing here interprets: it counts, classifies against a stated rule, and
+      // prints. Whether the numbers are good enough to ship belongs in docs/release/RC-1.md, signed.
+      const db = openRead();
+      const r = releaseReport(db);
+      db.close();
+      console.log(formatRelease(r));
+      if (has("write")) {
+        mkdirSync("docs/release", { recursive: true });
+        writeFileSync("docs/release/coverage.md", `# National coverage\n\n${markdownRelease(r)}`);
+        console.log("\nwrote docs/release/coverage.md");
+      }
       break;
     }
 

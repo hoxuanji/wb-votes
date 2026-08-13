@@ -86,6 +86,9 @@ export const GEOMETRY_SOURCE = {
   publishedOn: null,
   retrievalKind: 'fetched' as const,
   hashKind: 'document_bytes' as const,
+  // The asset does not record one. `null` says so rather than guessing at MIT or CC — a licence nobody
+  // declared is not a licence, and asserting one would be the fabrication this codebase refuses.
+  licence: null,
 };
 
 export const INDIA_SHAPES: readonly StateShape[] = Object.entries(asset.states).map(([name, s]) => ({

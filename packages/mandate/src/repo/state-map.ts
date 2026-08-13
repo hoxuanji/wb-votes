@@ -34,7 +34,8 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";
-import { read } from "./index.ts";
+import { loadSources, read } from "./index.ts";
+import type { SourceRef } from "./index.ts";
 import { CHRONO_DESC } from "./elections.ts";
 
 /** One constituency, as the map draws it. */
@@ -94,6 +95,16 @@ export type StateMapView = {
   districts: DistrictTally[];
   /** The parties this election's winners actually include, biggest first. The contextual legend. */
   legend: { key: string; label: string; n: number }[];
+  /**
+   * Where the polygons came from, and where the results came from — for the panel's one `ⓘ`.
+   *
+   * A BOUNDARY SET IS A SOURCE LIKE ANY OTHER: publisher, URL, licence, retrieval date, sha256 over the
+   * bytes. Phase 2.6 established that for the national basemap and this phase acquired 5,000 constituency
+   * polygons under a declared licence, so they belong in the same drawer rather than nowhere. The list comes
+   * from `place_geometry.source_id` and `result.source_id` for the election on screen, so it names the
+   * sources actually behind THIS map instead of a constant.
+   */
+  sources: SourceRef[];
   geometry: {
     /** The shared projection box the polygons live in, from the registry's own geometry rows. */
     viewBox: string | null;
@@ -218,6 +229,7 @@ export function stateMapView(
         seats: [],
         districts: [],
         legend: [],
+        sources: [],
         geometry: { viewBox: null, drawable: 0, total: 0, epochs: [], epochsHeld, otherFrames: 0 },
       };
     }
@@ -325,6 +337,22 @@ export function stateMapView(
       .sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]))
       .map(([key, v]) => ({ key, label: v.label, n: v.n }));
 
+    const sourceIds = all<{ id: string }>(
+      db,
+      `SELECT DISTINCT g.source_id AS id
+         FROM contest c JOIN place_geometry g ON g.place_version_id = c.place_version_id
+        WHERE c.election_id = ? AND EXISTS (SELECT 1 FROM place_version pv WHERE pv.id = c.place_version_id AND pv.jurisdiction_id = ?)
+       UNION
+       SELECT DISTINCT r.source_id AS id
+         FROM contest c JOIN result r ON r.contest_id = c.id
+         JOIN place_version pv ON pv.id = c.place_version_id
+        WHERE c.election_id = ? AND pv.jurisdiction_id = ?`,
+      election.id,
+      jurisdictionId,
+      election.id,
+      jurisdictionId,
+    ).map((r) => r.id);
+
     return {
       jurisdictionId,
       jurisdictionName: name,
@@ -333,6 +361,7 @@ export function stateMapView(
       seats,
       districts,
       legend,
+      sources: loadSources(db, sourceIds, []),
       geometry: {
         viewBox: frame,
         drawable: seats.filter((s) => s.path !== null).length,

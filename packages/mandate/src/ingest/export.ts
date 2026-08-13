@@ -46,9 +46,17 @@ const PARTY_VALID_FROM = "2011-01-01";
  *  ponytail: the `c0001` form is a convention, not a stored column — restate it here rather than
  *  add a column to carry a string the registry can derive. Store it if the app's ids ever diverge. */
 const seatId = (n: number): string => `c${String(n).padStart(4, "0")}`;
-/** reservation is stored lowercase; the seed spells it 'SC' / 'ST' / 'General'. */
-const unReservation = (r: string): string =>
-  r.length <= 2 ? r.toUpperCase() : r.slice(0, 1).toUpperCase() + r.slice(1);
+/**
+ * reservation is stored lowercase; the seed spells it 'SC' / 'ST' / 'General'.
+ *
+ * NULLABLE, and it took the national registry to show it. This ran on a West Bengal registry where every
+ * seat had one; 140 of the country's assembly constituencies — Odisha's, which arrived from a source that
+ * did not carry the column — have none, and `r.length` on null threw before the report could be printed at
+ * all. A reservation nobody recorded is not 'General': the field is omitted, and the round-trip measurement
+ * counts it as something the registry cannot give back, which is exactly what that measurement is for.
+ */
+const unReservation = (r: string | null): string | undefined =>
+  r === null || r === "" ? undefined : r.length <= 2 ? r.toUpperCase() : r.slice(0, 1).toUpperCase() + r.slice(1);
 const genderOf = (sex: string | null): string | undefined =>
   sex === "m" ? "Male" : sex === "f" ? "Female" : sex === "o" ? "Other" : undefined;
 const bn = (names: string | null): string | undefined => {
@@ -127,7 +135,24 @@ const MODULES = Object.keys(KEY);
 // Empty since migration 008 gave geometry a table: both modules are ingested and reconstructable, so
 // the two figures below now differ only by rows the ingest drops, not by whole modules nothing reads.
 // Kept as a mechanism rather than deleted — the next unreadable module should land here, reported.
-const NOT_INGESTED = new Set<string>([]);
+/**
+ * Seed modules the registry does not aim to reproduce, and WHY — printed, never silent.
+ *
+ * Excluded from the ratcheted figure and kept in the whole-seed one, which is the two-number design the
+ * comment above describes and the reason it exists.
+ *
+ * `wb-ac-paths.json` is here because Phase 3 REPLACED what it holds. Its 294 paths and 294 centroids are a
+ * West Bengal-only projection from a repo module with no publisher; the registry now holds 5,000
+ * constituency polygons from a hashed, licensed, published boundary set in the projection the whole product
+ * shares. The registry cannot reproduce the old frame and should not be asked to — "superseded" is the
+ * accurate word and 40% would read as a regression. Deleting the module from the report was how a previous
+ * commit took the headline from 85.9% to 94.1%, so it stays reported, at 0%, with this sentence attached.
+ */
+const NOT_REPRODUCED: Record<string, string> = {
+  "wb-ac-paths.json":
+    "superseded in Phase 3: the registry holds published constituency geometry in the product's shared " +
+    "projection, not this module's West Bengal frame",
+};
 
 // ─── reading the seed ────────────────────────────────────────────────────────
 
@@ -262,7 +287,7 @@ function constituencies(db: DatabaseSync): Row[] {
     ...(bn(r.names) === undefined ? {} : { nameBn: bn(r.names) }),
     district: r.district ?? undefined,
     ...(bn(r.dnames) === undefined ? {} : { districtBn: bn(r.dnames) }),
-    reservation: unReservation(r.resv),
+    ...(unReservation(r.resv) === undefined ? {} : { reservation: unReservation(r.resv) }),
   }));
 }
 
@@ -782,7 +807,7 @@ export function diff(seed: Seed, rebuilt: Seed): DiffReport {
         const want = seedFlat.get(p);
         const have = gotFlat.get(p);
         if (have === undefined) {
-          if (notStored.has(field) || NOT_INGESTED.has(file)) bump(field, "notStored");
+          if (notStored.has(field) || NOT_REPRODUCED[file] !== undefined) bump(field, "notStored");
           else bump(field, "diff", { row: k, seed: show(want), got: "—" });
           continue;
         }
@@ -812,13 +837,23 @@ export function diff(seed: Seed, rebuilt: Seed): DiffReport {
       }
     }
 
-    // Every rebuilt row the seed has no row for, under one pseudo-field and one value per leaf, so
-    // an invented row costs the percentage what a lost row costs it.
+    // ROWS THE SEED HAS NO ROW FOR — counted and reported, and NO LONGER IN THE DENOMINATOR.
+    //
+    // ADR 0004 put them in it, and was right at the time: the registry and the seed described the same
+    // jurisdiction, so a rebuild inventing rows was a rebuild inventing rows. Phase 3 broke that premise.
+    // The registry holds 53,840 historical results for the whole country and the seed holds 1,175 for West
+    // Bengal, so 52,705 rows came back "invented" — meaning the rest of India — and the measurement fell
+    // from 94% to 1.1% for the good reason that coverage grew. A number that drops when the product
+    // improves is measuring the wrong thing, and a ratchet on it teaches everyone to ignore the colour.
+    //
+    // So the percentage answers the question ADR 0004 says it exists to answer: OF WHAT THE SEED HOLDS,
+    // how much can the registry give back. Fabrication is still visible — `inventedRows` is printed, and
+    // the guard against a rebuild that scores 100% by inventing everything is that a seed row it cannot
+    // match still costs it, which is the other half of the same key comparison.
     let inventedRows = 0;
-    for (const [k, r] of got) {
+    for (const [k] of got) {
       if (grouped.has(k)) continue;
       inventedRows += 1;
-      for (const _ of flat(r).keys()) bump(INVENTED, "diff", { row: k, seed: "—", got: "whole row" });
     }
 
     const fields = [...stats.values()].sort((a, b) => a.field.localeCompare(b.field));
@@ -840,7 +875,7 @@ export function diff(seed: Seed, rebuilt: Seed): DiffReport {
   }
   const values = modules.reduce((n, m) => n + m.values, 0);
   const exact = modules.reduce((n, m) => n + m.exact, 0);
-  const ingested = modules.filter((m) => !NOT_INGESTED.has(m.file));
+  const ingested = modules.filter((m) => NOT_REPRODUCED[m.file] === undefined);
   const ingestedValues = ingested.reduce((n, m) => n + m.values, 0);
   const ingestedExact = ingested.reduce((n, m) => n + m.exact, 0);
   return {
@@ -883,6 +918,9 @@ export function formatReport(r: DiffReport): string {
         (m.inventedRows > 0 ? ` / invented by rebuild ${m.inventedRows}` : "") +
         `   values ${m.exact}/${m.values} exact  ${pct(m.pct)}`,
     );
+    // Why a module is outside the ratcheted figure, on the line above its numbers rather than in a doc.
+    const why = NOT_REPRODUCED[m.file];
+    if (why !== undefined) out.push(`  NOT REPRODUCED — ${why}`);
     const w = Math.max(5, ...m.fields.map((f) => f.field.length));
     for (const f of m.fields) {
       const bits = [`exact ${f.exact}`];

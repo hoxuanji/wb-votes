@@ -503,6 +503,28 @@ test("the state page opens on the state's own house, not the newest election", l
   }
 });
 
+test("a state map's polygons name their publisher and their licence, in the drawer", live, () => {
+  // 5,000 constituency polygons arrived in this phase from a Creative Commons Attribution source, and
+  // attribution is a CONDITION of that licence rather than a courtesy. The panel had no drawer at all until
+  // this test, so the publisher, the licence, the retrieval date and the hash were nowhere.
+  const html = render("/pl", "", "ka");
+  const drawers = [...html.matchAll(/<details class="iei-ev"[\s\S]*?<\/details>/g)].map((m) => m[0]);
+  const mapDrawer = drawers.find((d) => d.includes("Assembly Constituencies"));
+  assert.ok(mapDrawer !== undefined, "the map panel has no evidence drawer");
+  assert.match(mapDrawer, /DataMeet India community/, "the polygons' publisher is not named");
+  assert.match(mapDrawer, /CC BY 2\.5 IN/, "the polygons' licence is not named");
+  assert.match(mapDrawer, /sha256 [0-9a-f]{12}/, "the polygons' hash is not shown");
+  assert.match(mapDrawer, /boundary geometry/, "the source's kind is not shown");
+  // The results' own source is in the same drawer, not a second one.
+  assert.match(mapDrawer, /Lokdhaba|Trivedi|Election Commission/);
+
+  // AND NOWHERE ELSE. A publisher, a licence or a hash outside a drawer is the clutter Phase 2.6 removed.
+  const outside = html.replace(/<details class="iei-ev"[\s\S]*?<\/details>/g, "");
+  assert.doesNotMatch(text(outside), /DataMeet/, "the polygons' publisher is in the primary interface");
+  assert.doesNotMatch(text(outside), /CC BY/, "a licence is in the primary interface");
+  assert.doesNotMatch(text(outside), /sha256/, "a hash is in the primary interface");
+});
+
 test("a historical election is not drawn on boundaries it never had", live, () => {
   // The rule the brief states most firmly. It is enforced by the data model rather than by a check:
   // place_geometry is keyed by place_version_id, and a contest names its own version — so a 2006 result can

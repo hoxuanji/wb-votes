@@ -555,6 +555,9 @@ export function Evidence({
                 {s.kind.replace(/_/g, ' ')} · retrieved {s.retrievedAt.slice(0, 10)}
                 {s.publishedOn === null ? '' : ` · published ${s.publishedOn}`} ·{' '}
                 {s.hashKind === 'document_bytes' ? `sha256 ${shortHash(s.id)}` : 'hash over the URL only'}
+                {/* A CONDITION, not a footnote. The boundary datasets are Creative Commons Attribution and
+                    attribution is what the licence asks for in exchange. */}
+                {s.licence === null || s.licence === '' ? null : ` · ${s.licence}`}
               </span>
               {s.url === null ? null : (
                 <a className="iei-ev-a" href={s.url} rel="nofollow noopener" target="_blank">

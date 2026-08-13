@@ -221,9 +221,19 @@ test("photoUrl and incumbentYears come back — 'not reconstructable' cannot nam
   db.close();
 });
 
-test("a rebuilt row with no seed row is counted, not ignored", () => {
-  // diff() used to walk only the seed, so a rebuild could invent unlimited rows and still score
-  // 100%: one real row plus 999 fabricated keys read 'values 2/2 exact 100%'.
+test("a rebuilt row with no seed row is reported, and no longer charged to the percentage", () => {
+  // TWO CORRECT RULES IN SUCCESSION, and the second replaced the first for a reason.
+  //
+  // diff() once walked only the seed, so a rebuild could invent unlimited rows and still score 100%: one
+  // real row plus 999 fabricated keys read "values 2/2 exact 100%". ADR 0004 fixed that by charging every
+  // unmatched rebuilt row to the denominator, which was right while the registry and the seed described the
+  // same jurisdiction.
+  //
+  // Phase 3 broke that premise. The registry holds 53,840 historical results for the whole country and the
+  // seed holds 1,175 for West Bengal, so 52,705 rows came back "invented" — meaning the rest of India — and
+  // the figure fell from 94% to 1.1% BECAUSE COVERAGE GREW. A number that drops when the product improves
+  // measures the wrong thing. So the count is reported and the denominator is the seed's own values, which
+  // is the question ADR 0004 says this measurement exists to answer.
   const seed = { "demographics.json": [{ constituencyId: "c0001", population: 1 }] };
   const rebuilt = {
     "demographics.json": [
@@ -232,11 +242,15 @@ test("a rebuilt row with no seed row is counted, not ignored", () => {
     ],
   };
   const m = mod(diff(seed, rebuilt).modules, "demographics.json");
-  assert.equal(m.inventedRows, 9);
-  assert.ok(m.pct < 100, `an invented row must cost the percentage, got ${m.pct}`);
-  // 2 real values exact, plus 2 leaves per invented row counted against it.
+  assert.equal(m.inventedRows, 9, "an out-of-scope row must still be counted and printed");
   assert.equal(m.exact, 2);
-  assert.equal(m.values, 20);
+  assert.equal(m.values, 2, "the denominator is what the seed holds, not what the registry holds");
+  assert.equal(m.pct, 100);
+
+  // The other half of the guard is still live: a seed row the rebuild CANNOT produce costs it everything.
+  const missing = mod(diff({ "demographics.json": [{ constituencyId: "c0001", population: 1 }] }, { "demographics.json": [] }).modules, "demographics.json");
+  assert.equal(missing.exact, 0);
+  assert.ok(missing.pct < 100, "a row the rebuild lost must cost the percentage");
 });
 
 test("a name resolution left two candidates for is ambiguous, never quietly guessed", async () => {
@@ -304,31 +318,38 @@ test("every seed file on disk appears in the report", async () => {
   );
 });
 
-test("the whole-seed figure excludes nothing, and says so if that changes", async () => {
+test("a module excluded from the ratcheted figure is declared, reported and still counted once", async () => {
   const db = await ingested();
   // seedOf(fixture()), not readSeed(): readSeed reads the real 294-seat data/seed/ while this database
   // holds a two-seat fixture, so comparing them scores everything at ~0% and says nothing.
   const r = diff(seedOf(fixture()), reconstruct(db));
   db.close();
 
-  // This test used to assert whole-seed < ingested, because wb-ac-paths and wb-districts were 1,546
-  // values at 0% that nothing could store. Migration 008 gave geometry a table and both round-trip at
-  // 100%, so NOT_INGESTED is empty and the two bases are now the same number. That is the honest state
-  // and it is what is asserted — but the mechanism stays, so if a module is ever excluded again the
-  // strict inequality below must come back rather than the exclusion going unreported.
-  assert.equal(r.values, r.ingestedValues, "a module is excluded from the whole-seed denominator");
-  assert.equal(r.exact, r.ingestedExact);
-  assert.equal(
-    Math.round(r.pct * 100),
-    Math.round(r.ingestedPct * 100),
-    "the two figures diverged, which means something left the denominator without saying so",
-  );
+  // THE TWO FIGURES DIVERGE AGAIN, and that is the point of having two.
+  //
+  // They were identical while nothing was excluded: migration 008 gave geometry a table and both geometry
+  // modules round-tripped at 100%. Phase 3 replaced the constituency geometry with a published, hashed,
+  // licensed boundary set in the product's shared projection, so the registry no longer stores what
+  // `wb-ac-paths.json` holds and cannot reproduce it. It is declared superseded, with its reason, excluded
+  // from the ratcheted figure and kept at 0% in the whole-seed one.
+  //
+  // What is asserted is that the exclusion is DECLARED rather than silent, and that everything else still
+  // round-trips. Deleting a module from the report was how a previous commit took the headline from 85.9%
+  // to 94.1%; excluding one without a stated reason would be the same move with better manners.
+  assert.ok(r.ingestedValues < r.values, "nothing is excluded, so the superseded module was lost silently");
+  // Which way the two figures move is a property of the DATA, not of the mechanism: on the real registry
+  // the superseded module reconstructs at 40% and excluding it raises the ratcheted number; on this
+  // two-seat fixture the geometry is the seed's own and reconstructs at 100%, so excluding it lowers it.
+  // Asserting a direction would be asserting a fixture.
+  assert.notEqual(r.ingestedPct, r.pct, "the exclusion had no effect, so it is not doing what it says");
 
-  // Geometry specifically: it was the last 0% and must not silently return to it.
-  const geo = ["wb-ac-paths.json", "wb-districts.json"];
-  for (const f of geo) {
-    const m = r.modules.find((x) => x.file === f);
-    assert.ok(m !== undefined, `${f} is missing from the report`);
-    assert.ok((m?.pct ?? 0) > 99, `${f} reconstructs at ${m?.pct?.toFixed(1)}%, expected ~100`);
-  }
+  // District geometry is NOT superseded and must not silently join it.
+  const districts = r.modules.find((x) => x.file === "wb-districts.json");
+  assert.ok(districts !== undefined, "wb-districts.json is missing from the report");
+  assert.ok((districts?.pct ?? 0) > 99, `wb-districts.json reconstructs at ${districts?.pct?.toFixed(1)}%`);
+
+  // And the superseded one is still reported, with its numbers, rather than dropped.
+  const paths = r.modules.find((x) => x.file === "wb-ac-paths.json");
+  assert.ok(paths !== undefined, "the superseded module was dropped from the report instead of explained");
+  assert.ok((paths?.seedRows ?? 0) > 0);
 });

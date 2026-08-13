@@ -30,6 +30,14 @@ export type SourceRef = {
   pageNo?: number;
   hashKind: HashKind;
   retrievalKind: RetrievalKind;
+  /**
+   * The publisher's licence, where it declared one.
+   *
+   * Not decorative and not optional for the boundary datasets Phase 3 acquired: they are Creative Commons
+   * Attribution, and attribution is a CONDITION of the licence rather than a courtesy. A product that draws
+   * 5,000 polygons from a CC BY source and names nobody is in breach, so the drawer names them.
+   */
+  licence: string | null;
 };
 
 /** A value that travels with its provenance. core/citation's `Cited<T>` carries raw `Citation`
@@ -77,6 +85,7 @@ type SourceRow = {
   published_on: string | null;
   hash_kind: HashKind;
   retrieval_kind: RetrievalKind;
+  licence: string | null;
 };
 
 /** `?,?,?` for an IN list. SQLite has no array binding, so the list is built, never interpolated. */
@@ -97,7 +106,7 @@ export function loadSources(
   if (ids.length === 0 && subjectRefs.length === 0) return [];
   const rows = all<SourceRow>(
     db,
-    `SELECT id, kind, publisher, title, url, retrieved_at, published_on, hash_kind, retrieval_kind
+    `SELECT id, kind, publisher, title, url, retrieved_at, published_on, hash_kind, retrieval_kind, licence
        FROM source
       WHERE id IN (${marks(ids.length)})
          OR id IN (SELECT ci.source_id FROM citation ci
@@ -117,6 +126,7 @@ export function loadSources(
     publishedOn: r.published_on,
     hashKind: r.hash_kind,
     retrievalKind: r.retrieval_kind,
+    licence: r.licence,
   }));
 }
 

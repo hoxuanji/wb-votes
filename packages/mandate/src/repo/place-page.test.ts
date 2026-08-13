@@ -400,6 +400,7 @@ test("provenance: counts what was never fetched, so the page can say it in words
     kind: "eci_declaration" as const,
     publisher: null,
     title: null,
+    licence: null,
     url,
     retrievedAt: `2026-05-1${id}T00:00:00Z`,
     publishedOn: null,

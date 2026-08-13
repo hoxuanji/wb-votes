@@ -26,7 +26,7 @@ const SRC: SourceRef = {
   retrievedAt: "2026-08-07T18:00:00.000Z",
   publishedOn: null,
   hashKind: "url_only",
-  retrievalKind: "asserted_by_upstream",
+  retrievalKind: "asserted_by_upstream", licence: null,
 };
 const RESULTS: SourceRef = {
   ...SRC,

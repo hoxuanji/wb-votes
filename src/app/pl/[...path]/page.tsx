@@ -176,6 +176,9 @@ export default async function PlacePage({
                 : `Which party won each constituency in ${map.districts.find((d) => d.id === focus)?.name ?? focus}?`
             }
             basis="measured"
+            /* The polygons' publisher, licence, retrieval date and hash, and the results' source, in the one
+               drawer this panel already had room for. A boundary set is a source like any other. */
+            sources={map.sources}
           >
             {/* THE ELECTION SELECTOR. Plain links, so the election is URL state: the map, the legend, the
                 counts and the heading all change together and none of them can go stale. */}
