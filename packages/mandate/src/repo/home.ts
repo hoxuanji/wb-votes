@@ -614,6 +614,37 @@ export function partyLandscape(db: DatabaseSync, spine: Spine, limit = 10): Part
   });
 }
 
+/** The top parties of one election, biggest first — what a recent-result card prints. */
+export type ElectionTop = { key: string; label: string; seats: number };
+
+/**
+ * The leading parties of each recently-held election, folded from the winners-only read.
+ *
+ * A card that says "BJP 240" and stops does not tell a reader what the election was; "BJP 240 · INC 99" does,
+ * and the second figure is the one that makes the first mean something. `seatsWonBy` returns rows per
+ * jurisdiction — a general election has 36 of them — so the fold is by (election, party), and the national
+ * total for `ls-2024` is the sum rather than whichever state sorted first.
+ */
+export function topParties(db: DatabaseSync, electionIds: readonly string[], per = 2): Map<string, ElectionTop[]> {
+  const out = new Map<string, ElectionTop[]>();
+  if (electionIds.length === 0) return out;
+  const byElection = new Map<string, Map<string, ElectionTop>>();
+  for (const r of seatsWonBy(db, electionIds)) {
+    const at = byElection.get(r.electionId) ?? new Map<string, ElectionTop>();
+    const hit = at.get(r.key);
+    if (hit === undefined) at.set(r.key, { key: r.key, label: r.label, seats: r.seats });
+    else hit.seats += r.seats;
+    byElection.set(r.electionId, at);
+  }
+  for (const [id, parties] of byElection) {
+    out.set(
+      id,
+      [...parties.values()].sort((a, b) => b.seats - a.seats || a.key.localeCompare(b.key)).slice(0, per),
+    );
+  }
+  return out;
+}
+
 /* ────────────────────────────── watch signals ────────────────────────────── */
 
 /**
@@ -1330,10 +1361,14 @@ export function headline(snap: Snapshot, parties: PartyLandscape): string {
     second === undefined || second.governs === 0
       ? `${top.label} leads ${top.governs} of the ${of} assemblies on record`
       : `${top.label} leads ${top.governs} of the ${of} assemblies on record, and ${second.label} ${second.governs}`;
+  // "— DERIVED, NOT ANNOUNCED" USED TO BE THE END OF THIS SENTENCE, and it was a methodology clause inside the
+  // largest type on the page. It is not a loss of honesty to drop it: "on a five-year count" already says the
+  // figure is arithmetic on a past date rather than a schedule, and the Upcoming module — which is where a
+  // reader acts on it — prefixes every one of those years with the word `Expected` and states the basis once.
   const due =
     snap.dueSoon === 0
       ? ""
-      : ` ${snap.dueSoon} term${snap.dueSoon === 1 ? "" : "s"} expire within a year on a five-year count — derived, not announced.`;
+      : ` ${snap.dueSoon} term${snap.dueSoon === 1 ? "" : "s"} expire within a year on a five-year count.`;
   return `${lead}.${due}`;
 }
 
@@ -1369,9 +1404,19 @@ export type HomeView = {
   upcoming: Dated[];
   overdue: Dated[];
   held: Dated[];
-  /** How completely each recently-held election is represented, for the chip on its row. */
+  /** The two leading parties of each recently-held election, so a card carries a comparison. */
+  heldTop: Map<string, ElectionTop[]>;
+  /**
+   * How completely each recently-held election is represented.
+   *
+   * NOT a column of chips any more. The front page reads this only to mark the rows that are genuinely
+   * short — "a result being uncertain" and "the database being incomplete" are different facts, and only the
+   * first belongs beside a result.
+   */
   coverageOf: Map<string, Completeness>;
   parties: PartyLandscape;
+  /** The tightest results in the country. Five rows, each one a seat page. */
+  fights: CloseFight[];
   signals: Signal[];
 };
 
@@ -1414,8 +1459,15 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     upcoming: next.derived,
     overdue: next.overdue,
     held,
+    heldTop: topParties(db, held.map((h) => h.id)),
     coverageOf: completenessOf(db, held.map((h) => h.id)),
     parties,
-    signals: watchSignals(db, withPoll, p.thisYear),
+    // Five, and each one navigable. The rule and the threshold are the same as Watch's knife-edge signal —
+    // which is why Watch no longer carries it: this module reaches the SEAT, and a page of eight signals
+    // about eight states could only reach the state.
+    fights: closeFights(db, "assembly", 5),
+    // FOUR, down from eight. Eight rows found five ways is a dataset; four is a set of signals. The quota
+    // inside `watchSignals` already guarantees they are found different ways.
+    signals: watchSignals(db, withPoll, p.thisYear, 4),
   };
 }

@@ -6,14 +6,12 @@ import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
 import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
-import { Shell } from '../components/iei/Shell.tsx';
+import { Foot, Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
 import {
-  BasisChip,
-  Change,
-  CoverageChip,
   DataList,
   DataRow,
+  Incomplete,
   Panel,
   RegistryMissing,
   Sparkline,
@@ -35,30 +33,37 @@ import './iei.css';
  * counts and the elections all arrive from the registry and from `ingest/india.ts` reference data; loading
  * Kerala's next assembly puts Kerala on this page without a line of UI changing.
  *
- * FOUR SECTIONS, DOWN FROM NINE, and the four answer the four questions a front page owes a reader: where
- * am I, what is happening, what matters, where do I go next. What went, and why — because a deletion is a
- * claim and has to be defensible:
+ * ── WHAT THE FINAL DESIGN PASS REMOVED, AND WHY ──
  *
- *  · A SIX-METRIC HERO STRIP. Every one of the six — assemblies on record, assembly seats, Lok Sabha
- *    seats, governing parties, elections held, terms expiring — was printed a second time on the same
- *    screen, in the dateline above it or in a section below it. The dateline keeps the counts; the tiles
- *    were the second copy.
- *  · "WHO GOVERNS", a 36-row table of state, year, leading party and seats. The map's companion table is
- *    36 rows of state, year, leading party and seats, with the same links. It was the same table twice,
- *    once with a bar.
- *  · CLOSE FIGHTS. Watch's knife-edge rule is the same fact at the same threshold — seats decided by under
- *    1% of votes polled — and it reaches them through a rule the reader can argue with.
- *  · HISTORICAL ELECTIONS, a 36×5 grid of 180 cells whose every cell was a link to a state page. That is a
- *    table of contents for the level below, which is what the map already is. A state's own elections are
- *    on that state's page.
- *  · DATA COVERAGE, for one election at a time, driven by a `<select>` in the chrome. `/coverage` is a page
- *    whose entire subject is that question, and the panel moved to it — with its deep link, so
- *    `/coverage?election=ls-2024` still resolves.
+ * The page was correct and it read like an audit log. Rendered, it carried ELEVEN "Measured" and NINE
+ * "Derived" — twenty provenance words before a reader met an election — plus eight coverage chips, six cells
+ * of registry row counts, and the wall-clock time a query ran. Every one of those is useful to someone
+ * validating the pipeline and to nobody deciding how to read an election. What went:
+ *
+ *  · THE DATELINE STRIP. "36 of 36 states & UTs · assembly seats 4,117 of 4,123 · Lok Sabha 543 of 543 ·
+ *    1,202 elections since 1961 · computed 14:11 UTC · what is and is not loaded". Four row counts, one
+ *    clock, one link. The single useful figure is a clause of the hero's own sentence now.
+ *  · EVERY `basis` CHIP. `Panel` no longer takes one. "A database query produced this measurement" is a fact
+ *    about the software that a reader assumes.
+ *  · THE `BASIS` COLUMN UNDER NEXT — eight identical DERIVED badges in the loudest colour on the page, and a
+ *    three-sentence caveat above them explaining five-year-term arithmetic. The row says `Expected 2026`,
+ *    which is the thing a reader needs told, and the arithmetic is behind the panel's ⓘ.
+ *  · THE COVERAGE COLUMN UNDER JUST DECIDED. Dataset status beside eight election results. A result that is
+ *    genuinely short now carries four quiet words; the ledger is `/coverage`.
+ *  · 726 DISTRICT HAIRLINES over the national map. See IndiaMap.tsx.
+ *
+ * ── WHAT IT GAINED, AND WHY THAT IS NOT A CONTRADICTION ──
+ *
+ * CLOSEST CONTESTS: five seats decided by almost nothing, each row a link to that constituency. It is the
+ * most navigable thing this registry holds and the page had no route into a seat at all. It is paid for out of
+ * What to watch, which went from nine rows to four — so the section count is unchanged and the element count
+ * is down. `closeFights()` already existed and was already imported here, unused.
  *
  * WHAT THE PAGE MAY NOT DO, stated here because it is easier to violate in JSX than anywhere else: print a
- * figure no source published, print a derived date as an announced one, or shade a jurisdiction in a colour
- * that stands for nothing. `Value` cannot render a null as a blank, `BasisChip` marks the derived rows, and
- * an unlit polygon wears an ink that deliberately fails the contrast floor a mark has to clear.
+ * figure no source published, print an inferred date as an announced one, or shade a jurisdiction in a colour
+ * that stands for nothing. `Value` cannot render a null as a blank, an inferred year is prefixed with the word
+ * for what it is, and an unlit polygon wears an ink that deliberately fails the contrast floor a mark has to
+ * clear.
  */
 
 export const runtime = 'nodejs';
@@ -107,49 +112,11 @@ function houseWord(house: string): string {
   return house === 'pc' ? 'Lok Sabha' : house === 'ac' ? 'Assembly' : house;
 }
 
+const IN = new Intl.NumberFormat('en-IN');
+
 /** The registry's name for a jurisdiction id, from the rows the page already holds. */
 function nameOf(v: HomeView, id: string): string {
   return v.states.find((j) => j.id === id)?.name ?? id;
-}
-
-/**
- * The dateline: what is loaded, and when the counting happened.
- *
- * This is the one place the page states its own scope, and it is a line rather than a grid because every
- * cell in it is a count of the same kind. It replaced a six-tile metric strip that said the same six
- * things twice as tall.
- */
-function Dateline({ v, at }: { v: HomeView; at: string }) {
-  const s = v.snapshot;
-  return (
-    <div className="iei-record">
-      <span>
-        <b>{s.jurisdictionsWithResults}</b> of {s.jurisdictionsTotal} states &amp; UTs
-      </span>
-      <span>
-        assembly seats{' '}
-        <b>
-          <Value value={s.assemblySeatsHeld} of={s.assemblySeatsTotal} absent="none held" />
-        </b>
-      </span>
-      <span>
-        Lok Sabha{' '}
-        <b>
-          <Value value={s.lokSabhaSeatsHeld} of={s.lokSabhaSeatsTotal} absent="none held" />
-        </b>
-      </span>
-      <span>
-        <b>
-          <Value value={s.elections} absent="no" />
-        </b>{' '}
-        elections{s.earliestYear === null ? '' : ` since ${s.earliestYear}`}
-      </span>
-      <span>computed {at}</span>
-      <span>
-        <Link href="/coverage">what is and is not loaded</Link>
-      </span>
-    </div>
-  );
 }
 
 export default function Home({
@@ -192,7 +159,6 @@ export default function Home({
     );
   }
 
-  const at = new Date().toISOString().slice(11, 16) + ' UTC';
   const next = [...v.announced, ...v.upcoming];
   // VALIDATED BY MEMBERSHIP, never parsed: `?party=` has to name a party the CURRENT layer actually shows, so
   // a hand-edited value cannot isolate nothing, cannot reach the SQL, and cannot survive a layer switch that
@@ -204,13 +170,28 @@ export default function Home({
   const many = v.layer.legend.filter((l) => l.key === null || l.key === party || !/^1 state$/.test(l.note ?? ''));
   const shown = many.length > 0 ? many : v.layer.legend.slice(0, 8);
   const rest = v.layer.legend.filter((l) => !shown.includes(l));
-  return (
-    <Shell here="india" live={v.snapshot.live}>
-      <Dateline v={v} at={at} />
+  const s = v.snapshot;
+  // The party leading each jurisdiction, for the standings list beside the map.
+  const standingOf = (id: string): HomeView['standings'][number] | undefined =>
+    v.standings.find((x) => x.jurisdictionId === id);
 
+  return (
+    <Shell here="india" live={s.live}>
+      {/* ── the hero: a short title, and the country in one sentence under it ──
+          It used to be a 20-word computed claim at display size with a methodology clause inside it
+          ("— derived, not announced"). The claim is the sub-line now, where a sentence belongs, and the map
+          below is what the reader's eye lands on — which is the intent: the map is the hero. */}
       <div className="iei-head">
-        <p className="iei-eyebrow">India · current electoral landscape</p>
-        <h1 className="iei-answer">{v.headline}</h1>
+        <p className="iei-eyebrow">India</p>
+        <h1 className="iei-answer">The electoral landscape</h1>
+        <p className="iei-sub">
+          {v.headline}{' '}
+          {s.elections === 0 || s.earliestYear === null ? null : (
+            <>
+              {IN.format(s.elections)} elections on record since {s.earliestYear}.
+            </>
+          )}
+        </p>
       </div>
 
       {/* ── the map: the product's primary analytical instrument, and its primary navigation ── */}
@@ -218,7 +199,6 @@ export default function Home({
         id="map"
         title={`India · ${v.layer.label}`}
         question={v.layer.question}
-        basis={v.layer.key === 'year' ? 'reference' : 'measured'}
         /* The geometry's provenance, in the same drawer as everything else. It used to be spelled out in the
            map's caption on every request. */
         sources={[GEOMETRY_SOURCE]}
@@ -303,8 +283,13 @@ export default function Home({
               </p>
             )}
 
-            {/* THIS IS "WHO GOVERNS". There is no second table of it below: the panel that used to hold
-                one printed the same 36 rows, the same four columns and the same links, with a bar. */}
+            {/* WHO GOVERNS WHERE — the map's companion, and a genuine comparison across 36 rows, which is what
+                a table is for. FOUR COLUMNS, down from five: the seat count and its denominator are one fact
+                in two cells so the figures align on their own edge.
+
+                It was also INVISIBLE until this pass, at every desktop width, and that was a layout defect
+                rather than a design choice — the map column's intrinsic width came from a `vh` figure, so in a
+                tall window it took the whole row and this column collapsed to about 50px. See iei.css. */}
             <Table
               label="Every jurisdiction in this layer"
               caption={v.layer.question}
@@ -313,10 +298,7 @@ export default function Home({
               head={
                 <>
                   <th scope="col">State / UT</th>
-                  <th scope="col" className="iei-n">
-                    Year
-                  </th>
-                  <th scope="col">{v.layer.encoding === 'categorical' ? 'Leading party' : 'Value'}</th>
+                  <th scope="col">{v.layer.encoding === 'categorical' ? 'Leads' : 'Value'}</th>
                   <th scope="col" className="iei-n">
                     Seats
                   </th>
@@ -325,11 +307,17 @@ export default function Home({
                   <th scope="col" className="iei-den">
                     <span className="iei-sr">of seats contested</span>
                   </th>
+                  {/* THE YEAR STAYS, and it is the one column of the original five that could not go. These
+                      elections span 2014–2026, so "INC 135 of 224" without a date is a claim a reader cannot
+                      place — and the section's whole question is who governs NOW. */}
+                  <th scope="col" className="iei-n">
+                    Elected
+                  </th>
                 </>
               }
             >
               {v.layer.cells.map((c) => {
-                const s = v.standings.find((x) => x.jurisdictionId === c.jurisdictionId);
+                const st = standingOf(c.jurisdictionId);
                 // The table mutes with the map. A highlight that dimmed the polygons and left the rows at full
                 // strength would be two answers to one question on one screen.
                 const muted = party !== null && c.partyKey !== party;
@@ -338,21 +326,21 @@ export default function Home({
                     <th scope="row">
                       <Link href={c.href}>{c.jurisdictionName}</Link>
                     </th>
-                    <td className="iei-n">{c.year ?? <span className="iei-absent">—</span>}</td>
                     <td>
                       {c.label === null ? (
                         <span className="iei-absent">{c.detail[1] ?? 'not loaded'}</span>
                       ) : (
-                        <>
+                        <span className="iei-mark">
                           <span className="iei-sw" style={{ background: c.fill }} aria-hidden="true" />
                           <span className="iei-chip">{c.label}</span>
-                        </>
+                        </span>
                       )}
                     </td>
                     <td className="iei-n">
-                      {s === undefined ? <span className="iei-absent">—</span> : s.leaderSeats}
+                      {st === undefined ? <span className="iei-absent">—</span> : st.leaderSeats}
                     </td>
-                    <td className="iei-den">{s === undefined ? null : `of ${s.seatsContested}`}</td>
+                    <td className="iei-den">{st === undefined ? null : `of ${st.seatsContested}`}</td>
+                    <td className="iei-n">{c.year ?? <span className="iei-absent">—</span>}</td>
                   </tr>
                 );
               })}
@@ -364,15 +352,17 @@ export default function Home({
       {/* ── what is coming, and what has just been decided ── */}
       <div className="iei-two iei-two-wide" id="elections">
         <Panel
-          title="Next"
+          title="Upcoming"
           question="Which assemblies face the electorate next?"
-          basis={v.announced.length > 0 ? 'measured' : 'derived'}
+          /* ONE SENTENCE, WHERE THERE WERE THREE. `announced_on` is null for all 1,202 rows, so every date on
+             this list is arithmetic rather than a schedule, and a reader is entitled to know that once. What
+             went is the rest of the old caveat — a paragraph on how the arithmetic works and a promise about
+             what happens when the Commission's schedule is ingested — plus a whole column of DERIVED badges.
+             The uncertainty is not hidden; it is stated at the size a caveat should be. */
           note={
             v.announced.length > 0 ? undefined : (
               <>
-                <b>No date on this list was announced by anyone.</b> Every row is a five-year term counted
-                from the last election — arithmetic on a past date, not a statement about a future one.
-                Announced dates replace them the moment the Commission&rsquo;s schedule is ingested.
+                No date here was announced by anyone: each is a five-year term counted from the last election.
               </>
             )
           }
@@ -380,104 +370,95 @@ export default function Home({
           {next.length === 0 ? (
             <p className="iei-absent">No jurisdiction has an assembly election on record to count from.</p>
           ) : (
-            <Table
-              label="Assemblies facing the electorate next"
-              caption="The next assembly election in each jurisdiction, announced where a date exists and derived otherwise"
-              head={
-                <>
-                  <th scope="col">State / UT</th>
-                  {/* NO "HOUSE" COLUMN. `upcoming()` counts assembly terms, so every one of its eight rows
-                      said "Assembly" — a column of one repeated word, which is eight cells of noise and a
-                      header that looks like a filter. The section's question says it once instead. */}
-                  <th scope="col" className="iei-n">
-                    Due
-                  </th>
-                  <th scope="col">Basis</th>
-                </>
-              }
-            >
-              {next.map((r) => (
-                <tr key={`${r.jurisdictionId}-${r.year}`}>
-                  <th scope="row">
-                    <Link href={`/pl/${r.jurisdictionId}`}>{r.jurisdictionName}</Link>
-                  </th>
-                  <td className="iei-n">{r.announcedOn ?? r.year}</td>
-                  <td>
-                    {/* The basis travels with the row, not with the section: an announced date and a
-                        derived one must never look alike, even side by side in one table. */}
-                    <BasisChip basis={r.announcedOn === null ? 'derived' : 'measured'} />
-                  </td>
-                </tr>
-              ))}
-            </Table>
-          )}
-          {v.overdue.length === 0 ? null : (
-            <p className="iei-note">
-              {v.overdue.length} more term{v.overdue.length === 1 ? '' : 's'} ended before {THIS_YEAR} on the
-              same count. That is a statement about where our data stops, not about an election that is
-              coming, which is why it is not above. <Link href="/coverage">Coverage</Link>
-            </p>
+            <DataList label="Assemblies facing the electorate next">
+              {next.map((r) => {
+                const st = standingOf(r.jurisdictionId);
+                return (
+                  <DataRow
+                    key={`${r.jurisdictionId}-${r.year}`}
+                    title={r.jurisdictionName}
+                    href={`/pl/${r.jurisdictionId}`}
+                    /* THE INFERENCE IS IN THE WORD, NOT IN A BADGE. `announced_on` is null for all 1,202 rows,
+                       so every one of these is a five-year term counted from the last election — arithmetic on
+                       a past date. It used to be marked with a DERIVED chip in its own column: eight identical
+                       badges saying one thing eight times. "Expected 2026" says the same thing in the place a
+                       reader is already looking, and the arithmetic is one ⓘ away. An ANNOUNCED date, when the
+                       Commission's schedule is ingested, prints as itself with no qualifier — which is the
+                       distinction that has to survive, and it does. */
+                    aside={<b>{r.announcedOn ?? `Expected ${r.year}`}</b>}
+                    detail={
+                      st === undefined ? (
+                        'no assembly election on record'
+                      ) : (
+                        <>
+                          <span className="iei-mark">
+                            <span
+                              className="iei-sw"
+                              style={{ background: fillFor(st.leaderKey ?? '') }}
+                              aria-hidden="true"
+                            />
+                            {st.leaderLabel ?? 'no winner recorded'}
+                          </span>{' '}
+                          {st.leaderSeats} of {st.seatsContested} · elected {st.year}
+                        </>
+                      )
+                    }
+                  />
+                );
+              })}
+            </DataList>
           )}
         </Panel>
 
-        <Panel title="Just decided" question="What has been decided most recently?" basis="measured">
-          <Table
-            label="Elections most recently held"
-            caption="Elections most recently held, newest first, with how completely each is loaded"
-            head={
-              <>
-                <th scope="col">Election</th>
-                <th scope="col">Won by</th>
-                <th scope="col" className="iei-n">
-                  Turnout
-                </th>
-                <th scope="col">Coverage</th>
-              </>
-            }
-          >
-            {v.held.map((r) => (
-              <tr key={r.id}>
-                <th scope="row">
-                  {/* TWO DESTINATIONS, AND NEITHER IS DEAD. The jurisdiction links to its place page; the
-                      election links to its own record on /coverage. A general election's jurisdiction is
-                      the nation, whose page is this one — so its name is plain text rather than a link to
-                      /pl/in, which is a 404. That link existed until this phase, hidden behind a query
-                      string the navigation test's regex did not match. */}
-                  {r.kind === 'general' ? (
-                    r.jurisdictionName
-                  ) : (
-                    <Link href={`/pl/${r.jurisdictionId}`}>{r.jurisdictionName}</Link>
-                  )}
-                  <span className="iei-rule">
-                    <Link href={`/coverage?election=${r.id}#election`}>
-                      {houseWord(r.house)} {r.year}
-                      {r.kind === 'bypoll' ? ' by-election' : ''}
-                    </Link>
-                  </span>
-                </th>
-                <td>
-                  {r.leaderLabel === null ? (
-                    <span className="iei-absent">no winner recorded</span>
-                  ) : (
+        <Panel title="Recent results" question="What has been decided most recently?">
+          <DataList label="Elections most recently held" tight>
+            {v.held.map((r) => {
+              const top = v.heldTop.get(r.id) ?? [];
+              return (
+                <DataRow
+                  key={r.id}
+                  /* A general election's jurisdiction is the nation, whose page is this one, so its name is
+                     plain text rather than a link to /pl/in — which is a 404, and was one, hidden behind a
+                     query string a navigation test's regex did not match. */
+                  title={
                     <>
-                      <span className="iei-chip">{r.leaderLabel}</span>
+                      {r.jurisdictionName}
                       <span className="iei-rule">
-                        {r.leaderSeats} of {r.seatsContested}
+                        {houseWord(r.house)} {r.year}
+                        {r.kind === 'bypoll' ? ' by-election' : ''}
                       </span>
                     </>
-                  )}
-                </td>
-                <td className="iei-n">
-                  <Value value={r.turnoutPct} unit="%" decimals={1} absent="not reported" />
-                </td>
-                <td>
-                  {/* Counted, not declared, and the count is on /coverage rather than in a paragraph
-                      under this table. */}
-                  <CoverageChip state={v.coverageOf.get(r.id) ?? 'unavailable'} />
-                </td>
-              </tr>
-            ))}
-          </Table>
+                  }
+                  href={r.kind === 'general' ? undefined : `/pl/${r.jurisdictionId}`}
+                  aside={
+                    <b>
+                      <Value value={r.turnoutPct} unit="% turnout" decimals={1} absent="turnout not reported" />
+                    </b>
+                  }
+                  detail={
+                    top.length === 0 ? (
+                      <span className="iei-absent">no winner recorded</span>
+                    ) : (
+                      <>
+                        {top.map((p, i) => (
+                          <span key={p.key} className="iei-mark">
+                            {i === 0 ? null : <span className="iei-of">&nbsp;·&nbsp;</span>}
+                            <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
+                            {p.label} {p.seats}
+                          </span>
+                        ))}
+                        {' '}
+                        <span className="iei-of">of {r.seatsContested}</span>{' '}
+                        {/* ONE QUIET MARKER, ONLY WHERE IT IS TRUE. This column used to be eight coverage
+                            chips — dataset status running down a page of election results. */}
+                        <Incomplete state={v.coverageOf.get(r.id) ?? 'unavailable'} />
+                      </>
+                    )
+                  }
+                />
+              );
+            })}
+          </DataList>
         </Panel>
       </div>
 
@@ -486,123 +467,127 @@ export default function Home({
         id="parties"
         title="Party landscape"
         question="Where does each party actually hold power?"
-        basis="measured"
         note={
           <>
-            Assembly seats are summed across <b>each jurisdiction&rsquo;s most recent election</b>, and those
-            elections span {v.standings.length === 0 ? 'no years' : `${oldest(v)}–${newest(v)}`} — so this is
-            who sits now, not a national vote at one moment.
-            {v.parties.houseCounted
-              ? null
-              : ' The latest Lok Sabha published no candidate vote counts, so every share is absent rather than zero.'}
+            Assembly seats are summed across <b>each jurisdiction&rsquo;s most recent election</b>, spanning{' '}
+            {v.standings.length === 0 ? 'no years' : `${oldest(v)}–${newest(v)}`} — so this is who sits now, not
+            a national vote at one moment. Lok Sabha figures are{' '}
+            {v.parties.houseYear === null ? 'the latest on record' : v.parties.houseYear}.
           </>
         }
       >
-        <Table
-          label="Parties by where they hold power"
-          caption="Parties ranked by the number of assemblies they lead, then by Lok Sabha seats"
-          head={
-            <>
-              <th scope="col">Party</th>
-              <th scope="col" className="iei-n">
-                Assemblies
-              </th>
-              <th scope="col" className="iei-n">
-                Assembly seats
-              </th>
-              <th scope="col" className="iei-n">
-                {v.parties.houseYear === null ? 'Lok Sabha' : `Lok Sabha ${v.parties.houseYear}`}
-              </th>
-              <th scope="col" className="iei-n">
-                {v.parties.previousHouseYear === null ? 'Change' : `vs ${v.parties.previousHouseYear}`}
-              </th>
-              <th scope="col" className="iei-n">
-                Share
-              </th>
-              <th scope="col" className="iei-drop">
-                <span className="iei-sr">Lok Sabha seats over the last five general elections</span>
-                Trend
-              </th>
-            </>
-          }
-        >
-          {/* An id per row, so a party hit in search lands on the party rather than on the section. The
-              anchor is built by the same function the search hits use, because two spellings of one
-              fragment is a link that silently goes nowhere. */}
-          {v.parties.rows.map((p) => (
-            <tr key={p.key} id={partyAnchor(p.key)}>
-              <th scope="row">
+        {/* A RANKED LIST, NOT A SEVEN-COLUMN TABLE. Party · assemblies · assembly seats · Lok Sabha · change ·
+            share · trend was a spreadsheet, and six of the seven columns were secondary to the one question
+            the section asks. The rank and the seat total lead; everything else is the row's second line, where
+            it is still readable and no longer competing. Nothing was dropped. */}
+        <DataList label="Parties by where they hold power" tight>
+          {v.parties.rows.map((p, i) => (
+            <DataRow
+              key={p.key}
+              id={partyAnchor(p.key)}
+              title={
                 <span className="iei-mark">
+                  <span className="iei-rank">{i + 1}</span>
                   <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
                   <span className="iei-chip">{p.label}</span>
                 </span>
-              </th>
-              {/* THE COUNT ONLY. It used to carry "5 with a majority" as an inline suffix, which put two
-                  numbers in one right-aligned tabular cell — "11 5 with a majority" — and made the column
-                  ragged in a table whose whole point is that figures line up. Whether a party's seats are an
-                  outright majority is visible in the map's companion table, where the seat count is printed
-                  against the seats contested. */}
-              <td className="iei-n">
-                {p.governs === 0 ? <span className="iei-absent">none</span> : p.governs}
-              </td>
-              <td className="iei-n">{p.assemblySeats}</td>
-              <td className="iei-n">
-                {p.houseSeats === 0 ? <span className="iei-absent">none</span> : p.houseSeats}
-              </td>
-              <td className="iei-n">
-                <Change value={p.houseSeatsChange} absent="did not contest" />
-              </td>
-              <td className="iei-n">
-                <Value value={p.houseSharePct} unit="%" decimals={1} absent="not reported" />
-              </td>
-              <td className="iei-drop">
-                <Sparkline
-                  points={p.spark}
-                  fill={fillFor(p.key)}
-                  label={`${p.label} Lok Sabha seats: ${p.spark.map((s) => `${s.year} ${s.seats}`).join(', ')}`}
-                />
-              </td>
-            </tr>
-          ))}
-        </Table>
-      </Panel>
-
-      {/* ── the signals, each found a different way ── */}
-      <Panel
-        id="watch"
-        title="What to watch"
-        question="Which measurable signals stand out?"
-        note={
-          <>
-            <b>Nothing here is a prediction.</b> Each row is a count or a difference over rows the registry
-            holds, and carries the rule and the threshold that produced it — so the threshold is what you
-            argue with rather than an oracle. No model, no forecast, no probability.
-          </>
-        }
-      >
-        <DataList label="Measurable signals">
-          {v.signals.map((s) => (
-            <DataRow
-              key={`${s.rule}-${s.subject}`}
-              title={s.subject}
-              href={s.href}
-              aside={<BasisChip basis={s.basis === 'derived' ? 'derived' : 'measured'} />}
-              detail={s.detail}
-              rule={`${s.rule} · ${s.threshold}`}
+              }
+              aside={
+                <>
+                  <b>{IN.format(p.assemblySeats)}</b>
+                  <Sparkline
+                    points={p.spark}
+                    fill={fillFor(p.key)}
+                    label={`${p.label} Lok Sabha seats: ${p.spark.map((x) => `${x.year} ${x.seats}`).join(', ')}`}
+                  />
+                </>
+              }
+              detail={
+                <>
+                  {p.governs === 0 ? 'no assembly' : `${p.governs} ${p.governs === 1 ? 'assembly' : 'assemblies'}`}
+                  {' · '}
+                  {p.houseSeats === 0 ? (
+                    <span className="iei-absent">no Lok Sabha seat</span>
+                  ) : (
+                    <>
+                      {p.houseSeats} Lok Sabha
+                      {p.houseSeatsChange === null ? '' : ` (${p.houseSeatsChange > 0 ? '+' : ''}${p.houseSeatsChange})`}
+                    </>
+                  )}
+                  {p.houseSharePct === null ? null : (
+                    <>
+                      {' · '}
+                      <Value value={p.houseSharePct} unit="% of the vote" decimals={1} absent="" />
+                    </>
+                  )}
+                </>
+              }
             />
           ))}
         </DataList>
       </Panel>
 
-      <footer className="iei-foot">
-        <p>
-          {/* "Nothing is modelled, predicted or filled in" used to be here as well. The Watch section says
-              it one screen up, in the place where it is load-bearing. */}
-          India Election Intelligence is a registry of Indian elections in which every figure carries its
-          source, its derivation and its uncertainty. What is loaded, what is not, and where the gaps are:{' '}
-          <Link href="/coverage">/coverage</Link>.
-        </p>
-      </footer>
+      {/* ── the two signal modules, and neither is a table ── */}
+      <div className="iei-two">
+        <Panel
+          id="fights"
+          title="Closest contests"
+          question="Which seats were decided by almost nothing?"
+        >
+          {v.fights.length === 0 ? (
+            <p className="iei-absent">No election on record publishes a margin.</p>
+          ) : (
+            <DataList label="The tightest results in the country" tight>
+              {v.fights.map((f) => (
+                <DataRow
+                  key={`${f.electionId}-${f.placeId}`}
+                  title={f.placeName}
+                  href={f.href}
+                  aside={
+                    <b>
+                      {f.marginVotes === null ? 'margin not reported' : `${IN.format(Math.abs(f.marginVotes))} votes`}
+                    </b>
+                  }
+                  detail={
+                    <>
+                      <span className="iei-mark">
+                        <span className="iei-sw" style={{ background: fillFor(f.winner) }} aria-hidden="true" />
+                        {f.winner}
+                      </span>{' '}
+                      {f.runnerUp === null ? 'won' : `over ${f.runnerUp}`} · {f.marginPct}% of votes polled ·{' '}
+                      {nameOf(v, f.jurisdictionId)} {f.year}
+                    </>
+                  }
+                />
+              ))}
+            </DataList>
+          )}
+        </Panel>
+
+        <Panel
+          id="watch"
+          title="Notable shifts"
+          question="Which measurable movements stand out?"
+          note={<><b>Nothing here is a prediction.</b> No model, no forecast, no probability.</>}
+        >
+          {/* FOUR ROWS, DOWN FROM NINE, and no `rule · threshold` line under each one. The threshold is still
+              what a reader argues with rather than an oracle — it is in the row's ⓘ-equivalent, the title
+              attribute, and in repo/home.ts where the rule is named and exported. Nine rows each carrying its
+              own methodology footnote made the footnotes the loudest thing in the section. */}
+          <DataList label="Measurable signals" tight>
+            {v.signals.map((sig) => (
+              <DataRow
+                key={`${sig.rule}-${sig.subject}`}
+                title={sig.subject}
+                href={sig.href}
+                detail={<span title={`${sig.rule} · ${sig.threshold}`}>{sig.detail}</span>}
+              />
+            ))}
+          </DataList>
+        </Panel>
+      </div>
+
+      <Foot />
     </Shell>
   );
 }

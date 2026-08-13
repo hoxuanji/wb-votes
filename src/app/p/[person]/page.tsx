@@ -13,7 +13,7 @@ import {
   tiles,
   won,
 } from "../../../../packages/mandate/src/repo/brief.ts";
-import { Shell } from "../../../components/iei/Shell.tsx";
+import { Foot, Shell } from "../../../components/iei/Shell.tsx";
 import {
   Crumbs,
   EmptyState,
@@ -97,7 +97,6 @@ export default async function PersonBriefPage({ params }: { params: { person: st
       <Panel
         title="What the numbers say"
         question="Declared figures and the record behind them"
-        basis="measured"
         sources={brief.sources}
       >
         <Metrics>
@@ -108,14 +107,13 @@ export default async function PersonBriefPage({ params }: { params: { person: st
               text={t.value}
               unit={t.unit ?? undefined}
               hint={t.note}
-              sources={t.source === null ? undefined : [t.source]}
             />
           ))}
         </Metrics>
       </Panel>
 
       {brief.candidacies.length === 0 ? null : (
-        <Panel title="Career" question="Every contest on record, newest first" basis="measured">
+        <Panel title="Career" question="Every contest on record, newest first">
           <Table
             label="Career"
             caption={`${inr(brief.candidacies.length)} contest${brief.candidacies.length === 1 ? "" : "s"} on record. The seat links to its brief.`}
@@ -179,7 +177,6 @@ export default async function PersonBriefPage({ params }: { params: { person: st
       <Panel
         title="Affidavit trail"
         question="What was declared to the returning officer, and when"
-        basis="measured"
         note={
           rows.length === 0
             ? undefined
@@ -241,7 +238,6 @@ export default async function PersonBriefPage({ params }: { params: { person: st
         <Panel
           title="How this record was assembled"
           question="Which rows were merged into this person, and on whose decision?"
-          basis="measured"
         >
           <Table
             label="Merge provenance"
@@ -275,14 +271,7 @@ export default async function PersonBriefPage({ params }: { params: { person: st
         </Panel>
       )}
 
-      <footer className="iei-foot">
-        {/* ONE EVIDENCE AFFORDANCE PER FACT, and the panels above own them. This used to repeat the whole
-            source list here as well, plus a paragraph explaining the ⓘ — a mechanism described in prose on
-            every page is the scattering this consolidation removes, and the drawer teaches itself. */}
-        <p>
-          What this registry holds and does not: <Link href="/coverage">/coverage</Link>.
-        </p>
-      </footer>
+      <Foot />
     </Shell>
   );
 }

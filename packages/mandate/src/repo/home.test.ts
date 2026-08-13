@@ -590,7 +590,10 @@ test("homeView renders for every layer, and falls back rather than throwing on a
       Object.keys(homeView(d, { thisYear: THIS_YEAR })).sort(),
       // No `ink`. A party's colour is a pure function of its key now (viz/party-ink.ts), so there is nothing
       // to thread through a view model — which is the shape of the fix as well as its consequence.
-      ["announced", "coverageOf", "headline", "held", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
+      // `fights` and `heldTop` arrived with the final design pass: the front page reaches a SEAT now (five
+      // closest contests, each a link to a constituency) and a recent-result card names a runner-up, because
+      // "BJP 240" alone does not tell a reader what the election was.
+      ["announced", "coverageOf", "fights", "headline", "held", "heldTop", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
       "homeView returns something the page does not render, or has stopped returning something it does",
     );
   } finally {
@@ -668,8 +671,15 @@ test("the headline counts assemblies, not jurisdictions with any result", live, 
         "the headline uses the wrong denominator",
       );
     }
-    // And the sentence must name the derived half as derived.
-    if (v.snapshot.dueSoon > 0) assert.match(v.headline, /derived, not announced/);
+    // AND THE SENTENCE MUST STILL SAY THE DUE DATES ARE ARITHMETIC, without the words "derived, not
+    // announced" — which the final design pass removed as a methodology clause inside the largest type on the
+    // page. "on a five-year count" carries it: a five-year count from a past election is not a schedule.
+    // Where a reader ACTS on one of these dates, in the Upcoming module, the year is prefixed with `Expected`
+    // and the panel states the basis in one sentence. That is asserted in render.test.ts.
+    if (v.snapshot.dueSoon > 0) {
+      assert.match(v.headline, /on a five-year count/, "the headline stops saying the due dates are counted");
+      assert.doesNotMatch(v.headline, /derived/, "a provenance class label is back in the hero");
+    }
   } finally {
     d.close();
   }

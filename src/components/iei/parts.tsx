@@ -5,7 +5,7 @@ import { ABSENT } from '../../../packages/mandate/src/semantic/measures.ts';
 /**
  * The product's vocabulary. Every surface is built out of these and nothing else.
  *
- * Before this phase there were four sets of them: `/` had Panel/Metric/Value/Bar, `/pl` and `/p` had
+ * Before Phase 2.5 there were four sets of them: `/` had Panel/Metric/Value/Bar, `/pl` and `/p` had
  * `.tile`/`.cite`/`.na`/`Confidence`/`Sources`, `/coverage` and `/search` had a third, and the deleted
  * dashboard had Tailwind. Four vocabularies for the same eight ideas is why a component written for one
  * page could not be mounted on the next, and why the product read as assembled widgets.
@@ -16,29 +16,44 @@ import { ABSENT } from '../../../packages/mandate/src/semantic/measures.ts';
  *    REASON rather than a dash — because a dash beside other numbers reads as zero, and "the source
  *    published no count" and "the count is zero" are opposite facts. There is no way to pass it a null and
  *    get a blank.
- *  · `BasisChip` is how a derived figure is marked as derived, in a word, wherever it appears.
  *  · `Evidence` is the drawer, and it is the ONLY place a url, a hash, a retrieval date or a methodology
  *    note may be rendered. The surface shows the figure; the drawer shows where it came from.
+ *  · `BasisChip` marks an INFERENCE as an inference — and that is now the whole of its job. See below.
+ *
+ * ── WHAT THE FINAL DESIGN PASS TOOK OUT OF THIS FILE ──
+ *
+ * `Panel` had a `basis` prop, and every panel in the product passed it. So the rendered front page carried
+ * eleven "Measured" and nine "Derived" — twenty provenance words before a reader had learned one thing about
+ * an election. "A database query produced this measurement" is a fact about the software; a reader assumes it,
+ * and printing it beside every heading turns a product into an audit log. It is gone, and `basis` with it.
+ *
+ * `Metric` had a `sources` prop and rendered its own inline ⓘ. All six tiles on a seat page carry a source, so
+ * six drawers were rendered over the same handful of sources, plus one for the panel: SEVEN affordances for one
+ * question. Evidence is offered ONCE PER MODULE now — the same provenance, at the same depth, offered once.
  */
 
 const IN = new Intl.NumberFormat('en-IN');
 
-/** How a figure came to be. The four words this product is designed around, as a type. */
+/** How a figure came to be. Retained as a type because the repo layer speaks it; see `BasisChip`. */
 export type Basis = 'measured' | 'derived' | 'reference' | 'absent';
 
 const BASIS_WORD: Record<Basis, string> = {
   measured: 'Measured',
-  derived: 'Derived',
+  derived: 'Inferred',
   reference: 'Reference',
   absent: 'Not held',
 };
 
-/** A section. `question` is what the section answers; `basis` says how, and links to the evidence. */
+/**
+ * A section. `question` is what the section answers; `sources` offers the module's one evidence drawer.
+ *
+ * NO `basis`. It took one, every caller passed one, and the result was a provenance class label beside every
+ * heading on every page. What a section owes a reader is what it answers, not how the answer was typed.
+ */
 export function Panel({
   id,
   title,
   question,
-  basis,
   sources,
   note,
   children,
@@ -46,7 +61,6 @@ export function Panel({
   id?: string;
   title: string;
   question?: string;
-  basis?: Basis;
   sources?: readonly SourceRef[];
   /** A caveat the reader needs before the numbers, not after them. Keep it to one sentence: the long
    *  methodology paragraphs that used to live here belong in the evidence drawer. */
@@ -61,8 +75,7 @@ export function Panel({
           {question === undefined ? null : <p>{question}</p>}
         </div>
         <div className="iei-h-meta">
-          {basis === undefined ? null : <BasisChip basis={basis} />}
-          {sources === undefined || sources.length === 0 ? null : <Evidence sources={sources} />}
+          {sources === undefined || sources.length === 0 ? null : <Evidence sources={sources} label={title} />}
         </div>
       </div>
       {note === undefined ? null : <p className="iei-caveat">{note}</p>}
@@ -72,13 +85,20 @@ export function Panel({
 }
 
 /**
- * The three-state provenance marker, and the product's signature.
+ * The marker that says a statement is an INFERENCE rather than something a source published.
+ *
+ * IT HAS ONE JOB LEFT, and narrowing it to that job is the point. It used to sit in every panel header and on
+ * every row of the upcoming-elections table — eight identical "DERIVED" badges in one column, in the loudest
+ * colour on the page, saying one thing eight times. A reader learned nothing from the eighth.
+ *
+ * Where it survives, the distinction MATERIALLY CHANGES THE MEANING: a flagged observation on a seat page is
+ * this codebase's own reading of the record, not a fact anybody published, and a reader deciding whether to
+ * quote it needs to know which. Everywhere else the inference is now carried by the WORDS — an upcoming
+ * election says "Expected 2026", which is what a reader actually needs to be told, with the arithmetic behind
+ * an ⓘ.
  *
  * It is a WORD with a rule under it, not a coloured dot: status must survive greyscale, a forced-colors
- * palette and a screen reader, and "derived" is the single most important thing this product says about a
- * number. A derived figure is marked everywhere it appears — the five-year term arithmetic under Upcoming
- * is the one that matters, because a term expiry printed like an announced date is the exact fabrication
- * the rest of this codebase refuses.
+ * palette and a screen reader.
  */
 export function BasisChip({ basis }: { basis: Basis }) {
   return (
@@ -157,6 +177,10 @@ export function Value({
  * published no margin. Recognising the token beats guessing: the first attempt at this asked whether the
  * string contained a digit, and rendered "once" (a real count of how often a seat has changed hands) in the
  * muted tier reserved for figures that do not exist.
+ *
+ * NO `sources`, AND NO INLINE ⓘ. It had both, and six tiles beside each other produced six drawers over the
+ * same three sources — thirty on a seat page once the panels were counted. The module's one drawer covers the
+ * module's figures; a repeated source indicator is the thing that made this product look defensive.
  */
 export function Metric({
   label,
@@ -167,7 +191,6 @@ export function Metric({
   absent = 'not held',
   hint,
   decimals = 0,
-  sources,
 }: {
   label: string;
   value?: number | null;
@@ -178,8 +201,6 @@ export function Metric({
   absent?: string;
   hint?: React.ReactNode;
   decimals?: number;
-  /** Where this one figure came from. Renders the inline ⓘ, never the provenance itself. */
-  sources?: readonly SourceRef[];
 }) {
   return (
     <div className="iei-metric">
@@ -195,7 +216,6 @@ export function Metric({
             {unit === undefined ? null : <span className="iei-of"> {unit}</span>}
           </>
         )}
-        {sources === undefined || sources.length === 0 ? null : <Evidence sources={sources} inline />}
         {hint === undefined ? null : <small>{hint}</small>}
       </dd>
     </div>
@@ -218,25 +238,14 @@ export function Metrics({ children }: { children: React.ReactNode }) {
   return <dl className="iei-metrics">{children}</dl>;
 }
 
-/**
- * An in-cell magnitude bar.
+/*
+ * `Bar` IS GONE, and this note is where it was.
  *
- * `aria-hidden` by default, and that is the accessible choice rather than a lapse: every bar on this page
- * sits in the cell beside the number it encodes, so announcing it repeats the figure a screen reader has
- * just read. Pass `label` only where a bar is the ONLY encoding of its value.
+ * An in-cell magnitude bar, `aria-hidden` beside the number it encoded. Its last caller was the front page's
+ * "Who governs" table, deleted in Phase 2.5 because it printed the same 36 rows as the map's companion; the
+ * component outlived it unused, and this pass renders every magnitude as a figure or a sparkline. A primitive
+ * nothing mounts is a primitive that drifts out of step with the system it claims to belong to.
  */
-export function Bar({ pct, fill, label }: { pct: number; fill: string; label?: string }) {
-  return (
-    <span
-      className="iei-track"
-      role={label === undefined ? undefined : 'img'}
-      aria-label={label}
-      aria-hidden={label === undefined ? true : undefined}
-    >
-      <span className="iei-bar" style={{ width: `${Math.max(1.5, Math.min(100, pct))}%`, background: fill }} />
-    </span>
-  );
-}
 
 /**
  * A table, and the only way one is rendered.
@@ -361,6 +370,26 @@ export function CoverageChip({
   );
 }
 
+/**
+ * "Some of this result is not loaded" — the one incompleteness marker a primary surface may carry.
+ *
+ * THIS IS THE DIFFERENCE THE BRIEF INSISTS ON, as a component. A result being uncertain and the database
+ * being incomplete are different facts, and only the first belongs beside a result. `CoverageChip` printed
+ * COMPLETE or PARTIAL against all eight recent elections, which is a column of dataset status running down a
+ * page of election results — the reader is told eight times how our import went and once who won.
+ *
+ * So: nothing at all where an election is fully loaded, and four quiet words where it genuinely is not. The
+ * full ledger is `/coverage`, which is what that page is for.
+ */
+export function Incomplete({ state }: { state: 'complete' | 'partial' | 'unavailable' }) {
+  if (state === 'complete') return null;
+  return (
+    <span className="iei-absent" title="Some constituencies of this election are not loaded. /coverage counts which.">
+      {state === 'unavailable' ? 'result unavailable' : 'partly loaded'}
+    </span>
+  );
+}
+
 /** A signed change, with the sign leading because the sign is the story. */
 export function Change({ value, unit = '', absent = 'n/a' }: { value: number | null; unit?: string; absent?: string }) {
   if (value === null) return <span className="iei-absent">{absent}</span>;
@@ -414,38 +443,56 @@ export function Tabs({ label, choices, current }: { label: string; choices: read
 /**
  * A list of titled rows, each with its detail underneath.
  *
- * The watch signals, the coverage verticals and a group of search results are the same shape and had three
- * implementations. A row's title is a link wherever the row is about something with a page, which is
- * nearly always: an informational island with no next action is the thing Phase J exists to remove.
+ * THE PRODUCT'S WORKHORSE, and after the final design pass it is doing four jobs on the front page alone —
+ * upcoming elections, recent results, the party ranking, closest contests, notable shifts — where there used to
+ * be four different table idioms. That is the "lists are visually uniform" requirement as a property of the
+ * code: one row height, one padding, one hover, one alignment, one link treatment, because there is one
+ * component.
+ *
+ * A row's title is a link wherever the row is about something with a page, which is nearly always: an
+ * informational island with no next action is what a navigation surface exists not to be.
+ *
+ * `tight` is the dense variant, for a feed of many short rows.
  */
-export function DataList({ label, children }: { label?: string; children: React.ReactNode }) {
+export function DataList({
+  label,
+  tight = false,
+  children,
+}: {
+  label?: string;
+  tight?: boolean;
+  children: React.ReactNode;
+}) {
   return (
-    <ul className="iei-list" aria-label={label}>
+    <ul className={tight ? 'iei-list iei-list-tight' : 'iei-list'} aria-label={label}>
       {children}
     </ul>
   );
 }
 
 export function DataRow({
+  id,
   title,
   href,
   aside,
   detail,
   rule,
 }: {
+  /** An anchor on the row, so a search hit can land on the thing rather than on the section. */
+  id?: string;
   title: React.ReactNode;
   href?: string;
-  /** The right-hand end of the title line — a basis chip, a coverage chip, a count. */
+  /** The right-hand end of the title line — a figure, a year, a count, a sparkline. */
   aside?: React.ReactNode;
   detail?: React.ReactNode;
   /** The rule and threshold that produced the row, or the source note. Monospace, smallest tier. */
   rule?: React.ReactNode;
 }) {
   return (
-    <li>
+    <li id={id}>
       <div className="iei-row-h">
         {href === undefined ? <span className="iei-row-t">{title}</span> : <Link href={href}>{title}</Link>}
-        {aside}
+        {aside === undefined ? null : <span className="iei-row-a">{aside}</span>}
       </div>
       {detail === undefined ? null : <p className="iei-row-d">{detail}</p>}
       {rule === undefined ? null : <p className="iei-rule">{rule}</p>}

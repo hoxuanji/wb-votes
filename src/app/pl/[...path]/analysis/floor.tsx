@@ -1,7 +1,7 @@
 import { inr } from "../../../../../packages/mandate/src/repo/brief.ts";
 import type { Card, PlaceView } from "../../../../../packages/mandate/src/repo/place-page.ts";
 import { analysisCards } from "../../../../../packages/mandate/src/repo/place-page.ts";
-import { Shell } from "../../../../components/iei/Shell.tsx";
+import { Foot, Shell } from "../../../../components/iei/Shell.tsx";
 import { Crumbs, DataList, DataRow, Panel, Table, Tabs } from "../../../../components/iei/parts.tsx";
 import "../../../iei.css";
 
@@ -46,7 +46,6 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
       <Panel
         title="Window"
         question="Which elections and which parties are these measures computed over?"
-        basis="measured"
         sources={analysis.sources}
       >
         {/* A GET form: the browser builds the query string, the server reads it. No client JS. */}
@@ -118,16 +117,11 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
         </DataList>
       </Panel>
 
-      <footer className="iei-foot">
-        <p>
-          {brief.contests.length === 0
-            ? "No contest is on record for this seat."
-            : `Computed from ${inr(brief.contests.length)} contests on record. `}
-          <a className="iei-body-link" href={base}>
-            Back to the brief
-          </a>
-        </p>
-      </footer>
+      <Foot>
+        <a className="iei-body-link" href={base}>
+          Back to the brief
+        </a>
+      </Foot>
     </Shell>
   );
 }

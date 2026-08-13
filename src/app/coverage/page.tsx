@@ -80,7 +80,6 @@ function Election({
       id="election"
       title="One election at a time"
       question="How much of this election do we actually hold?"
-      basis="measured"
       sources={c.sources}
     >
       <Tabs
@@ -195,7 +194,6 @@ function Body({
       <Panel
         title="Geography"
         question="How much of India's electoral map is loaded?"
-        basis="measured"
         note={
           <>
             Counted against the seat totals India has <b>today</b>, and from each jurisdiction&rsquo;s most
@@ -263,7 +261,6 @@ function Body({
       <Panel
         title="The eighteen subject areas"
         question="What does this platform model, and what does it only intend to?"
-        basis="measured"
         note={
           <>
             {c.present} have data, {c.empty} have a table holding nothing, and {c.noModel} have nothing in the
@@ -356,8 +353,8 @@ function Body({
 
       <footer className="iei-foot">
         <p>
-          The model behind these tables is <code>docs/platform/00-model.md</code>; the numbers come from{' '}
-          <code>repo/coverage.ts</code> and change when the registry does. <Link href="/">India</Link>
+          Every figure here is computed when the page is requested. The model behind these tables is{' '}
+          <code>docs/platform/00-model.md</code>. <Link href="/">India</Link>
         </p>
       </footer>
     </>

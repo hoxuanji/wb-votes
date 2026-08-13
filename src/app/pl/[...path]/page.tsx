@@ -8,12 +8,12 @@ import {
   placeTiles,
   placeView,
 } from "../../../../packages/mandate/src/repo/place-page.ts";
-import { stateMapView } from "../../../../packages/mandate/src/repo/state-map.ts";
-import type { StateMapView } from "../../../../packages/mandate/src/repo/state-map.ts";
+import { stateMapView, stateShifts } from "../../../../packages/mandate/src/repo/state-map.ts";
+import type { StateMapView, StateShifts } from "../../../../packages/mandate/src/repo/state-map.ts";
 import { openRead } from "../../../../packages/mandate/src/db/open.ts";
 import { fillFor } from "../../../../packages/mandate/src/viz/party-ink.ts";
 import { StateMap } from "../../../components/iei/StateMap.tsx";
-import { Shell } from "../../../components/iei/Shell.tsx";
+import { Foot, Shell } from "../../../components/iei/Shell.tsx";
 import {
   BasisChip,
   Crumbs,
@@ -37,19 +37,32 @@ export const dynamic = "force-dynamic";
 /**
  * `/pl/<state>[/<district>[/<seat>]]` — a place, at whichever level the path names.
  *
- * IT IS PART OF THE PRODUCT NOW, which is what this phase changed. It used to render inside a `.mandate`
- * wrapper with its own stylesheet, its own 880px measure, its own 16px base size and no chrome at all: no
- * wordmark, no search, no way back to India. A reader who clicked Karnataka on the national map arrived
- * somewhere that did not look like the page they had left and could not get back to it except with the
- * browser's own button. That is what "assembled from independently implemented widgets" meant in practice.
+ * ── A STATE PAGE IS AN INTELLIGENCE BRIEF, WHICH IS WHAT THE FINAL DESIGN PASS CHANGED ──
  *
- * Now it mounts the same `Shell` as `/` and `/coverage`, uses the same primitives, and its breadcrumb
- * starts at India and is made of the registry's names rather than the URL's slugs.
+ * It read as a database dump, and the measurement says so: 4,311 words, 117 table rows, 492 cells, and the
+ * five-second fact — who governs, how strongly, from which election — set at 13px in a sentence between the
+ * heading and a 30-row table. What it owes a reader, in order, is: the RESULT, the MAP, the WINNERS, WHAT
+ * CHANGED, the DISTRICTS, the HISTORY. That is the order it renders in now.
  *
- * EVIDENCE IS A DRAWER. Every figure on this page used to carry a visible `Cite` beside it — six tiles,
- * six source labels — under a four-line paragraph explaining that nothing had been verified, above the
- * numbers, on every place and person page in the product. The paragraph and the six labels are one `ⓘ` in
- * the panel header now. The provenance did not get smaller; it stopped being the loudest thing on the page.
+ * What was deleted, because a deletion is a claim and has to be defensible:
+ *
+ *  · THE SECOND DISTRICT TABLE. `Districts` printed all 30 districts with seats, who won most, and turnout;
+ *    the map's own companion tally prints the same 30 districts with the same links and the same counts. One
+ *    fact had two homes on one screen, one of which was invisible at desktop widths (see iei.css).
+ *  · EVERY `MEASURED` CHIP. Three of them, one per panel.
+ *  · THE ELECTIONS NOTE — "Coverage here is honest by construction… Bihar held one election in February 2005
+ *    and another in October." True, and an explanation of how the software orders rows.
+ *  · THE FOOTER, which explained why the Analysis floor is per-constituency. A reader who has not opened the
+ *    Analysis floor does not need to be told what is not on this page.
+ *
+ * What was added, and it is one module: WHAT CHANGED. Three to five observations against the previous election
+ * of the same house — seat movements, seats that changed hands, turnout, whether the leader holds the house.
+ * `stateShifts()` composes it from one read; see repo/state-map.ts for what it refuses to say.
+ *
+ * EVIDENCE IS ONE DRAWER PER MODULE. Every figure on the seat page used to carry its own inline `ⓘ`: all six
+ * tiles carry a source, so six drawers were rendered over the same handful of sources, plus one for the panel
+ * — seven affordances for one question. The provenance did not get smaller; it stopped being offered seven
+ * times.
  *
  * All the logic is in packages/mandate/src/repo/place-page.ts, which is where the tests can reach it and
  * where webpack can statically see it (cycle 2's 500-on-every-slug lesson).
@@ -84,20 +97,30 @@ function link(base: string, params: Params, change: Record<string, string>): str
 }
 
 /**
- * The state's map data, read on its own handle.
+ * The state's map data and what moved since the last election of the same house, on one handle.
  *
  * `placeView` opens and closes its own connection and this needs a second read; opening one here keeps the
  * two independent, and a jurisdiction whose registry cannot be read renders the page without a map rather
  * than failing the whole route.
  */
-function readMap(jurisdictionId: string, params: NonNullable<Params>): StateMapView | null {
+function readMap(
+  jurisdictionId: string,
+  params: NonNullable<Params>,
+): { map: StateMapView; shifts: StateShifts } | null {
   let db: ReturnType<typeof openRead> | null = null;
   try {
     db = openRead();
-    return stateMapView(db, jurisdictionId, {
+    const map = stateMapView(db, jurisdictionId, {
       election: first(params["election"]),
       house: first(params["house"]),
     });
+    return {
+      map,
+      shifts:
+        map.election === null
+          ? { previousYear: null, previousId: null, lines: [] }
+          : stateShifts(db, jurisdictionId, map.election.id),
+    };
   } catch {
     return null;
   } finally {
@@ -108,6 +131,31 @@ function readMap(jurisdictionId: string, params: NonNullable<Params>): StateMapV
 /** The house a row is about, in the words a reader uses. */
 function houseWord(house: string): string {
   return house === "pc" ? "Lok Sabha" : house === "ac" ? "Assembly" : house;
+}
+
+/**
+ * A district's own page, from the ids the map already holds.
+ *
+ * `DistrictTally.id` is a dotted place id — `ka.bangalore` — and a place path wants the segment under the
+ * state. Built here rather than threaded through the view, because it is one `slice` and the alternative is a
+ * field on a type whose whole point is that a district has no winner.
+ */
+function districtHref(jurisdictionId: string, districtId: string): string {
+  return districtId.startsWith(`${jurisdictionId}.`)
+    ? `/pl/${jurisdictionId}/${districtId.slice(jurisdictionId.length + 1)}`
+    : `/pl/${jurisdictionId}`;
+}
+
+/**
+ * An election's label in the selector, in words rather than in codes.
+ *
+ * It used to be `LS2021 BY`, which is not a word in any language. Twelve of those in a strip above the map was
+ * the reader's only route to another election, and they had to decode it first.
+ */
+function electionLabel(e: { year: number; house: string; kind: string }): string {
+  const bypoll = e.kind === "bypoll";
+  if (e.house === "pc") return bypoll ? `LS ${e.year} by-poll` : `LS ${e.year}`;
+  return bypoll ? `${e.year} by-poll` : `${e.year}`;
 }
 
 export default async function PlacePage({
@@ -142,7 +190,9 @@ export default async function PlacePage({
   if (view.kind === "parent") {
     // The electoral map, for a STATE. A district page is a list of its seats and has no map of its own: the
     // district level of the map is reached by selecting a district on the state's map, which reframes it.
-    const map = view.level === "state" ? readMap(segments[0] as string, searchParams ?? {}) : null;
+    const read = view.level === "state" ? readMap(segments[0] as string, searchParams ?? {}) : null;
+    const map = read?.map ?? null;
+    const shifts = read?.shifts ?? null;
     const party =
       map !== null && map.legend.some((l) => l.key === first(searchParams?.["party"]))
         ? (first(searchParams?.["party"]) as string)
@@ -153,6 +203,8 @@ export default async function PlacePage({
         : null;
     const base = `/pl/${segments.join("/")}`;
     const mapHref = (change: Record<string, string>): string => link(base, searchParams, change);
+    const lead = map?.legend[0] ?? null;
+    const seatsContested = map?.seats.length ?? 0;
 
     return (
       <Shell here="place" reading={map === null}>
@@ -160,7 +212,27 @@ export default async function PlacePage({
         <div className="iei-head">
           <p className="iei-eyebrow">{view.level === "state" ? "State or union territory" : "District"}</p>
           <h1 className="iei-answer">{view.name}</h1>
-          <p className="iei-sub">{view.headline}</p>
+          {/* THE RESULT STRIP — the five-second answer, at the size a five-second answer needs to be.
+              Who leads, by how many of how many, and which election established it. It replaced a 13px
+              sentence that said the same thing in the tier the page uses for captions. A district has no
+              election of its own, so it keeps the computed sentence. */}
+          {map !== null && map.election !== null && lead !== null ? (
+            <div className="iei-result">
+              <span className="iei-result-p">
+                <span className="iei-sw" style={{ background: fillFor(lead.key) }} aria-hidden="true" />
+                {lead.label}
+              </span>
+              <span>
+                <b>{lead.n}</b> <span className="iei-of">of {seatsContested}</span>
+              </span>
+              <span className="iei-result-w">
+                {houseWord(map.election.house)} {map.election.year}
+                {map.election.kind === "bypoll" ? " by-election" : ""}
+              </span>
+            </div>
+          ) : (
+            <p className="iei-sub">{view.headline}</p>
+          )}
         </div>
 
         {map === null || map.election === null ? null : (
@@ -175,29 +247,41 @@ export default async function PlacePage({
                 ? "Which party won each constituency?"
                 : `Which party won each constituency in ${map.districts.find((d) => d.id === focus)?.name ?? focus}?`
             }
-            basis="measured"
             /* The polygons' publisher, licence, retrieval date and hash, and the results' source, in the one
                drawer this panel already had room for. A boundary set is a source like any other. */
             sources={map.sources}
           >
             {/* THE ELECTION SELECTOR. Plain links, so the election is URL state: the map, the legend, the
-                counts and the heading all change together and none of them can go stale. */}
+                counts and the heading all change together and none of them can go stale.
+
+                FULL ELECTIONS FIRST, THEN BY-ELECTIONS, and the reason is what the strip looked like on a
+                phone. Karnataka has four assembly and general elections on record and thirteen by-elections;
+                in strict chronological order the twelve shown were four full elections scattered through
+                eight single-seat by-polls, and a reader looking for 2018 found it after "LS 2021 BY-POLL".
+                Same twelve, same links, ranked by what a reader came for. */}
             <Tabs
               label="Election"
               current={map.election.id}
-              choices={map.elections.slice(0, 12).map((e) => ({
-                key: e.id,
-                label: `${e.house === "pc" ? "LS" : ""}${e.year}${e.kind === "bypoll" ? " by" : ""}`,
-                href: link(base, searchParams, { election: e.id, district: "" }),
-              }))}
+              choices={[
+                ...map.elections.filter((e) => e.kind !== "bypoll"),
+                ...map.elections.filter((e) => e.kind === "bypoll"),
+              ]
+                .slice(0, 12)
+                .map((e) => ({
+                  key: e.id,
+                  label: electionLabel(e),
+                  href: link(base, searchParams, { election: e.id, district: "" }),
+                }))}
             />
 
             <div className="iei-map-split">
               <StateMap view={map} highlight={party} district={focus} hrefFor={mapHref} />
 
               <div>
+                {/* WINNERS — the map's key, its filter, and the module the brief asks for by name. Every party
+                    this election returned, biggest first, with its seat count. */}
                 <ul className="iei-legend">
-                  {map.legend.slice(0, 8).map((l) => (
+                  {map.legend.slice(0, 6).map((l) => (
                     <li key={l.key}>
                       <Link
                         href={mapHref({ party: party === l.key ? "" : l.key })}
@@ -210,9 +294,9 @@ export default async function PlacePage({
                       </Link>
                     </li>
                   ))}
-                  {map.legend.length <= 8 ? null : (
+                  {map.legend.length <= 6 ? null : (
                     <li className="iei-legend-off">
-                      + {map.legend.length - 8} more {map.legend.length - 8 === 1 ? "party" : "parties"}
+                      + {map.legend.length - 6} more {map.legend.length - 6 === 1 ? "party" : "parties"}
                     </li>
                   )}
                 </ul>
@@ -234,14 +318,15 @@ export default async function PlacePage({
                 )}
 
                 {/* WHAT SITS BESIDE THE MAP DEPENDS ON WHAT THE ELECTION HAS.
-                    An assembly constituency belongs to a district, so the companion is the district tally.
-                    A PARLIAMENTARY constituency does not — `place_version.district_place_id` is null for
-                    every one of them — so for a Lok Sabha election the tally was a caption promising
+                    An assembly constituency belongs to a district, so the companion is the district tally —
+                    and it is the ONLY district table on this page now; a second one below said the same thing.
+                    A PARLIAMENTARY constituency does not belong to a district — `district_place_id` is null
+                    for every one of them — so for a Lok Sabha election the tally was a caption promising
                     districts over a table with no rows. The seats themselves are the answer there. */}
                 {map.districts.length === 0 ? (
                   <Table
                     label="Constituencies and who won them"
-                    caption={`${map.jurisdictionName}'s ${map.seats.length} parliamentary constituencies in ${map.election.year}, in seat order. A parliamentary constituency is not inside a district, so there is no district tally to show.`}
+                    caption={`${map.jurisdictionName}'s ${map.seats.length} parliamentary constituencies in ${map.election.year}, in seat order.`}
                     captionVisible
                     tight={map.seats.length > 20}
                     tall={map.seats.length > 18}
@@ -285,103 +370,136 @@ export default async function PlacePage({
                     ))}
                   </Table>
                 ) : (
-                <Table
-                  label="Districts and what their constituencies came to"
-                  caption={`Every district's constituencies in ${map.election.year}. A district does not elect anybody, so each row is a count of the seats inside it.`}
-                  captionVisible
-                  tight={map.districts.length > 20}
-                  tall={map.districts.length > 18}
-                  head={
-                    <>
-                      <th scope="col">District</th>
-                      <th scope="col" className="iei-n">
-                        Seats
-                      </th>
-                      <th scope="col">Went to</th>
-                    </>
-                  }
-                >
-                  {map.districts.map((d) => (
-                    <tr key={d.id} className={focus !== null && focus !== d.id ? "iei-legend-off" : undefined}>
-                      <th scope="row">
-                        <Link href={mapHref({ district: focus === d.id ? "" : d.id })}>{d.name}</Link>
-                      </th>
-                      <td className="iei-n">{d.seats}</td>
-                      <td>
-                        {d.parties.length === 0 ? (
-                          <Value value={null} absent="no winner recorded" />
-                        ) : (
-                          d.parties.slice(0, 3).map((q) => (
-                            <span key={q.key} className="iei-rule">
-                              <span className="iei-sw" style={{ background: fillFor(q.key) }} aria-hidden="true" />
-                              {q.n} of {d.seats} won by {q.label}
-                            </span>
-                          ))
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </Table>
+                  <Table
+                    label="Districts and what their constituencies came to"
+                    /* TWO AFFORDANCES PER ROW, AND THE CAPTION NAMES BOTH — because deleting the page's second
+                       district table took the only link to a district PAGE with it, and broke the navigation
+                       graph INDIA → STATE → DISTRICT → SEAT. The name is the destination; the seat count is
+                       the lens. A district page holds every seat with its member, margin and turnout; framing
+                       redraws this map on that district. Different questions, so different targets. */
+                    caption={`Districts in ${map.election.year} — a district does not elect anybody, so each row counts the seats inside it. Open a district for its seats, or its seat count to frame the map on it.`}
+                    captionVisible
+                    tight={map.districts.length > 20}
+                    tall={map.districts.length > 18}
+                    head={
+                      <>
+                        <th scope="col">District</th>
+                        <th scope="col" className="iei-n">
+                          Seats
+                        </th>
+                        <th scope="col">Went to</th>
+                      </>
+                    }
+                  >
+                    {map.districts.map((d) => (
+                      <tr key={d.id} className={focus !== null && focus !== d.id ? "iei-legend-off" : undefined}>
+                        <th scope="row">
+                          <Link href={districtHref(segments[0] as string, d.id)}>{d.name}</Link>
+                        </th>
+                        <td className="iei-n">
+                          <Link
+                            href={mapHref({ district: focus === d.id ? "" : d.id })}
+                            title={focus === d.id ? `Show the whole state` : `Frame the map on ${d.name}`}
+                          >
+                            {d.seats}
+                          </Link>
+                        </td>
+                        <td>
+                          {d.parties.length === 0 ? (
+                            <Value value={null} absent="no winner recorded" />
+                          ) : (
+                            d.parties.slice(0, 3).map((q) => (
+                              <span key={q.key} className="iei-rule">
+                                <span className="iei-sw" style={{ background: fillFor(q.key) }} aria-hidden="true" />
+                                {q.n} of {d.seats} won by {q.label}
+                              </span>
+                            ))
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </Table>
                 )}
               </div>
             </div>
           </Panel>
         )}
 
-        <Panel
-          title={view.level === "state" ? "Districts" : "Seats"}
-          question={view.level === "state" ? "How is this state made up?" : "Which seats does this district elect?"}
-          basis="measured"
-          sources={view.sources}
-        >
-          <Table
-            label={view.level === "state" ? "Districts in this state" : "Seats in this district"}
-            caption={view.children.caption}
-            captionVisible
-            tight={view.children.rows.length > 20}
-            tall={view.children.rows.length > 24}
-            head={view.children.headers.map((h, i) => (
-              <th scope="col" className={view.children.numeric[i] === true ? "iei-n" : undefined} key={h}>
-                {h}
-              </th>
-            ))}
+        {/* ── what changed ──
+            The third of the three things a state page owes a reader in five seconds, and the one it did not
+            have. Every line is a count or a difference over rows the registry holds; nothing is a cause and
+            nothing is a prediction. See repo/state-map.ts. */}
+        {shifts === null || shifts.lines.length === 0 ? null : (
+          <Panel
+            title="What changed"
+            question={
+              shifts.previousYear === null
+                ? "How does this compare with the last election?"
+                : `How does this compare with ${shifts.previousYear}?`
+            }
           >
-            {view.children.rows.map((r) => (
-              <tr key={r.href}>
-                {r.cols.map((c, i) =>
-                  i === 0 ? (
-                    <th scope="row" key={i}>
-                      {view.children.headers[0] === "No." ? c : <Link href={r.href}>{c}</Link>}
-                    </th>
-                  ) : i === 1 && view.children.headers[0] === "No." ? (
-                    <td key={i}>
-                      <Link href={r.href}>{c}</Link>
-                    </td>
-                  ) : (
-                    <td className={view.children.numeric[i] === true ? "iei-n" : undefined} key={i}>
-                      {c}
-                    </td>
-                  ),
-                )}
-              </tr>
-            ))}
-          </Table>
-        </Panel>
+            <DataList label="What changed since the previous election" tight>
+              {shifts.lines.map((l) => (
+                <DataRow key={l} title={l} />
+              ))}
+            </DataList>
+          </Panel>
+        )}
+
+        {/* A DISTRICT gets its seats. A STATE does not get a second district table — the map's tally above is
+            the same 30 districts with the same links, and printing them twice is what made this page read as a
+            dump of rows. */}
+        {view.level === "state" && map !== null && map.election !== null ? null : (
+          <Panel
+            title={view.level === "state" ? "Districts" : "Seats"}
+            question={view.level === "state" ? "How is this state made up?" : "Which seats does this district elect?"}
+            sources={view.sources}
+          >
+            <Table
+              label={view.level === "state" ? "Districts in this state" : "Seats in this district"}
+              caption={view.children.caption}
+              captionVisible
+              tight={view.children.rows.length > 20}
+              tall={view.children.rows.length > 24}
+              head={view.children.headers.map((h, i) => (
+                <th scope="col" className={view.children.numeric[i] === true ? "iei-n" : undefined} key={h}>
+                  {h}
+                </th>
+              ))}
+            >
+              {view.children.rows.map((r) => (
+                <tr key={r.href}>
+                  {r.cols.map((c, i) =>
+                    i === 0 ? (
+                      <th scope="row" key={i}>
+                        {view.children.headers[0] === "No." ? c : <Link href={r.href}>{c}</Link>}
+                      </th>
+                    ) : i === 1 && view.children.headers[0] === "No." ? (
+                      <td key={i}>
+                        <Link href={r.href}>{c}</Link>
+                      </td>
+                    ) : (
+                      <td className={view.children.numeric[i] === true ? "iei-n" : undefined} key={i}>
+                        {c}
+                      </td>
+                    ),
+                  )}
+                </tr>
+              ))}
+            </Table>
+          </Panel>
+        )}
 
         {view.elections.length === 0 ? null : (
           <Panel
             id="elections"
             title="Elections on record"
             question="What has this jurisdiction voted in, and who led it?"
-            basis="measured"
-            note={
-              <>
-                Coverage here is honest by construction: a jurisdiction with two elections on record gets two
-                rows. Nothing is padded and nothing assumes five. Ordering is by the calendar rather than by
-                election id — Bihar held one election in February 2005 and another in October.
-              </>
-            }
           >
+            {/* A COMPACT TIMELINE, and the note above it is gone. It explained that a jurisdiction with two
+                elections gets two rows and that ordering is by the calendar rather than by election id — both
+                true, both about how the software works. A reader looking at seventeen dated rows can see that
+                nothing is padded. */}
             <Table
               label="Every election this jurisdiction has held"
               caption={`${inr(view.elections.length)} election${view.elections.length === 1 ? "" : "s"} on record, newest first. The year opens that election's coverage.`}
@@ -420,7 +538,10 @@ export default async function PlacePage({
                     {e.leaderLabel === null ? (
                       <span className="iei-absent">no winner recorded</span>
                     ) : (
-                      <span className="iei-chip">{e.leaderLabel}</span>
+                      <span className="iei-mark">
+                        <span className="iei-sw" style={{ background: fillFor(e.leaderLabel) }} aria-hidden="true" />
+                        <span className="iei-chip">{e.leaderLabel}</span>
+                      </span>
                     )}
                   </td>
                   <td className="iei-n">{e.leaderSeats === 0 ? <Value value={null} absent="—" /> : e.leaderSeats}</td>
@@ -431,13 +552,7 @@ export default async function PlacePage({
           </Panel>
         )}
 
-        <footer className="iei-foot">
-          <p>
-            This level has a list, not an analysis: the measures behind the Analysis floor — turnout against a
-            baseline, swing, effective parties — are defined per constituency, so they are on each
-            seat&rsquo;s page rather than aggregated here.
-          </p>
-        </footer>
+        <Foot />
       </Shell>
     );
   }
@@ -472,7 +587,8 @@ export default async function PlacePage({
       <Panel
         title="What the numbers say"
         question="The seat, as its most recent election left it"
-        basis="measured"
+        /* ONE DRAWER FOR THE MODULE. Every tile used to carry its own inline ⓘ over the same handful of
+           sources — six drawers where the panel already had one. */
         sources={brief.sources}
       >
         <Metrics>
@@ -485,17 +601,12 @@ export default async function PlacePage({
               text={t.value}
               unit={t.unit ?? undefined}
               hint={t.note}
-              sources={t.source === null ? undefined : [t.source]}
             />
           ))}
         </Metrics>
       </Panel>
 
-      <Panel
-        title="Every election on record"
-        question="Who has won this seat, and by how much?"
-        basis="measured"
-      >
+      <Panel title="Every election on record" question="Who has won this seat, and by how much?">
         <Table
           label="Election history"
           caption={
@@ -530,7 +641,14 @@ export default async function PlacePage({
                 {c.winner === null ? (
                   <span className="iei-absent">no result declared</span>
                 ) : (
-                  <span className="iei-chip">{c.winner.partyShortName ?? "party not recorded"}</span>
+                  <span className="iei-mark">
+                    <span
+                      className="iei-sw"
+                      style={{ background: fillFor(c.winner.partyShortName ?? "") }}
+                      aria-hidden="true"
+                    />
+                    <span className="iei-chip">{c.winner.partyShortName ?? "party not recorded"}</span>
+                  </span>
                 )}
               </td>
               <td>
@@ -561,20 +679,16 @@ export default async function PlacePage({
         ) : (
           <DataList label="Flags">
             {flags.map((flag) => (
+              /* THE ONE PLACE `BasisChip` SURVIVES, and it survives because here the distinction changes what
+                 the row MEANS. A flag is this codebase's own reading of the record, not a fact a source
+                 published, and a reader deciding whether to quote it needs to know which. */
               <DataRow key={flag} title={flag} aside={<BasisChip basis="derived" />} />
             ))}
           </DataList>
         )}
       </Panel>
 
-      <footer className="iei-foot">
-        {/* ONE EVIDENCE AFFORDANCE PER FACT, and the panels above own them. This used to repeat the whole
-            source list here as well, plus a paragraph explaining the ⓘ — a mechanism described in prose on
-            every page is the scattering this consolidation removes, and the drawer teaches itself. */}
-        <p>
-          What this registry holds and does not: <Link href="/coverage">/coverage</Link>.
-        </p>
-      </footer>
+      <Foot />
     </Shell>
   );
 }

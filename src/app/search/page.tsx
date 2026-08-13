@@ -3,7 +3,7 @@ import { openRead } from '../../../packages/mandate/src/db/open.ts';
 import { PER_GROUP, searchAll } from '../../../packages/mandate/src/repo/search.ts';
 import type { Hit, Results } from '../../../packages/mandate/src/repo/search.ts';
 import type { PersonRow } from '../../../packages/mandate/src/repo/person.ts';
-import { Shell } from '../../components/iei/Shell.tsx';
+import { Foot, Shell } from '../../components/iei/Shell.tsx';
 import { DataList, DataRow, EmptyState, Panel, RegistryMissing } from '../../components/iei/parts.tsx';
 import '../iei.css';
 
@@ -220,14 +220,7 @@ export default function SearchPage({
         />
       ) : null}
 
-      <footer className="iei-foot">
-        <p>
-          One field, five kinds of thing. Names are matched phonetically across scripts, and the registry
-          itself stores no Indic name strings — the affidavit source leaves that field empty for every
-          candidate — so a Bengali query works while a Bengali <em>record</em> does not yet exist to be
-          found. What is and is not loaded: <Link href="/coverage">/coverage</Link>.
-        </p>
-      </footer>
+      <Foot>One field, five kinds of thing</Foot>
     </Shell>
   );
 }

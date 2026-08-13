@@ -72,58 +72,108 @@ test("the homepage renders, and says what it is in the first screen", live, () =
   // The ten-second test, as far as a text assertion can carry it: the product's name, that it is national,
   // and a computed sentence about who governs.
   assert.match(t, /INDIA\nElection Intelligence/, "the wordmark is not the first thing");
-  assert.match(t, /India · current electoral landscape/);
+  assert.match(t, /India\nThe electoral landscape/, "the hero does not name the country and its subject");
   assert.match(t, /assemblies on record/, "the headline does not say what it counted");
-  // FOUR SECTIONS, and the four the brief's Phase E names: the map, what is next, what was just decided,
-  // who holds power, and which signals stand out.
-  for (const heading of ["India · Government", "Next", "Just decided", "Party landscape", "What to watch"]) {
+  // SIX MODULES. Five sections as far as the markup is concerned — two of them hold two panels each — and the
+  // six questions a front page owes a reader: where am I, who governs where, what is coming, what was just
+  // decided, who holds power, and what stands out.
+  for (const heading of [
+    "India · Government",
+    "Upcoming",
+    "Recent results",
+    "Party landscape",
+    "Closest contests",
+    "Notable shifts",
+  ]) {
     assert.ok(t.includes(heading), `the "${heading}" section is missing`);
   }
-  // And the five that were removed must stay removed, each for a reason recorded in page.tsx: every one of
-  // them printed a fact that has a home elsewhere on the same screen or one level down.
-  for (const [heading, why] of [
+  // And what was removed must stay removed, each for a reason recorded in page.tsx.
+  for (const [gone, why] of [
     ["Who governs", "the map's companion table is the same 36 rows with the same links"],
-    ["Close fights", "Watch's knife-edge rule is the same fact at the same threshold"],
     ["Historical elections", "180 cells of links to the state pages the map already reaches"],
     ["Data coverage", "/coverage is a page whose whole subject is that question"],
+    ["What to watch", "renamed and cut from nine rows to four; Closest contests took the knife-edge rule"],
+    ["computed", "the wall-clock time a SQL query ran is not a fact about Indian politics"],
+    ["assembly seats 4,117", "a registry row count, in the first screen"],
+    ["what is and is not loaded", "the coverage link belongs in the footer"],
   ] as const) {
-    assert.ok(!t.includes(heading), `"${heading}" is back on the front page — ${why}`);
+    assert.ok(!t.includes(gone), `"${gone}" is back on the front page — ${why}`);
   }
   // The hero's six metric tiles are gone too, and their labels are the cheapest way to detect a return.
   for (const label of ["Governing parties", "Terms expiring", "Elections held"]) {
-    assert.ok(!t.includes(label), `the hero metric "${label}" is back; it is printed in the dateline already`);
+    assert.ok(!t.includes(label), `the hero metric "${label}" is back`);
   }
 });
 
-test("the front page is materially lighter than the nine-section version it replaced", live, () => {
-  // Phase 2.5's target, measured rather than felt: 30–50% of the visible information and container
-  // complexity removed. The baseline is the rendered markup of c2c81c7, recorded in
-  // docs/product/consolidation-audit.md. These are ceilings, not equalities — a state loading tomorrow adds
-  // rows — so each is the audited "after" with headroom, and the point of the test is that the page cannot
-  // drift back to nine sections without someone deciding to.
+test("the front page shows no provenance class labels and no dataset status", live, () => {
+  // THE DEFECT THE FINAL DESIGN PASS EXISTS FOR, as a measurement. The rendered page carried eleven
+  // "Measured", nine "Derived" and eight coverage chips: twenty provenance words and eight dataset-status
+  // marks before a reader met an election. Each is a fact about the software, and a reader assumes all of them.
+  const t = text(render("/"));
+  assert.ok(!/\bMeasured\b/.test(t), "a Measured chip is back on the front page");
+  assert.ok(!/\bDerived\b/.test(t), "a Derived chip is back on the front page");
+  for (const word of ["Complete", "Partial", "Unavailable"]) {
+    assert.ok(!new RegExp(`\\b${word}\\b`).test(t), `a coverage chip ("${word}") is back beside a result`);
+  }
+  // The evidence is still THERE — one drawer for the map's geometry, offered once, not per figure.
+  const drawers = (render("/").match(/class="iei-ev(?:\s|")/g) ?? []).length;
+  assert.ok(drawers >= 1, "the front page offers no evidence at all");
+  assert.ok(drawers <= 3, `${drawers} evidence drawers on the front page — one per module is the rule`);
+});
+
+test("the front page is materially lighter than the version it replaced", live, () => {
+  // MEASURED RATHER THAN FELT, and the measurement had to be fixed before it could be used.
+  //
+  // Counting every word in the markup counts the 46 SVG `<title>` hover cards — 701 of the old page's 1,930
+  // "words" — which are the accessible name of the map and a mouse tooltip. They are not visible clutter, they
+  // are the reason colour is never the only channel, and a metric that punishes them would push a redesign
+  // towards a LESS accessible map. So VISIBLE words are counted, with the hover cards stripped first.
+  //
+  // The baseline is the five-section page this design pass started from, measured in
+  // docs/product/ui-final-audit.md. Every figure is a ceiling, not an equality: a state loading tomorrow adds
+  // rows, and the point of the test is that the page cannot drift back without someone deciding to.
   const html = render("/");
   const count = (re: RegExp): number => (html.match(re) ?? []).length;
-  const before = { sections: 9, tables: 7, rows: 141, cells: 726, tiles: 12, notes: 11 };
+  const visible = (s: string): number =>
+    s
+      .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, " ")
+      .replace(/<title>[\s\S]*?<\/title>/g, " ")
+      .replace(/<[^>]+>/g, "\n")
+      .split(/\s+/)
+      .filter(Boolean).length;
+  const audited = { tables: 4, rows: 66, cells: 325, words: 1229, notes: 3, bytes: 397_330 };
   const now = {
-    sections: count(/<section/g),
     tables: count(/<table/g),
     rows: count(/<tr/g),
     cells: count(/<t[dh][ >]/g),
-    tiles: count(/class="iei-metric"/g),
+    words: visible(html),
     notes: count(/class="iei-(note|caveat)"/g),
+    bytes: html.length,
   };
-  for (const k of Object.keys(before) as (keyof typeof before)[]) {
-    assert.ok(
-      now[k] <= before[k],
-      `${k}: ${now[k]} is not fewer than the ${before[k]} this phase set out to reduce`,
-    );
+  for (const k of Object.keys(audited) as (keyof typeof audited)[]) {
+    assert.ok(now[k] <= audited[k], `${k}: ${now[k]} is not fewer than the ${audited[k]} this pass started from`);
   }
-  // Containers and tiles are where the "assembled widgets" feeling came from, so those are held hardest.
-  assert.ok(now.sections <= 5, `${now.sections} sections — the target structure is four plus the map`);
-  assert.equal(now.tiles, 0, "the front page has metric tiles again; the dateline carries those counts");
-  assert.ok(now.notes <= 4, `${now.notes} prose caveats on the front page`);
-  // And the single largest reduction: the 36×5 history grid plus the duplicate 36-row standings table.
-  assert.ok(now.cells <= before.cells * 0.6, `${now.cells} table cells, against ${before.cells} before`);
+  // ONE TABLE, and it is the 36-row standings comparison — which is what a table is for. The other three
+  // became lists, so there is one row height, one padding and one hover on the page instead of four.
+  assert.equal(now.tables, 1, `${now.tables} tables on the front page; only the 36-row comparison earns one`);
+  assert.equal(count(/class="iei-metric"/g), 0, "the front page has metric tiles again");
+  // CONTAINERS AND CELLS ARE HELD HARDEST, because "assembled widgets" is a count of boxes rather than of
+  // words: 325 table cells became 185, and 397 kB of markup became 176 — the 726-district layer was about
+  // 60 kB of that and the tables and repeated chips the rest.
+  assert.ok(now.cells <= audited.cells * 0.65, `${now.cells} table cells, against ${audited.cells} before`);
+  assert.ok(now.bytes <= audited.bytes * 0.55, `${now.bytes} bytes of markup, against ${audited.bytes} before`);
+  // THREE CAVEATS SURVIVE, and each one changes what a figure MEANS rather than explaining the software:
+  // that the party landscape sums elections spanning 2014–2026 and so is not a national vote at one moment;
+  // that no upcoming date was announced by anyone; and that nothing in the shifts module is a prediction.
+  // Everything else — how the arithmetic works, why coverage is honest by construction, which script wrote
+  // which row — went. The ceiling is what stops a fourth arriving without an argument.
+  assert.ok(now.notes <= 3, `${now.notes} prose caveats on the front page`);
+  // And what remains is DATA rather than explanation, which is the brief's actual objective. The three
+  // caveats plus the footer are the page's whole prose budget; everything else is a name, a party or a figure.
+  const prose = [...html.matchAll(/class="iei-(?:note|caveat|foot)"[^>]*>([\s\S]*?)<\/(?:p|footer|div)>/g)]
+    .map((m) => visible(m[1] as string))
+    .reduce((a, b) => a + b, 0);
+  assert.ok(prose <= 90, `${prose} words of explanatory prose on the front page`);
 });
 
 test("the homepage never prints a fabricated figure", live, () => {
@@ -135,11 +185,11 @@ test("the homepage never prints a fabricated figure", live, () => {
   assert.doesNotMatch(t, /\n0\.0%/, "a 0.0% share is printed — a small share is not zero, and null is not zero");
   assert.match(t, /<0\.1%/, "no small-but-real share is rendered — has the rounding rule been lost?");
   // An absence must be a WORD. A lone dash in a numeric column reads as zero.
-  assert.match(t, /not reported|no vote counts|not held|not recorded/, "no absence is spelled out anywhere");
-  // A derived figure must say so wherever it appears.
-  assert.match(t, /Derived/, "nothing on the page is marked derived");
-  assert.match(t, /No date on this list was announced by anyone|announced/, "the upcoming list does not state its basis");
-  assert.match(t, /five-year term/, "the derived basis is not named");
+  assert.match(t, /not reported|no vote counts|not held|not recorded|no Lok Sabha seat/, "no absence is spelled out");
+  // AN INFERRED DATE MUST STILL SAY IT IS ONE — in the reader's words rather than as a class label. Every
+  // upcoming year is prefixed, and the panel states the basis once.
+  assert.match(t, /Expected 20\d\d/, "an upcoming election prints a bare year as though it were announced");
+  assert.match(t, /five-year term counted from the last election/, "the inferred basis is stated nowhere");
   // And the page must not claim to predict. The word alone is not the test — the watch section's own
   // disclaimer says "no model, no forecast, no probability", and a naive match on "forecast" flagged it,
   // which is the difference between denying something and doing it. Only an affirmative claim counts.
@@ -153,8 +203,23 @@ test("the homepage never prints a fabricated figure", live, () => {
   ]) {
     assert.doesNotMatch(t, claim, `the page makes a forecast: ${String(claim)}`);
   }
-  assert.match(t, /Nothing here is a prediction/, "the watch section does not disclaim prediction");
+  assert.match(t, /Nothing here is a prediction/, "the shifts section does not disclaim prediction");
   assert.match(t, /No model, no forecast, no probability/, "the disclaimer has been softened");
+});
+
+test("the front page reaches a constituency, not just a state", live, () => {
+  // CLOSEST CONTESTS is the one module this pass ADDED, and this is what it is for: before it, every link on
+  // the landing surface stopped at a state page. Five seats decided by almost nothing, each one a link into
+  // the seat. The rule and threshold are `closeFights`'s and are the same knife-edge rule Watch used to
+  // carry — which is why Watch went from nine rows to four rather than the page growing a section.
+  const html = render("/");
+  const t = text(html);
+  assert.match(t, /Closest contests/, "the closest-contests module is missing");
+  const seats = [...html.matchAll(/href="\/pl\/[a-z]{2}\/[^"/]+\/[^"]+"/g)];
+  assert.ok(seats.length >= 3, `the front page offers ${seats.length} links to a seat; the module renders five`);
+  // Each row states the margin as votes AND as a share, so "closest" is arguable rather than asserted.
+  assert.match(t, /\d+ votes/, "a close fight does not state its margin in votes");
+  assert.match(t, /% of votes polled/, "a close fight does not state its margin as a share");
 });
 
 test("the unopposed seat is never counted among the numeric results", live, () => {
@@ -180,19 +245,19 @@ test("every map layer renders, and an unknown one falls back instead of breaking
   for (const layer of layers) {
     const html = render("/", `layer=${layer}`);
     const t = text(html);
-    // 36 filled polygons every time, whatever the layer. Counted INSIDE the fills layer: the document also
-    // holds 36 border paths and one district-hairline path, which are frame rather than data.
-    // One <a id="iei-j-xx"> per jurisdiction is the invariant that matters: 36 polygons AND 36 of them
-    // reachable. Counting <path> would also count the 36 border paths and the district hairline, which are
-    // frame rather than data.
+    // 36 filled polygons every time, whatever the layer. One <a id="iei-j-xx"> per jurisdiction is the
+    // invariant that matters: 36 polygons AND 36 of them reachable. Counting <path> would also count the 36
+    // border paths, which are frame rather than data.
     assert.equal(
       new Set([...html.matchAll(/id="iei-j-([a-z]{2})"/g)].map((m) => m[1])).size,
       36,
       `${layer} does not draw 36 reachable jurisdictions`,
     );
-    // At least one label, or the layer is a colour-matching exercise.
-    assert.ok((html.match(/<text /g) ?? []).length > 20, `${layer} labels almost nothing`);
-    assert.ok(t.includes("Boundaries:"), `${layer} does not credit its geometry`);
+    // At least one label, or the layer is a colour-matching exercise. FEWER THAN BEFORE, deliberately: a
+    // label sized in viewBox units rendered at about 7px on this frame, and raising it to reading size means
+    // `labelFits` refuses the polygons that no longer have room rather than shrinking the glyphs.
+    assert.ok((html.match(/<text /g) ?? []).length > 12, `${layer} labels almost nothing`);
+    assert.ok(t.includes("a dated snapshot"), `${layer} does not date its geometry`);
   }
   // A hand-edited layer must not reach the SQL or produce a broken page.
   const fallback = text(render("/", "layer=%27%3B+DROP+TABLE+result%3B+--"));
@@ -243,29 +308,32 @@ test("the map says which claim its colour is making, and never the other one", l
   assert.match(lok, /Which party won most of each state's Lok Sabha seats\?/);
 });
 
-test("a district is drawn as a subdivision, not as a result", live, () => {
+test("the national map draws states and nothing smaller", live, () => {
   const html = render("/");
-  // Three layers, in this order: fills with no stroke, district hairlines, state borders. The fills must not
-  // stroke, or the district edges inside them come back in the party's own gap colour.
+  // PROGRESSIVE GEOGRAPHIC DISCLOSURE, asserted. Two layers, in this order: fills with no stroke, then state
+  // borders. The fills must not stroke, or the district edges inside them come back in the party's own gap
+  // colour — which is the defect Phase 2.6 fixed and this must not reintroduce.
   assert.match(html, /class="iei-map-fills"/, "the fills are not their own layer");
-  assert.match(html, /class="iei-map-districts"/, "the district hairlines are not drawn");
   assert.match(html, /class="iei-map-borders"/, "the state borders are not their own layer");
   assert.ok(
-    html.indexOf('class="iei-map-fills"') < html.indexOf('class="iei-map-districts"'),
-    "the district lines are painted under the fills, where they cannot be seen",
+    html.indexOf('class="iei-map-fills"') < html.indexOf('class="iei-map-borders"'),
+    "a state border is painted under the fills, where it cannot be seen",
   );
-  assert.ok(
-    html.indexOf('class="iei-map-districts"') < html.indexOf('class="iei-map-borders"'),
-    "a district line is painted over a state border",
-  );
-  // The district layer is ONE path with no fill: it cannot carry a party's colour even by accident.
-  const districts = /class="iei-map-districts" d="([^"]+)"/.exec(html);
-  assert.ok(districts !== null, "the district layer has no geometry");
-  assert.ok((districts[1] as string).length > 50_000, "the district layer is too small to be 726 districts");
-  assert.ok(!/class="iei-map-districts"[^>]*fill="#/.test(html), "the district layer has a fill");
-  // And the caption has to say what epoch the boundaries are, because they are 2011 and India has moved on.
+  // AND THE 726 DISTRICT HAIRLINES ARE GONE. They were one 60 kB path over the whole country, at the one zoom
+  // level where a district cannot be selected, compared or navigated to. Their absence is the fix, so their
+  // absence is what is asserted — along with the disclaimer whose only job was to undo the impression they
+  // created ("the fill is a state's government, which is not a claim about any district in it").
+  assert.ok(!html.includes("iei-map-districts"), "the national map draws district lines again");
+  assert.ok(!/not a claim about any district/i.test(text(html)), "a disclaimer for a layer that no longer exists");
+  // The markup is materially smaller for it, which is the second reason and a measurable one.
+  assert.ok(html.length < 340_000, `${html.length} bytes of markup — the district layer was about 60 kB of it`);
+  // Every stroke in a map is a DEVICE measurement, not a user-unit one. This is the whole fix for the black
+  // gridding over a state map: zoom here is a viewBox change, so a user-unit stroke is ~1.8px across a state
+  // and ~25px inside a framed district.
+  const css = readFileSync(new URL("../../../../src/app/iei.css", import.meta.url), "utf8");
+  assert.match(css, /\.iei-map path \{[^}]*vector-effect:\s*non-scaling-stroke/, "map strokes scale with the frame");
+  // And the caption still dates its boundaries, because they are a 2011 snapshot and India has moved on.
   assert.match(text(html), /2011 census districts/, "the map does not date its boundaries");
-  assert.match(text(html), /not a claim about any district/i, "the map does not disclaim the district reading");
 });
 
 test("the geometry's provenance is in the drawer, not in the caption", live, () => {
@@ -479,19 +547,27 @@ test("a state map answers who won each constituency, and says which election", l
   const html = render("/pl", "", "ka");
   const fills = html.slice(html.indexOf('class="iei-map-fills"'));
   assert.ok((fills.match(/<path /g) ?? []).length >= 220, "the state map draws almost no constituencies");
-  assert.match(t, /224 of 224 constituencies drawn/, "the map does not say how much of the election it drew");
+  // A COMPLETE MAP SAYS NOTHING, which is the change: "224 of 224 constituencies drawn" is a sentence a
+  // reader can do nothing with, and printing it either way made an epoch caveat the last word under every map
+  // in the product.
+  assert.ok(!/constituencies drawn/.test(t), "a complete map still reports its own completeness");
 
-  // THE FIGURE IS THE REGISTRY'S, not a number in this file. West Bengal draws 263 of 294 because 31 of its
-  // place_versions still carry geometry from the old repo module in the old projection, which the map
-  // withholds rather than drawing in the wrong place; asserting a literal here would rot the moment that
-  // is fixed, and asserting nothing would let the caption drift from the data.
+  // A SHORT ONE STILL SAYS SO, and THE FIGURE IS THE REGISTRY'S rather than a number in this file — asserting a
+  // literal would rot the moment the shortfall is fixed, and asserting nothing would let the caption drift
+  // from the data. West Bengal is the live case while any of its place_versions carry geometry the map has to
+  // withhold; a registry where nothing is withheld prints nothing, and that is correct too.
   const wb = stateMap.stateMapView(db, "wb");
   assert.ok(wb.geometry.drawable > 0, "West Bengal draws nothing");
-  assert.match(
-    text(render("/pl", "", "wb")),
-    new RegExp(`${wb.geometry.drawable} of ${wb.geometry.total} constituencies drawn`),
-    "the caption and the repository disagree about how much was drawn",
-  );
+  const wbText = text(render("/pl", "", "wb"));
+  if (wb.geometry.drawable < wb.geometry.total) {
+    assert.match(
+      wbText,
+      new RegExp(`${wb.geometry.drawable} of ${wb.geometry.total} constituencies drawn`),
+      "the caption and the repository disagree about how much was drawn",
+    );
+  } else {
+    assert.ok(!/constituencies drawn/.test(wbText), "a complete map reports its own completeness");
+  }
 });
 
 test("a map draws polygons from one coordinate space, and says how many it withheld", live, () => {
@@ -531,7 +607,11 @@ test("a state's Lok Sabha map exists, is a different geography, and says so", li
   const fills = html.slice(html.indexOf('class="iei-map-fills"'));
   const drawn = (fills.match(/<path /g) ?? []).length;
   assert.ok(drawn >= 40 && drawn <= 42, `${drawn} parliamentary polygons — West Bengal has 42`);
-  assert.match(t, /4[12] of 42 constituencies drawn/, "the parliamentary map does not say how much it drew");
+  // 41 of 42 while one seat is short; nothing at all once it is not. Either is honest; a literal is not.
+  const wbPc = stateMap.stateMapView(db, "wb", { election: "ls-2024" });
+  if (wbPc.geometry.drawable < wbPc.geometry.total) {
+    assert.match(t, new RegExp(`${wbPc.geometry.drawable} of ${wbPc.geometry.total} constituencies drawn`));
+  }
 
   // A DIFFERENT ELECTORAL GEOMETRY, not the assembly's. 42 polygons against 294, from a separately
   // declared, separately hashed dataset.
@@ -549,12 +629,12 @@ test("the table beside the map answers for the geography the map is drawing", li
   // A parliamentary constituency is not inside a district — district_place_id is null for every one — so
   // the district tally rendered a caption promising districts above a table with no rows.
   const pc = text(render("/pl", "election=ls-2024", "wb"));
-  assert.doesNotMatch(pc, /Every district's constituencies in 2024/, "a Lok Sabha map still promises districts");
+  assert.doesNotMatch(pc, /Districts in 2024/, "a Lok Sabha map still promises districts");
   assert.match(pc, /42 parliamentary constituencies in 2024/, "the Lok Sabha map has no companion table");
   assert.match(pc, /Cooch Behar/, "the constituency table has no rows");
   // The assembly map keeps the district tally, and keeps refusing to give a district a winner.
   const ac = text(render("/pl", "", "ka"));
-  assert.match(ac, /Every district's constituencies in \d{4}/);
+  assert.match(ac, /Districts in \d{4}/);
   assert.match(ac, /\d+ of \d+ won by [A-Z]/);
 });
 
@@ -606,7 +686,7 @@ test("a district is offered as a container, never as a winner", live, () => {
   // The rule that must survive constituency geometry arriving: a district is where seats are, not a thing
   // that won. Karnataka's district tally sits beside the constituency map now rather than instead of it.
   const t = text(render("/pl", "", "ka"));
-  assert.match(t, /A district does not elect anybody/, "the district table does not disclaim a district winner");
+  assert.match(t, /a district does not elect anybody/i, "the district table does not disclaim a district winner");
   // Every tally row is a count of the seats inside, phrased as one.
   assert.match(t, /\d+ of \d+ won by [A-Z]/, "no district tally is phrased as a count");
   // And the forbidden phrasing is absent: not "Bangalore won by INC", in any form.
@@ -650,7 +730,7 @@ test("selecting a district reframes the map, and the URL carries it", live, () =
   // A district whose constituencies are ALL in the staged list cannot frame itself, and says so rather than
   // falling back to a viewBox of the whole country — which is what an empty bounding box used to do.
   const sk = render("/pl", "district=sk.sangha", "sk");
-  assert.match(text(sk), /holds no boundary this map can frame/, "an unframeable focus is silent");
+  assert.match(text(sk), /no boundary here can frame/, "an unframeable focus is silent");
   assert.equal(/viewBox="([^"]+)"/.exec(sk)?.[1], /viewBox="([^"]+)"/.exec(render("/pl", "", "sk"))?.[1]);
 
   // Validated by membership: a district this state does not have is ignored rather than emptying the map.
@@ -664,7 +744,9 @@ test("the election selector changes every part of the map's context together", l
   assert.match(b, /Assembly winners · 2021/, "the heading did not follow the election");
   // The legend counts must be the 2021 counts, not the default election's.
   assert.ok(!b.includes("BJP 192"), "the legend is showing another election's counts");
-  assert.match(b, /TMC \d+/, "the 2021 winners are missing");
+  // The district tally is where a party's name and a count sit in one string; the legend renders the count in
+  // its own element, so `text()` puts it on the next line and a "TMC 213" match would be testing the helper.
+  assert.match(b, /won by TMC/, "the 2021 winners are missing");
 });
 
 /* ────────────────────────────── navigation ────────────────────────────── */

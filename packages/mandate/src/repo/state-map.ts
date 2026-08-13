@@ -41,7 +41,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
-import { CHRONO_DESC } from "./elections.ts";
+import { CHRONO_DESC, previousElection } from "./elections.ts";
 
 /** One constituency, as the map draws it. */
 export type SeatMark = {
@@ -383,4 +383,163 @@ export function stateMapView(
 export function seatsIn(view: StateMapView, districtId: string | null): SeatMark[] {
   if (districtId === null) return view.seats;
   return view.seats.filter((s) => s.districtId === districtId);
+}
+
+/* ────────────────────────────── what changed ────────────────────────────── */
+
+/**
+ * Three to five sentences about what moved, against the previous election of the SAME HOUSE.
+ *
+ * WHY IT IS HERE AND NOT IN A COMPONENT. A state page's five-second job is "who governs, how strongly, and
+ * what changed", and the third of those was the one thing the page did not have — it had a 30-row district
+ * table and a 17-row election table instead, which is where a reader had to go and compute it themselves.
+ *
+ * WHY IT IS NOT A NEW QUERY SHAPE. Every fact below comes out of ONE read over two elections' winners and
+ * turnout rows, and the pairing rule is `previousElection` — the same tuple `CHRONO_DESC` ranks by, so "the
+ * previous election" here and "the newest election" anywhere else cannot disagree about which of two is
+ * earlier. Bihar held one election in February 2005 and another in October; that is why the rule is a tuple
+ * and not a year.
+ *
+ * WHAT IT REFUSES TO SAY. Nothing is a prediction, nothing is a cause, and a party missing from one side gets
+ * no change at all rather than a ±everything: not contesting is not a collapse, and a first outing is not a
+ * gain of every seat it won. A seat with no declared winner on either side is neither a hold nor a flip — it
+ * is unknown, and it is excluded from the flip count rather than counted as continuity.
+ */
+export type StateShifts = {
+  /** The election compared against, or null when this is the first of its house on record. */
+  previousYear: number | null;
+  previousId: string | null;
+  /** One observation per line, biggest first. Empty is a legitimate answer. */
+  lines: string[];
+};
+
+type ShiftRow = {
+  electionId: string;
+  placeId: string;
+  key: string | null;
+  label: string | null;
+  voters: number | null;
+  electors: number | null;
+};
+
+const IN_SEATS = new Intl.NumberFormat("en-IN");
+
+export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId: string): StateShifts {
+  return read(() => {
+    const previousId = previousElection(db, electionId);
+    if (previousId === null) return { previousYear: null, previousId: null, lines: [] };
+    const previousYear =
+      get<{ y: number }>(db, `SELECT year AS y FROM election WHERE id = ?`, previousId)?.y ?? null;
+
+    const rows = all<ShiftRow>(
+      db,
+      `SELECT c.election_id AS electionId, pv.place_id AS placeId,
+              CASE WHEN r.candidacy_id IS NULL THEN NULL ELSE ${KEY_SQL} END AS key,
+              CASE WHEN r.candidacy_id IS NULL THEN NULL ELSE ${LABEL_SQL} END AS label,
+              t.voters AS voters, t.electors AS electors
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         LEFT JOIN turnout t   ON t.contest_id = c.id AND t.scope = 'contest'
+         LEFT JOIN result r    ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1
+         LEFT JOIN candidacy cd ON cd.id = r.candidacy_id
+         LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
+         LEFT JOIN party pt          ON pt.id = pvv.party_id
+        WHERE c.election_id IN (?, ?) AND pv.jurisdiction_id = ?`,
+      electionId,
+      previousId,
+      jurisdictionId,
+    );
+
+    const now = rows.filter((r) => r.electionId === electionId);
+    const then = rows.filter((r) => r.electionId === previousId);
+    if (now.length === 0 || then.length === 0) return { previousYear, previousId, lines: [] };
+
+    const seatsBy = (side: readonly ShiftRow[]): Map<string, { label: string; n: number }> => {
+      const out = new Map<string, { label: string; n: number }>();
+      for (const r of side) {
+        if (r.key === null) continue;
+        const at = out.get(r.key) ?? { label: r.label ?? r.key, n: 0 };
+        at.n += 1;
+        out.set(r.key, at);
+      }
+      return out;
+    };
+    const a = seatsBy(now);
+    const b = seatsBy(then);
+
+    const lines: string[] = [];
+
+    // 1 and 2. The two biggest seat movements, in either direction. A party present on only ONE side is
+    // reported as an arrival or a departure rather than as a change, because those are different sentences.
+    const moved = [...new Set([...a.keys(), ...b.keys()])]
+      .map((k) => {
+        const x = a.get(k);
+        const y = b.get(k);
+        return { key: k, label: x?.label ?? y?.label ?? k, now: x?.n ?? 0, then: y?.n ?? 0 };
+      })
+      .filter((m) => m.now !== m.then)
+      .sort((p, q) => Math.abs(q.now - q.then) - Math.abs(p.now - p.then) || p.key.localeCompare(q.key));
+    for (const m of moved.slice(0, 2)) {
+      const d = m.now - m.then;
+      lines.push(
+        m.then === 0
+          ? `${m.label} won ${IN_SEATS.format(m.now)} seat${m.now === 1 ? "" : "s"}, having won none in ${previousYear}.`
+          : m.now === 0
+            ? `${m.label} lost every one of the ${IN_SEATS.format(m.then)} seat${m.then === 1 ? "" : "s"} it held in ${previousYear}.`
+            : `${m.label} ${d > 0 ? "gained" : "lost"} ${IN_SEATS.format(Math.abs(d))} seat${
+                Math.abs(d) === 1 ? "" : "s"
+              }, ${IN_SEATS.format(m.then)} to ${IN_SEATS.format(m.now)}.`,
+      );
+    }
+
+    // 3. Seats that changed hands, seat by seat. Matched on `place_id`, which survives a renaming but NOT a
+    // redelimitation — so the denominator is the seats present in both, and it says so when that is fewer
+    // than the house.
+    const before = new Map(then.filter((r) => r.key !== null).map((r) => [r.placeId, r.key]));
+    let comparable = 0;
+    let flipped = 0;
+    for (const r of now) {
+      if (r.key === null) continue;
+      const was = before.get(r.placeId);
+      if (was === undefined) continue;
+      comparable += 1;
+      if (was !== r.key) flipped += 1;
+    }
+    if (comparable > 0) {
+      lines.push(
+        `${IN_SEATS.format(flipped)} of ${IN_SEATS.format(comparable)} seat${comparable === 1 ? "" : "s"} changed hands.`,
+      );
+    }
+
+    // 4. Turnout, where both sides published one. A share of electors, so it is comparable across a roll
+    // that grew — which India's has, by about a third over this registry's span.
+    const turnout = (side: readonly ShiftRow[]): number | null => {
+      const voters = side.reduce((n, r) => n + (r.voters ?? 0), 0);
+      const electors = side.reduce((n, r) => n + (r.electors ?? 0), 0);
+      return electors > 0 && voters > 0 ? (100 * voters) / electors : null;
+    };
+    const tNow = turnout(now);
+    const tThen = turnout(then);
+    if (tNow !== null && tThen !== null) {
+      const d = Number((tNow - tThen).toFixed(1));
+      lines.push(
+        d === 0
+          ? `Turnout held at ${tNow.toFixed(1)}%.`
+          : `Turnout ${d > 0 ? "rose" : "fell"} ${Math.abs(d).toFixed(1)} points, ${tThen.toFixed(1)}% to ${tNow.toFixed(1)}%.`,
+      );
+    }
+
+    // 5. Whether the leader holds the house outright — the fact a seat count alone does not settle.
+    const top = [...a.values()].sort((x, y) => y.n - x.n)[0];
+    const contested = now.length;
+    if (top !== undefined && contested > 0) {
+      lines.push(
+        top.n > contested / 2
+          ? `${top.label} holds an outright majority of the ${IN_SEATS.format(contested)} seats contested.`
+          : `No party holds an outright majority of the ${IN_SEATS.format(contested)} seats contested.`,
+      );
+    }
+
+    return { previousYear, previousId, lines };
+  });
 }

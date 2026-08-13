@@ -133,7 +133,10 @@ test("every context that can hold a link in prose has the one link treatment", (
   // link inside a section note, a caveat, a table caption, a data row's detail or the line under an answer
   // fell through to the browser default — blue and underlined, on a page whose one stated rule is that hue is
   // spent on data alone. Six contexts render prose that may contain a link; all six must be named.
-  const treated = /\.iei-record a,([\s\S]*?)\.iei-body-link \{/.exec(CSS)?.[1] ?? "";
+  // Anchored on `.iei-foot a`, which is the first selector in the group. It used to be `.iei-record a` — the
+  // dateline — and the final design pass deleted that strip, which would have made this regex match nothing
+  // and the loop below assert nothing at all.
+  const treated = /\.iei-foot a,([\s\S]*?)\.iei-body-link \{/.exec(CSS)?.[1] ?? "";
   for (const cls of ["iei-note", "iei-caveat", "iei-sub", "iei-empty", "iei-row-d", "iei-t caption"]) {
     assert.ok(treated.includes(`.${cls} a,`), `.${cls} a is not in the link treatment`);
   }
@@ -228,11 +231,13 @@ test("every length in the stylesheet comes from the scale", () => {
     "300px",
     "380px",
     "460px", // the three scroll-region heights, which are viewport decisions
-    "640px", // the map's maximum height on a laptop
     "900px",
     "1080px", // the two breakpoints
     "21px", // the answer at the narrow breakpoint, declared as a token override
     "420px", // the command bar's maximum width
+    "12px", // the result strip's swatch: a mark whose size IS its meaning, beside 24px type
+    "26px", // the page title at the narrow breakpoint, declared as a token override
+    "620px", // the map's maximum height elsewhere
   ]);
 
   const offenders = new Map<string, number>();

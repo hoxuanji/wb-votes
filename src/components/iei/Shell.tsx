@@ -2,25 +2,24 @@ import Link from 'next/link';
 import { CommandKey } from './CommandKey.tsx';
 
 /**
- * The product shell: wordmark, one command bar, two destinations, and a live indicator.
+ * The product shell: wordmark, one command bar, and a live indicator.
  *
- * WHAT IT LOST, AND WHY. It used to carry a search field, a state `<select>`, an election `<select>` and a
- * six-item strip of in-page anchors. That is four controls and six links above the map, and it was the
- * clearest instance of the defect this phase exists to fix:
+ * WHAT IT LOST IN THIS PASS, AND WHY. It carried two destination links, `INDIA` and `COVERAGE`.
  *
- *  · The two `<select>`s were search fields that could each reach one kind of thing. A reader had to
- *    classify their own query — is "Chikkodi" a state, an election or a seat? — before they could type it.
- *    One command bar over one grouped result surface answers all five kinds, and `/search` is where the
- *    grouping happens.
- *  · The election `<select>` existed for exactly one consumer: the homepage's Data coverage panel. That
- *    panel is gone (`/coverage` is a page for exactly that question), so the control that drove it went
- *    with it.
- *  · The six anchors were a table of contents for a page with nine sections. The page has four now, each
- *    one screen apart, and a strip that jumps within one document is not navigation.
+ *  · `INDIA` linked to the page the wordmark already links to. Two controls, one destination.
+ *  · `COVERAGE` is the harder one, and it is the reason this file changed. It is a real surface and a good
+ *    one — eighteen subject areas, per-election completeness, geography against India's own totals — but it
+ *    is INFRASTRUCTURE METADATA, and it was sitting in the two slots a product reserves for what it is FOR.
+ *    A reader arriving at an election intelligence platform met "COVERAGE" before they met an election. It is
+ *    linked from the footer of every page as `Data & coverage`, keeps its route, and keeps its deep link.
  *
- * What is left is the honest answer to "where can I go next": the country, the coverage ledger, and a
- * field that reaches everything else. The hierarchy inside a state is carried by breadcrumbs, on the page,
- * beside the thing they are about.
+ * That leaves the honest answer to "where can I go next": a field that reaches states, elections,
+ * constituencies, people and parties, and a wordmark that goes home. The hierarchy inside a state is carried
+ * by breadcrumbs, on the page, beside the thing they are about.
+ *
+ * There is deliberately no `/elections`, `/parties` or `/people` index. Each would be a new dashboard listing
+ * what this field already reaches and what the state pages already own, and the answer to clutter is not
+ * another page.
  *
  * STRUCTURAL ONLY — it opens no database and holds no list of states. The same shell serves `/`,
  * `/pl/<path>`, `/p/<person>`, `/search` and `/coverage`.
@@ -33,13 +32,6 @@ import { CommandKey } from './CommandKey.tsx';
 
 export type Section = 'india' | 'coverage' | 'search' | 'place' | 'person';
 
-/** Two destinations, both of which are pages. A strip that mixes pages with in-page anchors reads as one
- *  list of six equivalent places and is not one. */
-const DESTINATIONS: readonly { key: Section; label: string; href: string }[] = [
-  { key: 'india', label: 'India', href: '/' },
-  { key: 'coverage', label: 'Coverage', href: '/coverage' },
-];
-
 export function Shell({
   here,
   q,
@@ -48,6 +40,7 @@ export function Shell({
   live = false,
   children,
 }: {
+  /** Which surface this is. Marks the wordmark as current on `/`; carries no navigation any more. */
   here: Section;
   /** The current query, so the bar shows what was searched rather than emptying itself. */
   q?: string;
@@ -58,13 +51,13 @@ export function Shell({
 }) {
   return (
     <div className="iei">
-      {/* Skip link first in the tab order: the shell has a search field and two links before the content,
-          which is less keyboard than it was but still keyboard. */}
+      {/* Skip link first in the tab order: the shell has a search field before the content, which is less
+          keyboard than it was but still keyboard. */}
       <a className="iei-skip" href="#main">
         Skip to content
       </a>
       <header className="iei-top">
-        <Link className="iei-mark" href="/">
+        <Link className="iei-mark" href="/" aria-current={here === 'india' ? 'page' : undefined}>
           <span className="iei-mark-a">INDIA</span>
           <span className="iei-mark-b">Election Intelligence</span>
         </Link>
@@ -88,29 +81,36 @@ export function Shell({
           <kbd aria-hidden="true">⌘K</kbd>
         </form>
 
-        <nav className="iei-nav" aria-label="Sections">
-          {DESTINATIONS.map((d) => (
-            <Link
-              key={d.key}
-              href={d.href}
-              className={d.key === here ? 'iei-on' : undefined}
-              aria-current={d.key === here ? 'page' : undefined}
-            >
-              {d.label}
-            </Link>
-          ))}
-          {live ? (
-            <span className="iei-live">
-              <span className="iei-dot iei-dot-live" aria-hidden="true" />
-              Live
-            </span>
-          ) : null}
-        </nav>
+        {live ? (
+          <span className="iei-live">
+            <span className="iei-dot iei-dot-live" aria-hidden="true" />
+            Live
+          </span>
+        ) : null}
       </header>
       <CommandKey target="iei-q" />
       <main className={reading ? 'iei-body iei-body-read' : 'iei-body'} id="main">
         {children}
       </main>
     </div>
+  );
+}
+
+/**
+ * The one line at the foot of every surface, and the only place the data ledger is linked.
+ *
+ * It replaced five different footers, each of which explained something about the software: what the product
+ * is "a registry of", why coverage is honest by construction, what the ⓘ does, why the Analysis floor is
+ * per-constituency, and that the registry stores no Indic name strings. All of those were true and none of
+ * them was a fact about Indian politics.
+ */
+export function Foot({ children }: { children?: React.ReactNode }) {
+  return (
+    <footer className="iei-foot">
+      <p>
+        {children === undefined ? null : <>{children} · </>}
+        <Link href="/coverage">Data &amp; coverage</Link> — what this registry holds, and what it does not.
+      </p>
+    </footer>
   );
 }

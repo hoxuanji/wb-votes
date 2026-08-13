@@ -116,15 +116,17 @@ export function districtsOf(stateName: string): readonly DistrictShape[] {
   return rows;
 }
 
-/** Every district ring in the country, as one path string. The neutral texture under the state fills. */
-let allDistricts: string | null = null;
-export function everyDistrictPath(): string {
-  allDistricts ??= Object.values(asset.districts)
-    .flat()
-    .map((d) => d.path)
-    .join('');
-  return allDistricts;
-}
+/*
+ * `everyDistrictPath()` IS GONE, and this note is where it was.
+ *
+ * It concatenated all 726 district rings into one path string — about 60 kB — which the national map drew as a
+ * neutral hairline layer over the state fills. Progressive geographic disclosure replaced it: at national zoom
+ * a district is not the unit of anything a reader can select, compare or navigate to, so drawing all of them
+ * was interference rather than texture. See IndiaMap.tsx.
+ *
+ * `districtsOf()` above is the survivor and the one that was always doing real work: it serves the STATE map's
+ * district level, where a district frames the view, links to itself and carries a constituency tally.
+ */
 
 /**
  * A viewBox that frames a box, with a margin, clamped to the country.

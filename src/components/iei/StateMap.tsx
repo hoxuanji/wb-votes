@@ -13,13 +13,16 @@ import { districtsOf, frame } from '../../lib/india-geo.ts';
  *
  * ── WHAT IT DRAWS DEPENDS ON WHAT EXISTS, AND IT SAYS WHICH ──
  *
- * The registry holds 294 assembly polygons, all West Bengal, all `delim-2008`. So:
+ * The registry holds 4,969 constituency polygons in one projection, across every jurisdiction that holds
+ * elections, keyed by the place_version each result was recorded under. So:
  *
  *  · CONSTITUENCY LEVEL, where the registry holds a polygon for the version each result was recorded under.
  *    That is the real electoral map.
  *  · DISTRICT LEVEL otherwise: the state's district outlines, from the 2011 census geometry, drawn NEUTRAL.
  *    Not coloured, because a district does not elect anybody — its constituencies do, and the honest sentence
- *    is "12 of 18 constituencies won by INC", which is what the polygon's title says.
+ *    is "12 of 18 constituencies won by INC", which is what the polygon's title says. Jharkhand is the live
+ *    case: DPACO 2008 redrew it and no source describes the result, so its 2019 result has no polygon it may
+ *    legally be drawn on.
  *
  * A reader is never shown a coloured polygon whose colour is a guess. Where neither level can be drawn, the
  * component renders nothing and the page says why.
@@ -36,11 +39,32 @@ import { districtsOf, frame } from '../../lib/india-geo.ts';
  *
  * This is the one thing that breaks when zoom is a viewBox rather than a transform. The map renders into a
  * box of fixed pixel height whatever the viewBox says, so a font size in user units means a different number
- * of pixels at every level: 7 units is 7px across the country and 340px inside Bengaluru Urban. Measured on
- * the country frame — 597 units wide rendering at ~600px — 1/85th of the width is the 7px the design system
- * asks for, and it stays 7px at every other level by construction.
+ * of pixels at every level: 7 units is 7px across the country and 340px inside Bengaluru Urban. 1/58th of the
+ * frame's width renders at about 8px at every level by construction — the same fraction `IndiaMap` uses, so
+ * the two maps' labels are the same size as each other.
+ *
+ * A STROKE WIDTH DOES NOT NEED THIS ANY MORE. Every stroke inside a map is `vector-effect: non-scaling-stroke`
+ * (iei.css), so widths are device pixels. That is what fixed the black gridding over Karnataka's 224
+ * constituencies: a separator of 0.4 user units was about 1.8px across a state and about 25px inside a framed
+ * district. A text size cannot use the same trick, which is why this constant is still here.
  */
-const LABEL_FRACTION = 1 / 85;
+const LABEL_FRACTION = 1 / 58;
+
+/**
+ * How much MORE room than the glyphs need a polygon must have before it is labelled.
+ *
+ * `labelFits` alone asks whether the abbreviation physically fits. On a 224-constituency map at 380px that is
+ * true of 137 of them, and 137 abbreviations over Karnataka is the wall of text the brief names — "never
+ * permanently label every polygon if doing so makes the map noisy". Demanding 1.6× the room turns it into
+ * "label the ones with space to spare", and the distribution that falls out is the right one, measured across
+ * the registry: Karnataka 21 labels, Delhi 14, Sikkim 25, West Bengal 2, Uttar Pradesh none.
+ *
+ * A DENSE STATE THEREFORE LABELS ALMOST NOTHING, and that is the honest answer rather than a gap — at 391
+ * polygons across 178 units no per-seat label is legible at any size, the winners list beside the map is the
+ * key, and framing a district shrinks the frame so the labels come back where they can be read. Colour is
+ * never the only channel: every polygon carries its result in a hover card and in the table.
+ */
+const LABEL_HEADROOM = 1.6;
 
 export function StateMap({
   view,
@@ -96,9 +120,11 @@ export function StateMap({
   const aspect = frameH > 0 ? frameW / frameH : 1;
 
   return (
-    // The width a figure of these proportions needs to use the height it is allowed. 70vh is the cap in
-    // iei.css; below the map-split breakpoint the column is full width and this is ignored.
-    <div className="iei-map-col" style={{ ['--iei-map-w' as string]: `calc(70vh * ${aspect.toFixed(3)})` }}>
+    // The width a figure of these proportions needs to use the height it is allowed. `--iei-map-h` is a PIXEL
+    // token; this used to read `70vh`, which made an `auto` grid track depend on the WINDOW'S HEIGHT — so in a
+    // tall viewport the map claimed the whole row and the tally beside it collapsed to nothing. Below the
+    // map-split breakpoint the column is full width and this is ignored.
+    <div className="iei-map-col" style={{ ['--iei-map-w' as string]: `calc(var(--iei-map-h) * ${aspect.toFixed(3)})` }}>
       <figure className="iei-map iei-map-state">
         <svg
           viewBox={viewBox}
@@ -113,15 +139,17 @@ export function StateMap({
               {drawable.map((s) => {
                 const muted = (highlight !== null && s.partyKey !== highlight) || !inFocus(s);
                 const fill = s.partyKey === null ? NOT_HELD : fillFor(s.partyKey);
-                // A label only where the polygon can hold one, only in focus, and only when not muted:
-                // 294 abbreviations over a whole state is a wall of text, and over a dimmed one it is noise.
+                // A LABEL WHEREVER ONE FITS, AT EVERY LEVEL — which is the change. Labels used to be drawn
+                // only inside a focused district, so a whole-state map of 224 constituencies carried none at
+                // all and could be read by colour alone. `labelFits` is what keeps that from becoming a wall
+                // of text: it refuses any polygon without room for the abbreviation at the size it is drawn,
+                // so a dense state labels its big seats and leaves the rest to the hover card and the table.
                 const a = anchorOf(s.path as string);
                 if (
                   !muted &&
-                  focus !== null &&
                   a !== null &&
                   s.partyLabel !== null &&
-                  labelFits(a, s.partyLabel.length, labelPx)
+                  labelFits(a, s.partyLabel.length, labelPx * LABEL_HEADROOM)
                 ) {
                   marks.push({ x: a.x, y: a.y, text: s.partyLabel });
                 }
@@ -190,22 +218,27 @@ export function StateMap({
               answering a different question from the one it was asked. */}
           {focus !== null && ((focusOutline === null && !constituencies) || unframeable) ? (
             <>
-              The map stays at state level: the registry holds no boundary this map can frame{' '}
-              <b>{focus.name}</b> with
+              The map stays at state level: no boundary here can frame <b>{focus.name}</b>
               {unframeable ? ' — every one of its constituencies is in the staged list' : ' under that name'}.
               The tally beside it is still this district&rsquo;s own.{' '}
             </>
           ) : null}
+          {/* A COMPLETE MAP SAYS NOTHING HERE. "224 of 224 constituencies drawn" tells a reader nothing they
+              can act on; "263 of 294" tells them something real, and that is the case this sentence exists
+              for. Printing it either way made an epoch caveat the last word under every map in the product. */}
           {constituencies ? (
-            <>
-              {view.geometry.drawable} of {view.geometry.total} constituencies drawn, on the{' '}
-              {view.geometry.epochs.join(' and ')} boundaries these results were recorded under.
-            </>
+            view.geometry.drawable < view.geometry.total ? (
+              <>
+                {view.geometry.drawable} of {view.geometry.total} constituencies drawn — the registry holds no
+                boundary for the rest on the {view.geometry.epochs.join(' and ')} delimitation these results
+                were recorded under.
+              </>
+            ) : null
           ) : (
             <>
-              District outlines, 2011 census geometry, drawn neutral — a district does not elect anybody. The
-              registry holds no constituency boundary for {view.jurisdictionName}, so the seats are a table
-              rather than a map.
+              Districts, drawn neutral — a district does not elect anybody. The registry holds no constituency
+              boundary for {view.jurisdictionName} on the delimitation this election used, so the seats are a
+              table rather than a map.
             </>
           )}
         </figcaption>

@@ -76,6 +76,15 @@ export type CloseFight = {
   placeName: string;
   placeId: string;
   jurisdictionId: string;
+  /**
+   * The seat's own page, or the jurisdiction's when it has none.
+   *
+   * Built HERE rather than in a component, because the rule — state / district / slugged name — is the same
+   * one `state-map.ts` and `place-page.ts` apply, and a fourth copy of it in JSX is a link that silently goes
+   * nowhere. A parliamentary constituency hangs off the state rather than a district, so it has no
+   * four-segment path; that is a fallback up the tree, not a broken URL.
+   */
+  href: string;
   winner: string;
   /** The party that came second, and its share. Null where the source holds only the winner. */
   runnerUp: string | null;
@@ -554,13 +563,16 @@ export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): Cl
     if (latest.length === 0) return [];
     const ids = latest.map((l) => l.id);
     const holes = ids.map(() => "?").join(",");
-    return all<CloseFight>(
+    return all<CloseFight & { districtId: string | null }>(
       db,
       // The runner-up joins on rank = 2 of the SAME contest. A LEFT JOIN, because an election the source
       // published winners-only for has no second row — and "no runner-up recorded" is a different fact
       // from "unopposed", which is why it is null here rather than blank.
       `SELECT plv.canonical_name AS placeName, pl.id AS placeId, ${J_OF_SEAT} AS jurisdictionId,
               ${LABEL_SQL} AS winner,
+              -- The district the seat sat in UNDER THIS VERSION, which is what a place path addresses. NULL
+              -- for a parliamentary constituency, whose district join lands on the jurisdiction instead.
+              CASE WHEN dis.kind = 'district' THEN dis.id ELSE NULL END AS districtId,
               CASE WHEN r2.candidacy_id IS NULL THEN NULL
                    ELSE COALESCE(NULLIF(pt2.short_name, ''), NULLIF(pt2.name, ''), NULLIF(cd2.party_raw, ''), 'Unattached')
               END AS runnerUp,
@@ -591,7 +603,16 @@ export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): Cl
         LIMIT ?`,
       ...ids,
       limit,
-    );
+    ).map(({ districtId, ...r }) => ({
+      ...r,
+      href:
+        districtId !== null && districtId.startsWith(`${r.jurisdictionId}.`)
+          ? `/pl/${r.jurisdictionId}/${districtId.slice(r.jurisdictionId.length + 1)}/${r.placeName
+              .trim()
+              .toLowerCase()
+              .replace(/\s+/g, "-")}`
+          : `/pl/${r.jurisdictionId}`,
+    }));
   });
 }
 

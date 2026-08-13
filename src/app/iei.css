@@ -8,22 +8,32 @@
 
    THE ONE RULE THIS FILE ENFORCES: the interface is monochrome, and only DATA is coloured.
 
-   Nav, controls, headers, rules, focus states and the current-section marker are all ink on near-black.
-   Hue is spent on four things and nothing else: the choropleth's parties, the magnitude ramp, coverage
-   status, and the direction of a change. That is a real position rather than restraint for its own sake —
-   an accent colour on the chrome competes with the map for the only channel the map has, and this page
-   exists to be read map-first. It also removes the collision the alternative creates: any accent close
-   enough to feel deliberate sits next to one of the four party fills.
+   Controls, headers, rules and focus states are all ink on near-black. Hue is spent on four things and
+   nothing else: the choropleth's parties, the magnitude ramp, coverage status, and the direction of a
+   change. That is a real position rather than restraint for its own sake — an accent colour on the chrome
+   competes with the map for the only channel the map has, and this product exists to be read map-first.
 
    THE SECOND RULE: every length is a token. A rule that wants 18px is a rule that has not decided
    whether it means 16 or 24. The scale is 4·8·12·16·24·32·48 and there are seven type sizes; both are
    declared once, below, and redeclared at breakpoints rather than overridden rule by rule.
 
+   WHAT THE FINAL DESIGN PASS CHANGED HERE, because a stylesheet that describes an older version of itself is
+   worse than one with no comments:
+
+   · THE TYPE SCALE OPENED UP, 9.5–25px to 10–34px. A page title at 25px over a section heading at 11px is
+     not a hierarchy, and "too much information has the same visual weight" was measurably true.
+   · A SECTION HEADING IS A HEADING. It was tracked uppercase mono at 11px — the same treatment as a table
+     column header — so neither read as the top of anything. Sans, 15px, sentence case.
+   · EVERY STROKE INSIDE A MAP IS A DEVICE MEASUREMENT (`vector-effect: non-scaling-stroke`), because zoom
+     here is a viewBox change and a user-unit hairline is 25px inside a framed district.
+   · THE DATELINE STRIP, THE NAVIGATION STRIP, THE HISTORY GRID'S CELL AND THE MAGNITUDE COLUMN ARE GONE.
+     Each has a note at the place it used to be, saying what it was and why it went.
+
    The rest follows from the same instinct:
    · No gradients, no glass, no shadows, no card that floats for decoration. Sections are divided by
      hairlines, which is how a document divides sections.
    · Every NUMBER and every piece of metadata is monospace and tabular. Prose is not. That single split is
-     what lets a table run at 12px and stay readable.
+     what lets a table run at 13px and stay readable.
    · Radius is one token and it is 2px. A dashboard of rounded cards reads as a marketing page with data
      in it.
    · Focus is a 2px bright-ink underline on the control itself, never a ring. forced-colors gets a real
@@ -79,15 +89,20 @@
   --iei-12: 48px;
 
   /* ── type ──
-     Seven sizes, each with a job. The two smallest are mono-only: `mark` is an uppercase label and never
-     a sentence, `meta` is mono at reading size. `data` is a table cell, `body` is prose. */
-  --iei-f-mark: 9.5px;
-  --iei-f-meta: 11px;
-  --iei-f-data: 12px;
-  --iei-f-body: 13px;
-  --iei-f-title: 14px;
-  --iei-f-lead: 19px;
-  --iei-f-answer: 25px;
+     Seven sizes, each with a job, and the SPREAD is the point. They used to run 9.5 → 25, so a page title
+     was 2.6× a label and a section heading was smaller than the prose under it: "too much information has
+     the same visual weight" was a measurable fact rather than an impression. They run 10 → 34 now, which
+     puts four clear tiers on a screen — title, metric, body, label — instead of one crowded band.
+
+     The two smallest are mono-only: `mark` is an uppercase label and never a sentence, `meta` is mono at
+     reading size. `data` is a table cell, `body` is prose, `title` is a section heading. */
+  --iei-f-mark: 10px;
+  --iei-f-meta: 11.5px;
+  --iei-f-data: 13px;
+  --iei-f-body: 14px;
+  --iei-f-title: 15px;
+  --iei-f-lead: 24px;
+  --iei-f-answer: 34px;
 
   /* ── frame ── */
   --iei-r: 2px;
@@ -97,8 +112,15 @@
      `tight` exists so that a table of every state in India fits a screen — a documented reason, which is
      the only kind this file allows. */
   /* The map's maximum height, and the height of the table that sits beside it. One value, because the two
-     are one row of the layout and a mismatch reads as an unfinished column. */
-  --iei-map-h: 640px;
+     are one row of the layout and a mismatch reads as an unfinished column.
+
+     IN PIXELS, AND THAT IS LOAD-BEARING. It used to be 640 here and `70vh` for a state, and StateMap derived
+     the map column's intrinsic width from the vh figure — so an `auto` grid track was sized from the
+     VIEWPORT HEIGHT. In a tall window the map claimed the whole row and the column beside it collapsed to
+     about 50px: at 1440×900 the national legend rendered as "BJP 11 s" clipped mid-word and the 36-row
+     standings table did not appear at all. A map's width may depend on its own shape; it may not depend on
+     how tall the window happens to be. */
+  --iei-map-h: 620px;
   --iei-cell-y: var(--iei-2);
   --iei-cell-y-tight: var(--iei-1);
   --iei-cell-x: var(--iei-3);
@@ -179,6 +201,8 @@ html {
 
 .iei-top {
   display: grid;
+  /* Two columns and an optional third. The third used to hold two destination links; it holds the live
+     indicator when an election is running, and nothing the rest of the time. */
   grid-template-columns: auto 1fr auto;
   align-items: center;
   gap: var(--iei-2) var(--iei-6);
@@ -284,41 +308,13 @@ html {
   box-shadow: inset 0 -2px 0 0 var(--iei-ink);
 }
 
-.iei-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--iei-4);
-  align-items: center;
-  justify-self: end;
-  min-width: 0;
-}
-
-.iei-nav a {
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-mark);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  text-decoration: none;
-  color: var(--iei-ink-3);
-  padding: var(--iei-1) 0;
-  border-bottom: 2px solid transparent;
-  white-space: nowrap;
-}
-
-.iei-nav a:hover {
-  color: var(--iei-ink);
-}
-
-.iei-nav a:focus-visible {
-  outline: none;
-  color: var(--iei-ink);
-  border-bottom-color: var(--iei-ink);
-}
-
-.iei-on {
-  color: var(--iei-ink) !important;
-  border-bottom-color: var(--iei-ink-3) !important;
-}
+/*
+ * THERE IS NO NAVIGATION STRIP, and the rules that styled one are gone with it.
+ *
+ * `.iei-nav` held two links, `INDIA` and `COVERAGE`. The first went where the wordmark goes. The second put
+ * dataset status in the slot a product reserves for what it is for, so a reader met "COVERAGE" before they met
+ * an election — see Shell.tsx. Both destinations still exist; one is the wordmark and one is in every footer.
+ */
 
 .iei-live {
   display: inline-flex;
@@ -328,6 +324,7 @@ html {
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--iei-alert);
+  justify-self: end;
 }
 
 .iei-dot {
@@ -359,33 +356,21 @@ html {
   max-width: 1040px;
 }
 
-/* The record strip: the dateline of the whole page, and the first thing under the chrome. Every figure in
-   it is a count, and the last cell is when the counting happened. */
-.iei-record {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0 var(--iei-6);
-  align-items: baseline;
-  border-bottom: 1px solid var(--iei-line);
-  padding: var(--iei-3) 0;
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-mark);
-  letter-spacing: 0.05em;
-  color: var(--iei-ink-3);
-}
-
-.iei-record b {
-  color: var(--iei-ink);
-  font-weight: 600;
-  font-variant-numeric: tabular-nums;
-}
+/*
+ * THE RECORD STRIP IS GONE, and this note is where it was.
+ *
+ * It was the dateline of the whole front page: "36 of 36 states & UTs · assembly seats 4,117 of 4,123 · Lok
+ * Sabha 543 of 543 · 1,202 elections since 1961 · computed 14:11 UTC · what is and is not loaded". Six cells,
+ * above the headline, in the first screen. Four of them are ROW COUNTS — a reader does not ask how many rows
+ * are loaded — and one was the wall-clock time a SQL query ran, which is not a fact about Indian politics.
+ * The one useful figure, how many elections are on record and how far back, is a clause of the hero's own
+ * sentence now, and the coverage link is in the footer.
+ */
 
 /* ONE LINK TREATMENT FOR EVERY LINK IN PROSE, and the list is exhaustive on purpose.
    It covered the dateline and the footer, and nothing else — so a link inside a section's note, a caveat, a
    table caption, a data row's detail or the sub-line under an answer fell through to the browser default and
-   rendered as blue, underlined, on a page whose one stated rule is that hue is spent on data alone. There
-   were six of them: the Coverage link at the end of Next's overdue note was the visible one. */
-.iei-record a,
+   rendered as blue, underlined, on a page whose one stated rule is that hue is spent on data alone. */
 .iei-foot a,
 .iei-note a,
 .iei-caveat a,
@@ -399,7 +384,6 @@ html {
   border-bottom: 1px solid var(--iei-line-2);
 }
 
-.iei-record a:hover,
 .iei-foot a:hover,
 .iei-note a:hover,
 .iei-caveat a:hover,
@@ -411,7 +395,6 @@ html {
   color: var(--iei-ink);
 }
 
-.iei-record a:focus-visible,
 .iei-foot a:focus-visible,
 .iei-note a:focus-visible,
 .iei-caveat a:focus-visible,
@@ -444,15 +427,16 @@ html {
   margin: 0 0 var(--iei-2);
 }
 
-/* 25px, not 64px: a sentence this specific does not need size to land — it needs to be a sentence rather
-   than a slogan. */
+/* 34px, and a short title rather than a long sentence. The computed sentence moved to the sub-line below,
+   which is where a sentence belongs — a 20-word claim set at display size is a slogan, and a claim with a
+   methodology clause in it ("— derived, not announced") is a footnote in the largest type on the page. */
 .iei-answer {
   font-size: var(--iei-f-answer);
-  line-height: 1.25;
-  font-weight: 600;
-  letter-spacing: -0.015em;
+  line-height: 1.15;
+  font-weight: 650;
+  letter-spacing: -0.025em;
   margin: 0;
-  max-width: 46ch;
+  max-width: 30ch;
   text-wrap: balance;
 }
 
@@ -470,6 +454,63 @@ html {
   font-size: var(--iei-f-body);
   color: var(--iei-ink-2);
   max-width: 68ch;
+}
+
+/* ══════════════════════════ the result strip ══════════════════════════
+   WHO GOVERNS, HOW STRONGLY, AND FROM WHICH ELECTION — the five-second answer a state page owes a reader,
+   and the one thing it did not have. It had that fact, in a 13px sentence under the title, between the
+   heading and a 30-row table; the same words at the same weight as everything else on the page.
+
+   A party's colour appears here as a swatch beside its name and never as the text colour, for the reason the
+   whole stylesheet is built on: hue belongs to data, and the identity is carried by the word as well as the
+   mark so it survives greyscale and a screen reader. */
+
+.iei-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--iei-2) var(--iei-4);
+  margin: var(--iei-4) 0 0;
+}
+
+.iei-result b {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-lead);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.03em;
+  color: var(--iei-ink);
+  line-height: 1;
+}
+
+/* The party. The label at reading size, because it is the subject of the sentence rather than a tag. */
+.iei-result-p {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-lead);
+  font-weight: 650;
+  letter-spacing: -0.02em;
+  white-space: nowrap;
+  line-height: 1;
+}
+
+.iei-result-p .iei-sw {
+  width: 12px;
+  height: 12px;
+  margin: 0;
+  vertical-align: baseline;
+}
+
+/* Which election established it. Quiet, and never omitted: a seat count with no election attached to it is
+   a number a reader cannot date. */
+.iei-result-w {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
 }
 
 /* ══════════════════════════ sections ══════════════════════════ */
@@ -510,12 +551,16 @@ html {
   color: var(--iei-ink-3);
 }
 
+/* A SECTION HEADING IS A HEADING, NOT A LABEL.
+   It was mono, uppercase, 11px, 0.14em tracking — the same treatment as a table header, so a section title
+   and a column title looked alike and neither read as the top of anything. Sans at 15px in sentence case is
+   a heading; the tracked mono tier is still there and still does its job, on the eyebrows and the labels
+   where a small uppercase mark is what is wanted. */
 .iei-h h2 {
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-meta);
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
   color: var(--iei-ink);
   margin: 0;
 }
@@ -824,20 +869,24 @@ html {
    A figure with its label and, where one exists, its denominator. One primitive for the tile grids that
    /pl and /coverage each had their own version of. */
 
-/* As many tiles per row as fit, and never an empty cell. The 1px gaps show the hairline colour through, so a
-   grid with a fixed column count and one tile short painted a solid grey block where a tile should be.
-   auto-fit also makes this the one grid in the file that needs no breakpoint. */
+/* As many tiles per row as fit, separated by whitespace and one rule above them.
+   THE GRID NO LONGER PAINTS ITS OWN GAPS, and that is a fix rather than a simplification. It used to set
+   `background: var(--iei-line)` with a 1px gap and an opaque tile over it, which draws a hairline between
+   tiles — and paints the REMAINDER OF AN INCOMPLETE LAST ROW as a solid grey block. `auto-fit` collapses empty
+   TRACKS; it cannot collapse the empty cells after the last tile in a row, so a seat page with seven tiles in a
+   six-column row rendered a grey slab two thirds of the row wide. The visual pass caught it on Mekliganj.
+   Whitespace and a single rule above the group say the same thing and cannot do that. */
 .iei-metrics {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 1px;
+  gap: var(--iei-4) var(--iei-6);
   margin: 0;
-  background: var(--iei-line);
+  border-top: 1px solid var(--iei-line);
+  padding-top: var(--iei-4);
 }
 
 .iei-metric {
-  background: var(--iei-bg);
-  padding: var(--iei-3);
+  min-width: 0;
 }
 
 .iei-metric dt {
@@ -894,11 +943,6 @@ html {
   height: 100%;
   /* 2px rounded data-end anchored to the baseline, per the mark spec. */
   border-radius: 0 var(--iei-r) var(--iei-r) 0;
-}
-
-.iei-col-track {
-  width: 15%;
-  min-width: 56px;
 }
 
 .iei-spark {
@@ -1183,6 +1227,13 @@ html {
   padding-bottom: 0;
 }
 
+/* The dense variant, for a feed of many short rows — recent results, closest contests, a party ranking.
+   The list primitive is now four modules on the front page instead of four different table idioms, and at
+   12px of vertical padding each, eight rows of anything is 400px of scroll. */
+.iei-list-tight > li {
+  padding: var(--iei-2) 0;
+}
+
 .iei-row-h {
   display: flex;
   align-items: baseline;
@@ -1201,6 +1252,38 @@ html {
 
 .iei-row-t {
   border-bottom: 0;
+}
+
+/* The right-hand end of a row: a figure, a year, a count, a sparkline. Its own box so a figure and a mark
+   beside it stay on one line and align with the row's title rather than with its detail. */
+.iei-row-a {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iei-2);
+  flex: none;
+}
+
+/* The right-hand end of a row: a figure, a year, a count. Mono and tabular, so a column of them lines up
+   down a list the way it would in a table — which is what lets a list replace one. */
+.iei-row-h b {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-weight: 650;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  color: var(--iei-ink);
+  white-space: nowrap;
+}
+
+/* A rank in a ranked list. Tabular so 1 and 10 occupy the same width and the names below start on one edge. */
+.iei-rank {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink-3);
+  min-width: 2ch;
+  margin-right: var(--iei-2);
+  text-align: right;
 }
 
 .iei-row-h a:hover {
@@ -1357,12 +1440,14 @@ html {
 
 .iei-map-split {
   display: grid;
-  /* THE MAP COLUMN IS SIZED BY THE MAP, not by a fraction.
+  /* THE MAP COLUMN IS SIZED BY THE MAP, AND THE COLUMN BESIDE IT HAS A FLOOR.
      India is wider than it is tall and every state is taller than it is wide, so a fixed fraction letterboxed
-     every state page: Karnataka drew 356px of polygon inside a 680px column and the 320px left over was
-     nothing. `max-content` on a column whose figure declares its own aspect-ratio (see .iei-map-state svg)
-     gives the map exactly the width its shape needs and the table everything else. */
-  grid-template-columns: minmax(0, auto) minmax(0, 1fr);
+     every state page. `auto` on a column whose figure declares its own aspect-ratio gives the map exactly the
+     width its shape needs — but with nothing but `minmax(0, 1fr)` beside it, an over-wide map could take the
+     whole row and squeeze its companion to nothing. It did: at 1440×900 the legend rendered as "BJP 11 s",
+     clipped mid-word, and the 36-row standings table was not drawn at all. The 300px floor is what makes that
+     unrepresentable; below the stacking breakpoint the columns are one and it does not apply. */
+  grid-template-columns: minmax(0, auto) minmax(300px, 1fr);
   gap: var(--iei-3) var(--iei-8);
   align-items: start;
 }
@@ -1371,9 +1456,9 @@ html {
    the grid above sees one item — see IndiaMap.tsx for the fragment this replaced and what it did.
 
    ITS WIDTH COMES FROM THE MAP'S OWN SHAPE, which StateMap sets inline: `--iei-map-w` is the width a figure
-   of this frame's proportions needs to fill the height it is allowed. India is wider than it is tall and
-   every state is taller than it is wide, so one fixed fraction letterboxed all thirty-six — Karnataka drew
-   330px of polygon inside a 680px column and the rest was nothing. */
+   of this frame's proportions needs to fill the height it is allowed — `--iei-map-h` times the aspect ratio.
+   That was `70vh` times the aspect, which made an `auto` grid track depend on the window's HEIGHT; see the
+   token's own note. */
 .iei-map-col {
   min-width: 0;
   width: var(--iei-map-w, 100%);
@@ -1390,47 +1475,80 @@ html {
   height: auto;
   max-height: var(--iei-map-h);
   display: block;
-  overflow: visible;
+  /*
+   * CLIPPED, AND THIS IS NOT A DETAIL. It was `overflow: visible`, which is harmless at state level because
+   * nothing is drawn outside the frame — and catastrophic at district level, where the frame is a small window
+   * onto the state and every other constituency is outside it. The visual pass caught it on
+   * `/pl/ka?district=ka.bangalore`: 200 muted polygons painted straight over the header, the hero, the legend
+   * and the tally, as a wash across the whole page.
+   *
+   * The muted neighbours are still DRAWN — they are the geographic context that makes a zoom legible — they
+   * are simply confined to the figure. The cost is that a label sitting on the frame's own edge can clip by a
+   * pixel or two, which is why the frame carries 8% padding (see `frame()` in lib/india-geo.ts).
+   */
+  overflow: hidden;
 }
 
-/* ── the three layers, and the order is the argument ──
-   The fills carry NO stroke. They used to carry one, and because a state's path was every district ring
+/* ── EVERY STROKE IN A MAP IS IN DEVICE PIXELS ──
+   This one declaration is the fix for the defect the visual pass found: a stroke width inside an SVG is in
+   USER units, and this product's zoom is a viewBox change rather than a transform. So a 0.4 separator was
+   ~1.8px across a state and ~25px inside a framed district, and a 1.8 hover stroke was ~8px and ~110px. The
+   heavy black gridding over Karnataka's 224 constituencies was that, not a choice.
+
+   `non-scaling-stroke` makes every width below a screen measurement, so a hairline is a hairline at national,
+   state and district zoom alike, and no component has to compute one. It applies to paths only; the label
+   halo stays in user units, where it has to be, because it must grow with the glyphs it sits behind. */
+.iei-map path {
+  vector-effect: non-scaling-stroke;
+}
+
+/* ── the layers, and the order is the argument ──
+   The fills carry NO stroke of their own. They used to, and because a state's path was every district ring
    concatenated, that stroke drew every district boundary in the fill's own gap colour — so a party-coloured
    state arrived divided into party-coloured districts, which is a claim about districts that the data does not
-   make. Nothing inside a state is drawn from the party's colour now. */
+   make. Nothing inside a state is drawn from the party's colour. */
 .iei-map-fills path {
   stroke: none;
 }
 
-/* Administrative texture. A hairline in a neutral ink, over the fills: it shows where the districts are
-   without asserting that any of them voted for anything. Deliberately below the mark floor — it is not data,
-   it is the frame the data sits in. */
-.iei-map-districts {
-  fill: none;
-  stroke: var(--iei-bg);
-  stroke-width: 0.35;
-  stroke-opacity: 0.55;
-  pointer-events: none;
-}
+/*
+ * THERE ARE NO DISTRICT HAIRLINES AT NATIONAL ZOOM ANY MORE, and the rule that drew them is gone with them.
+ *
+ * 726 district outlines were painted over the national choropleth as one 60 kB path. The intent was
+ * administrative texture; the effect was visual interference across every state, at the one zoom level where
+ * a district is not the unit of anything the reader can select, compare or navigate to. Progressive
+ * geographic disclosure is the standard here and it is what the brief asks for: state fills and state borders
+ * at national zoom, districts when a state is open, constituencies when the registry holds them.
+ *
+ * The geometry did not go anywhere. `districtsOf()` still serves the state map's neutral district level (see
+ * `.iei-map-neutral` below), which is where a district IS the unit — it frames, it links, and it carries a
+ * tally. What was deleted is drawing all 726 of them at once, on a screen where none of them can be clicked.
+ */
 
-/* A state border reads as a border: the canvas colour, heavier than a district line, from the states' own
-   outline geometry rather than as a by-product of a fill. That is the border hierarchy. */
+/* A state border reads as a border: the canvas colour, from the states' own outline geometry rather than as a
+   by-product of a fill. Now the only line on the national map, and thinner for it — with 726 district lines
+   gone it no longer has to shout over them to be read as the heavier of two. */
 .iei-map-borders path {
   fill: none;
   stroke: var(--iei-bg);
-  stroke-width: 1.1;
+  stroke-width: 0.9;
   pointer-events: none;
 }
 
-/* Hover and focus change the STROKE, never the fill. Changing a choropleth's fill on hover destroys the
-   one thing the reader is comparing. */
+/* ── selection is a FOCUS STATE, not a polygon stroke ──
+   A thick dark outline round the chosen shape is a GIS artefact: it reads as another boundary in a picture
+   already made of boundaries. What a reader needs is for the thing under the cursor to come FORWARD — so the
+   fill lifts slightly and a thin high-contrast edge appears. Hover and focus change the stroke and the
+   brightness; they never change the HUE, because the hue is the party's identity and is the one thing the
+   reader is comparing. */
 .iei-map a:hover path {
   stroke: var(--iei-ink);
-  stroke-width: 1.8;
+  stroke-width: 1.25;
+  filter: brightness(1.14);
 }
 
-/* A muted polygon is a polygon a party highlight has set aside. Opacity rather than a second colour: the
-   fill is the party's identity and must not be replaced, only turned down. */
+/* A muted polygon is one a party highlight has set aside. Opacity rather than a second colour: the fill is
+   the party's identity and must not be replaced, only turned down. */
 .iei-map-fills path[opacity] {
   transition: opacity 120ms linear;
 }
@@ -1441,7 +1559,8 @@ html {
 
 .iei-map a:focus-visible path {
   stroke: var(--iei-ink);
-  stroke-width: 2.4;
+  stroke-width: 2.25;
+  filter: brightness(1.14);
 }
 
 /* Geometry with no jurisdiction behind it: drawn so the country is whole, never coloured, never linked. */
@@ -1526,27 +1645,30 @@ html {
 .iei-map-state svg {
   /* ASPECT-RATIO FROM THE VIEWBOX, set inline by StateMap because only the component knows the frame. It
      makes the figure's intrinsic width computable, which is what lets the column above be max-content.
-     Height is still bounded, so a very tall state does not push the table off the screen. */
-  max-height: 70vh;
+     Height is bounded by the shared token — in pixels, not vh, so the column's width cannot depend on the
+     window's height. */
+  max-height: var(--iei-map-h);
   max-width: 100%;
   height: auto;
 }
 
 /* Districts drawn as containers rather than as results: the panel surface, with a visible edge. Never a
-   party's colour, because a district does not elect anybody. */
+   party's colour, because a district does not elect anybody. THIS is the district level of the map, and the
+   only place district geometry is drawn — a district is the unit here, so it frames, links and carries a
+   tally. At national zoom it is none of those things and is not drawn. */
 .iei-map-state .iei-map-neutral path {
   fill: var(--iei-raised);
   /* The OUTLINE carries these, not the fill. A container has to be visible as a shape without reading as a
      value, so the edge clears the mark floor and the interior stays at the panel tier — 30 dark boxes with a
      hairline round them read as an empty frame, which is what the first attempt looked like. */
   stroke: var(--iei-ink-3);
-  stroke-width: 0.7;
+  stroke-width: 0.9;
 }
 
 .iei-map-state .iei-map-neutral a:hover path {
   fill: var(--iei-panel);
   stroke: var(--iei-ink);
-  stroke-width: 1.4;
+  stroke-width: 1.5;
 }
 
 .iei-map-state .iei-map-neutral a:focus-visible {
@@ -1555,19 +1677,21 @@ html {
 
 .iei-map-state .iei-map-neutral a:focus-visible path {
   stroke: var(--iei-ink);
-  stroke-width: 2;
+  stroke-width: 2.25;
 }
 
 /* A constituency polygon needs a hairline of the surface between it and its neighbour, or 294 adjacent fills
-   read as one blob. */
+   read as one blob. SIX TENTHS OF A DEVICE PIXEL, by way of `non-scaling-stroke` above: as a user-unit 0.4
+   this was about 1.8px across a state and about 25px inside a framed district, which is the black gridding
+   the visual pass found over Karnataka. */
 .iei-map-state .iei-map-fills:not(.iei-map-neutral) path {
   stroke: var(--iei-bg);
-  stroke-width: 0.4;
+  stroke-width: 0.6;
 }
 
 .iei-map-state .iei-map-fills:not(.iei-map-neutral) a:hover path {
   stroke: var(--iei-ink);
-  stroke-width: 1.4;
+  stroke-width: 1.5;
 }
 
 /* The prefix has to match the rule that replaces the outline, or the focus test cannot see the pairing —
@@ -1579,7 +1703,7 @@ html {
 
 .iei-map-state .iei-map-fills:not(.iei-map-neutral) a:focus-visible path {
   stroke: var(--iei-ink);
-  stroke-width: 2;
+  stroke-width: 2.25;
 }
 
 /* ── legend ── */
@@ -1662,46 +1786,12 @@ html {
   color: var(--iei-ink-3);
 }
 
-/* ══════════════════════════ the history grid ══════════════════════════
-   Columns of the same shape, so a row reads left-to-right as a run of elections. A jurisdiction with
-   fewer gets fewer cells — never a padded one. */
-
-.iei-cell {
-  display: grid;
-  grid-template-columns: auto 1fr;
-  gap: 0 var(--iei-1);
-  align-items: baseline;
-  text-decoration: none;
-  color: var(--iei-ink-2);
-  padding: 2px var(--iei-1) 2px 0;
-  border-radius: var(--iei-r);
-}
-
-.iei-cell b {
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-meta);
-  font-weight: 600;
-  color: var(--iei-ink-3);
-  font-variant-numeric: tabular-nums;
-}
-
-.iei-cell .iei-chip {
-  color: var(--iei-ink);
-}
-
-.iei-cell .iei-rule {
-  grid-column: 2;
-}
-
-.iei-cell:hover {
-  background: var(--iei-raised);
-}
-
-.iei-cell:focus-visible {
-  outline: none;
-  background: var(--iei-raised);
-  box-shadow: inset 0 0 0 1px var(--iei-ink);
-}
+/*
+ * THE HISTORY GRID'S CELL IS GONE, and this note is where it was.
+ *
+ * `.iei-cell` styled one cell of the front page's 36×5 historical-elections grid — 180 links to the state
+ * pages the map already reaches — which Phase 2.5 deleted. The rules survived it by one phase, styling nothing.
+ */
 
 /* ══════════════════════════ gaps and anomalies ══════════════════════════ */
 
@@ -1763,7 +1853,7 @@ html {
 @media (max-width: 900px) {
   :root {
     --iei-gutter: var(--iei-3);
-    --iei-f-answer: 21px;
+    --iei-f-answer: 26px;
     /* Tables stay dense but stop being cramped: a 4px cell is not a reachable touch target. */
     --iei-cell-y-tight: var(--iei-2);
   }
@@ -1781,37 +1871,48 @@ html {
     max-width: none;
   }
 
-  .iei-nav {
-    order: 4;
-    grid-column: 1 / -1;
-    /* Horizontal scroll beats wrapping to three rows and pushing the map off the first screen. */
-    flex-wrap: nowrap;
-    overflow-x: auto;
-    gap: var(--iei-4);
-    padding-bottom: 2px;
-  }
-
   /* THE SPLIT STACKS HERE, NOT AT 1080.
      It used to stack at 1080, which meant a 1024×768 laptop got a full-width map: 330px of chrome above it
      and a 553px map below, so the whole first screen was one polygon and the reader had to scroll to learn
-     that anything followed. At 1024 the two columns are 503px and 457px, which is a legible choropleth with
-     all 36 jurisdictions listed beside it — a better use of that screen than either alone.
-     Below 900 it genuinely has to stack, and then the map is capped so the legend and the first rows of the
-     table are still above the fold. A full-height choropleth is a page with one section in it. */
+     that anything followed. At 1024 the two columns are a legible choropleth with all 36 jurisdictions listed
+     beside it — a better use of that screen than either alone.
+     Below 900 it genuinely has to stack, and then the map is capped (`--iei-map-h` is 360 here) so the legend
+     and the first rows of the table are still above the fold. A full-height choropleth is a page with one
+     section in it. */
   .iei-map-split {
     grid-template-columns: minmax(0, 1fr);
   }
 
+  /* ONCE THE SPLIT HAS STACKED, THE MAP TAKES THE WIDTH.
+     `--iei-map-w` is the width a figure of this frame's proportions needs to fill the height it is allowed,
+     and it exists to size a column in a TWO-column row. In one column it is wrong by construction: the visual
+     pass caught Karnataka drawn 220px wide inside a 740px tablet, because the component's inline variable was
+     still constraining a column that no longer had a neighbour. The component sets the VARIABLE; the width is
+     the stylesheet's decision, so overriding it here is enough.
+
+     The height is a genuine viewport decision — a full-height choropleth is a page with one section in it, and
+     something after the map has to be visible without scrolling — so it is the one `vh` in this file. It
+     cannot reintroduce the collapse the token's own note describes, because in a single-column grid nothing
+     derives a WIDTH from it. Note that the `-doc` visual captures use a 3,600px window, so they exaggerate
+     this deliberately; the `-fold` captures are where it is judged. */
+  .iei-map-col {
+    width: 100%;
+  }
+
+  /* HEIGHT-DRIVEN AND CENTRED, once there is no column to fill. With a definite height and the frame's own
+     aspect-ratio (set inline), the box shrinks to the drawing instead of being a full-width letterbox with the
+     map floating in the middle of it — which is what `width: 100%` gives a state that is taller than it is
+     wide, and every state is. */
   .iei-map svg {
-    max-height: 52vh;
+    height: 62vh;
+    width: auto;
+    max-width: 100%;
+    max-height: none;
+    margin-inline: auto;
   }
 
   .iei-scroll-tall {
     max-height: 300px;
-  }
-
-  .iei-record {
-    gap: 0 var(--iei-4);
   }
 
   .iei-sec,
@@ -1870,7 +1971,6 @@ html {
    Three rules rather than one, because the offset that reads correctly differs by shape: text needs room,
    a bordered control needs almost none, and an SVG polygon needs the outline on the path itself. */
 @media (forced-colors: active) {
-  .iei-nav a:focus-visible,
   .iei-mark:focus-visible,
   .iei-cmd:focus-within,
   .iei-cmd input:focus-visible,
@@ -1881,7 +1981,6 @@ html {
   .iei-crumbs a:focus-visible,
   .iei-row-h a:focus-visible,
   .iei-body-link:focus-visible,
-  .iei-record a:focus-visible,
   .iei-note a:focus-visible,
   .iei-caveat a:focus-visible,
   .iei-sub a:focus-visible,

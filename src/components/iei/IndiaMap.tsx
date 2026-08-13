@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { INDIA_SHAPES, INDIA_SOURCE, INDIA_VIEWBOX, everyDistrictPath } from '../../lib/india-geo.ts';
+import { INDIA_SHAPES, INDIA_SOURCE, INDIA_VIEWBOX } from '../../lib/india-geo.ts';
 import { labelFits } from '../../../packages/mandate/src/viz/anchors.ts';
 import type { Cell, Layer } from '../../../packages/mandate/src/repo/home.ts';
 
@@ -9,28 +9,31 @@ import type { Cell, Layer } from '../../../packages/mandate/src/repo/home.ts';
  * SERVER-RENDERED SVG WITH NO CLIENT JAVASCRIPT. Every jurisdiction is an `<a>`, so the map is
  * keyboard-navigable, works in a text browser, and can be opened in a new tab like any other link.
  *
- * ── THREE LAYERS, AND THE ORDER IS THE ARGUMENT ──
- *
- * This is the fix for the defect Phase 2.6 exists for. The map used to draw ONE path per state: every district
- * ring concatenated, filled with the state's colour and stroked. The fill hid the shared edges; the stroke did
- * not. So a party-coloured state arrived divided into party-coloured districts, and the only reading available
- * was "this district elected this party" — which the data does not say. It says "this party leads this state's
- * most recent assembly election".
+ * ── TWO LAYERS, AND THE THIRD ONE WAS DELETED ──
  *
  *   1. STATE FILLS, from the layer. No stroke, so nothing inside a state is drawn in the party's colour.
- *   2. DISTRICT HAIRLINES, in a neutral ink, over the fills and under everything else. Administrative
- *      texture: they show where the districts are without claiming any of them voted for anything.
- *   3. STATE BORDERS, in the canvas colour and heavier, from the states' own outline geometry — which the
- *      source ships as its own features, so this is a real boundary rather than a by-product of the fill.
+ *   2. STATE BORDERS, in the canvas colour, from the states' own outline geometry — which the source ships as
+ *      its own features, so this is a real boundary rather than a by-product of the fill.
  *
- * That is the border hierarchy: a state border reads as a border, a district border reads as a subdivision,
- * and neither carries a party.
+ * There used to be a layer between them: 726 district hairlines, drawn as one 60 kB path over the whole
+ * country. Its intent was administrative texture and its effect was interference across every polygon, at the
+ * one zoom level where a district is not the unit of anything a reader can select, compare or navigate to.
+ * PROGRESSIVE GEOGRAPHIC DISCLOSURE is the rule now — states here, districts when a state is open,
+ * constituencies where the registry holds them — and the geometry did not go anywhere: `districtsOf()` still
+ * serves the state map's district level, which is where a district frames, links and carries a tally.
+ *
+ * The disclaimer went with the lines, and that is not a loss of honesty. It read "district outlines are
+ * neutral: the fill is a state's government, which is not a claim about any district in it" — a sentence
+ * whose whole job was to undo an impression the district lines created. Nothing on this map now draws a
+ * district, so nothing invites the reading.
  *
  * ── WHAT ELSE IS NOT DECORATION ──
  *
  *  · DIRECT LABELS. Every polygon large enough carries its leading party's abbreviation at the area-weighted
  *    centroid of its largest ring (viz/anchors.ts). This is what makes the fills legible rather than a
- *    colour-matching exercise, and it is why colour is never the only channel.
+ *    colour-matching exercise, and it is why colour is never the only channel. They are BIGGER and therefore
+ *    FEWER than before — a label sized in viewBox units rendered at about 6px on this frame, which is below
+ *    reading size, and `labelFits` refuses the ones that no longer have room rather than shrinking them.
  *  · A TILE ROW FOR THE ONES THAT CANNOT. Chandigarh's polygon is three viewBox units across; a label does
  *    not fit and neither does a cursor. Which ones is COMPUTED by `labelFits`, never listed.
  *  · A BIDIRECTIONAL HIGHLIGHT, in CSS. Hovering a polygon lights its row in the table beside it, and hovering
@@ -39,7 +42,32 @@ import type { Cell, Layer } from '../../../packages/mandate/src/repo/home.ts';
  *    rest. URL state rather than a click handler, so a highlighted map is shareable and costs no JavaScript.
  */
 
-const LABEL_PX = 7.5;
+/**
+ * The label's size, as a fraction of the frame — the same rule `StateMap` applies, and for the same reason.
+ *
+ * A font size inside an SVG is in USER units, so it means a different number of PIXELS at every frame. The
+ * national frame is 597 units wide and renders at about 550px, so the old constant of 7.5 units drew at
+ * about 6.9px: under reading size, on the product's primary instrument. A frame-relative size holds the
+ * rendered size steady instead — 1/58th of the width is about 9px here and stays about 9px whatever the frame.
+ */
+const LABEL_FRACTION = 1 / 58;
+
+/**
+ * The size a polygon must have room for to be SELECTABLE, which is a different question from whether it can
+ * hold a label — and conflating the two was a small bug this pass introduced and then removed.
+ *
+ * The tile row exists because Chandigarh's polygon is three viewBox units across: too small for a cursor.
+ * That threshold is about the POINTER, so it must not move when the label size does. It was measured against
+ * a three-character label at the old 7.5-unit size, and this reproduces that measurement independently of
+ * `LABEL_FRACTION` — otherwise making labels legible quietly moved two more states off the map.
+ */
+const CLICKABLE_FRACTION = 1 / 80;
+
+/** The frame's own proportions, so the figure claims the width its shape needs and no more. */
+const [, , FRAME_W, FRAME_H] = INDIA_VIEWBOX.split(' ').map(Number) as [number, number, number, number];
+const LABEL_PX = FRAME_W * LABEL_FRACTION;
+const CLICKABLE_PX = FRAME_W * CLICKABLE_FRACTION;
+const ASPECT = FRAME_H > 0 ? FRAME_W / FRAME_H : 1;
 
 export function IndiaMap({
   layer,
@@ -76,8 +104,9 @@ export function IndiaMap({
     if (labels && fits && a !== null && cell.label !== null && !muted) {
       marks.push({ x: a.x, y: a.y, text: cell.label });
     }
-    // Too small for a label is too small for a cursor. It goes to the tile row instead.
-    if (a !== null && !labelFits(a, 3, LABEL_PX)) tiles.push(cell);
+    // Too small for a label is too small for a cursor — but measured at the POINTER threshold, not the label
+    // one, so a change to how big labels are cannot move a state off the map. See CLICKABLE_FRACTION.
+    if (a !== null && !labelFits(a, 3, CLICKABLE_PX)) tiles.push(cell);
     return (
       <Link key={name} href={cell.href} id={`iei-j-${cell.jurisdictionId}`} aria-label={title(cell)}>
         <path d={d} fill={cell.fill} opacity={muted ? 0.22 : 1}>
@@ -88,17 +117,21 @@ export function IndiaMap({
   });
 
   return (
-    <div className="iei-map-col">
+    // The width a figure of these proportions needs to use the height it is allowed. `--iei-map-h` is a
+    // PIXEL token: it was `70vh` here and on the state map, which made an `auto` grid track depend on the
+    // window's height and collapsed the column beside it. See the token's own note in iei.css.
+    <div className="iei-map-col" style={{ ['--iei-map-w' as string]: `calc(var(--iei-map-h) * ${ASPECT.toFixed(3)})` }}>
       <style dangerouslySetInnerHTML={{ __html: linkRules(layer.cells) }} />
       <figure className="iei-map">
-        <svg viewBox={INDIA_VIEWBOX} role="img" aria-label={`India. ${layer.question} ${describe(layer)}`}>
+        <svg
+          viewBox={INDIA_VIEWBOX}
+          role="img"
+          aria-label={`India. ${layer.question} ${describe(layer)}`}
+          style={{ aspectRatio: `${FRAME_W} / ${FRAME_H}` }}
+        >
           {/* 1 — the fills. No stroke: nothing inside a state may be drawn in the party's colour. */}
           <g className="iei-map-fills">{fills}</g>
-          {/* 2 — district hairlines, neutral, over the fills. Administrative texture and nothing more:
-                 a district's colour here is the state's government, which is not a claim about the district,
-                 so the district is outlined rather than filled. */}
-          <path className="iei-map-districts" d={everyDistrictPath()} aria-hidden="true" />
-          {/* 3 — state borders, from the states' own outline features, heavier than the district lines. */}
+          {/* 2 — state borders, from the states' own outline features. The only line on this map. */}
           <g className="iei-map-borders" aria-hidden="true">
             {INDIA_SHAPES.map((s) => (
               <path key={s.name} d={s.path} />
@@ -107,23 +140,25 @@ export function IndiaMap({
           {/* Labels last so no polygon paints over them, and aria-hidden because every one of them is already
               in its polygon's <title> — a screen reader should not hear the abbreviation twice. */}
           {marks.length === 0 ? null : (
-            <g className="iei-map-labels" aria-hidden="true">
+            <g
+              className="iei-map-labels"
+              aria-hidden="true"
+              style={{ ['--iei-label-stroke' as string]: `${(LABEL_PX * 0.3).toFixed(2)}` }}
+            >
               {marks.map((l) => (
-                <text key={`${l.x}-${l.y}-${l.text}`} x={l.x} y={l.y} fontSize={LABEL_PX}>
+                <text key={`${l.x}-${l.y}-${l.text}`} x={l.x} y={l.y} fontSize={LABEL_PX.toFixed(2)}>
                   {l.text}
                 </text>
               ))}
             </g>
           )}
         </svg>
-        {/* THE EPOCH AND THE DISCLAIMER, and nothing else. The publisher, the URL and the hash used to be here
-            too, in the primary interface, on every request; they are in the panel's evidence drawer now
-            (GEOMETRY_SOURCE), because a boundary set is a source like any other. What a reader has to know
-            while looking at the polygons is which snapshot they are and what the colour does not mean. */}
+        {/* THE EPOCH, AND WHAT THE MAP CANNOT COLOUR. Nothing else. The publisher, the URL and the hash are in
+            the panel's evidence drawer (GEOMETRY_SOURCE); the district disclaimer left with the district
+            lines. What a reader has to know while looking at these polygons is which snapshot the boundaries
+            are, and which of them stand for no result. */}
         <figcaption>
-          Boundaries: {INDIA_SOURCE.epoch} — a dated administrative snapshot, not today&rsquo;s districts.
-          District outlines are neutral: the fill is a state&rsquo;s government, which is not a claim about any
-          district in it.
+          Boundaries: {INDIA_SOURCE.epoch} — a dated snapshot.
           {layer.unknown === 0 ? null : (
             <>
               {' '}
@@ -158,7 +193,7 @@ export function IndiaMap({
  * layer would hand an API — and a jurisdiction with nothing loaded says so instead of showing an empty card.
  *
  * NO PROVENANCE IN A TOOLTIP. Where the figure came from is in the panel's evidence drawer; a tooltip that
- * carried a source, a hash and a retrieval date would be the scattering this phase is removing.
+ * carried a source, a hash and a retrieval date would be the scattering this product removed.
  */
 function title(c: Cell): string {
   return [
@@ -177,6 +212,9 @@ function describe(layer: Layer): string {
  * Generated from the cells rather than written, so it cannot fall out of step with the jurisdictions that
  * exist. Ids are `[a-z]{2}` from the registry's own place ids and are re-checked here anyway: this string is
  * injected into a `<style>`, and an id is the only part of it that is not a literal.
+ *
+ * The polygon side lifts the fill and draws a thin edge — the focus treatment the whole map uses — rather than
+ * the heavy dark outline it used to draw, which read as one more boundary in a picture made of boundaries.
  */
 function linkRules(cells: readonly Cell[]): string {
   return cells
@@ -185,7 +223,7 @@ function linkRules(cells: readonly Cell[]): string {
       const j = c.jurisdictionId;
       return [
         `.iei-linked:has(#iei-j-${j}:hover) [data-j="${j}"],.iei-linked:has(#iei-j-${j}:focus-visible) [data-j="${j}"]{background:var(--iei-raised);}`,
-        `.iei-linked:has([data-j="${j}"]:hover) #iei-j-${j} path{stroke:var(--iei-ink);stroke-width:1.8;}`,
+        `.iei-linked:has([data-j="${j}"]:hover) #iei-j-${j} path{stroke:var(--iei-ink);stroke-width:1.25;filter:brightness(1.14);}`,
       ];
     })
     .join('');
