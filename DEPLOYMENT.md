@@ -38,8 +38,19 @@ npm install
 npm run registry:migrate
 npm run registry:ingest
 npm run registry:resolve
+npm run mandate -- geography fetch     # the declared boundary datasets, sha256 verified
+npm run mandate -- geography import --apply
 npm run dev                  # http://localhost:3000
 ```
+
+**The last two steps are what makes the maps exist.** `data/geo/sources.json` declares two boundary datasets
+with their publisher, URL, licence and sha256; `fetch` acquires them and **refuses a file whose bytes do not
+match the manifest**; `import` resolves each polygon to a jurisdiction, a boundary epoch and a
+`place_version`, validates it, and writes what it resolved. Without them the state pages fall back to
+district tallies and say so, which is a working product with no electoral map rather than a broken one.
+
+Add `--replace` to overwrite geometry an earlier run wrote. Run `geography inspect` first to see what would
+happen — it is the same decision, printed, with nothing written.
 
 `.env.local` is optional and nothing in `src/` reads it. A fresh clone with no `.data/registry.db` renders
 every page with the command above on it rather than a 500 — `RegistryMissing`, and there is one wording of it.
@@ -57,9 +68,19 @@ MANDATE_DIST=.next-verify npx next build
 npm run type-check           # tsc over the app
 npm run registry:typecheck   # tsc over packages/mandate
 npm run lint                 # next lint, via .eslintrc.json
-npm test                     # 405 tests; one classified failure (searchPersons ranking)
+npm test                     # 465 tests; one classified failure (searchPersons ranking)
 MANDATE_DIST=.next-verify npx next build
+npm run mandate -- geography validate   # constituency identity
+npm run mandate -- elections validate   # election-event identity
+npm run mandate -- release              # the national coverage report
+npm run mandate -- export               # the seed round-trip ratchet — SEE docs/release/RC-1.md
 ```
+
+`export` currently exits non-zero at 94.0% against a 94.1% floor. That is the one open release blocker and
+it is a measurement rather than a defect in the product: Phase 3 replaced a seed geometry module with a
+published boundary set, so the registry can no longer reproduce what the seed holds. `docs/release/RC-1.md`
+carries the problem, the evidence, three options and a recommendation. Do not lower the floor to make it
+pass — its own failure message forbids exactly that.
 
 `npm test` includes `repo/smoke.test.ts`, which calls every read function against the real registry, and
 `repo/render.test.ts`, which renders the real routes. Both skip cleanly when `.data/registry.db` is absent,

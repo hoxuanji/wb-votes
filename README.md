@@ -80,6 +80,9 @@ Three suites are worth knowing about, because between them they cover what `tsc`
 ## Documentation
 
 * `docs/model/` — electoral geography, election identity, delimitation
+* `docs/geo/` — where the boundary data comes from, what it can and cannot draw, and the review queue of
+  what the pipeline refused to attach
+* `docs/release/` — the national coverage report, generated, and RC-1
 * `docs/methodology/` — one card per measure: what it is, how it is computed, what it does not capture
 * `docs/platform/00-model.md` — the eighteen subject areas, four of which hold data
 * `docs/product/consolidation-audit.md` — the Phase 2.5 audit

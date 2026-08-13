@@ -42,6 +42,25 @@ jobs:
           npm run registry:ingest
           npm run registry:resolve
 
+      # THE MAPS ARE PART OF THE REGISTRY NOW, so CI has to build them or it tests a different product from
+      # the one that ships. repo/render.test.ts asserts Karnataka draws 224 of 224, that a state's Lok Sabha
+      # map exists, that the polygons' licence is in the evidence drawer, and that the parties appearing in
+      # one legend separate — and every one of those is false against a registry with only the seed's West
+      # Bengal geometry in it.
+      #
+      # 57 MB of download per run, and deterministic: data/geo/sources.json declares each dataset's sha256
+      # and `fetch` refuses bytes that do not match it. `--replace` because the seed writes 294 West Bengal
+      # polygons in the old projection and the published set supersedes them.
+      - name: Build the electoral geometry
+        run: |
+          npm run mandate -- geography fetch
+          npm run mandate -- geography import --apply --replace
+
+      - name: Validate
+        run: |
+          npm run mandate -- geography validate
+          npm run mandate -- elections validate
+
       # ONE test is classified and expected to fail: searchPersons ranking/order-independence, in
       # packages/mandate/src/repo/person.test.ts. `|| true` would hide a second failure as well, so the
       # COUNT is asserted instead — the classified one stays green and a new one turns the job red.

@@ -126,49 +126,75 @@ type GroupSql = {
 export function geometryCoverage(db: DatabaseSync): Coverage {
   const groups = all<GroupSql>(
     db,
+    // EVERY AGGREGATE ONCE, IN A CTE, and that is a correctness-of-the-tool matter rather than a style one.
+    // The first version asked for each group's election count, its latest year and — worst — its modal
+    // projection frame in correlated subqueries, so the frame was recomputed for every one of the 16,810 seat
+    // rows over all of that group's rows. Measured: 381 seconds, in the release path and in CI. Same numbers,
+    // pre-aggregated: under two.
     `WITH seat AS (
        SELECT DISTINCT pv.id AS version_id, pv.jurisdiction_id AS j, pv.kind AS house, pv.epoch_id AS epoch
          FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
         WHERE pv.kind IN ('ac','pc')
+     ),
+     el AS (
+       SELECT pv.jurisdiction_id AS j, pv.kind AS house, pv.epoch_id AS epoch,
+              COUNT(DISTINCT c.election_id) AS elections,
+              MAX(e.year) AS latestYear,
+              COUNT(DISTINCT CASE WHEN e.kind <> 'bypoll' THEN c.election_id END) AS fullElections
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN election e ON e.id = c.election_id
+        WHERE pv.kind IN ('ac','pc')
+        GROUP BY 1, 2, 3
+     ),
+     decided AS (
+       SELECT DISTINCT c.place_version_id AS version_id
+         FROM contest c JOIN result r ON r.contest_id = c.id AND r.is_winner = 1
+     ),
+     gframe AS (
+       SELECT s.j, s.house, s.epoch, g.view_box AS vb, COUNT(*) AS n
+         FROM seat s JOIN place_geometry g ON g.place_version_id = s.version_id
+        GROUP BY 1, 2, 3, 4
+     ),
+     mainframe AS (
+       -- The frame most of the group's polygons are in. MIN(vb) breaks a tie so the answer is the same on
+       -- every run rather than whichever row SQLite happened to keep.
+       SELECT j, house, epoch, MIN(vb) AS vb FROM gframe f
+        WHERE f.n = (SELECT MAX(x.n) FROM gframe x WHERE x.j = f.j AND x.house = f.house AND x.epoch = f.epoch)
+        GROUP BY 1, 2, 3
+     ),
+     -- char(31) as the separator, not a comma: a source title contains commas, and splitting on one turned
+     -- "WB assembly constituency outlines, projected SVG" into two publishers.
+     frames AS (
+       SELECT j, house, epoch, GROUP_CONCAT(vb, char(31)) AS v FROM (SELECT DISTINCT j, house, epoch, vb FROM gframe)
+        GROUP BY 1, 2, 3
+     ),
+     pubs AS (
+       SELECT j, house, epoch, GROUP_CONCAT(v, char(31)) AS v FROM (
+         SELECT DISTINCT s.j AS j, s.house AS house, s.epoch AS epoch,
+                COALESCE(src.publisher, src.title) AS v
+           FROM seat s JOIN place_geometry g ON g.place_version_id = s.version_id
+                JOIN source src ON src.id = g.source_id)
+        GROUP BY 1, 2, 3
      )
      SELECT s.j AS jurisdictionId, p.canonical_name AS jurisdictionName, s.house AS house,
             s.epoch AS epochId,
-            (SELECT COUNT(DISTINCT c.election_id) FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
-              WHERE pv.jurisdiction_id = s.j AND pv.kind = s.house AND pv.epoch_id = s.epoch) AS elections,
-            (SELECT MAX(e.year) FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
-                JOIN election e ON e.id = c.election_id
-              WHERE pv.jurisdiction_id = s.j AND pv.kind = s.house AND pv.epoch_id = s.epoch) AS latestYear,
-            (SELECT COUNT(DISTINCT c.election_id) FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
-                JOIN election e ON e.id = c.election_id
-              WHERE pv.jurisdiction_id = s.j AND pv.kind = s.house AND pv.epoch_id = s.epoch
-                AND e.kind <> 'bypoll') AS fullElections,
+            el.elections AS elections, el.latestYear AS latestYear, el.fullElections AS fullElections,
             COUNT(*) AS seats,
-            SUM(CASE WHEN EXISTS (SELECT 1 FROM contest c JOIN result r ON r.contest_id = c.id
-                                   WHERE c.place_version_id = s.version_id AND r.is_winner = 1)
-                     THEN 1 ELSE 0 END) AS decided,
+            SUM(CASE WHEN d.version_id IS NULL THEN 0 ELSE 1 END) AS decided,
             SUM(CASE WHEN g.place_version_id IS NULL THEN 0 ELSE 1 END) AS held,
-            -- The frame most of this group's polygons are in, and how many are in it. A map draws those.
-            (SELECT g3.view_box FROM place_geometry g3 JOIN place_version pv3 ON pv3.id = g3.place_version_id
-              WHERE pv3.jurisdiction_id = s.j AND pv3.kind = s.house AND pv3.epoch_id = s.epoch
-              GROUP BY g3.view_box ORDER BY COUNT(*) DESC, g3.view_box LIMIT 1) AS mainFrame,
-            SUM(CASE WHEN g.view_box IS NOT NULL AND g.view_box = (
-                  SELECT g3.view_box FROM place_geometry g3 JOIN place_version pv3 ON pv3.id = g3.place_version_id
-                   WHERE pv3.jurisdiction_id = s.j AND pv3.kind = s.house AND pv3.epoch_id = s.epoch
-                   GROUP BY g3.view_box ORDER BY COUNT(*) DESC, g3.view_box LIMIT 1)
-                THEN 1 ELSE 0 END) AS drawn,
-            -- char(31) as the separator, not a comma: a source title contains commas, and splitting on
-            -- one turned "WB assembly constituency outlines, projected SVG" into two publishers.
-            -- GROUP_CONCAT(DISTINCT x) refuses a separator argument, hence the nested DISTINCT.
-            (SELECT GROUP_CONCAT(v, char(31)) FROM (SELECT DISTINCT g2.view_box AS v
-               FROM place_geometry g2 JOIN place_version pv2 ON pv2.id = g2.place_version_id
-              WHERE pv2.jurisdiction_id = s.j AND pv2.kind = s.house AND pv2.epoch_id = s.epoch)) AS frames,
-            (SELECT GROUP_CONCAT(v, char(31)) FROM (SELECT DISTINCT COALESCE(src.publisher, src.title) AS v
-               FROM place_geometry g2 JOIN place_version pv2 ON pv2.id = g2.place_version_id
-                    JOIN source src ON src.id = g2.source_id
-              WHERE pv2.jurisdiction_id = s.j AND pv2.kind = s.house AND pv2.epoch_id = s.epoch)) AS publishers
+            mf.vb AS mainFrame,
+            SUM(CASE WHEN g.view_box IS NOT NULL AND g.view_box = mf.vb THEN 1 ELSE 0 END) AS drawn,
+            fr.v AS frames,
+            pb.v AS publishers
        FROM seat s
        JOIN place p ON p.id = s.j
+       JOIN el ON el.j = s.j AND el.house = s.house AND el.epoch = s.epoch
        LEFT JOIN place_geometry g ON g.place_version_id = s.version_id
+       LEFT JOIN decided d ON d.version_id = s.version_id
+       LEFT JOIN mainframe mf ON mf.j = s.j AND mf.house = s.house AND mf.epoch = s.epoch
+       LEFT JOIN frames fr ON fr.j = s.j AND fr.house = s.house AND fr.epoch = s.epoch
+       LEFT JOIN pubs pb ON pb.j = s.j AND pb.house = s.house AND pb.epoch = s.epoch
       GROUP BY s.j, s.house, s.epoch
       ORDER BY p.canonical_name, s.house, s.epoch`,
   );

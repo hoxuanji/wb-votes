@@ -141,9 +141,38 @@ export function releaseReport(db: DatabaseSync): Release {
   // a release is judged on, and neither is 1962.
   const headline = all<ElectionRow>(
     db,
+    // DRAWN MEANS DRAWN TOGETHER: a polygon in a different projection from the rest of the election's
+    // polygons cannot go in the same SVG, so it is held rather than counted — the rule stateMapView applies.
+    // Counting rows made West Bengal 2026 report 294 of 294 for a map that draws 263.
+    //
+    // COMPUTED ONCE PER ELECTION, in a CTE, and that is not a style choice. The first version asked for the
+    // modal frame inside the count, so for every contest of every headline election it recomputed the mode
+    // over all of that election's contests — O(seats²) per election, 294,849 inner scans for the 543-seat
+    // Lok Sabha alone, and the report went from three seconds to over five minutes.
     `WITH newest AS (
        SELECT e.jurisdiction_place_id AS j, e.house AS house, MAX(e.year) AS y
-         FROM election e WHERE e.kind IN ('assembly','general') GROUP BY 1, 2)
+         FROM election e WHERE e.kind IN ('assembly','general') GROUP BY 1, 2),
+     headline AS (
+       SELECT e.id FROM election e
+         JOIN newest nw ON nw.j = e.jurisdiction_place_id AND nw.house = e.house AND nw.y = e.year
+        WHERE e.kind IN ('assembly','general')),
+     frame AS (
+       SELECT c.election_id AS eid, g.view_box AS vb, COUNT(*) AS n
+         FROM contest c JOIN place_geometry g ON g.place_version_id = c.place_version_id
+        WHERE c.election_id IN (SELECT id FROM headline)
+        GROUP BY 1, 2),
+     main AS (
+       -- The frame most of the election's polygons are in. MIN(vb) breaks a tie, so the answer is the same
+       -- on every run rather than whichever row SQLite happened to keep.
+       SELECT eid, MIN(vb) AS vb FROM frame f
+        WHERE f.n = (SELECT MAX(x.n) FROM frame x WHERE x.eid = f.eid)
+        GROUP BY eid),
+     dr AS (
+       SELECT c.election_id AS eid, COUNT(*) AS n
+         FROM contest c
+         JOIN place_geometry g ON g.place_version_id = c.place_version_id
+         JOIN main m ON m.eid = c.election_id AND m.vb = g.view_box
+        GROUP BY 1)
      SELECT e.id AS id, p.canonical_name AS jurisdiction, e.house AS house, e.kind AS kind, e.year AS year,
             e.epoch_id AS epoch,
             (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats,
@@ -154,18 +183,12 @@ export function releaseReport(db: DatabaseSync): Release {
                 WHERE c.election_id = e.id GROUP BY c.id HAVING COUNT(*) > 1)) AS duplicateWinners,
             (SELECT COUNT(*) FROM candidacy cd JOIN contest c ON c.id = cd.contest_id
               WHERE c.election_id = e.id) AS candidates,
-            -- DRAWN MEANS DRAWN TOGETHER. A polygon in a different projection from the rest of the
-            -- election's polygons cannot be put in the same SVG, so it is held rather than counted — the
-            -- same rule stateMapView applies. Counting rows made West Bengal 2026 report 294 of 294 for a
-            -- map that draws 263.
-            (SELECT COUNT(*) FROM contest c JOIN place_geometry g ON g.place_version_id = c.place_version_id
-              WHERE c.election_id = e.id
-                AND g.view_box = (SELECT g2.view_box FROM contest c2 JOIN place_geometry g2 ON g2.place_version_id = c2.place_version_id
-                                   WHERE c2.election_id = e.id GROUP BY g2.view_box ORDER BY COUNT(*) DESC, g2.view_box LIMIT 1)) AS drawn,
+            COALESCE(dr.n, 0) AS drawn,
             '' AS results, '' AS geometry
        FROM election e
        JOIN newest nw ON nw.j = e.jurisdiction_place_id AND nw.house = e.house AND nw.y = e.year
        JOIN place p ON p.id = e.jurisdiction_place_id
+       LEFT JOIN dr ON dr.eid = e.id
       WHERE e.kind IN ('assembly','general')
       ORDER BY p.canonical_name, e.house`,
   ).map((r) => ({

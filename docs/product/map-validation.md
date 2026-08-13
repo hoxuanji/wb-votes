@@ -58,7 +58,13 @@ are different.
 polygon for Karnataka, Uttar Pradesh, Assam, Jammu & Kashmir or the other 31 jurisdictions, and no
 parliamentary-constituency polygon for any of them.
 
-**This bounds the phase.** "Click a state, see who won each constituency" is a map for one jurisdiction of
+> **Superseded by Phase 3.** The bound described below no longer holds: the product now draws constituency
+> geometry for every jurisdiction with usable election data — 4,445 of 4,812 seats in the epoch each currently
+> votes under. See [`../geo/coverage.md`](../geo/coverage.md), [`../geo/sources.md`](../geo/sources.md) and
+> [`../geo/import.md`](../geo/import.md). The paragraph is kept because the reasoning that produced it was
+> right at the time and the phase that removed the bound started from it.
+
+**This bounded Phase 2.6.** "Click a state, see who won each constituency" was a map for one jurisdiction of
 36 and a table for the rest. Inventing the other 4,000 polygons is the one thing the brief forbids most
 explicitly, and inferring them from district boundaries would be worse than inventing them — it would look
 authoritative.

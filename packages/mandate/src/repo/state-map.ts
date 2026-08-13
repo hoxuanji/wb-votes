@@ -20,10 +20,15 @@
 //
 // ── COVERAGE, STATED PLAINLY ──
 //
-// The registry holds 294 assembly polygons and 19 district outlines, all for West Bengal, and nothing else.
-// So a constituency map is a map for one jurisdiction of 36 and a table for the other 35. The other 35 still
-// get the district TALLY — "12 of 18 constituencies won by INC" — because that is computed from results and
-// `place_version.district_place_id`, which every jurisdiction has. See docs/product/map-validation.md.
+// The registry holds 4,950 constituency polygons in one projection: 4,402 assembly and 548 parliamentary,
+// across every jurisdiction that holds elections. Sixteen draw every seat of their newest assembly election
+// and sixteen are short — mostly by one to four seats, and each shortfall is a named row in
+// docs/geo/import.md rather than a silence.
+//
+// WHERE THERE IS NOTHING TO DRAW, THE FALLBACK IS STILL THE DISTRICT TALLY — "12 of 18 constituencies won by
+// INC" — computed from results and `place_version.district_place_id`, which every jurisdiction has. Jharkhand
+// is the case that matters: the registry holds its pre-2008 boundaries and DPACO 2008 redrew them, so its
+// 2019 result has no polygon it may legally be drawn on and gets the tally instead. See docs/geo/coverage.md.
 //
 // ── A DISTRICT NEVER HAS A WINNER ──
 //
