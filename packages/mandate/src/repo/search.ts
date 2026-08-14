@@ -17,6 +17,7 @@
 // module must not flatten — a phonetic hit is a suggestion to check, not a person found.
 
 import type { DatabaseSync } from "node:sqlite";
+import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
 import { searchPersons, type PersonRow } from "./person.ts";
@@ -87,7 +88,7 @@ function states(db: DatabaseSync, pattern: string, prefix: string, q: string): H
       r.elections === 0
         ? `${r.kind === "ut" ? "Union territory" : "State"} · no election loaded`
         : `${r.kind === "ut" ? "Union territory" : "State"} · ${r.elections} election${r.elections === 1 ? "" : "s"} on record`,
-    href: `/pl/${r.id}`,
+    href: stateHref(r.id),
   }));
 }
 
@@ -192,7 +193,7 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
           (r.number === null ? "" : ` no. ${r.number}`) +
           (where === "" ? "" : ` · ${where}`) +
           ` · ${r.contests} election${r.contests === 1 ? "" : "s"}`,
-        href: `/pl/${r.state}/${segment}/${slug(r.name)}`,
+        href: constituencyHref(r.state, r.name),
       };
     })
     .filter((h): h is Hit => h !== null);

@@ -26,6 +26,7 @@ import { fromRepo } from "./brief.ts";
 // A const string, not a query: importing it here opens no database and keeps one definition of what
 // "newest first" means across every module that orders elections.
 import { CHRONO_DESC } from "./elections.ts";
+import { constituencyHref, districtHref, slugOf, stateHref } from "./routes.ts";
 import { unavailable } from "./envelope.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
 import type { PartyPoint, PlaceAnalysis, PlaceAnalysisFilters } from "./place-analysis.ts";
@@ -71,32 +72,30 @@ export function parsePath(segments: readonly string[]): PathTarget | null {
   return { level: "ac", ids, name, parentId: `${state}.${clean[1] ?? ""}` };
 }
 
-/** The canonical path for a place, built from ids alone — there is no slug column (see place.ts). */
+/**
+ * The canonical path for a place. THIN, because the rule lives in `routes.ts` now.
+ *
+ * This function used to build `/pl/...` itself and keep its own copy of the name-slug rule beside the one in
+ * `election-map.ts`. Two definitions of one URL is how a link points at a page that does not exist, which is
+ * what happened. It delegates now, so every caller emits canonical routes without knowing they changed.
+ */
 export function placeHref(p: {
   kind: "state" | "district" | "ac";
   id: string;
   canonicalName: string;
   parentId: string | null;
 }): string {
-  if (p.kind === "state") return `/pl/${p.id}`;
-  const parent = p.parentId ?? "";
-  if (p.kind === "district") return `/pl/${parent}/${parent === "" ? p.id : p.id.slice(parent.length + 1)}`;
-  // `?? "wb"` used to sit here and read as a West Bengal default. It was dead — String.split always
-  // returns at least one element — but an empty parent still produced `/pl///seat`, a URL with two
-  // empty segments that resolves to nothing. A seat with no district has no place path, so say so.
-  const state = parent.split(".")[0] ?? "";
-  // A seat needs a state AND a district to have a four-segment path. Missing either used to produce
-  // `/pl///seat` — a URL with empty segments that resolves to nothing — because a dead `?? "wb"` here
-  // read as a West Bengal default while String.split can never return undefined. Fall back up the tree
-  // instead of emitting a broken link.
-  if (state === "" || parent === state) return state === "" ? "/pl" : `/pl/${state}`;
-  const districtSeg = parent.slice(state.length + 1);
-  return `/pl/${state}/${districtSeg}/${slugOf(p.canonicalName)}`;
+  if (p.kind === "state") return stateHref(p.id);
+  if (p.kind === "district") {
+    // A district row carries its state in `parentId` and its own id may or may not be prefixed with it.
+    const full = p.id.includes(".") ? p.id : `${p.parentId ?? ""}.${p.id}`;
+    return districtHref(full);
+  }
+  // A seat's jurisdiction is the first component of its district id, or of its own.
+  const state = (p.parentId ?? p.id).split(".")[0] ?? "";
+  return state === "" ? "/" : constituencyHref(state, p.canonicalName);
 }
 
-function slugOf(name: string): string {
-  return name.toLowerCase().replace(/\s+/g, "-");
-}
 
 // ── the filter grammar: ?from=2011&to=2026&party=AITC ────────────────────────────────────────────
 
@@ -845,7 +844,20 @@ function trailOf(
     const last = i === segments.length - 1;
     const id = i === 0 ? seg : i === 1 ? `${state}.${seg}` : null;
     const label = last ? current : (id === null ? null : names.get(id)) ?? open(seg);
-    trail.push(last ? { label } : { label, href: `/pl/${segments.slice(0, i + 1).join("/")}` });
+    // CANONICAL CRUMBS. This built `/pl/<prefix>` from the path, so every breadcrumb above a page pointed
+    // into the compatibility layer and cost the reader a redirect. A crumb's depth tells us its kind here
+    // because the trail is walked in order, which is the one place counting is not a guess.
+    trail.push(
+      last
+        ? { label }
+        : {
+            label,
+            href:
+              i === 0
+                ? stateHref(segments[0] as string)
+                : districtHref(`${segments[0] ?? ""}.${segments[1] ?? ""}`),
+          },
+    );
   });
   return trail;
 }
@@ -905,6 +917,61 @@ function stateElections(db: DatabaseSync, sql: DbMod, repo: RepoMod, jurisdictio
  * `finally`; a missing or unmigrated registry comes back as `unavailable` with the command that
  * fixes it, never a thrown build error (constraint 7).
  */
+/**
+ * A constituency's place path, from its JURISDICTION and its name.
+ *
+ * The canonical URL is `/constituency/<state>/<name>` — no district, because a delimitation can move a seat
+ * between districts while the name survives, so a shared link with the district baked in rots at the next
+ * redraw. `placeView` still resolves a seat through a three-segment path, which is tested and narrows
+ * correctly on ancestry (two constituencies are named Bishnupur and the lower id is in the other district).
+ * So rather than add a jurisdiction predicate to that query — whose binds are positional and whose own
+ * comment records what happens when the two branches stop agreeing — this looks the district up and hands
+ * the existing resolver the path it already understands.
+ *
+ * `kind IN ('ac','pc')` so a parliamentary constituency resolves here too. Rendering one is Phase D; this is
+ * only routing, and routing must not be the thing that blocks it.
+ *
+ * Returns null when the name is not a constituency of that jurisdiction — never a fallback to the state,
+ * because answering a constituency request with a different entity is the silent substitution this phase
+ * exists to remove.
+ */
+export async function constituencyPath(
+  jurisdictionId: string,
+  nameSlug: string,
+): Promise<readonly string[] | null> {
+  let db: DatabaseSync | undefined;
+  try {
+    const [r, sql] = await load();
+    db = r.read(() => sql.openRead());
+    const want = decode(nameSlug).trim().toLowerCase();
+    const row = r.read(() =>
+      sql.get<{ district: string | null; name: string }>(
+        db as DatabaseSync,
+        `SELECT COALESCE(pv.district_place_id, pl.parent_id) AS district, pv.canonical_name AS name
+           FROM place_version pv
+           JOIN place pl ON pl.id = pv.place_id
+           JOIN boundary_epoch be ON be.id = pv.epoch_id
+          WHERE pv.jurisdiction_id = ? AND pv.kind IN ('ac', 'pc')
+            AND (LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ? OR LOWER(pv.canonical_name) = ?)
+          ORDER BY be.effective_from DESC, pl.id
+          LIMIT 1`,
+        jurisdictionId,
+        want,
+        want.replace(/-/g, " "),
+      ),
+    );
+    if (row === undefined || row.district === null) return null;
+    const seg = row.district.startsWith(`${jurisdictionId}.`)
+      ? row.district.slice(jurisdictionId.length + 1)
+      : row.district;
+    return [jurisdictionId, seg, nameSlug];
+  } catch {
+    return null;
+  } finally {
+    db?.close();
+  }
+}
+
 export async function placeView(segments: readonly string[], search: Search): Promise<PlaceView> {
   const target = parsePath(segments);
   if (target === null) return { kind: "not-found" };

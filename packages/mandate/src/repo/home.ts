@@ -18,6 +18,7 @@
 //     never be one: importing Kerala's next assembly makes it appear on the front page with no code change.
 
 import type { DatabaseSync } from "node:sqlite";
+import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { loadSources, read, type SourceRef } from "./index.ts";
 import {
@@ -306,7 +307,7 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
   const base = (j: JurisdictionState): Omit<Cell, "label" | "fill" | "detail"> & { detail: string[] } => ({
     jurisdictionId: j.id,
     jurisdictionName: j.name,
-    href: `/pl/${j.id}`,
+    href: stateHref(j.id),
     electionId: null,
     year: null,
     detail: [],
@@ -698,7 +699,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
     const out: Signal[] = [];
 
     for (const s of spine.standings) {
-      const href = `/pl/${s.jurisdictionId}`;
+      const href = stateHref(s.jurisdictionId);
       const seats = spine.seats.filter((x) => x.electionId === s.electionId);
 
       // THERE IS NO TERM-EXPIRY RULE HERE, and its absence is deliberate.
@@ -795,7 +796,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
         rule: "the most recent by-election held",
         threshold: "newest by chronology",
         subject: `${poll.jurisdictionName} by-election, ${poll.year}`,
-        href: `/pl/${poll.jurisdictionId}`,
+        href: stateHref(poll.jurisdictionId),
         detail:
           poll.leaderLabel === null
             ? `${poll.seatsContested} seat${poll.seatsContested === 1 ? "" : "s"}, no winner recorded here.`

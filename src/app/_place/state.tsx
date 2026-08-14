@@ -1,5 +1,6 @@
 import Link from 'next/link';
-import type { ElectionMapView, ElectionSeat } from '../../../../packages/mandate/src/repo/election-map.ts';
+import { constituencyHref, districtHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
+import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
 import {
   MARGIN_BANDS,
   bandOf,
@@ -7,21 +8,21 @@ import {
   marginBandCounts,
   seatsInBand,
   seatsInDistrict,
-} from '../../../../packages/mandate/src/repo/election-map.ts';
-import type { StateTrajectory } from '../../../../packages/mandate/src/repo/trajectory.ts';
-import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
-import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
-import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
-import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
-import { ElectionMap, MODES } from '../../../components/iei/ElectionMap.tsx';
-import type { MapMode } from '../../../components/iei/ElectionMap.tsx';
+} from '../../../packages/mandate/src/repo/election-map.ts';
+import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';
+import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
+import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
+import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
+import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
+import { ElectionMap, MODES } from '../../components/iei/ElectionMap.tsx';
+import type { MapMode } from '../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginBands,
   Trajectory,
   VoteSeatPlot,
-} from '../../../components/iei/Distribution.tsx';
-import { DataList, DataRow, Panel, Tabs } from '../../../components/iei/parts.tsx';
+} from '../../components/iei/Distribution.tsx';
+import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
 
 /**
  * The state surface: what is happening politically inside one state.
@@ -78,10 +79,7 @@ const houseWord = (h: string): string => (h === 'pc' ? 'Lok Sabha' : 'Assembly')
  * `ka.bangalore` -> `/pl/ka/bangalore`. Built here rather than threaded through the data layer, because it is
  * one `slice` and the type it would live on is one whose whole point is that a district has no winner.
  */
-function districtPath(districtId: string): string {
-  const dot = districtId.indexOf('.');
-  return dot < 0 ? `/pl/${districtId}` : `/pl/${districtId.slice(0, dot)}/${districtId.slice(dot + 1)}`;
-}
+const districtPath = districtHref;
 
 export type StateSelection = {
   mode: MapMode;

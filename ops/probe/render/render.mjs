@@ -13,6 +13,24 @@ import React from "react";
 
 const routes = {
   "/": { load: () => import("../../../src/app/page.tsx"), params: null },
+  // THE CANONICAL ENTITY ROUTES. `/pl` stays because it is still a real route — a compatibility redirect —
+  // and the redirect tests render it deliberately.
+  "/state": {
+    load: () => import("../../../src/app/state/[state]/page.tsx"),
+    params: (segs) => ({ state: segs[0] ?? "" }),
+  },
+  "/district": {
+    load: () => import("../../../src/app/district/[state]/[district]/page.tsx"),
+    params: (segs) => ({ state: segs[0] ?? "", district: segs[1] ?? "" }),
+  },
+  "/constituency": {
+    load: () => import("../../../src/app/constituency/[state]/[constituency]/page.tsx"),
+    params: (segs) => ({ state: segs[0] ?? "", constituency: segs[1] ?? "" }),
+  },
+  "/constituency/analysis": {
+    load: () => import("../../../src/app/constituency/[state]/[constituency]/analysis/page.tsx"),
+    params: (segs) => ({ state: segs[0] ?? "", constituency: segs[1] ?? "" }),
+  },
   "/pl": {
     load: () => import("../../../src/app/pl/[...path]/page.tsx"),
     params: (segs) => ({ path: segs }),

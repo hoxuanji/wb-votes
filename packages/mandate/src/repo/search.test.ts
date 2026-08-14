@@ -14,7 +14,7 @@ import test from "node:test";
 import { existsSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/index.ts";
 import { PER_GROUP, partyAnchor, searchAll } from "./search.ts";
-import { placeView } from "./place-page.ts";
+import { constituencyPath, placeView } from "./place-page.ts";
 
 const live = { skip: existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH) ? false : "no .data/registry.db" };
 const db = () => openRead(DEV_DB_PATH);
@@ -97,7 +97,20 @@ test("every hit points at a URL that resolves", live, async () => {
 
   // A place hit is only an offer if placeView resolves it. This is the assertion the whole file is for.
   for (const href of [...new Set([...states, ...seats])]) {
-    const segments = href.replace(/^\/pl\//, "").split("/");
+    /**
+     * RESOLVED THE WAY THE ROUTE RESOLVES IT.
+     *
+     * A canonical constituency URL is `/constituency/<state>/<name>` and carries no district, so its two
+     * segments are NOT a place path — handing them straight to `placeView` reads them as a district and
+     * 404s. `constituencyPath` is what the route uses to find the seat's district, and a search hit resolving
+     * means it resolves through the same function the reader's click will.
+     */
+    const parts = href.split("/").filter(Boolean);
+    const segments =
+      parts[0] === "constituency"
+        ? ((await constituencyPath(parts[1] as string, parts[2] as string)) ?? [])
+        : parts.slice(1);
+    assert.ok(segments.length > 0, `${href} does not resolve to a place at all`);
     const view = await placeView(segments, {});
     assert.notEqual(view.kind, "not-found", `${href} is offered by search and 404s`);
     assert.notEqual(view.kind, "unavailable", `${href} could not be read`);
@@ -125,7 +138,7 @@ test("a constituency hit is the seat that carries the name now", live, () => {
           h.label.toLowerCase().includes(q.toLowerCase()),
           `"${q}" returned ${h.label}, which does not contain the query`,
         );
-        assert.match(h.href, /^\/pl\/[a-z]{2}\/[^/]+\/[^/]+$/, `${h.href} is not a four-segment place path`);
+        assert.match(h.href, /^\/constituency\/[a-z]{2}\/[^/]+$/, `${h.href} is not a canonical constituency path`);
         // The detail names the district, and the path's district segment must be the same district.
         const segment = h.href.split("/")[3] ?? "";
         assert.ok(segment.length > 0, `${h.href} has an empty district segment`);

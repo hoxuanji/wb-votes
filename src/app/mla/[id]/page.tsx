@@ -1,6 +1,7 @@
-import { permanentRedirect, redirect } from 'next/navigation';
+import { notFound, permanentRedirect } from 'next/navigation';
 import { openRead } from '../../../../packages/mandate/src/db/open.ts';
 import { sittingMemberForLegacyId } from '../../../../packages/mandate/src/repo/legacy.ts';
+import { personHref } from '../../../../packages/mandate/src/repo/routes.ts';
 
 /**
  * `/mla/c0001` -> the sitting member's Person Brief.
@@ -22,8 +23,10 @@ export default function LegacyMLA({ params }: { params: { id: string } }) {
   try {
     person = sittingMemberForLegacyId(openRead(), params.id);
   } catch {
-    redirect('/pl/wb');
+    // A 404 rather than West Bengal. A state-specific fallback in the routing layer is a state-specific
+    // routing rule, and an unresolvable legacy id is not a request for a particular state.
+    notFound();
   }
-  if (person === null) redirect('/pl/wb');
-  permanentRedirect(`/p/${person}`);
+  if (person === null) notFound();
+  permanentRedirect(personHref(person));
 }

@@ -24,6 +24,7 @@
 // prefix — measured at about 220 ms for 543 seats, which is a route-level cost on a route-level instrument.
 
 import type { DatabaseSync } from "node:sqlite";
+import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
@@ -529,7 +530,7 @@ export function electionMapView(
             ? placeHref({ kind: "ac", id: r.placeId, canonicalName: r.name, parentId: r.districtId })
             : r.jurisdictionId === null
               ? null
-              : `/pl/${r.jurisdictionId}`,
+              : stateHref(r.jurisdictionId),
       };
     });
 

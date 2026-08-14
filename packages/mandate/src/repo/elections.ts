@@ -16,6 +16,7 @@
 //    a margin and no tallies; a 0 there would be a fabrication.
 
 import type { DatabaseSync } from "node:sqlite";
+import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
@@ -674,11 +675,8 @@ export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): Cl
       ...r,
       href:
         districtId !== null && districtId.startsWith(`${r.jurisdictionId}.`)
-          ? `/pl/${r.jurisdictionId}/${districtId.slice(r.jurisdictionId.length + 1)}/${r.placeName
-              .trim()
-              .toLowerCase()
-              .replace(/\s+/g, "-")}`
-          : `/pl/${r.jurisdictionId}`,
+          ? constituencyHref(r.jurisdictionId, r.placeName)
+          : stateHref(r.jurisdictionId),
     }));
   });
 }

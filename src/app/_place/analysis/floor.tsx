@@ -1,9 +1,9 @@
-import { inr } from "../../../../../packages/mandate/src/repo/brief.ts";
-import type { Card, PlaceView } from "../../../../../packages/mandate/src/repo/place-page.ts";
-import { analysisCards } from "../../../../../packages/mandate/src/repo/place-page.ts";
-import { Foot, Shell } from "../../../../components/iei/Shell.tsx";
-import { Crumbs, DataList, DataRow, Panel, Table, Tabs } from "../../../../components/iei/parts.tsx";
-import "../../../iei.css";
+import { inr } from "../../../../packages/mandate/src/repo/brief.ts";
+import type { Card, PlaceView } from "../../../../packages/mandate/src/repo/place-page.ts";
+import { analysisCards } from "../../../../packages/mandate/src/repo/place-page.ts";
+import { Foot, Shell } from "../../../components/iei/Shell.tsx";
+import { Crumbs, DataList, DataRow, Panel, Table, Tabs } from "../../../components/iei/parts.tsx";
+import "../../iei.css";
 
 /**
  * Floor 2 — Analysis. "How did this seat get this way?"

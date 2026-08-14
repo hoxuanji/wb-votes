@@ -11,6 +11,7 @@ import type { ElectionMapView, ElectionSeat } from '../../../../packages/mandate
 import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
+import { stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
 import { ElectionMap, MODES, isMode } from '../../../components/iei/ElectionMap.tsx';
@@ -172,7 +173,7 @@ export default function ElectionPage({
         trail={[
           { label: 'India', href: '/' },
           ...(e.house === 'ac'
-            ? [{ label: e.jurisdictionName, href: `/pl/${e.jurisdictionId}` }]
+            ? [{ label: e.jurisdictionName, href: stateHref(e.jurisdictionId) }]
             : []),
           { label: `${houseWord(e.house)} ${e.year}` },
         ]}

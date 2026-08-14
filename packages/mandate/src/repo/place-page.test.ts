@@ -67,14 +67,14 @@ test("placeView: a malformed percent-escape is not-found, not a server error", {
 });
 
 test("placeHref: one canonical path per level, from ids alone", () => {
-  assert.equal(placeHref({ kind: "state", id: "wb", canonicalName: "West Bengal", parentId: null }), "/pl/wb");
+  assert.equal(placeHref({ kind: "state", id: "wb", canonicalName: "West Bengal", parentId: null }), "/state/wb");
   assert.equal(
     placeHref({ kind: "district", id: "wb.cooch-behar", canonicalName: "Cooch Behar", parentId: "wb" }),
-    "/pl/wb/cooch-behar",
+    "/district/wb/cooch-behar",
   );
   assert.equal(
     placeHref({ kind: "ac", id: "wb.ac.001", canonicalName: "Mekliganj", parentId: "wb.cooch-behar" }),
-    "/pl/wb/cooch-behar/mekliganj",
+    "/constituency/wb/mekliganj",
   );
   // and the path it produces parses back to the place it came from
   assert.deepEqual(parsePath(["wb", "cooch-behar", "mekliganj"])?.level, "ac");
@@ -82,7 +82,7 @@ test("placeHref: one canonical path per level, from ids alone", () => {
 
 // ── filters ──────────────────────────────────────────────────────────────────────────────────────
 
-const base = "/pl/wb/cooch-behar/mekliganj/analysis";
+const base = "/constituency/wb/mekliganj/analysis";
 const opts = { base, years: [2026, 2021, 2016, 2011], parties: ["AIFB", "BJP", "TMC"] };
 
 test("parseFilters: valid params pass, chips drop exactly one param each", () => {
@@ -397,7 +397,7 @@ test("placeView: a district lists its seats, a state its districts", { skip }, a
   assert.equal(d.level, "district");
   assert.equal(d.children.rows.length, 9);
   assert.match(d.headline, /9 assembly seats/);
-  assert.equal(d.children.rows[0]?.href, "/pl/wb/cooch-behar/mekliganj");
+  assert.equal(d.children.rows[0]?.href, "/constituency/wb/mekliganj");
   assert.ok(d.sources.length > 0, "a parent level is cited too");
 
   const s = await placeView(["wb"], {});
@@ -406,7 +406,7 @@ test("placeView: a district lists its seats, a state its districts", { skip }, a
   assert.equal(s.level, "state");
   assert.equal(s.children.rows.length, 23);
   assert.match(s.headline, /294 assembly seats across 23 districts/);
-  assert.equal(s.children.rows[0]?.href, "/pl/wb/alipurduar");
+  assert.equal(s.children.rows[0]?.href, "/district/wb/alipurduar");
 });
 
 test("placeView: the path's ancestry must be true, and an unknown place is not-found", { skip }, async () => {

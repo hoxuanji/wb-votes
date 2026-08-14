@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { constituencyHref, districtHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
 import { openRead } from '../../packages/mandate/src/db/open.ts';
 import { homeView } from '../../packages/mandate/src/repo/home.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
@@ -378,7 +379,7 @@ export default function Home({
                   <DataRow
                     key={`${r.jurisdictionId}-${r.year}`}
                     title={r.jurisdictionName}
-                    href={`/pl/${r.jurisdictionId}`}
+                    href={stateHref(r.jurisdictionId)}
                     /* THE INFERENCE IS IN THE WORD, NOT IN A BADGE. `announced_on` is null for all 1,202 rows,
                        so every one of these is a five-year term counted from the last election — arithmetic on
                        a past date. It used to be marked with a DERIVED chip in its own column: eight identical
@@ -430,7 +431,7 @@ export default function Home({
                       </span>
                     </>
                   }
-                  href={r.kind === 'general' ? undefined : `/pl/${r.jurisdictionId}`}
+                  href={r.kind === 'general' ? undefined : stateHref(r.jurisdictionId)}
                   aside={
                     <b>
                       {/* A reading, never a bare number: West Bengal 2026's 93.0% is a seed defect, and

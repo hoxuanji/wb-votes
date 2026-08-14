@@ -48,6 +48,24 @@ function render(route: string, query = "", segments = ""): string {
   }
 }
 
+
+/**
+ * Render a place by its PATH, dispatching to the canonical route for its kind.
+ *
+ * The tests below discover paths at runtime, so they need one entry point. Counting segments is a guess in
+ * PRODUCTION code — that is the whole reason `/pl/[...path]` is gone — but here the test already knows what
+ * it asked the registry for, so this is a lookup and not an inference.
+ */
+function place(path: string, query = ""): string {
+  const parts = path.split("/").filter(Boolean);
+  const lens = parts.at(-1) === "analysis";
+  const p = lens ? parts.slice(0, -1) : parts;
+  if (p.length === 1) return render("/state", query, p[0] as string);
+  if (p.length === 2) return render("/district", query, p.join("/"));
+  const seat = `${p[0]}/${p[2]}`;
+  return lens ? render("/constituency/analysis", query, seat) : render("/constituency", query, seat);
+}
+
 /** The page as a reader sees it: tags stripped, entities resolved, blank lines dropped. */
 function text(html: string): string {
   return html
@@ -217,7 +235,7 @@ test("the front page reaches a constituency, not just a state", live, () => {
   const html = render("/");
   const t = text(html);
   assert.match(t, /Closest contests/, "the closest-contests module is missing");
-  const seats = [...html.matchAll(/href="\/pl\/[a-z]{2}\/[^"/]+\/[^"]+"/g)];
+  const seats = [...html.matchAll(/href="\/constituency\/[a-z]{2}\/[^"]+"/g)];
   assert.ok(seats.length >= 3, `the front page offers ${seats.length} links to a seat; the module renders five`);
   // Each row states the margin as votes AND as a share, so "closest" is arguable rather than asserted.
   assert.match(t, /\d+ votes/, "a close fight does not state its margin in votes");
@@ -358,7 +376,7 @@ test("the geometry's provenance is in the drawer, not in the caption", live, () 
 test("provenance is not repeated once a page has already offered it", live, () => {
   // The footers of /pl and /p each carried a second copy of the whole source list plus a paragraph explaining
   // what the ⓘ does. One affordance per fact; the drawer teaches itself.
-  for (const [route, segments] of [["/pl", "wb/cooch-behar/mekliganj"], ["/p", "mamata-banerjee-4a681f"]] as const) {
+  for (const [route, segments] of [["/constituency", "wb/mekliganj"], ["/p", "mamata-banerjee-4a681f"]] as const) {
     const html = render(route, "", segments);
     const drawers = (html.match(/class="iei-ev(?:\s|")/g) ?? []).length;
     assert.ok(drawers > 0, `${route} offers no evidence at all`);
@@ -581,7 +599,7 @@ test("a state map's polygons name their publisher and their licence, in the draw
   // 5,000 constituency polygons arrived in this phase from a Creative Commons Attribution source, and
   // attribution is a CONDITION of that licence rather than a courtesy. The panel had no drawer at all until
   // this test, so the publisher, the licence, the retrieval date and the hash were nowhere.
-  const html = render("/pl", "", "ka");
+  const html = render("/state", "", "ka");
   const drawers = [...html.matchAll(/<details class="iei-ev"[\s\S]*?<\/details>/g)].map((m) => m[0]);
   const mapDrawer = drawers.find((d) => d.includes("Assembly Constituencies"));
   assert.ok(mapDrawer !== undefined, "the map panel has no evidence drawer");
@@ -608,17 +626,17 @@ test("a state map's polygons name their publisher and their licence, in the draw
 test("every place the front page links to actually resolves", live, () => {
   const html = render("/");
   // EVERY /pl link, with or without a query string. The earlier version of this test matched only
-  // `href="/pl/xx"` with nothing after it, and the general election's row linked to `/pl/in?election=…` —
+  // `href="/constituency/xx"` with nothing after it, and the general election's row linked to `/pl/in?election=…` —
   // so a link to a 404 sat on the front page behind a query string the regex did not see. India's page is
   // the front page; the row names the nation in plain text now, and the assertion below is what catches the
   // next one.
-  const targets = [...new Set([...html.matchAll(/href="\/pl\/([a-z]{2})(?:[?#"])/g)].map((m) => m[1] as string))];
+  const targets = [...new Set([...html.matchAll(/href="\/state\/([a-z]{2})(?:[?#"])/g)].map((m) => m[1] as string))];
   assert.ok(targets.length > 0, "the front page links to no place at all");
   for (const id of targets) {
     // A 404 throws inside the render, so this asserting-by-not-throwing is the assertion.
-    const page = text(render("/pl", "", id));
-    assert.ok(page.length > 50, `/pl/${id} rendered almost nothing`);
-    assert.doesNotMatch(page, /not built in this checkout/, `/pl/${id} could not read the registry`);
+    const page = text(place(id));
+    assert.ok(page.length > 50, `/state/${id} rendered almost nothing`);
+    assert.doesNotMatch(page, /not built in this checkout/, `/state/${id} could not read the registry`);
   }
   // And the map specifically must reach all 36, which is the country.
   const onMap = [...new Set([...html.matchAll(/id="iei-j-([a-z]{2})"/g)].map((m) => m[1] as string))];
@@ -634,24 +652,25 @@ test("the navigation graph walks all the way down, in five jurisdictions", live,
   // has: a union territory re-delimited after 2008 (jk), a state re-delimited after 2008 (as), the largest
   // (up), the one this project started as (wb), and one with no relationship to any of them (ka).
   for (const state of ["ka", "wb", "up", "as", "jk"]) {
-    const statePage = render("/pl", "", state);
+    const statePage = render("/state", "", state);
     // Asserted on the MARKUP, not the stripped text: the crumb separator is its own element, so `text()`
     // renders the trail as three lines and a regex over it is checking the helper rather than the page.
-    assert.match(statePage, /href="\/"[^>]*>India</, `/pl/${state} has no breadcrumb back to India`);
-    assert.ok(text(statePage).includes("Elections on record"), `/pl/${state} does not list its elections`);
+    assert.match(statePage, /href="\/"[^>]*>India</, `/state/${state} has no breadcrumb back to India`);
+    assert.ok(text(statePage).includes("Elections on record"), `/state/${state} does not list its elections`);
 
     // A district link is a three-segment path under this state.
-    const district = new RegExp(`href="/pl/${state}/([^/"]+)"`).exec(statePage)?.[1];
-    assert.ok(district !== undefined, `/pl/${state} offers no district`);
-    const districtPage = render("/pl", "", `${state}/${district}`);
+    const district = new RegExp(`href="/district/${state}/([^/"]+)"`).exec(statePage)?.[1];
+    assert.ok(district !== undefined, `/state/${state} offers no district`);
+    const districtPage = render("/district", "", `${state}/${district}`);
     const dt = text(districtPage);
-    assert.ok(dt.length > 200, `/pl/${state}/${district} rendered almost nothing`);
-    assert.doesNotMatch(dt, /not built in this checkout/, `/pl/${state}/${district} could not read the registry`);
+    assert.ok(dt.length > 200, `/state/${state}/${district} rendered almost nothing`);
+    assert.doesNotMatch(dt, /not built in this checkout/, `/state/${state}/${district} could not read the registry`);
 
-    // A seat link is a four-segment path under that district.
-    const seat = new RegExp(`href="/pl/${state}/${district}/([^/"]+)"`).exec(districtPage)?.[1];
-    assert.ok(seat !== undefined, `/pl/${state}/${district} offers no seat`);
-    const seatPage = render("/pl", "", `${state}/${district}/${seat}`);
+    // A seat link is a CONSTITUENCY route, and it carries the state rather than the district — a
+    // delimitation can move a seat between districts while the name survives.
+    const seat = new RegExp(`href="/constituency/${state}/([^/"]+)"`).exec(districtPage)?.[1];
+    assert.ok(seat !== undefined, `/district/${state}/${district} offers no seat`);
+    const seatPage = render("/constituency", "", `${state}/${seat}`);
     const st = text(seatPage);
     assert.ok(st.includes("Every election on record"), `${state}/${district}/${seat} has no election history`);
     assert.ok(st.includes("Analysis"), `${state}/${district}/${seat} offers no analysis lens`);
@@ -659,7 +678,7 @@ test("the navigation graph walks all the way down, in five jurisdictions", live,
     assert.match(seatPage, /href="\/"[^>]*>India</, `${state}/${district}/${seat} cannot reach India`);
 
     // And the Analysis floor renders, which is where every chart in the product lives.
-    const analysis = text(render("/pl", "", `${state}/${district}/${seat}/analysis`));
+    const analysis = text(place(`${state}/${district}/${seat}/analysis`));
     assert.match(analysis, /How .* got this way/, `${state}/${district}/${seat}/analysis has no headline`);
     assert.ok(analysis.includes("Window"), "the analysis floor lost its window filter");
 
@@ -684,8 +703,8 @@ test("the five jurisdictions the brief names each render their own name and resu
     ["jk", "Jammu and Kashmir"],
   ] as const;
   for (const [id, name] of expected) {
-    const page = text(render("/pl", "", id));
-    assert.ok(page.includes(name), `/pl/${id} does not name ${name}`);
+    const page = text(place(id));
+    assert.ok(page.includes(name), `/state/${id} does not name ${name}`);
   }
   // And on the homepage, each must appear with a leading party in the standings table.
   const home = text(render("/"));
@@ -782,7 +801,7 @@ test("the render harness is test scaffolding and nothing imports it", () => {
  */
 
 test("a state page draws constituencies, and colours them by who won each one", live, () => {
-  const html = render("/pl", "", "ka");
+  const html = render("/state", "", "ka");
   const t = text(html);
   assert.match(t, /Which party won each seat\?/, "the state map does not state its claim");
   // The national map's claim is about GOVERNMENT. A state map must never be labelled with it.
@@ -829,10 +848,10 @@ test("scoping an assembly election to its own state changes nothing", live, () =
 });
 
 test("a district both navigates and focuses, and is never given a winner", live, () => {
-  const html = render("/pl", "", "ka");
+  const html = render("/state", "", "ka");
   // NAVIGATION: a district still has its own page, and the state page still offers the path to it. Losing
   // this severed INDIA -> STATE -> DISTRICT -> SEAT once already.
-  assert.match(html, /href="\/pl\/ka\/[^/"]+"/, "the state page offers no district page");
+  assert.match(html, /href="\/district\/ka\/[^/"]+"/, "the state page offers no district page");
   // FOCUS: and it can be selected in place, which is what scopes the analytics.
   assert.match(html, /[?&]district=ka\./, "a district cannot be focused on the map");
   // A DISTRICT NEVER WINS. The type carries no winner field, so this asserts the vocabulary too.
@@ -865,7 +884,7 @@ test("focusing a district scopes the seats every figure describes", live, () => 
 });
 
 test("every selection the state page offers is in the URL and moves the map", live, () => {
-  const html = render("/pl", "", "ka");
+  const html = render("/state", "", "ka");
   // One shared selection model, and each rung of it has to be reachable from the rendered page.
   for (const [what, pattern] of [
     ["party isolation", /[?&]party=/],
@@ -884,8 +903,8 @@ test("every selection the state page offers is in the URL and moves the map", li
 test("a selection actually dims the map rather than only changing the list", live, () => {
   // The failure this guards is a page where the charts filter and the map does not — which is what "five
   // independent filter states" looks like from the outside.
-  const all = render("/pl", "", "ka");
-  const isolated = render("/pl", "party=INC", "ka");
+  const all = render("/state", "", "ka");
+  const isolated = render("/state", "party=INC", "ka");
   const dimmedBefore = (all.match(/opacity="0\.18"/g) ?? []).length;
   const dimmedAfter = (isolated.match(/opacity="0\.18"/g) ?? []).length;
   assert.equal(dimmedBefore, 0, "the map dims something before anything is selected");
@@ -895,13 +914,13 @@ test("a selection actually dims the map rather than only changing the list", liv
 test("a comparison across a redrawn map is refused on the page, not just in the data", live, () => {
   // ka-assembly-2008's predecessor sits under the 1976 order. The data layer refuses it; this asserts the
   // PAGE says so rather than rendering an empty section or, worse, a flip count.
-  const t = text(render("/pl", "election=ka-assembly-2008", "ka"));
+  const t = text(render("/state", "election=ka-assembly-2008", "ka"));
   assert.match(t, /Seat-level comparison unavailable/, "the page does not explain the refusal");
   assert.ok(!/seats changed hands/.test(t), "a flip claim survived the epoch gate on the page");
 });
 
 test("the state page offers evidence once, and no per-value provenance", live, () => {
-  const html = render("/pl", "", "ka");
+  const html = render("/state", "", "ka");
   // SCOPED TO THE ANALYTICAL CONTENT, deliberately. The site footer carries one link to `/coverage` — "what
   // this registry holds, and what it does not" — and that is the product's single honest home for
   // completeness. Banning the word everywhere would have failed the footer, which is the opposite of the
@@ -934,7 +953,7 @@ test("a turnout the registry cannot corroborate never renders as a hero figure",
   const held = wb.turnout.state === "unverified" ? wb.turnout.evidence.pct : 0;
   assert.ok(held > 92 && held < 94, `expected the defective ~93% to still be PRESERVED, got ${held}`);
 
-  const html = render("/pl", "", "wb");
+  const html = render("/state", "", "wb");
   // THE SURFACE, meaning the page MINUS its evidence drawers. The distinction is the whole requirement:
   // a closed <details> is still in the DOM, so `text()` alone cannot tell "we print this figure" from
   // "we keep this figure where a reader who asks can find it".
@@ -962,7 +981,7 @@ test("a turnout the registry cannot corroborate never renders as a hero figure",
   //     still reads as one. This is the half of the requirement a suppression would have failed.
   const ka = electionMap.electionMapView(db, "ka-assembly-2023");
   assert.equal(ka.turnout.state, "reported", "a well-sourced turnout was flagged as unverified");
-  const kt = text(render("/pl", "", "ka").replace(/<details class="iei-ev[\s\S]*?<\/details>/g, " "));
+  const kt = text(render("/state", "", "ka").replace(/<details class="iei-ev[\s\S]*?<\/details>/g, " "));
   assert.match(kt, /\d\d\.\d% turnout/, "Karnataka's valid turnout stopped rendering as a figure");
   assert.ok(!/verification pending/i.test(kt), "Karnataka was given a caveat it does not need");
 });
@@ -992,7 +1011,7 @@ test("no SVG title is assembled from several nodes, on any figure", live, () => 
    * two that happened to be wrong.
    */
   for (const [route, query, segs] of [
-    ["/pl", "", "ka"],
+    ["/state", "", "ka"],
     ["/election", "", "ka-assembly-2023"],
     ["/", "", ""],
   ] as const) {
@@ -1025,7 +1044,7 @@ test("a district on the state page is reachable, and its link is not hidden in a
    * So the assertions are about PROMINENCE, not existence, plus the one thing the reader actually did:
    * follow the link and see whether a district page comes back.
    */
-  const html = render("/pl", "", "ka");
+  const html = render("/state", "", "ka");
 
   // 1 — NOT INSIDE THE EVIDENCE DRAWER. The class combination that caused the report.
   assert.ok(
@@ -1034,7 +1053,7 @@ test("a district on the state page is reachable, and its link is not hidden in a
   );
 
   // 2 — EVERY district offers a link to its own page, and the label is a word rather than a glyph alone.
-  const links = [...html.matchAll(/href="(\/pl\/ka\/[a-z0-9-]+)"/g)].map((m) => m[1] as string);
+  const links = [...html.matchAll(/href="(\/district\/ka\/[a-z0-9-]+)"/g)].map((m) => m[1] as string);
   assert.ok(links.length >= 20, `only ${links.length} district page links on a 30-district state`);
   assert.match(
     html,
@@ -1045,14 +1064,13 @@ test("a district on the state page is reachable, and its link is not hidden in a
   // 3 — AND THE LINK RESOLVES. Following it must produce that district's own page, not a not-found and not
   //     the state page over again. This is the step the report was about.
   const target = links.find((h) => h.endsWith("/bangalore")) ?? (links[0] as string);
-  const segs = target.replace(/^\/pl\//, "");
-  const page = text(render("/pl", "", segs));
+  const page = text(render("/district", "", target.replace("/district/", "")));
   assert.match(page, /District/, `${target} did not render a district page`);
   assert.ok(!/not found/i.test(page), `${target} is a dead link`);
   assert.match(page, /assembly seats/, `${target} does not list the seats it elects`);
 
   // 4 — WITH A DISTRICT FOCUSED, the way out is a sentence and not a glyph.
-  const focused = text(render("/pl", "district=ka.bangalore", "ka"));
+  const focused = text(render("/state", "district=ka.bangalore", "ka"));
   assert.match(focused, /Open the .* district page/, "a focused district offers no prominent way in");
 });
 
@@ -1076,23 +1094,30 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
    * page has to come back right. Three tests already asserted that seats and districts "have links" and all
    * three passed throughout, because a link that goes to the wrong place is still a link.
    */
-  const seg = (u: string): string => u.replace(/^\/pl\/?/, "");
-  const deepLinks = (html: string, depth: number): string[] => [
+  /**
+   * Links BY ENTITY TYPE, read from the route prefix.
+   *
+   * This used to filter by segment COUNT, because under `/pl/[...path]` depth was the only thing that
+   * distinguished a state from a district from a seat. It is not any more, and it must not be: a district and
+   * a constituency are both `/<type>/<state>/<name>` — two segments each — and the type is the prefix. A test
+   * that still counted segments would pass for the wrong reason.
+   */
+  const linksOf = (html: string, type: "state" | "district" | "constituency"): string[] => [
     ...new Set(
-      [...html.matchAll(/href="(\/pl\/[^"?#]*)"/g)]
+      [...html.matchAll(/href="(\/(?:state|district|constituency)\/[^"?#]*)"/g)]
         .map((m) => m[1] as string)
-        .filter((h) => seg(h).split("/").length === depth),
+        .filter((h) => h.startsWith(`/${type}/`)),
     ),
   ];
 
   // INDIA -> STATE
   const india = render("/");
-  assert.ok(deepLinks(india, 1).length > 0, "the front page links to no state at all");
+  assert.ok(linksOf(india, "state").length > 0, "the front page links to no state at all");
 
   // STATE -> DISTRICT, and STATE -> SEAT
-  const state = render("/pl", "", "ka");
-  const districts = deepLinks(state, 2);
-  const seats = deepLinks(state, 3);
+  const state = render("/state", "", "ka");
+  const districts = linksOf(state, "district");
+  const seats = linksOf(state, "constituency");
   assert.ok(districts.length >= 20, `${districts.length} district links on a 30-district state`);
   assert.ok(
     seats.length >= 200,
@@ -1103,14 +1128,15 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
   // shape breaks every link built the same way.
   for (const url of [districts[0], districts[5], seats[0], seats[40], seats[150], seats.at(-1)]) {
     if (url === undefined) continue;
-    const page = text(render("/pl", "", seg(url)));
+    const [, type, ...rest] = url.split("/");
+    const page = text(render(`/${type}`, "", rest.join("/")));
     assert.ok(!/not found/i.test(page), `${url} is a dead link`);
     assert.ok(page.length > 400, `${url} rendered an empty page`);
   }
 
   // DISTRICT -> SEAT: the walk continues from a district page rather than dead-ending there.
-  const district = render("/pl", "", seg(districts[0] as string));
-  assert.ok(deepLinks(district, 3).length > 0, `${districts[0]} links to none of its own seats`);
+  const district = render("/district", "", (districts[0] as string).replace("/district/", ""));
+  assert.ok(linksOf(district, "constituency").length > 0, `${districts[0]} links to none of its own seats`);
 
   /**
    * AND A PARLIAMENTARY SEAT MUST NOT PRETEND TO HAVE A PAGE. Place pages are `pv.kind = 'ac'`; a pc
@@ -1119,15 +1145,119 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
    * page. A pc seat goes to the state whose page holds its result.
    */
   const ls = render("/election", "", "ls-2024");
-  const lsLinks = [...ls.matchAll(/href="(\/pl[^"?#]*)"/g)].map((m) => m[1] as string);
+  const lsLinks = [...ls.matchAll(/href="(\/(?:state|district|constituency)[^"?#]*)"/g)].map((m) => m[1] as string);
   assert.ok(lsLinks.length > 0, "the Lok Sabha map links nowhere");
   assert.deepEqual(
-    [...new Set(lsLinks.filter((h) => h === "/pl" || h.includes("//")))],
+    [...new Set(lsLinks.filter((h) => h.includes("//") || /\/(state|district|constituency)\/?$/.test(h)))],
     [],
-    "a parliamentary seat is linking to the India page or to a url with an empty segment",
+    "a parliamentary seat is linking to a bare entity route or to a url with an empty segment",
   );
   assert.ok(
-    lsLinks.some((h) => /^\/pl\/[a-z]+$/.test(h)),
+    lsLinks.some((h) => /^\/state\/[a-z]+$/.test(h)),
     "no parliamentary seat links to its state",
   );
+});
+
+/* ─────────────────── canonical routes and the compatibility layer ─────────────────── */
+
+test("every /pl URL redirects to its canonical route, resolved and not guessed", live, () => {
+  /**
+   * `/pl/[...path]` served three entity types and decided which by COUNTING SEGMENTS. So the type of a thing
+   * was a property of how long its URL happened to be, and a malformed path resolved to a different KIND of
+   * entity rather than to nothing.
+   *
+   * It is a redirect now. `permanentRedirect` throws a Next control-flow error rather than returning markup,
+   * so a successful redirect is a FAILED render whose stderr names the destination — which is what this reads.
+   * A route that renders markup has stopped redirecting, and that is a failure here.
+   */
+  const redirectOf = (segments: string): { to: string | null; notFound: boolean } => {
+    const r = spawnSync(
+      process.execPath,
+      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/pl", "", segments],
+      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+    const err = `${r.stderr ?? ""}${r.stdout ?? ""}`;
+    const m = /NEXT_REDIRECT[;,]?\s*(?:replace|push)?[;,]?\s*(\/[^\s;"']*)/.exec(err) ?? /"(\/(?:state|district|constituency)\/[^"]*)"/.exec(err);
+    return { to: m?.[1] ?? null, notFound: /NEXT_NOT_FOUND|NEXT_HTTP_ERROR_FALLBACK/.test(err) };
+  };
+
+  // Fixtures discovered from the registry, so this is not five states hand-picked.
+  /**
+   * ONE QUERY FOR THE WHOLE CHAIN, so the fixtures are guaranteed to be an actual state / district / seat
+   * ancestry. Picking a jurisdiction first and a seat second chose Andaman & Nicobar, whose seats carry no
+   * district — a fixture that does not exist rather than a product defect.
+   */
+  const seat = all<{ state: string; name: string; district: string }>(
+    db,
+    `SELECT pv.jurisdiction_id AS state, pv.canonical_name AS name,
+            COALESCE(pv.district_place_id, pl.parent_id) AS district
+       FROM place_version pv JOIN place pl ON pl.id = pv.place_id
+      WHERE pv.kind = 'ac' AND pv.jurisdiction_id IS NOT NULL
+        AND COALESCE(pv.district_place_id, pl.parent_id) IS NOT NULL
+        AND instr(COALESCE(pv.district_place_id, pl.parent_id), '.') > 0
+      ORDER BY pv.id LIMIT 1`,
+  )[0];
+  assert.ok(seat, "no districted constituency in the registry");
+  const state = seat.state;
+  const districtSeg = seat.district.startsWith(`${state}.`)
+    ? seat.district.slice(state.length + 1)
+    : seat.district;
+  const seatSlug = seat.name.trim().toLowerCase().replace(/\s+/g, "-");
+
+  // 1 — A STATE, A DISTRICT AND A CONSTITUENCY each reach their own entity route, and the constituency
+  //     drops the district because the canonical form carries the jurisdiction instead.
+  for (const [path, want] of [
+    [state, `/state/${state}`],
+    [`${state}/${districtSeg}`, `/district/${state}/${districtSeg}`],
+    [`${state}/${districtSeg}/${seatSlug}`, `/constituency/${state}/${seatSlug}`],
+  ] as const) {
+    const r = redirectOf(path);
+    assert.ok(!r.notFound, `/pl/${path} 404s instead of redirecting`);
+    assert.equal(r.to, want, `/pl/${path} redirected to ${r.to}`);
+  }
+
+  // 2 — THE QUERY SURVIVES. `?election=`, `?district=`, `?party=`, `?mode=` and `?seat=` mean the same thing
+  //     on the canonical route, so dropping them would silently change what a shared link shows.
+  const withQuery = spawnSync(
+    process.execPath,
+    ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/pl", "party=INC&mode=flips", state],
+    { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+  );
+  const q = `${withQuery.stderr ?? ""}${withQuery.stdout ?? ""}`;
+  assert.match(q, /party=INC/, "the redirect dropped the query string");
+  assert.match(q, /mode=flips/, "the redirect dropped part of the query string");
+
+  // 3 — AN UNKNOWN ENTITY IS A 404, NEVER A REDIRECT UP THE TREE. Answering a constituency request with a
+  //     state page is the silent substitution this phase exists to end.
+  for (const bad of ["zz", `${state}/no-such-district`, `${state}/${districtSeg}/no-such-seat`]) {
+    const r = redirectOf(bad);
+    assert.ok(r.notFound || r.to === null, `/pl/${bad} redirected to ${r.to} instead of 404ing`);
+  }
+});
+
+test("canonical routes resolve for discovered jurisdictions of every size", live, () => {
+  // SMALLEST, MEDIAN AND LARGEST by seats on record — chosen by query, so adding a state adds a case.
+  const sized = all<{ id: string; n: number }>(
+    db,
+    `SELECT pv.jurisdiction_id AS id, COUNT(DISTINCT pv.place_id) AS n
+       FROM place_version pv WHERE pv.kind = 'ac' AND pv.jurisdiction_id IS NOT NULL
+      GROUP BY pv.jurisdiction_id HAVING n > 0 ORDER BY n`,
+  );
+  assert.ok(sized.length >= 3, "fewer than three jurisdictions with seats");
+  const picks = [sized[0], sized[Math.floor(sized.length / 2)], sized.at(-1)].filter(
+    (x): x is { id: string; n: number } => x !== undefined,
+  );
+  for (const j of picks) {
+    const t = text(render("/state", "", j.id));
+    assert.ok(t.length > 400, `/state/${j.id} (${j.n} seats) rendered almost nothing`);
+    assert.doesNotMatch(t, /not built in this checkout/, `/state/${j.id} could not read the registry`);
+    // AND ITS OWN NAME, so the route is not quietly rendering some other jurisdiction.
+    const name = all<{ n: string }>(db, `SELECT canonical_name AS n FROM place WHERE id = ?`, j.id)[0]?.n;
+    if (name !== undefined) {
+      assert.ok(
+        t.toLowerCase().includes(name.toLowerCase()),
+        `/state/${j.id} does not name ${name}`,
+      );
+    }
+  }
 });

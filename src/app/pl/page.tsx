@@ -1,4 +1,5 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
+import { stateHref } from "../../../packages/mandate/src/repo/routes.ts";
 
 /**
  * `/pl` — not a page. A redirect, and the only reason the file still exists.
@@ -23,6 +24,6 @@ export const dynamic = "force-dynamic";
 
 export default function PlaceIndex({ searchParams }: { searchParams?: { to?: string } }) {
   const to = searchParams?.to;
-  if (to !== undefined && /^[a-z]{2}$/.test(to)) redirect(`/pl/${to}`);
+  if (to !== undefined && /^[a-z]{2}$/.test(to)) permanentRedirect(stateHref(to));
   notFound();
 }

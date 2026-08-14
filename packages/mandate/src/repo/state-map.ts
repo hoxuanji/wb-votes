@@ -38,6 +38,7 @@
 // not to say it.
 
 import type { DatabaseSync } from "node:sqlite";
+import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
@@ -305,7 +306,7 @@ export function stateMapView(
       // and addressing it as `/pl/<state>//<name>` resolves to nothing.
       href:
         x.stateId !== null && x.districtId !== null && x.districtId.startsWith(`${x.stateId}.`)
-          ? `/pl/${x.stateId}/${x.districtId.slice(x.stateId.length + 1)}/${slug(x.name)}`
+          ? constituencyHref(x.stateId, x.name)
           : null,
       path: x.viewBox === frame ? x.path : null,
     }));

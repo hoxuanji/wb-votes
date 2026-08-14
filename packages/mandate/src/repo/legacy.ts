@@ -10,6 +10,7 @@
 // seat would silently redirect readers to the wrong constituency.
 
 import type { DatabaseSync } from "node:sqlite";
+import { constituencyHref } from "./routes.ts";
 import { get } from "../db/index.ts";
 import { read } from "./index.ts";
 
@@ -57,7 +58,8 @@ export function placePathForLegacyId(db: DatabaseSync, legacyId: string): string
       n,
     );
     if (row === undefined || row.district === null) return null;
-    return `/pl/wb/${slug(row.district)}/${slug(row.ac)}`;
+    // Canonical, so an old WB Votes id redirects ONCE rather than into the compatibility layer and out again.
+    return constituencyHref("wb", row.ac);
   });
 }
 

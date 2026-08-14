@@ -261,7 +261,7 @@ test("the homepage's every layer and section run", { skip }, () => {
     assert.ok(view.layer.cells.length > 0, `layer ${l.key} produced no cells`);
     // Every cell must carry a destination, because the map is the page's navigation.
     for (const c of view.layer.cells) {
-      assert.match(c.href, /^\/pl\//, `layer ${l.key}: ${c.jurisdictionId} has no place link`);
+      assert.match(c.href, /^\/(state|district|constituency)\//, `layer ${l.key}: ${c.jurisdictionId} has no place link`);
     }
   }
   // Per-election coverage is /coverage's data layer now. Exercise every election it offers, not just the

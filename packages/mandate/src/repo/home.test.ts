@@ -341,7 +341,7 @@ test("every layer covers every jurisdiction exactly once, and never invents a va
           assert.notEqual(c.fill, NO_DATA_HUE, `${meta.key}/${c.jurisdictionId} is labelled but unlit`);
           assert.ok(c.detail.length > 0, `${meta.key}/${c.jurisdictionId} has a value and no hover card`);
         }
-        assert.match(c.href, /^\/pl\/[a-z]{2}$/, `${c.jurisdictionId} does not link to its state page`);
+        assert.match(c.href, /^\/state\/[a-z]{2}$/, `${c.jurisdictionId} does not link to its state page`);
       }
       assert.equal(l.unknown, l.cells.filter((c) => c.label === null).length);
       // A layer with anything behind it must carry a legend, because colour is never the only channel.
@@ -473,7 +473,7 @@ test("every watch signal is traceable, thresholded and honest about its basis", 
       assert.ok(s.rule.trim().length > 0, "a signal with no rule");
       assert.ok(s.threshold.trim().length > 0, `${s.rule} states no threshold`);
       assert.ok(s.detail.trim().length > 0, `${s.rule} has no detail`);
-      assert.match(s.href, /^\/pl\//, `${s.subject} does not link anywhere`);
+      assert.match(s.href, /^\/(state|district|constituency)\//, `${s.subject} does not link anywhere`);
       // EVERY SIGNAL IS MEASURED, and that is a deliberate property rather than an accident of the data.
       // The one derived rule was a five-year term expiry, which is what the Upcoming section prints, from
       // the same arithmetic on the same rows, labelled derived there too. It outranked every measured
