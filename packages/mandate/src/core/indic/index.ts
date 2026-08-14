@@ -80,11 +80,17 @@ export function stripHonorifics(s: string): string {
 }
 
 /**
- * NFC, casefold, strip honorifics and punctuation, collapse whitespace.
+ * NFC, casefold, strip punctuation, collapse whitespace — but KEEP honorifics.
  * Keeps intra-word hyphens. Returns the name in its ORIGINAL script — it does not
  * transliterate; that is `toLatin`.
+ *
+ * Exported because SEARCH needs this form and `normaliseName` is the wrong tool for it. Honorific
+ * stripping is a RESOLUTION decision: MyNeta writes "Md. Salim" and Lokdhaba writes "SALIM", and
+ * dropping the particle is what lets those two records resolve to one human. But `person.canonical_name`
+ * KEEPS the particle — the display name is literally "MD. SALIM" — so a search that strips it from the
+ * query while the data retains it is comparing two different strings on purpose. See `searchPersons`.
  */
-function cleanText(s: string): string {
+export function cleanText(s: string): string {
   return s
     .normalize('NFC')
     .replace(/[\u200B-\u200F\u2060\uFEFF]/gu, '') // ZWSP, ZWNJ, ZWJ, LRM/RLM, WJ, BOM

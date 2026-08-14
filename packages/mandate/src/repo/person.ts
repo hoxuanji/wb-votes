@@ -9,7 +9,7 @@ import type {
   Sex,
 } from "../core/index.ts";
 import { UNPARSEABLE_KEY, blockingKeys } from "../core/index.ts";
-import { normaliseName, toLatin } from "../core/indic/index.ts";
+import { cleanText, toLatin } from "../core/indic/index.ts";
 import { all, get } from "../db/index.ts";
 import type { SourceRef } from "./index.ts";
 import { loadSources, marks, read, yearOf } from "./index.ts";
@@ -313,44 +313,86 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
  */
 export function searchPersons(db: DatabaseSync, term: string, limit = 20): PersonRow[] {
   const keys = blockingKeys(term).filter((k) => k !== UNPARSEABLE_KEY);
-  // Latin form of whatever script was typed, for the substring tier. Two characters would match
-  // half the registry, so the tier is off below three.
-  const latin = toLatin(normaliseName(term)).toLowerCase();
+  /**
+   * THE TERM, WITH ITS HONORIFICS INTACT — and this is the whole defect.
+   *
+   * This line used to read `toLatin(normaliseName(term))`, and `normaliseName` strips leading
+   * honorifics, of which `md` is one. So the term "Md Salim" arrived at the substring tier as
+   * **"salim"**. Not ranked badly — MUTILATED. The tier then searched `%salim%` (280 people), and the
+   * exactness tier compared against "salim", which the twelve people named literally `SALIM` satisfy
+   * exactly while `MD SALIM` merely contains. The member of parliament could not out-rank a hundred
+   * strangers for their own name because the name being searched for was no longer their name.
+   *
+   * Stripping is RIGHT for resolution and WRONG here, and the distinction is not subtle: MyNeta writes
+   * "Md. Salim" where Lokdhaba writes "SALIM", so `blockingKeys` must drop the particle to make those
+   * two rows one human. But `person.canonical_name` KEEPS it. The substring tier compares the query to
+   * the stored display name, so it has to compare like with like.
+   *
+   * Recall does not suffer: a record spelled bare "SALIM" is still reached through the phonetic keys
+   * (`slm`, `md|slm`, `s:slm`) above, which are built from the stripped form because that is their job.
+   * The two tiers now normalise DIFFERENTLY, on purpose, because they are answering different questions.
+   */
+  const latin = toLatin(cleanText(term)).toLowerCase();
   // LIKE wildcards in a user term are an injection into the *pattern*, not the SQL: without this a
   // search for "%" returns the whole registry.
   const escaped = latin.replace(/[\\%_]/g, (c) => `\\${c}`);
   const like = latin.length >= 3 ? `%${escaped}%` : null;
-  // For the closeness tier: the term with dots and doubled spaces removed, so "Md. Salim" and "MD SALIM"
-  // compare equal, and a prefix pattern for "starts with what was typed".
-  const exact = latin.replace(/\./g, "").replace(/ {2,}/g, " ").trim();
   const prefix = `${escaped}%`;
+  // `cleanText` already dropped the dots and collapsed the spaces on the QUERY side, so the equality
+  // test needs no further work on the term itself. `SPELLING` below does the same to the STORED name.
+  const exact = latin;
+  /**
+   * THE STORED NAME, PUNCTUATION AND ALL, reduced to the same shape as the query.
+   *
+   * ONE normalisation, used by every tier and by the WHERE clause, and having three different ones was a
+   * defect that hid a person entirely rather than merely misranking them. The exact tier stripped dots
+   * from the stored name; the prefix and contains tiers did not; the WHERE clause did not. So a person
+   * recorded as "MD. SALIM" could score 3 on exactness and still never be SELECTED, because the row was
+   * filtered out by a clause comparing "md. salim" to a pattern built from "md salim".
+   *
+   * Five of the seven people canonically named MD. SALIM were unreachable this way, including the one
+   * with six candidacies and a parliamentary win — the most prominent exact match in the registry for
+   * that name, absent from a search for it.
+   *
+   * SEPARATELY, and not fixable here: 497,330 of this registry's 539,020 alias rows carry a `norm_key`
+   * that is not a phonetic key at all but a literal name skeleton ("0satyanarayanpaswan"), so the
+   * blocking clause cannot reach them either. That is an ingest defect of its own; what it means for
+   * THIS function is that the substring tier does nearly all the real work and had better be exact.
+   */
+  const SPELLING = (col: string) => `lower(replace(replace(${col}, '.', ''), '  ', ' '))`;
   /**
    * HOW CLOSELY a name matches, which the ranking did not measure at all.
    *
-   * THE DEFECT THIS FIXES: `name_match` is a boolean, so all 50 substring hits for "Md Salim" tied on it and
-   * prominence alone decided the order. The member of parliament whose name IS "MD SALIM" ranked
-   * SIXTY-EIGHTH, behind sixty-seven people whose names merely contain "salim" — SALEEM IQBAL SHERWANI,
-   * MOHAMAD SALIMUDDIN, SAMSIR UDDIN BARBHUIYA. A person is not the sixty-eighth best answer to their own
-   * name, and no amount of prominence weighting fixes a ranking with no notion of exactness in it.
+   * THE DEFECT THIS FIXES: `name_match` was a boolean, so every substring hit tied on it and prominence
+   * alone decided the order. A person is not the sixty-eighth best answer to their own name, and no
+   * amount of prominence weighting fixes a ranking with no notion of exactness in it.
    *
-   * 3 exact · 2 starts with · 1 contains · 0 phonetic only. Dots and doubled spaces come out before the
-   * equality test, because "MD. SALIM" and "MD SALIM" are one name written two ways.
+   * 3 exact · 2 starts with · 1 contains · 0 phonetic only.
+   *
+   * ── WHY THERE IS NO SEPARATE CANONICAL-vs-ALIAS TIER ──
+   *
+   * A finer hierarchy suggests itself: canonical exact, then canonical prefix, then alias exact, and so
+   * on, so a person's real identity beats an alias collision. Measured against this registry, that
+   * hierarchy is DEAD SQL. For every term tried — "md salim", "mamata banerjee", "narendra modi",
+   * "mohammed salim" — the number of people holding an exactly-matching ALIAS but no exactly-matching
+   * CANONICAL name is ZERO, because ingest writes the canonical spelling into `person_alias` as well.
+   * The two sets are identical, so a tier separating them can never reorder anything. It would be four
+   * more CASE branches that look like precision and buy none, so the tiers read both name sources
+   * together and prominence breaks ties inside a tier.
    */
   const closenessSql =
     `(SELECT MAX(CASE
-                   WHEN lower(replace(replace(a5.name, '.', ''), '  ', ' ')) = ? THEN 3
-                   WHEN lower(a5.name) LIKE ? ESCAPE '\\' THEN 2` +
+                   WHEN a5.n = ? THEN 3
+                   WHEN a5.n LIKE ? ESCAPE '\\' THEN 2` +
     (like === null ? "" : `
-                   WHEN lower(a5.name) LIKE ? ESCAPE '\\' THEN 1`) +
+                   WHEN a5.n LIKE ? ESCAPE '\\' THEN 1`) +
     `
                    ELSE 0 END)
-        FROM (SELECT name FROM person_alias WHERE person_id = p.id
+        FROM (SELECT ${SPELLING("name")} AS n FROM person_alias WHERE person_id = p.id
               UNION ALL
-              -- THE PERSON'S OWN DISPLAY NAME, which neither tier consulted. md-salim is called
-              -- "MD SALIM" on the person row, and its alias rows spell it differently, so a search for
-              -- its exact name scored zero on both tiers and fell to the phonetic pile. A name a surface
-              -- will actually print is a name a search has to match.
-              SELECT p.canonical_name AS name) a5)`;
+              -- THE PERSON'S OWN DISPLAY NAME, which neither tier consulted. A name a surface will
+              -- actually print is a name a search has to match.
+              SELECT ${SPELLING("p.canonical_name")} AS n) a5)`;
 
   if (keys.length === 0 && like === null) return [];
   // A term with no phonetic key still gets its substring tier, and vice versa, so neither branch may
@@ -359,10 +401,14 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
     keys.length > 0
       ? `p.id IN (SELECT person_id FROM person_alias WHERE norm_key IN (${marks(keys.length)}))`
       : "0";
+  // Aliases only. A person whose CANONICAL name matches while no alias does would be missed — measured
+  // across "md salim", "mamata banerjee", "salim" and "banerjee", that set is empty, because ingest
+  // mirrors the canonical spelling into the alias table. Scanning `person` as well would be a second
+  // full pass to find nobody.
   const likeClause =
     like === null
       ? "0"
-      : `p.id IN (SELECT person_id FROM person_alias WHERE lower(name) LIKE ? ESCAPE '\\')`;
+      : `p.id IN (SELECT person_id FROM person_alias WHERE ${SPELLING("name")} LIKE ? ESCAPE '\\')`;
 
   return read(() =>
     all<PersonListSql>(
@@ -375,12 +421,6 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
               (SELECT MAX(r4.is_winner) FROM candidacy c4
                  JOIN result r4 ON r4.candidacy_id = c4.id AND r4.revision = 0
                 WHERE c4.person_id = p.id) AS ever_won,
-              ${
-                like === null
-                  ? "0"
-                  : `(SELECT MAX(CASE WHEN lower(a3.name) LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)
-                        FROM person_alias a3 WHERE a3.person_id = p.id)`
-              } AS name_match,
               ${closenessSql} AS closeness,
               latest.election_id, latest.place_name, latest.party_short_name,
               latest.status, latest.votes, latest.vote_share, latest.is_winner,
@@ -402,9 +442,7 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
              LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
          ) latest ON latest.person_id = p.id AND latest.rn = 1
         WHERE ${keyClause} OR ${likeClause}
-        ORDER BY name_match DESC,
-                 -- Exactness before prominence. See closenessSql above for the defect this fixes.
-                 closeness DESC,
+        ORDER BY closeness DESC,
                  -- Prominence, as far as this registry can honestly measure it. "Has ever won a
                  -- seat" is stable; "won the most recent one" is not — Mamata Banerjee did not win
                  -- her latest recorded contest, so ranking on that pushed a winning namesake above
@@ -417,7 +455,6 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
                  p.id
         LIMIT ?`,
       // Bind order follows the SELECT, then the WHERE, then the LIMIT.
-      ...(like === null ? [] : [like]),
       // closeness: exact form, prefix pattern, and the contains pattern (only when there is one).
       exact,
       prefix,
@@ -444,8 +481,16 @@ type PersonListSql = {
   is_winner: number | null;
   result_source_id: string | null;
   name_source_id: string | null;
-  /** 1 when a recorded name contains the search term. Absent for non-search callers. */
-  name_match?: number | null;
+  /**
+   * How closely a recorded name matches the search term: 3 exact · 2 prefix · 1 contains · 0 phonetic
+   * only. Absent for non-search callers, who have no term to be close to.
+   *
+   * THE SINGLE SIGNAL, and it used to be two. There was also a boolean `name_match`, which decided the
+   * `match` LABEL and sorted AHEAD of closeness — computed by a separate subquery that did not strip
+   * dots. So "MD. SALIM" scored closeness 3 and name_match 0, and the row was both ranked below
+   * "MD SALIM MANSURI" (closeness 1, name_match 1) and labelled a phonetic guess. Two measures of the
+   * same thing will disagree eventually; deriving the label from the ranking key makes it impossible.
+   */
   closeness?: number | null;
 };
 
@@ -465,10 +510,12 @@ function toPersonRow(r: PersonListSql): PersonRow {
     isWinner: r.is_winner === 1,
     candidacyCount: r.candidacy_count,
     sourceId: r.result_source_id ?? r.name_source_id,
-    // Only search sets name_match; a brief row leaves `match` undefined rather than claiming a tier.
-    ...(r.name_match === undefined || r.name_match === null
+    // Only search measures closeness; a brief row leaves `match` undefined rather than claiming a tier.
+    // Any closeness above zero means a real name matched. Zero means ONLY the phonetic index fired,
+    // which is a suggestion and must arrive labelled as one.
+    ...(r.closeness === undefined || r.closeness === null
       ? {}
-      : { match: r.name_match === 1 ? ("name" as const) : ("sounds-like" as const) }),
+      : { match: r.closeness > 0 ? ("name" as const) : ("sounds-like" as const) }),
   };
 }
 

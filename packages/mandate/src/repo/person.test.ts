@@ -231,8 +231,114 @@ test("searchPersons: a phonetic-only hit is labelled, never presented as a match
   d.close();
 });
 
-test("searchPersons: every row carries a source id, including result-only people", { skip }, () => {
+// ── the ranking contract ─────────────────────────────────────────────────────────────────────────
+//
+// ONE SENTENCE, and every assertion below is a reading of it:
+//
+//   An exact canonical identity must not be outranked by a weaker substring or alias match merely
+//   because the latter is more prominent.
+//
+// Ranking is `closeness DESC` (3 exact · 2 prefix · 1 contains · 0 phonetic-only), then prominence
+// (ever won, then candidacy count), then a deterministic name-and-id tie-break. Prominence only ever
+// decides WITHIN a tier.
+//
+// THREE DEFECTS THESE TESTS PIN DOWN, all found by measuring the result population for "Md Salim"
+// rather than by adjusting weights:
+//
+//   1. THE TERM WAS MUTILATED. `normaliseName` strips leading honorifics, and `md` is one, so the
+//      substring tier received "salim" and searched 280 people. The twelve people named literally
+//      SALIM scored exact while MD SALIM only contained. Stripping is right for RESOLUTION — it is
+//      what makes MyNeta's "Md. Salim" and Lokdhaba's "SALIM" one human — and wrong for SEARCH,
+//      because `canonical_name` keeps the particle.
+//   2. TWO MEASURES OF ONE THING. A boolean `name_match` sorted AHEAD of closeness and set the
+//      `match` label, and it did not strip dots. So "MD. SALIM" ranked below "MD SALIM MANSURI" and
+//      was labelled a phonetic guess while scoring exact.
+//   3. EXACT MATCHES WERE UNREACHABLE. The WHERE clause compared un-normalised stored names to a
+//      normalised pattern, so five of the seven people canonically named MD. SALIM were filtered out
+//      entirely — including the one with six candidacies and a parliamentary win.
+//
+// A note on what is NOT tested, because it was measured and found vacuous: a canonical-before-alias
+// tier. People holding an exactly-matching alias but no exactly-matching canonical name number ZERO
+// in this registry, since ingest mirrors the canonical spelling into `person_alias`.
+
+/** The registry's own spelling normalisation, mirrored in JS so a test derives the tier itself. */
+const spelling = (s: string): string =>
+  s.toLowerCase().replace(/\./g, "").replace(/ {2,}/g, " ").trim();
+
+test("searchPersons: a person is the FIRST answer to their own name", { skip }, () => {
   const d = db();
+  for (const [term, expected] of [
+    // The name that started it: MD SALIM ranked 68th behind sixty-seven strangers.
+    ["Md Salim", "md salim"],
+    // The same query with the dot the sources disagree about. Must be indistinguishable.
+    ["Md. Salim", "md salim"],
+    ["Mamata Banerjee", "mamata banerjee"],
+    ["Narendra Modi", "narendra modi"],
+    // ALIAS-HEAVY, and the pathological case in this corpus: fifty-four recorded spellings of one
+    // person across 194 candidacies — "URF", "ALIAS", "@", and every misspelling of Joginder there
+    // is. If a MAX-over-aliases closeness can be confused by volume, it is confused here.
+    ["Kaka Joginder Singh Dharti Pakad", "kaka joginder singh dharti pakad"],
+    // ALIAS-HEAVY, thirteen spellings, and a long multi-token name where a prefix tier could win by
+    // accident rather than by exactness.
+    ["Kalvakuntla Chandrashekar Rao", "kalvakuntla chandrashekar rao"],
+    // ALIAS-HEAVY, eleven spellings, six words, Bengali transliteration variance in every one.
+    ["Abdul Barkat Ataul Ghani Khan Chawdhury", "abdul barkat ataul ghani khan chawdhury"],
+  ] as const) {
+    const hits = searchPersons(d, term, 50);
+    assert.ok(hits.length > 0, `${term} found nobody at all`);
+    assert.equal(
+      spelling(hits[0]?.canonicalName ?? ""),
+      expected,
+      `"${term}" led with ${hits[0]?.canonicalName} — a person is not the second-best answer to their own name`,
+    );
+    assert.equal(hits[0]?.match, "name", `"${term}" led with a phonetic guess`);
+  }
+  d.close();
+});
+
+test("searchPersons: exactness outranks prominence, never the reverse", { skip }, () => {
+  const d = db();
+  // The contract stated as a comparison the data makes for us. Two people are named exactly
+  // "MAMATA" with one candidacy each; MAMATA BANERJEE has nine and is only a PREFIX match. Under
+  // the old ranking prominence decided and she led; under the contract she cannot, because she is
+  // not who was asked for.
+  const hits = searchPersons(d, "mamata", 50);
+  const exact = hits.map((h, i) => [i, h] as const).filter(([, h]) => spelling(h.canonicalName) === "mamata");
+  const prominent = hits.findIndex((h) => spelling(h.canonicalName) === "mamata banerjee");
+  assert.ok(exact.length >= 2, "expected at least two people named exactly MAMATA");
+  assert.ok(prominent >= 0, "MAMATA BANERJEE fell out of the results entirely");
+  for (const [rank, h] of exact) {
+    assert.ok(
+      rank < prominent,
+      `${h.canonicalName} (exact, ${h.candidacyCount} candidacies) ranked below ` +
+        `MAMATA BANERJEE (prefix, ${hits[prominent]?.candidacyCount} candidacies) — prominence beat exactness`,
+    );
+  }
+  // And the low-prominence exact match is still labelled a real match, not a suggestion.
+  assert.ok(exact.every(([, h]) => h.match === "name"));
+  d.close();
+});
+
+test("searchPersons: every exactly-named person is REACHABLE, not merely ranked", { skip }, () => {
+  const d = db();
+  // Defect 3, and the one a ranking test cannot see. Five of these seven were absent from the
+  // result set, filtered out by a WHERE clause that compared "md. salim" to a pattern built from
+  // "md salim" — so no amount of reordering could have surfaced them.
+  const everyone = d
+    .prepare(
+      `SELECT id FROM person
+        WHERE lower(replace(replace(canonical_name, '.', ''), '  ', ' ')) = 'md salim'`,
+    )
+    .all() as { id: string }[];
+  assert.ok(everyone.length >= 2, "fixture gone: expected several people named MD SALIM");
+  const found = new Set(searchPersons(d, "Md Salim", 200).map((h) => h.id));
+  for (const p of everyone) {
+    assert.ok(found.has(p.id), `${p.id} is named MD SALIM and search could not find them`);
+  }
+  d.close();
+});
+
+test("searchPersons: every row carries a source id, including result-only people", { skip }, () => {  const d = db();
   // A person with NO person-level claim: only the 2026 affidavit filers have those, and /v1/search
   // used to answer 500 for everyone else because it resolved sources from claims alone.
   const name = d
