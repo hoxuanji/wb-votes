@@ -42,6 +42,7 @@ import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
 import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
+import { summariseAll, type Finding, type FlipPair, type PartyRef } from "./findings.ts";
 
 /** One constituency, as the map draws it. */
 export type SeatMark = {
@@ -409,12 +410,20 @@ export type StateShifts = {
   /** The election compared against, or null when this is the first of its house on record. */
   previousYear: number | null;
   previousId: string | null;
-  /** One observation per line, biggest first. Empty is a legitimate answer. */
+  /**
+   * WHAT MOVED, AS DATA. Biggest first. Empty is a legitimate answer.
+   *
+   * This replaced `lines: string[]`, which was the reason the state page could print what changed and
+   * could not draw it — shading a map by which party gained a seat would have meant parsing "BJP gained 30
+   * seats, 79 to 109." A `seat_flips` finding carries `pairs`, so the flip matrix reads a field.
+   */
+  findings: Finding[];
+  /** `summariseAll(findings)` — the accessible equivalent, derived so it cannot disagree with the data. */
   lines: string[];
   /**
    * Seats compared BOTH sides under the same boundary, and seats that could not be.
    *
-   * `incomparable > 0` means a delimitation fell between the two elections, so those seats have no
+   * `incomparableSeats > 0` means a delimitation fell between the two elections, so those seats have no
    * counterpart to change from. The UI states that count; it must never let a reader read it as continuity.
    */
   comparableSeats: number;
@@ -432,15 +441,22 @@ type ShiftRow = {
   electors: number | null;
 };
 
-const IN_SEATS = new Intl.NumberFormat("en-IN");
-
 export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId: string): StateShifts {
   return read(() => {
     const previousId = previousElection(db, electionId);
-    const none = { previousYear: null, previousId: null, lines: [], comparableSeats: 0, incomparableSeats: 0 };
+    const none: StateShifts = {
+      previousYear: null,
+      previousId: null,
+      findings: [],
+      lines: [],
+      comparableSeats: 0,
+      incomparableSeats: 0,
+    };
     if (previousId === null) return none;
     const previousYear =
       get<{ y: number }>(db, `SELECT year AS y FROM election WHERE id = ?`, previousId)?.y ?? null;
+    // The year on the OTHER side, so a finding can name both ends without the caller re-reading.
+    const year = get<{ y: number }>(db, `SELECT year AS y FROM election WHERE id = ?`, electionId)?.y ?? null;
 
     const rows = all<ShiftRow>(
       db,
@@ -478,10 +494,16 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
     const a = seatsBy(now);
     const b = seatsBy(then);
 
-    const lines: string[] = [];
+    // FINDINGS, NOT SENTENCES. Every conclusion below is a value with named fields; `lines` at the bottom
+    // is `summariseAll(findings)`, so the prose is derived from the data rather than being the data. That
+    // is what lets a map shade by `FlipPair.to` and a matrix read `pairs` — neither of which could be done
+    // when this function's only output was `string[]`.
+    const findings: Finding[] = [];
+    const ref = (key: string, label: string | null): PartyRef => ({ key, label: label ?? key });
 
-    // 1 and 2. The two biggest seat movements, in either direction. A party present on only ONE side is
-    // reported as an arrival or a departure rather than as a change, because those are different sentences.
+    // 1 and 2. Seat movements, biggest first. A party present on only ONE side is an arrival or a wipeout
+    // rather than a change, because those are different findings and different marks: an arrival has no
+    // baseline to draw a slope from.
     const moved = [...new Set([...a.keys(), ...b.keys()])]
       .map((k) => {
         const x = a.get(k);
@@ -491,15 +513,20 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
       .filter((m) => m.now !== m.then)
       .sort((p, q) => Math.abs(q.now - q.then) - Math.abs(p.now - p.then) || p.key.localeCompare(q.key));
     for (const m of moved.slice(0, 2)) {
-      const d = m.now - m.then;
-      lines.push(
+      findings.push(
         m.then === 0
-          ? `${m.label} won ${IN_SEATS.format(m.now)} seat${m.now === 1 ? "" : "s"}, having won none in ${previousYear}.`
+          ? { type: "party_arrival", party: ref(m.key, m.label), seats: m.now, previousYear, year }
           : m.now === 0
-            ? `${m.label} lost every one of the ${IN_SEATS.format(m.then)} seat${m.then === 1 ? "" : "s"} it held in ${previousYear}.`
-            : `${m.label} ${d > 0 ? "gained" : "lost"} ${IN_SEATS.format(Math.abs(d))} seat${
-                Math.abs(d) === 1 ? "" : "s"
-              }, ${IN_SEATS.format(m.then)} to ${IN_SEATS.format(m.now)}.`,
+            ? { type: "party_wipeout", party: ref(m.key, m.label), seats: m.then, previousYear, year }
+            : {
+                type: "seat_movement",
+                party: ref(m.key, m.label),
+                then: m.then,
+                now: m.now,
+                delta: m.now - m.then,
+                previousYear,
+                year,
+              },
       );
     }
 
@@ -511,36 +538,62 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
     // other. `partitionByEpoch` makes that match unrepresentable rather than merely discouraged, and hands
     // back what it refused so the count can be stated instead of silently dropped — a hidden zero would
     // read as "nothing changed", which is a different claim from "these cannot be compared".
+    //
+    // NEW HERE: the from→to breakdown. "115 of 223 changed hands" cannot say that 53 went BJP→INC and 22
+    // JD(S)→INC, and that is the question a reader actually has — not how many moved, but where the
+    // winner's gain came from. It is one extra Map over rows already in memory.
     const split = partitionByEpoch(now, then);
     const before = new Map(
-      then.filter((r) => r.key !== null).map((r) => [seatKey(r.placeId, r.epochId), r.key]),
+      then.filter((r) => r.key !== null).map((r) => [seatKey(r.placeId, r.epochId), r]),
     );
     let comparable = 0;
     let flipped = 0;
+    const pairCounts = new Map<string, FlipPair>();
     for (const r of split.comparable) {
       if (r.key === null) continue;
       const was = before.get(seatKey(r.placeId, r.epochId));
-      if (was === undefined) continue;
+      if (was === undefined || was.key === null) continue;
       comparable += 1;
-      if (was !== r.key) flipped += 1;
+      if (was.key === r.key) continue;
+      flipped += 1;
+      const cell = `${was.key}\u0000${r.key}`;
+      const at = pairCounts.get(cell);
+      if (at === undefined) {
+        pairCounts.set(cell, { from: ref(was.key, was.label), to: ref(r.key, r.label), count: 1 });
+      } else {
+        at.count += 1;
+      }
     }
     const incomparable = split.incomparable.length;
     if (comparable > 0) {
-      lines.push(
-        `${IN_SEATS.format(flipped)} of ${IN_SEATS.format(comparable)} seat${comparable === 1 ? "" : "s"} changed hands.`,
-      );
+      findings.push({
+        type: "seat_flips",
+        flipped,
+        held: comparable - flipped,
+        comparable,
+        pairs: [...pairCounts.values()].sort(
+          (p, q) => q.count - p.count || p.from.key.localeCompare(q.from.key),
+        ),
+        previousYear,
+        year,
+      });
     }
-    // Stated, not swallowed. Karnataka 2008 against 2004 lands here with all 223 seats incomparable, and
+    // Stated, not swallowed. Karnataka 2008 against 2004 lands here with all 224 seats incomparable, and
     // says so instead of reporting a flip count about territory that was redrawn between the two.
     if (incomparable > 0) {
-      lines.push(
-        `${IN_SEATS.format(incomparable)} seat${incomparable === 1 ? "" : "s"} cannot be compared: the ` +
-          `constituencies were redrawn after ${previousYear ?? "the previous election"}.`,
-      );
+      findings.push({
+        type: "seats_incomparable",
+        count: incomparable,
+        previousYear,
+        previousEpochId: then.at(0)?.epochId ?? null,
+        epochId: now.at(0)?.epochId ?? null,
+      });
     }
 
     // 4. Turnout, where both sides published one. A share of electors, so it is comparable across a roll
-    // that grew — which India's has, by about a third over this registry's span.
+    // that grew — which India's has, by about a third over this registry's span. This one is a STATE-LEVEL
+    // aggregate, so it survives a delimitation: a state's electorate is a real quantity across a redraw
+    // even when no individual seat can be matched.
     const turnout = (side: readonly ShiftRow[]): number | null => {
       const voters = side.reduce((n, r) => n + (r.voters ?? 0), 0);
       const electors = side.reduce((n, r) => n + (r.electors ?? 0), 0);
@@ -549,25 +602,39 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
     const tNow = turnout(now);
     const tThen = turnout(then);
     if (tNow !== null && tThen !== null) {
-      const d = Number((tNow - tThen).toFixed(1));
-      lines.push(
-        d === 0
-          ? `Turnout held at ${tNow.toFixed(1)}%.`
-          : `Turnout ${d > 0 ? "rose" : "fell"} ${Math.abs(d).toFixed(1)} points, ${tThen.toFixed(1)}% to ${tNow.toFixed(1)}%.`,
-      );
+      findings.push({
+        type: "turnout_change",
+        nowPct: tNow,
+        thenPct: tThen,
+        deltaPp: Number((tNow - tThen).toFixed(1)),
+        previousYear,
+        year,
+      });
     }
 
     // 5. Whether the leader holds the house outright — the fact a seat count alone does not settle.
-    const top = [...a.values()].sort((x, y) => y.n - x.n)[0];
+    const top = [...a.entries()].sort((x, y) => y[1].n - x[1].n)[0];
     const contested = now.length;
-    if (top !== undefined && contested > 0) {
-      lines.push(
-        top.n > contested / 2
-          ? `${top.label} holds an outright majority of the ${IN_SEATS.format(contested)} seats contested.`
-          : `No party holds an outright majority of the ${IN_SEATS.format(contested)} seats contested.`,
-      );
+    if (contested > 0) {
+      findings.push({
+        type: "majority",
+        party: top === undefined ? null : ref(top[0], top[1].label),
+        seats: top?.[1].n ?? 0,
+        contested,
+        needed: Math.floor(contested / 2) + 1,
+        holds: top !== undefined && top[1].n > contested / 2,
+      });
     }
 
-    return { previousYear, previousId, lines, comparableSeats: comparable, incomparableSeats: incomparable };
+    return {
+      previousYear,
+      previousId,
+      findings,
+      // Derived, never stored: one formatter means a chart's label and a screen reader's sentence cannot
+      // disagree about a number. See findings.ts.
+      lines: summariseAll(findings),
+      comparableSeats: comparable,
+      incomparableSeats: incomparable,
+    };
   });
 }

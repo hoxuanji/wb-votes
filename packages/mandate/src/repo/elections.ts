@@ -362,7 +362,7 @@ export function previousElection(db: DatabaseSync, electionId: string): string |
  * neither contains a space anywhere in the registry, so no two distinct pairs can collapse into one key.
  */
 export function seatKey(placeId: string, epochId: string): string {
-  return `${epochId} ${placeId}`;
+  return `${epochId}\u0000${placeId}`;
 }
 
 /** One side of a seat-level comparison, split into what may be compared and what may not. */
