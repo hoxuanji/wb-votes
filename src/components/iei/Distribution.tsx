@@ -473,7 +473,18 @@ export function Trajectory({
                 else (last as typeof pt[]).push(pt);
                 return acc;
               }, []);
+        /**
+         * THE VALUE COLUMN SHOWS THE MOST RECENT ONE THAT EXISTS, not the most recent point.
+         *
+         * West Bengal's vote-share column rendered a dash for all six parties, because it read the LAST
+         * point and 2026 published no vote counts. Six dashes is not a reading — the 2021 shares are on
+         * record and are what a reader came for. So the column falls back to the newest point that has a
+         * figure, and the year is printed with it whenever that is not the latest election, because a
+         * share from a different election is a different fact and has to say so.
+         */
         const latest = p.points.at(-1);
+        const value = [...p.points].reverse().find((pt) => (metric === 'seatPct' ? pt.seatPct : pt.votePct) !== null);
+        const stale = value !== undefined && latest !== undefined && value.year !== latest.year;
         return (
           <Link key={p.key} href={hrefFor(on ? null : p.key)} className="iei-traj-row" aria-pressed={on}>
             <span className="iei-traj-name">
@@ -530,9 +541,10 @@ export function Trajectory({
                 ? latest === undefined
                   ? '—'
                   : latest.seats
-                : latest?.votePct == null
+                : value?.votePct == null
                   ? '—'
-                  : `${latest.votePct.toFixed(0)}%`}
+                  : `${value.votePct.toFixed(0)}%`}
+              {stale && metric === 'votePct' ? <span className="iei-traj-asof"> {value?.year}</span> : null}
             </span>
           </Link>
         );

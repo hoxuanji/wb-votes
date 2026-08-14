@@ -2331,6 +2331,14 @@ html {
   color: var(--iei-ink);
 }
 
+/* The year a value is actually FROM, when that is not the latest election. Smaller and quieter than the
+   figure it qualifies, because it is a qualification and not a second number. */
+.iei-traj-asof {
+  display: block;
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
 .iei-traj-axis {
   display: flex;
   justify-content: space-between;

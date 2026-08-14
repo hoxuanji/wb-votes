@@ -288,13 +288,36 @@ test("placeView: a duplicated AC name resolves by the district in the path", { s
   assert.equal((await placeView(["wb", "kolkata", "bishnupur"], {})).kind, "not-found");
 });
 
-test("placeView: the 96.6% turnout and the vote-less 2026 declaration are both flagged", { skip }, async () => {
+test("placeView: an anomaly is never derived from a figure we decline to assert", { skip }, async () => {
+  /**
+   * THIS TEST USED TO REQUIRE THE OPPOSITE, and its own premise was the defect.
+   *
+   * It asserted that Mekliganj's turnout was flagged as "at or above 95% (96.6%)" — and 96.6% is one of
+   * West Bengal 2026's uncorroborated figures, the same import whose 93.0% state aggregate this release
+   * withdrew from the hero. So the page said "verification pending" in the turnout tile and then, four lines
+   * down, made a confident claim about the state's range using the number it had just declined to print.
+   * A reader who noticed the caveat was given a reason to distrust the caveat.
+   *
+   * An anomaly is a CLAIM. It waits on the same reading the tile uses.
+   */
   const v = await placeView(["wb", "cooch-behar", "mekliganj"], {});
   assert.equal(v.kind, "ac");
   if (v.kind !== "ac") return;
   const flags = anomalies(v.brief, v.analysis);
-  assert.ok(flags.some((f) => /at or above 95%/.test(f)), flags.join(" | "));
+  assert.ok(
+    !flags.some((f) => /at or above 95%|Turnout of /.test(f)),
+    `a turnout claim survived on an uncorroborated figure: ${flags.join(" | ")}`,
+  );
+  // AND THE REAL ANOMALY STILL FIRES. The missing vote counts are a fact about the record itself, not a
+  // figure needing corroboration, so suppressing it would be the over-correction.
   assert.ok(flags.some((f) => /no.*vote count is/.test(f)), flags.join(" | "));
+
+  // A seat whose turnout IS corroborated still gets its turnout anomalies. Karnataka 2023 published counts.
+  const ka = await placeView(["ka", "bangalore", "jayanagar"], {});
+  if (ka.kind === "ac") {
+    const t = ka.brief.contests.at(0);
+    assert.equal(t?.turnout.state, "reported", "fixture changed: Jayanagar's newest turnout is not checkable");
+  }
 });
 
 test("analysisCards: six to twelve question-titled cards, each with a table", { skip }, async () => {

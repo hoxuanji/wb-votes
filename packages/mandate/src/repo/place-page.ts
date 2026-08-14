@@ -415,8 +415,12 @@ export function placeTiles(b: PlaceBrief, a: PlaceAnalysis | null): Tile[] {
       unit: pop.value.unit ?? null,
       note:
         `Census ${pop.value.sourceYear ?? "vintage not recorded"} · ` +
-        `${b.place.districtName ?? "district"}-wide, not this seat's — the registry holds no ` +
-        `seat-level census figure` +
+        // "the registry holds no..." was our word for it, not the reader's. The FACT is material — a
+        // district figure standing in for a seat figure changes what a reader may conclude from it, which
+        // is exactly the contextual exception the provenance rule allows — so the sentence stays and the
+        // schema noun goes.
+        `${b.place.districtName ?? "district"}-wide, not this seat's — no seat-level census figure is ` +
+        `published` +
         (typeof note === "string" ? ` · ${note}` : ""),
       source: pop.sources.at(0) ?? null,
     });
@@ -432,17 +436,29 @@ export function anomalies(b: PlaceBrief, a: PlaceAnalysis | null): string[] {
   const out: string[] = [];
   const latest = b.contests.at(0);
   const t0 = a?.turnoutSeries.at(0) ?? null;
-  if (t0?.turnoutPct != null && t0.districtTurnoutPct !== null) {
+  /**
+   * AN ANOMALY IS A CLAIM, AND A CLAIM NEEDS A FIGURE WE STAND BEHIND.
+   *
+   * `turnoutSeries` is the raw arithmetic and knows nothing about corroboration, so both sentences below
+   * happily asserted West Bengal 2026's numbers — and the page then CONTRADICTED ITSELF, printing
+   * "verification pending" in the turnout tile and "Turnout at or above 95% (96.6%) is at the top of the
+   * state's range" four lines underneath. That is worse than the original defect: a reader who noticed the
+   * caveat now has a reason to distrust the caveat.
+   *
+   * Both sentences are turnout claims, so both wait on the same reading the tile uses.
+   */
+  const trusted = t0 !== null && b.contests.find((c) => c.year === t0.year)?.turnout.state === "reported";
+  if (trusted && t0?.turnoutPct != null && t0.districtTurnoutPct !== null) {
     const gap = round1(t0.turnoutPct - t0.districtTurnoutPct);
     if (Math.abs(gap) >= 5) {
       out.push(
         `Turnout of ${percent(t0.turnoutPct)} in ${t0.year} is ${percentagePoints(gap)} against ` +
-          `${a?.place.districtName ?? "the district"}'s ${percent(t0.districtTurnoutPct)}. The ` +
-          `registry records the figures, not the reason.`,
+          `${a?.place.districtName ?? "the district"}'s ${percent(t0.districtTurnoutPct)}. ` +
+          `That gap is in the record; the reason for it is not.`,
       );
     }
   }
-  if (t0?.turnoutPct != null && t0.turnoutPct >= 95) {
+  if (trusted && t0?.turnoutPct != null && t0.turnoutPct >= 95) {
     out.push(`Turnout at or above 95% (${percent(t0.turnoutPct)}) is at the top of the state's range.`);
   }
   const m = latest === undefined ? null : marginPct(latest);

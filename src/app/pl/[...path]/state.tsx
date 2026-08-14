@@ -218,6 +218,21 @@ export function StateSurface({
             the new boundaries are not on record. Every result is in the list below.
           </p>
         ) : null}
+        {/* NO VOTE COUNTS — SAID WHERE THE READER MEETS IT.
+            West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat's margin is
+            a dash and the competitiveness and vote-vs-seat sections are absent rather than zeroed. This line
+            used to sit a hundred rendered lines further down, after the flip matrix, where it explained
+            dashes the reader had already stopped asking about. It says what is missing AND what that costs,
+            because a column of dashes with no reason beside it reads as a broken page rather than as an
+            honest one. Only when true, and never a coverage panel. */}
+        {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
+          <p className="iei-caveat">
+            No candidate vote counts were published for this election. Winners and turnout are on record;
+            margins, competitiveness and vote-to-seat conversion are not, so those figures read as dashes
+            and their sections are absent rather than shown as zero.
+          </p>
+        ) : null}
+
         <div className="iei-linked iei-map-split">
           <ElectionMap
             view={view}
@@ -405,14 +420,6 @@ export function StateSurface({
           </div>
         </Panel>
       )}
-
-      {/* NO VOTE COUNTS, NO COMPETITIVENESS AND NO EFFICIENCY. West Bengal 2026 publishes winners, margins
-          and turnout and no candidate vote counts, so a margin cannot be computed for any seat and a vote
-          share cannot be computed for any party. Both sections are absent rather than zeroed, and this one
-          line says why — it is not a coverage panel and it appears only when it is true. */}
-      {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
-        <p className="iei-sub iei-absent">Vote-count data is not available for this election.</p>
-      ) : null}
 
       {/* ══ 4 · COMPETITIVENESS ═══════════════════════════════════════════════════════════════ */}
       {bands.every((b) => b.n === 0) ? null : (
