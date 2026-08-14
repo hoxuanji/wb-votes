@@ -1802,12 +1802,16 @@ html {
 .iei-dist a:focus-visible rect:nth-of-type(2) {
   stroke: var(--iei-ink);
   stroke-width: 0.6;
+  vector-effect: non-scaling-stroke;
 }
 
-.iei-dist-axis text {
+.iei-dist-axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--iei-1);
   font-family: var(--iei-mono);
-  font-size: 4;
-  fill: var(--iei-ink-3);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
 }
 
 /* ── vote share against seat share ── */
@@ -1820,43 +1824,43 @@ html {
 /* PARITY. Dashed, quiet, and never a party's colour: it is a reference, not a result. */
 .iei-vs-parity {
   stroke: var(--iei-ink-3);
-  stroke-width: 0.4;
-  stroke-dasharray: 2 1.6;
+  stroke-width: 1.4;
+  stroke-dasharray: 7 6;
 }
 
 /* The gap from a party's marker down to parity — the distance that IS the finding, drawn so it can be seen
    rather than computed. */
 .iei-vs-gap {
   stroke: var(--iei-ink-3);
-  stroke-width: 0.5;
+  stroke-width: 1.6;
   opacity: 0.65;
 }
 
 .iei-vs-axis line {
   stroke: var(--iei-line);
-  stroke-width: 0.4;
+  stroke-width: 1.4;
 }
 
 .iei-vs-axis text,
 .iei-vs-note {
   font-family: var(--iei-mono);
-  font-size: 3.4;
+  font-size: 13;
   fill: var(--iei-ink-3);
 }
 
 .iei-vs-tag {
   font-family: var(--iei-mono);
-  font-size: 3.6;
+  font-size: 14;
   fill: var(--iei-ink);
   /* A halo, so a label crossing the parity line or another marker stays readable without a box. */
   paint-order: stroke;
   stroke: var(--iei-bg);
-  stroke-width: 1.1;
+  stroke-width: 3.5;
 }
 
 .iei-vs-dot {
   stroke: var(--iei-bg);
-  stroke-width: 0.5;
+  stroke-width: 1.6;
 }
 
 .iei-vs a:focus-visible {
@@ -1865,7 +1869,7 @@ html {
 
 .iei-vs a:focus-visible .iei-vs-dot {
   stroke: var(--iei-ink);
-  stroke-width: 1;
+  stroke-width: 3;
 }
 
 /* ── the flip matrix, as a row of bars rather than a mostly-empty grid ── */
