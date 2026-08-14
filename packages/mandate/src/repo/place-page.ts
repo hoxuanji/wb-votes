@@ -317,15 +317,32 @@ export function placeTiles(b: PlaceBrief, a: PlaceAnalysis | null): Tile[] {
   if (latest !== undefined) {
     const d = t0?.districtTurnoutPct ?? null;
     const s = t0?.stateTurnoutPct ?? null;
+    /**
+     * A TILE IS A CLAIM, so an uncorroborated figure cannot fill one.
+     *
+     * West Bengal 2026's seat turnouts are part of the same defective import as its 93.0% aggregate, and a
+     * tile that reads "93.4%" with "+1.2pp vs Murshidabad" underneath is TWO assertions built on it — the
+     * comparison implies both sides are sound. So the value becomes the pending state and the note stops
+     * comparing, rather than the tile quietly disappearing: a reader looking for turnout should find out
+     * why it is missing at the place they went looking.
+     */
+    const shown = latest.turnout.state === "reported" ? latest.turnout.pct : null;
     out.push({
       label: `Turnout ${latest.year}`,
-      value: percent(latest.turnoutPct),
-      unit: latest.electors === null ? null : `of ${inr(latest.electors)} electors`,
+      value: latest.turnout.state === "unverified" ? "verification pending" : percent(shown),
+      unit:
+        latest.turnout.state === "unverified"
+          ? "not reconciled against votes cast"
+          : latest.electors === null
+            ? null
+            : `of ${inr(latest.electors)} electors`,
       note:
-        latest.turnoutPct === null || d === null
-          ? "no district baseline on record"
-          : `${percentagePoints(round1(latest.turnoutPct - d))} vs ${b.place.districtName ?? "district"}` +
-            (s === null ? "" : ` · state ${percent(s)}`),
+        latest.turnout.state === "unverified"
+          ? "this election published no candidate vote counts"
+          : shown === null || d === null
+            ? "no district baseline on record"
+            : `${percentagePoints(round1(shown - d))} vs ${b.place.districtName ?? "district"}` +
+              (s === null ? "" : ` · state ${percent(s)}`),
       source: result,
     });
     out.push({

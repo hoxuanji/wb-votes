@@ -30,6 +30,8 @@ import type { SourceRef } from "./index.ts";
 import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
 import type { Finding, PartyRef, SeatFlips, VoteSeatEfficiency } from "./findings.ts";
 import { NATIONAL, parse, simplified } from "../viz/simplify.ts";
+import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
+import type { Turnout } from "./turnout-trust.ts";
 
 /** The frame the state outlines and every constituency outline share. Anything else cannot be overlaid. */
 export const SHARED_FRAME = "2.1 2.7 597.3 666.8";
@@ -98,7 +100,12 @@ export type ElectionSeat = {
   marginPct: number | null;
   /** `binOf(marginPct)`, carried so the map and the histogram agree without recomputing. */
   marginBin: number | null;
-  turnoutPct: number | null;
+  /**
+   * This seat's turnout AND its standing. A typed reading rather than a number, because West Bengal 2026
+   * publishes 293 seat-level turnouts that nothing in the registry can corroborate — see `turnout-trust.ts`.
+   * A dense list renders `turnoutHeadline`, which cannot print an uncorroborated figure.
+   */
+  turnout: Turnout;
   /**
    * Whether this seat could be compared with the previous election at all.
    *
@@ -139,8 +146,13 @@ export type ElectionMapView = {
   legend: { key: string; label: string; n: number }[];
   /** Seats a majority needs, from the seats this election actually contested. */
   majority: number;
-  /** Turnout across the election, as a share of electors. Null where no source published one. */
-  turnoutPct: number | null;
+  /**
+   * Turnout across the election and whether it is believable, from `turnout-trust.ts`.
+   *
+   * A reading, not a number: West Bengal 2026's 93.0% is a seed defect that no page may print as a fact,
+   * and making it unreachable as `.pct` is what stops a hero from doing so by accident.
+   */
+  turnout: Turnout;
   voteSeat: VoteSeatEfficiency[];
   marginBins: MarginBin[];
   /** The flip summary and the refusal, both from `findings.ts`, both epoch-gated. */
@@ -277,7 +289,7 @@ export function electionMapView(
       seats: [],
       legend: [],
       majority: 0,
-      turnoutPct: null,
+      turnout: { state: "absent" },
       voteSeat: [],
       marginBins: [],
       flips: null,
@@ -310,6 +322,13 @@ export function electionMapView(
       electionId,
     );
     if (e === undefined) return empty;
+
+    /**
+     * Whether this election's turnout can be corroborated — decided ONCE, then applied to the aggregate
+     * and to all 293 seat readings. Per-election rather than per-seat because the reason is per-election:
+     * the whole import published no vote counts.
+     */
+    const turnoutUnverified = unverifiedTurnout(db, [e.id]).has(e.id);
 
     const rows = all<SeatSql>(
       db,
@@ -419,8 +438,7 @@ export function electionMapView(
         marginVotes,
         marginPct,
         marginBin: binOf(marginPct),
-        turnoutPct:
-          r.electors !== null && r.electors > 0 && r.voters !== null ? (100 * r.voters) / r.electors : null,
+        turnout: turnoutReading(r.voters, r.electors, turnoutUnverified),
         comparable,
         flip:
           was === undefined || r.partyKey === null
@@ -592,10 +610,7 @@ export function electionMapView(
       seats,
       legend,
       majority: Math.floor(seats.length / 2) + 1,
-      turnoutPct:
-        turnout?.electors != null && turnout.electors > 0 && turnout.voters != null
-          ? (100 * turnout.voters) / turnout.electors
-          : null,
+      turnout: turnoutReading(turnout?.voters ?? null, turnout?.electors ?? null, turnoutUnverified),
       voteSeat,
       marginBins,
       flips,

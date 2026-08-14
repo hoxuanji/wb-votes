@@ -42,7 +42,10 @@ test("getPlaceBrief: four elections, winner/runner-up/margin/turnout, sitting me
   const { db: counted, count } = counting(d);
   const brief = getPlaceBrief(counted, "wb.ac.001");
   assert.ok(brief);
-  assert.equal(count(), 4, "one place Brief costs four fixed queries");
+  // FIXED, which is the property — not the number. Five now: the fifth asks, in ONE query for every
+  // election in the history at once, which of their turnouts the registry can corroborate. What must never
+  // return is a per-election or per-contest probe, because that is the N+1 this assertion exists to catch.
+  assert.equal(count(), 5, "one place Brief costs five fixed queries, and never one per election");
 
   assert.equal(brief.place.id, "wb.ac.001");
   assert.ok(brief.place.districtName);
@@ -64,7 +67,26 @@ test("getPlaceBrief: four elections, winner/runner-up/margin/turnout, sitting me
       assert.equal(c.winner.votes, null, `${c.year} reported no count, so votes is null`);
       assert.equal(c.winner.voteShare, null);
     }
-    assert.ok(c.turnoutPct !== null && c.turnoutPct > 0 && c.turnoutPct <= 100);
+    /**
+     * A reading now, not a number — and the SAME branch as the votes check above, which is the point.
+     *
+     * Turnout is corroborated by the vote counts of its own election. The lines above have just
+     * established that 2026 has none, so 2026's turnout is exactly the figure that cannot be checked, and
+     * every earlier contest's can be. The two conditions are one condition; if they ever disagree here,
+     * the corroboration rule has stopped measuring what it claims to.
+     */
+    if (c.year <= 2021) {
+      assert.equal(c.turnout.state, "reported", `${c.year} published counts, so its turnout is checkable`);
+      if (c.turnout.state === "reported") {
+        assert.ok(c.turnout.pct > 0 && c.turnout.pct <= 100);
+      }
+    } else {
+      assert.equal(c.turnout.state, "unverified", `${c.year} has no counts, so its turnout is not checkable`);
+      // AND THE VALUE SURVIVES. Withheld from the surface, never dropped from the record.
+      if (c.turnout.state === "unverified") {
+        assert.ok(c.turnout.evidence.pct > 0, "the sourced figure was discarded rather than withheld");
+      }
+    }
     if (c.runnerUp !== null) {
       assert.ok((c.winner.votes ?? 0) >= (c.runnerUp.votes ?? 0), "rank 1 outpolls rank 2");
       assert.notEqual(c.winner.personId, c.runnerUp.personId);

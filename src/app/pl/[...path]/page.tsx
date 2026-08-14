@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { inr, marginText } from "../../../../packages/mandate/src/repo/brief.ts";
+import { turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import type { Tile } from "../../../../packages/mandate/src/repo/brief.ts";
 import {
   anomalies,
@@ -793,7 +794,9 @@ export default async function PlacePage({
               </td>
               <td className="iei-n">{marginText(c.margin, true) ?? <Value value={null} absent="not reported" />}</td>
               <td className="iei-n">
-                <Value value={c.turnoutPct} unit="%" decimals={1} absent="not reported" />
+                {turnoutHeadline(c.turnout)?.replace(' turnout', '') ?? (
+                  <Value value={null} absent="not reported" />
+                )}
               </td>
             </tr>
           ))}

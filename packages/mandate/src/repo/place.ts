@@ -4,6 +4,8 @@ import { all, get } from "../db/index.ts";
 import type { Provenanced, SourceRef } from "./index.ts";
 import { loadSources, read, yearOf } from "./index.ts";
 import { counted, parseNames, pct } from "./person.ts";
+import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
+import type { Turnout } from "./turnout-trust.ts";
 
 type Runner = {
   candidacyId: string;
@@ -45,7 +47,8 @@ export type PlaceBrief = {
     year: number;
     electors: number | null;
     voters: number | null;
-    turnoutPct: number | null;
+    /** This contest's turnout and its standing — see `turnout-trust.ts`. A reading, not a bare number. */
+    turnout: Turnout;
     winner: Runner | null;
     runnerUp: Runner | null;
     margin: number | null;
@@ -159,7 +162,10 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
     ]);
     const byId = new Map(sources.map((s) => [s.id, s]));
 
-    const contests = groupContests(rows);
+    const contests = groupContests(
+      rows,
+      unverifiedTurnout(db, [...new Set(rows.map((r) => r.election_id))]),
+    );
     const latest = contests[0];
     const sitting = latest?.winner ?? null;
 
@@ -192,7 +198,11 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
   });
 }
 
-function groupContests(rows: readonly ContestSql[]): PlaceBrief["contests"] {
+function groupContests(
+  rows: readonly ContestSql[],
+  /** The elections whose turnout the registry cannot corroborate. Decided once, by the caller. */
+  unverified: ReadonlySet<string>,
+): PlaceBrief["contests"] {
   const out: PlaceBrief["contests"] = [];
   for (const r of rows) {
     let c = out[out.length - 1];
@@ -204,7 +214,7 @@ function groupContests(rows: readonly ContestSql[]): PlaceBrief["contests"] {
         year: yearOf(r.election_id),
         electors: r.electors,
         voters: r.voters,
-        turnoutPct: pct(r.voters, r.electors),
+        turnout: turnoutReading(r.voters, r.electors, unverified.has(r.election_id)),
         winner: null,
         runnerUp: null,
         margin: null,

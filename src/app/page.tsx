@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { openRead } from '../../packages/mandate/src/db/open.ts';
 import { homeView } from '../../packages/mandate/src/repo/home.ts';
+import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
@@ -432,7 +433,9 @@ export default function Home({
                   href={r.kind === 'general' ? undefined : `/pl/${r.jurisdictionId}`}
                   aside={
                     <b>
-                      <Value value={r.turnoutPct} unit="% turnout" decimals={1} absent="turnout not reported" />
+                      {/* A reading, never a bare number: West Bengal 2026's 93.0% is a seed defect, and
+                          this strip is the first turnout figure a first-time reader meets. */}
+                      {turnoutHeadline(r.turnout) ?? <span className="iei-absent">turnout not reported</span>}
                     </b>
                   }
                   detail={

@@ -20,6 +20,8 @@ import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
 import { placeHref } from "./place-page.ts";
+import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
+import type { Turnout } from "./turnout-trust.ts";
 import { JURISDICTIONS } from "../ingest/india.ts";
 
 /**
@@ -705,8 +707,14 @@ export type Dated = {
    */
   announcedOn: string | null;
   countingOn: string | null;
-  /** Votes polled as a share of electors, or null where the source published no turnout. */
-  turnoutPct: number | null;
+  /**
+   * Votes polled as a share of electors, AND whether the registry can corroborate it.
+   *
+   * A reading rather than a number, because West Bengal 2026's 93.0% is a seed defect and this list is the
+   * front page's "Recent results" strip — the first turnout figure a first-time reader sees. See
+   * `turnout-trust.ts` for the rule.
+   */
+  turnout: Turnout;
 };
 
 /** The most recent elections held, newest first — any kind, any jurisdiction. */
@@ -747,6 +755,8 @@ function dated(db: DatabaseSync, where: string, limit: number): Dated[] {
   for (const r of seatsByParty(db, rows.map((e) => e.id))) {
     byElection.set(r.electionId, [...(byElection.get(r.electionId) ?? []), r]);
   }
+  // One query for the whole strip, not one per row.
+  const unverified = unverifiedTurnout(db, rows.map((e) => e.id));
   return rows.map((e) => {
     const { parties } = foldStandings(byElection.get(e.id) ?? []);
     return {
@@ -763,10 +773,7 @@ function dated(db: DatabaseSync, where: string, limit: number): Dated[] {
       seatsContested: e.seats,
       announcedOn: e.announced,
       countingOn: e.counting,
-      turnoutPct:
-        e.electors !== null && e.electors > 0 && e.voters !== null
-          ? Number(((100 * e.voters) / e.electors).toFixed(1))
-          : null,
+      turnout: turnoutReading(e.voters, e.electors, unverified.has(e.id)),
     };
   });
 }
@@ -835,7 +842,7 @@ export function upcoming(db: DatabaseSync, thisYear: number, kind = "assembly", 
         seatsContested: 0,
         announcedOn: e.announced,
         countingOn: e.counting,
-        turnoutPct: null,
+        turnout: { state: "absent" } as const,
       }),
     );
     const covered = new Set(announced.map((a) => a.jurisdictionId));
@@ -858,7 +865,7 @@ export function upcoming(db: DatabaseSync, thisYear: number, kind = "assembly", 
           seatsContested: s.seatsContested,
           announcedOn: null,
           countingOn: null,
-          turnoutPct: null,
+          turnout: { state: "absent" } as const,
         }),
       );
     const byYear = (a: Dated, b: Dated): number =>
@@ -923,7 +930,8 @@ export type SeatRow = {
   marginVotes: number | null;
   /** Margin over VOTES POLLED. Never over the sum of the result rows — see the header. */
   marginPct: number | null;
-  turnoutPct: number | null;
+  /** This seat's turnout and its standing — see `turnout-trust.ts`. A reading, not a bare number. */
+  turnout: Turnout;
 };
 
 type SeatSql = {
@@ -953,8 +961,10 @@ type SeatSql = {
  * `is_winner = 1` rather than `rank = 1`: 2026's West Bengal rows are declarations that carry no rank.
  */
 export function seatResults(db: DatabaseSync, electionId: string, jurisdictionId: string): SeatRow[] {
-  return read(() =>
-    all<SeatSql>(
+  return read(() => {
+    // Per election, not per seat: an import that published no vote counts published none for any of them.
+    const unverified = unverifiedTurnout(db, [electionId]).has(electionId);
+    return all<SeatSql>(
       db,
       `SELECT pl.id AS placeId, pvv.canonical_name AS placeName,
               pl.parent_id AS parentId, dis.kind AS parentKind, dis.canonical_name AS districtName,
@@ -1005,10 +1015,10 @@ export function seatResults(db: DatabaseSync, electionId: string, jurisdictionId
         votePct: pct(x.votes, x.voters),
         marginVotes: x.marginVotes === null ? null : Math.abs(x.marginVotes),
         marginPct: pct(x.marginVotes === null ? null : Math.abs(x.marginVotes), x.voters),
-        turnoutPct: pct(x.voters, x.electors),
+        turnout: turnoutReading(x.voters, x.electors, unverified),
       };
-    }),
-  );
+    });
+  });
 }
 
 export type StatePage = {

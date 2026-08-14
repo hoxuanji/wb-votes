@@ -21,6 +21,7 @@ import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import * as stateMap from "./state-map.ts";
 import * as electionMap from "./election-map.ts";
 import * as home from "./home.ts";
+import { unverifiedTurnout } from "./turnout-trust.ts";
 import { all } from "../db/index.ts";
 import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey } from "../viz/party-ink.ts";
 import { deltaE } from "../viz/colour.ts";
@@ -914,4 +915,67 @@ test("the state page offers evidence once, and no per-value provenance", live, (
   const drawers = (html.match(/sources</g) ?? []).length;
   assert.ok(drawers >= 1, "the state page offers no evidence affordance at all");
   assert.ok(drawers <= 4, `${drawers} evidence affordances is provenance scattered again`);
+});
+
+/* ───────────────────── the turnout figure the product does not trust ───────────────────── */
+
+test("a turnout the registry cannot corroborate never renders as a hero figure", live, () => {
+  // WEST BENGAL 2026, and this is a release blocker rather than a nicety. The registry holds 93.0% turnout
+  // for it. West Bengal polled 82.1% in 2021 — matching the ECI — and its per-seat floor has never been
+  // above 54.4% in sixteen elections since 1962, where 2026's floor is 82.7% with 66 seats above 95%. It is
+  // a seed defect, and it used to sit in the state hero in the same type as a real majority count, where a
+  // first-time reader had no way to discount it.
+  //
+  // The rule is CORROBORATION, not plausibility: of 372 elections that publish turnout, 371 reconcile
+  // against their own vote counts (96.4%–100.0% of voters) and exactly one publishes turnout with zero
+  // countable votes. See `turnout-trust.ts` for why a threshold was measured and rejected.
+  const wb = electionMap.electionMapView(db, "wb-assembly-2026", "wb");
+  assert.equal(wb.turnout.state, "unverified", "the fixture changed: WB 2026 turnout is no longer flagged");
+  const held = wb.turnout.state === "unverified" ? wb.turnout.evidence.pct : 0;
+  assert.ok(held > 92 && held < 94, `expected the defective ~93% to still be PRESERVED, got ${held}`);
+
+  const html = render("/pl", "", "wb");
+  // THE SURFACE, meaning the page MINUS its evidence drawers. The distinction is the whole requirement:
+  // a closed <details> is still in the DOM, so `text()` alone cannot tell "we print this figure" from
+  // "we keep this figure where a reader who asks can find it".
+  const t = text(html.replace(/<details class="iei-ev[\s\S]*?<\/details>/g, " "));
+
+  // 1 — THE NUMBER IS NOT ON THE SURFACE. Not "93.0", not the value to any rounding a hero would use.
+  for (const shape of [/93\.0\s*%/, /92\.9\s*%/, /93\s*%\s*turnout/i]) {
+    assert.ok(!shape.test(t), `the uncorroborated turnout still renders on the surface as ${shape}`);
+  }
+
+  // 2 — AND ITS ABSENCE IS EXPLAINED, in the reader's words, where the number used to be.
+  assert.match(t, /verification pending/i, "the surface neither shows turnout nor says why not");
+
+  // 3 — THE EVIDENCE DRAWER KEEPS EVERYTHING: the value, the reason, and that nothing replaces it. Asserted
+  //     against the raw markup because the drawer is a closed <details> whose content is still in the DOM.
+  assert.match(html, /93\.0%/, "the drawer dropped the sourced value the brief says to preserve");
+  assert.match(html, /cannot be\s+reconciled against votes cast|reconciled against votes cast/,
+    "the drawer does not say WHY the figure is doubted");
+  assert.match(html, /No corrected or estimated figure is being asserted/,
+    "the drawer does not say that no replacement is claimed");
+  // Not the previous cycle's figure dressed up as this one's.
+  assert.ok(!/82\.1%\s*turnout/.test(t), "2021's turnout was substituted for 2026's");
+
+  // 4 — AND NO OTHER ELECTION IS DEFAMED. Karnataka 2023 published its counts, so its turnout is a fact and
+  //     still reads as one. This is the half of the requirement a suppression would have failed.
+  const ka = electionMap.electionMapView(db, "ka-assembly-2023");
+  assert.equal(ka.turnout.state, "reported", "a well-sourced turnout was flagged as unverified");
+  const kt = text(render("/pl", "", "ka").replace(/<details class="iei-ev[\s\S]*?<\/details>/g, " "));
+  assert.match(kt, /\d\d\.\d% turnout/, "Karnataka's valid turnout stopped rendering as a figure");
+  assert.ok(!/verification pending/i.test(kt), "Karnataka was given a caveat it does not need");
+});
+
+test("exactly one election in the registry fails the corroboration rule", live, () => {
+  // The rule's SELECTIVITY, pinned. If a future change makes it fire more widely, this fails here rather
+  // than silently stamping "verification pending" across the product.
+  const ids = all<{ id: string }>(
+    db,
+    `SELECT e.id AS id FROM election e
+      WHERE EXISTS (SELECT 1 FROM contest c JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
+                     WHERE c.election_id = e.id AND t.voters > 0 AND t.electors > 0)`,
+  ).map((r) => r.id);
+  const flagged = [...unverifiedTurnout(db, ids)].sort();
+  assert.deepEqual(flagged, ["wb-assembly-2026"], `the corroboration rule now flags ${flagged.length}`);
 });

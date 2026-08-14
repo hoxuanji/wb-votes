@@ -135,7 +135,7 @@ function contest(year: number, party: string | null, margin: number | null, vote
     year,
     electors: voters + 10_000,
     voters,
-    turnoutPct: 80,
+    turnout: { state: "reported" as const, pct: 80 },
     winner:
       party === null
         ? null
@@ -242,8 +242,23 @@ test("placeView: Mekliganj renders six tiles, each cited, census vintage in the 
   assert.ok(tiles.length >= 4 && tiles.length <= 6, `tiles: ${tiles.length}`);
   assert.ok(tiles.every((t) => t.source !== null), "every tile carries its source");
   const turnout = tiles.find((t) => t.label.startsWith("Turnout"));
-  assert.equal(turnout?.value, "96.6%");
-  assert.match(turnout?.note ?? "", /vs Cooch Behar/);
+  /**
+   * THIS ASSERTION USED TO READ `96.6%`, AND THAT WAS THE DEFECT, not the fixture.
+   *
+   * Mekliganj's newest contest is West Bengal 2026, whose turnout import is the seed defect the whole
+   * `turnout-trust.ts` rule exists for — a state aggregate of 93.0% against 82.1% in 2021, with per-seat
+   * figures running to 97.5%. So 96.6% was one of the bad numbers, and the tile asserted it as fact with a
+   * district comparison underneath, which made it two assertions instead of one.
+   *
+   * A tile is a claim. This one now declines to make it, and says why in the space the number occupied.
+   */
+  assert.equal(turnout?.label, "Turnout 2026", "fixture changed: Mekliganj's newest contest is not 2026");
+  assert.equal(turnout?.value, "verification pending");
+  assert.match(turnout?.note ?? "", /published no candidate vote counts/);
+  assert.ok(
+    !/vs Cooch Behar/.test(turnout?.note ?? ""),
+    "the tile still compares an uncorroborated figure against a district baseline",
+  );
   // §6.5: the vintage AND the grain are in the tile — the registry's census figure is district-wide
   const pop = tiles.find((t) => t.label === "District population");
   assert.match(pop?.note ?? "", /Census 2011/);

@@ -9,6 +9,7 @@ import {
 } from '../../../../packages/mandate/src/repo/election-map.ts';
 import type { ElectionMapView, ElectionSeat } from '../../../../packages/mandate/src/repo/election-map.ts';
 import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
+import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
 import { ElectionMap, MODES, isMode } from '../../../components/iei/ElectionMap.tsx';
@@ -195,7 +196,9 @@ export default function ElectionPage({
         </h1>
         <p className="iei-sub">
           {IN.format(v.majority)} needed for a majority
-          {v.turnoutPct === null ? null : <> · {pct(v.turnoutPct)} turnout</>}
+          {/* A reading, not a number — see turnout-trust.ts. An election whose counts nothing can
+              reconcile says "verification pending" here rather than asserting a figure. */}
+          {turnoutHeadline(v.turnout) === null ? null : <> · {turnoutHeadline(v.turnout)}</>}
           {v.flips === null ? null : <> · {IN.format(v.flips.flipped)} seats changed hands</>}
           {v.previous === null ? null : (
             <>
@@ -228,6 +231,16 @@ export default function ElectionPage({
         }`}
         question={MODES.find((m) => m.key === mode)?.question ?? ''}
         sources={v.sources}
+        caveat={
+          // The turnout figure this product declines to print. Undefined unless the reading is
+          // unverified, so a healthy election shows no caveat at all.
+          turnoutCaveat(v.turnout) === null ? undefined : (
+            <>
+              <b>Turnout — verification pending.</b>{' '}
+              {turnoutCaveat(v.turnout)?.join(' ')}
+            </>
+          )
+        }
       >
         <Tabs
           label="What the map shows"
@@ -318,7 +331,7 @@ export default function ElectionPage({
                       )}
                       {' · '}
                       {pct(s.marginPct, 2)}
-                      {s.turnoutPct === null ? null : <> · {pct(s.turnoutPct)} turnout</>}
+                      {turnoutHeadline(s.turnout) === null ? null : <> · {turnoutHeadline(s.turnout)}</>}
                       {e.house === 'pc' && s.jurisdictionName !== null ? <> · {s.jurisdictionName}</> : null}
                     </>
                   }

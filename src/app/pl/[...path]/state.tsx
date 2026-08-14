@@ -10,6 +10,7 @@ import {
 } from '../../../../packages/mandate/src/repo/election-map.ts';
 import type { StateTrajectory } from '../../../../packages/mandate/src/repo/trajectory.ts';
 import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
+import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { ElectionMap, MODES } from '../../../components/iei/ElectionMap.tsx';
 import type { MapMode } from '../../../components/iei/ElectionMap.tsx';
@@ -157,7 +158,10 @@ export function StateSurface({
             </span>
             <span className="iei-hero-meta">
               majority {IN.format(view.majority)} · {houseWord(e.house)} {e.year}
-              {view.turnoutPct === null ? null : ` · ${pct(view.turnoutPct)} turnout`}
+              {/* NOT a number when the registry cannot corroborate one. West Bengal 2026's 93.0% used to
+                  sit right here, in the same type as a real majority count, and a first-time reader had no
+                  way to discount it. `turnoutHeadline` cannot return a figure for an unverified reading. */}
+              {turnoutHeadline(view.turnout) === null ? null : ` · ${turnoutHeadline(view.turnout)}`}
             </span>
           </div>
         )}
@@ -172,6 +176,16 @@ export function StateSurface({
         title={`${focused?.name ?? name} · ${MODES.find((m) => m.key === mode)?.label ?? ''}`}
         question={MODES.find((m) => m.key === mode)?.question ?? ''}
         sources={view.sources}
+        caveat={
+          // The turnout figure this product declines to print. Undefined unless the reading is
+          // unverified, so a healthy election shows no caveat at all.
+          turnoutCaveat(view.turnout) === null ? undefined : (
+            <>
+              <b>Turnout — verification pending.</b>{' '}
+              {turnoutCaveat(view.turnout)?.join(' ')}
+            </>
+          )
+        }
       >
         <Tabs
           label="Election"

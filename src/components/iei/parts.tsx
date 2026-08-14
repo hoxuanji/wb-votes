@@ -56,12 +56,15 @@ export function Panel({
   question,
   sources,
   note,
+  caveat,
   children,
 }: {
   id?: string;
   title: string;
   question?: string;
   sources?: readonly SourceRef[];
+  /** A qualification about the DATA, shown inside the evidence drawer rather than on the surface. */
+  caveat?: React.ReactNode;
   /** A caveat the reader needs before the numbers, not after them. Keep it to one sentence: the long
    *  methodology paragraphs that used to live here belong in the evidence drawer. */
   note?: React.ReactNode;
@@ -75,7 +78,9 @@ export function Panel({
           {question === undefined ? null : <p>{question}</p>}
         </div>
         <div className="iei-h-meta">
-          {sources === undefined || sources.length === 0 ? null : <Evidence sources={sources} label={title} />}
+          {sources === undefined || sources.length === 0 ? null : (
+            <Evidence sources={sources} label={title} caveat={caveat} />
+          )}
         </div>
       </div>
       {note === undefined ? null : <p className="iei-caveat">{note}</p>}
@@ -573,11 +578,20 @@ export function Evidence({
   sources,
   inline = false,
   label,
+  caveat,
 }: {
   sources: readonly SourceRef[];
   inline?: boolean;
   /** What the sources are evidence FOR. Reaches the screen reader; the visible ⓘ has no room for it. */
   label?: string;
+  /**
+   * A known problem with the figures these sources back — stated FIRST, above the citation list.
+   *
+   * This is where a value the product declines to assert goes. The surface says "verification pending" and
+   * this says which value, from which source, why it is doubted, and that no replacement is being offered.
+   * A reader who wants the number can have it; what they cannot do is mistake it for something we vouch for.
+   */
+  caveat?: React.ReactNode;
 }) {
   const fetched = sources.filter((s) => s.retrievalKind === 'fetched').length;
   const n = sources.length;
@@ -589,6 +603,7 @@ export function Evidence({
         {inline ? null : ` ${n} source${n === 1 ? '' : 's'}`}
       </summary>
       <div className="iei-ev-body">
+        {caveat === undefined ? null : <div className="iei-ev-caveat">{caveat}</div>}
         <p className="iei-rule">
           {fetched} of {n} had their bytes retrieved and hashed
           {fetched === n ? '.' : '; the rest are recorded as asserted by their publisher, which means the figures are copied, not verified.'}
