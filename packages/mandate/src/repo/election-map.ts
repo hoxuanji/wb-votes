@@ -32,6 +32,8 @@ import { placeHref } from "./place-page.ts";
 import type { Finding, PartyRef, SeatFlips, VoteSeatEfficiency } from "./findings.ts";
 import { NATIONAL, parse, simplified } from "../viz/simplify.ts";
 import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
+import { electionContext } from "./election-context.ts";
+import type { ElectionContext, SeatStanding } from "./election-context.ts";
 import type { Turnout } from "./turnout-trust.ts";
 
 /** The frame the state outlines and every constituency outline share. Anything else cannot be overlaid. */
@@ -115,6 +117,12 @@ export type ElectionSeat = {
    */
   comparable: boolean;
   flip: SeatFlip | null;
+  /**
+   * WHAT HAPPENED TO THIS SEAT, as one of five exhaustive facts rather than as several nullable fields a
+   * renderer has to combine correctly. Every seat in `seats` was contested at this election, so
+   * `not-contested` never appears here — it describes the shapes in `context` instead.
+   */
+  standing: SeatStanding;
   /** Simplified for this zoom. Null where the registry holds no polygon for this version. */
   path: string | null;
   href: string | null;
@@ -145,8 +153,24 @@ export type ElectionMapView = {
   seats: ElectionSeat[];
   /** Parties that won a seat, biggest first. The contextual legend. */
   legend: { key: string; label: string; n: number }[];
-  /** Seats a majority needs, from the seats this election actually contested. */
-  majority: number;
+  /**
+   * The election's own semantics — body, kind, label, majority — from `election-context.ts`.
+   *
+   * Null only for an unknown id. Every consumer reads type and majority from HERE rather than re-deciding
+   * from `house` and `kind`, which is the seam this replaced.
+   */
+  ctx: ElectionContext | null;
+  /** Seats a majority needs. NULL for a by-election: it does not decide a house. */
+  majority: number | null;
+  /**
+   * GEOGRAPHY THAT DID NOT VOTE, for a partial election.
+   *
+   * A by-election contests four seats of a house of sixty. The other fifty-six are not results, not losses
+   * and not missing data — they are the map. Without them the figure was four polygons floating in nothing;
+   * with them it is four seats highlighted in their state. Empty for a general election, which has no
+   * unaffected seats by definition.
+   */
+  context: { versionId: number; name: string; path: string }[];
   /**
    * Turnout across the election and whether it is believable, from `turnout-trust.ts`.
    *
@@ -215,7 +239,7 @@ export function electionChoices(db: DatabaseSync, limit = 60): ElectionChoice[] 
       `SELECT e.id AS id, e.name AS name, e.year AS year, e.house AS house, e.kind AS kind,
               (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
          FROM election e
-        WHERE e.kind IN ('general', 'assembly')
+        WHERE 1 = 1
         ORDER BY ${CHRONO_DESC}
         LIMIT ?`,
       limit,
@@ -289,7 +313,9 @@ export function electionMapView(
       previous: null,
       seats: [],
       legend: [],
-      majority: 0,
+      ctx: null,
+      majority: null,
+      context: [],
       turnout: { state: "absent" },
       voteSeat: [],
       marginBins: [],
@@ -319,7 +345,10 @@ export function electionMapView(
       `SELECT e.id AS id, e.name AS name, e.year AS year, e.house AS house, e.kind AS kind,
               e.jurisdiction_place_id AS jurisdictionId, p.canonical_name AS jurisdictionName
          FROM election e JOIN place p ON p.id = e.jurisdiction_place_id
-        WHERE e.id = ? AND e.kind IN ('general', 'assembly')`,
+        -- NO KIND FILTER. This read kind IN ('general','assembly'), which refused all 829 by-elections in
+        -- the registry and is why the by-election route answered 404. What a by-election needs is different
+        -- SEMANTICS, carried by ElectionContext and the seat standing below -- not exclusion.
+        WHERE e.id = ?`,
       electionId,
     );
     if (e === undefined) return empty;
@@ -330,6 +359,9 @@ export function electionMapView(
      * the whole import published no vote counts.
      */
     const turnoutUnverified = unverifiedTurnout(db, [e.id]).has(e.id);
+
+    // The election's own semantics, decided once. Nothing below re-reads `house` or `kind`.
+    const ctx = electionContext(db, electionId, jurisdictionId);
 
     const rows = all<SeatSql>(
       db,
@@ -362,8 +394,19 @@ export function electionMapView(
       ...scopeBind,
     );
 
-    // The previous election of the same house, and its winners keyed by (epoch, place) — the gate.
-    const previousId = previousElection(db, electionId);
+    /**
+     * The previous election of the same house, and its winners keyed by (epoch, place) — the gate.
+     *
+     * NOT FOR A BY-ELECTION. `previousElection` matches on `kind`, so a by-election's predecessor is the
+     * PREVIOUS BY-ELECTION — a different handful of seats, usually in a different epoch. Comparing the two
+     * marked all four of Tripura 2022's seats "not comparable", which reads as a data limitation when the
+     * truth is that the comparison is not a thing: two by-elections are not two readings of one house.
+     *
+     * A by-election therefore produces no flips and no previous-holder comparison here. Previous holder is
+     * a genuinely useful fact, but it is a SEPARATE metric about each seat's last general election, and the
+     * brief is explicit that it must stay subordinate to the result rather than be smuggled in as one.
+     */
+    const previousId = ctx?.kind === "bypoll" ? null : previousElection(db, electionId);
     const before = new Map<string, PartyRef>();
     const beforeRows: { placeId: string; epochId: string }[] = [];
     if (previousId !== null) {
@@ -413,7 +456,8 @@ export function electionMapView(
         marginVotes !== null && r.voters !== null && r.voters > 0 ? (100 * marginVotes) / r.voters : null;
 
       const key = seatKey(r.placeId, r.epochId);
-      const comparable = comparableKeys.has(key);
+      // False for every by-election seat: there is no comparison event, so nothing is comparable to it.
+      const comparable = ctx?.kind !== "bypoll" && comparableKeys.has(key);
       const was = comparable ? before.get(key) : undefined;
 
       return {
@@ -440,6 +484,22 @@ export function electionMapView(
         marginPct,
         marginBin: binOf(marginPct),
         turnout: turnoutReading(r.voters, r.electors, turnoutUnverified),
+        /**
+         * Order matters, and it is an order of KNOWABILITY. A seat we cannot draw is undrawable whatever
+         * else is true of it; a seat we cannot compare has a winner but no predecessor; and only then does
+         * the hold/gain distinction apply. `not-contested` cannot occur here — every row is a contest.
+         */
+        standing:
+          path === null
+            ? "no-geometry"
+            // A by-election is not compared with anything, so every seat it contested is simply won.
+            : ctx?.kind === "bypoll"
+              ? "won-by"
+              : !comparable
+              ? "not-comparable"
+              : was !== undefined && r.partyKey !== null && was.key === r.partyKey
+                ? "held"
+                : "won-by",
         comparable,
         flip:
           was === undefined || r.partyKey === null
@@ -472,6 +532,37 @@ export function electionMapView(
               : `/pl/${r.jurisdictionId}`,
       };
     });
+
+    /**
+     * ── THE HOUSE THAT DID NOT VOTE ──
+     *
+     * Only for a partial election, which today means a by-election. The other seats of the same body,
+     * jurisdiction and boundary epoch, as geometry and nothing else: no party, no result, no hover card,
+     * because they have none. Four contested seats floating in an empty frame was the figure before this,
+     * and a reader completed the picture by assuming the emptiness meant something.
+     *
+     * From `place_version` rather than from another election's contests: the house is a property of the
+     * geography, so this needs no second election to exist and works for a jurisdiction whose general
+     * election is not in the registry.
+     */
+    const contextShapes: ElectionMapView["context"] =
+      ctx === null || !ctx.isPartial
+        ? []
+        : (() => {
+            const taken = new Set(rows.map((r) => r.versionId));
+            return all<{ versionId: number; name: string; path: string }>(
+              db,
+              `SELECT pv.id AS versionId, pv.canonical_name AS name, pg.path AS path
+                 FROM place_version pv
+                 JOIN place_geometry pg ON pg.place_version_id = pv.id
+                WHERE pv.kind = ? AND pv.jurisdiction_id = ? AND pv.epoch_id IS ?`,
+              e.house,
+              ctx.scope ?? ctx.jurisdictionId,
+              ctx.epochId,
+            )
+              .filter((x) => !taken.has(x.versionId))
+              .map((x) => ({ versionId: x.versionId, name: x.name, path: simplified(x.path, NATIONAL) }));
+          })();
 
     /* ── party aggregates: seats, votes, and the gap between the two shares ── */
 
@@ -633,16 +724,30 @@ export function electionMapView(
       previous: previousId === null || previousYear === null ? null : { id: previousId, year: previousYear },
       seats,
       legend,
-      majority: Math.floor(seats.length / 2) + 1,
+      ctx,
+      // FROM THE CONTEXT, not from `seats.length`. Half the seats contested is a majority only when the
+      // contest count IS the house — which is exactly what a by-election is not.
+      majority: ctx?.majority ?? null,
+      context: contextShapes,
       turnout: turnoutReading(turnout?.voters ?? null, turnout?.electors ?? null, turnoutUnverified),
       voteSeat,
       marginBins,
       flips,
-      incomparableSeats: split.incomparable.length,
+      // ZERO FOR A BY-ELECTION, not "all of them". With no comparison event every seat lands in the
+      // incomparable pile by construction, and the caption then blamed a delimitation for the absence of a
+      // comparison that was never possible. Nothing was redrawn; there is simply nothing to compare to.
+      incomparableSeats: ctx?.kind === "bypoll" ? 0 : split.incomparable.length,
       sources: loadSources(db, sourceIds, []),
       geometry: {
-        // The country for a general election, one state for an assembly — computed, never branched on.
-        viewBox: frameOf(kept),
+        /**
+         * THE FRAME INCLUDES THE SEATS THAT DID NOT VOTE.
+         *
+         * Framing a by-election to its own four polygons is what produced the floating fragment: a viewBox
+         * around four seats, rendered at full height, showing four shapes and no state. The frame is the
+         * geography being shown, and for a partial election that is the house — so the context shapes are
+         * in the box even though they carry no result. Empty for a general election, so unchanged there.
+         */
+        viewBox: frameOf([...kept, ...contextShapes.map((c) => c.path)]),
         drawable: kept.length,
         total: seats.length,
         undrawableEpochs: [...undrawable].sort(),
@@ -756,14 +861,18 @@ export function seatsInDistrict(seats: readonly ElectionSeat[], districtId: stri
 export function headlineFindings(v: ElectionMapView): Finding[] {
   const out: Finding[] = [];
   const top = v.legend[0];
-  if (top !== undefined) {
+  // A MAJORITY FINDING IS A CLAIM ABOUT A HOUSE, so a by-election makes none. Skipped rather than emitted
+  // with a fabricated threshold: the previous arithmetic gave a four-seat by-election "majority 3", and a
+  // finding that says a party "holds a majority" of four vacant seats is false in a way prose cannot fix.
+  if (top !== undefined && v.majority !== null) {
+    const needed = v.majority;
     out.push({
       type: "majority",
       party: { key: top.key, label: top.label },
       seats: top.n,
       contested: v.seats.length,
-      needed: v.majority,
-      holds: top.n >= v.majority,
+      needed,
+      holds: top.n >= needed,
     });
   }
   if (v.flips !== null) out.push(v.flips);

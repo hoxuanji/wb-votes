@@ -11,6 +11,7 @@ import {
 import type { StateTrajectory } from '../../../../packages/mandate/src/repo/trajectory.ts';
 import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
+import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { ElectionMap, MODES } from '../../../components/iei/ElectionMap.tsx';
 import type { MapMode } from '../../../components/iei/ElectionMap.tsx';
@@ -157,7 +158,9 @@ export function StateSurface({
               <span className="iei-of"> / {IN.format(view.seats.length)}</span>
             </span>
             <span className="iei-hero-meta">
-              majority {IN.format(view.majority)} · {houseWord(e.house)} {e.year}
+              {/* THE TYPE AND THE SCALE, both from ElectionContext. `houseWord(house)` called a Lok Sabha
+                  by-election a "Lok Sabha", and "majority N" is a claim only a full house can support. */}
+              {view.ctx === null ? `${houseWord(e.house)} ${e.year}` : `${scaleLabel(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
               {/* NOT a number when the registry cannot corroborate one. West Bengal 2026's 93.0% used to
                   sit right here, in the same type as a real majority count, and a first-time reader had no
                   way to discount it. `turnoutHeadline` cannot return a figure for an unverified reading. */}

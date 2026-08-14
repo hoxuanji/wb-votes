@@ -10,6 +10,7 @@ import {
 import type { ElectionMapView, ElectionSeat } from '../../../../packages/mandate/src/repo/election-map.ts';
 import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
+import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
 import { ElectionMap, MODES, isMode } from '../../../components/iei/ElectionMap.tsx';
@@ -116,6 +117,7 @@ export default function ElectionPage({
   if (v === null || v.election === null) notFound();
 
   const e = v.election;
+  const ctx = v.ctx;
   const mode: MapMode = (() => {
     const asked = first(searchParams?.['mode']);
     // A mode nobody can read is not offered: without a previous election there is nothing to flip against.
@@ -178,13 +180,23 @@ export default function ElectionPage({
 
       {/* ── 1 · HEADER. One sentence of result, then the five figures that frame it. Not a tile grid. ── */}
       <div className="iei-head">
+        {/* THE TYPE, FROM ElectionContext. Not `houseWord(house)`, which says "Lok Sabha" for a Lok Sabha
+            by-election and so described 829 elections as something they are not. */}
         <p className="iei-eyebrow">
-          {e.house === 'ac' ? e.jurisdictionName : 'India'} · {houseWord(e.house)} · {e.year}
+          {ctx === null
+            ? null
+            : `${ctx.scope === null && ctx.body === 'lok-sabha' ? 'India' : ctx.jurisdictionName} · ${typeLabel(ctx.body, ctx.kind)} · ${ctx.year}`}
         </p>
         <h1 className="iei-answer">
           {top === undefined ? (
             'No winner is on record for this election.'
-          ) : top.n >= v.majority ? (
+          ) : /* A BY-ELECTION HAS NO MAJORITY TO REACH, so the sentence is about the seats that were up —
+                never "short of a majority", which implies the house was in play. */
+          ctx?.kind === 'bypoll' ? (
+            <>
+              {top.label} won {IN.format(top.n)} of {IN.format(v.seats.length)} seats contested
+            </>
+          ) : v.majority !== null && top.n >= v.majority ? (
             <>
               {top.label} won {IN.format(top.n)} of {IN.format(e.seats)} seats
             </>
@@ -195,7 +207,7 @@ export default function ElectionPage({
           )}
         </h1>
         <p className="iei-sub">
-          {IN.format(v.majority)} needed for a majority
+          {ctx === null ? null : scaleLabel(ctx)}
           {/* A reading, not a number — see turnout-trust.ts. An election whose counts nothing can
               reconcile says "verification pending" here rather than asserting a figure. */}
           {turnoutHeadline(v.turnout) === null ? null : <> · {turnoutHeadline(v.turnout)}</>}

@@ -34,9 +34,10 @@ import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/sr
  * ── WHAT IS DRAWN, IN ORDER ──
  *
  *   1. the country in the canvas ink, so an undrawable seat reads as a gap in India and not in the page
- *   2. the focused district's silhouette, under the fills so they mask everything but its outer edge
- *   3. the seats, in the active encoding
- *   4. state borders on top, so the country stays legible through 492 small polygons
+ *   2. the seats that did not vote, for a partial election — geography, never a result
+ *   3. the focused district's silhouette, under the fills so they mask everything but its outer edge
+ *   4. the seats, in the active encoding
+ *   5. state borders on top, so the country stays legible through 492 small polygons
  *
  * No per-seat labels: 492 abbreviations at 9 px is a wall of text. Colour is never the only channel, because
  * every seat carries its result in a hover card and in the list beside the map.
@@ -231,7 +232,19 @@ export function ElectionMap({
             </g>
           ) : null}
 
-          {/* 2 — THE FOCUSED DISTRICT'S OUTLINE, under the seats so the fills mask its interior.
+          {/* 2 — THE SEATS THAT DID NOT VOTE, for a partial election.
+                 Neutral geography, no fill from any party, no hover card, because they carry no result. A
+                 by-election's four contested seats used to float in an empty frame and a reader completed
+                 the picture by assuming the emptiness was political. This is the picture. */}
+          {view.context.length === 0 ? null : (
+            <g className="iei-map-uncontested" aria-hidden="true">
+              {view.context.map((c) => (
+                <path key={c.versionId} d={c.path} />
+              ))}
+            </g>
+          )}
+
+          {/* 3 — THE FOCUSED DISTRICT'S OUTLINE, under the seats so the fills mask its interior.
                  Concatenating the district's own seat paths and stroking the result gives the union's outer
                  edge for free; the half of the stroke that falls inside gets painted over by step 3. No
                  district geometry is involved, so this can never disagree with the constituencies. */}
@@ -241,7 +254,7 @@ export function ElectionMap({
             </g>
           )}
 
-          {/* 3 — the seats, in the ACTIVE encoding only. */}
+          {/* 4 — the seats, in the ACTIVE encoding only. */}
           <g className="iei-map-fills">
             {drawable.map((s) => {
               const shape = (
@@ -264,7 +277,7 @@ export function ElectionMap({
             })}
           </g>
 
-          {/* 4 — state borders last, so the country reads through the seats. NATIONAL ONLY: a state map is
+          {/* 5 — state borders last, so the country reads through the seats. NATIONAL ONLY: a state map is
                  framed to its own bounding box, so 35 other states' outlines would be 36 paths clipped
                  entirely out of view, and the state's own shape is already described by its seats. */}
           {national ? (

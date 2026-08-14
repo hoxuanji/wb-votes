@@ -18,7 +18,7 @@ import { electionMapView, bandOf, MARGIN_BANDS } from "../../../../packages/mand
 import type { ElectionMapView } from "../../../../packages/mandate/src/repo/election-map.ts";
 import { stateTrajectory } from "../../../../packages/mandate/src/repo/trajectory.ts";
 import type { StateTrajectory } from "../../../../packages/mandate/src/repo/trajectory.ts";
-import { all } from "../../../../packages/mandate/src/db/index.ts";
+import { all, get } from "../../../../packages/mandate/src/db/index.ts";
 import { isMode } from "../../../components/iei/ElectionMap.tsx";
 import type { MapMode } from "../../../components/iei/ElectionMap.tsx";
 import { StateSurface } from "./state.tsx";
@@ -215,7 +215,30 @@ function readState(
       jurisdictionId,
     ).map((r) => r.id);
     const asked = first(params["election"]);
-    const chosen = asked !== undefined && choices.includes(asked) ? asked : choices[0];
+    /**
+     * A REQUEST FOR A BY-ELECTION IS HONOURED, not silently swapped for the general election.
+     *
+     * `choices` is the full-house strip — 608 by-elections in the registry do not belong in a state's tab
+     * row. But an id that was asked for explicitly and belongs to this jurisdiction is a real destination,
+     * and the previous behaviour was to drop it and render the assembly instead, so a link to a by-election
+     * silently answered with a different election and said nothing. Substituting one election for another is
+     * worse than a 404: the page looks correct and is about something else.
+     */
+    const askedIsValid =
+      asked !== undefined &&
+      !choices.includes(asked) &&
+      get<{ id: string }>(
+        db,
+        `SELECT e.id AS id FROM election e
+          WHERE e.id = ? AND e.house = ?
+            AND EXISTS (SELECT 1 FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
+                         WHERE c.election_id = e.id AND pv.jurisdiction_id = ?)`,
+        asked,
+        house,
+        jurisdictionId,
+      ) !== undefined;
+    const chosen =
+      asked !== undefined && (choices.includes(asked) || askedIsValid) ? asked : choices[0];
     if (chosen === undefined) return null;
     // The scope is ALWAYS the state: for an assembly election it is a no-op, for a general election it is
     // the whole point. One code path, so the two houses cannot diverge.

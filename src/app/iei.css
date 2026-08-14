@@ -1800,6 +1800,17 @@ html {
   opacity: 0.9;
 }
 
+/* SEATS THAT DID NOT VOTE, in a partial election. Geography, not a result — so the fill is the same ink as
+   a jurisdiction that held no election, deliberately below the mark floor, and the seam between them is the
+   canvas so the house reads as a shape made of seats rather than as one grey mass. Never a party colour:
+   the whole point is that a reader cannot mistake absence for a political outcome. */
+.iei-map-uncontested path {
+  fill: var(--iei-raised);
+  stroke: var(--iei-bg);
+  stroke-width: 0.5;
+  pointer-events: none;
+}
+
 /* THE FOCUSED DISTRICT'S SILHOUETTE.
  *
  * Every seat of the district, concatenated into one path and drawn BENEATH the fills with a wide stroke. The
