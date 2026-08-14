@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { SEQUENTIAL } from '../../../packages/mandate/src/repo/home.ts';
+import { spread } from '../../../packages/mandate/src/viz/marks.ts';
 import { peakBin } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { MarginBin } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { VoteSeatEfficiency } from '../../../packages/mandate/src/repo/findings.ts';
@@ -166,21 +167,31 @@ export function VoteSeatPlot({
   const x = (v: number) => pad + (v / ceiling) * inner;
   const y = (v: number) => S - pad - (v / ceiling) * inner;
 
+  /**
+   * Label baselines, pushed apart so two clustered parties do not print over each other.
+   *
+   * `spread()` is the mechanism the line charts already use for exactly this — it takes the ideal
+   * baselines and returns ones at least `gap` apart, in the input's index order. Small parties bunch near
+   * the origin (Karnataka 2023 puts four inside six points of vote share), and without this their names
+   * overlapped into an unreadable stack.
+   *
+   * Sorted by y before spreading is NOT needed — `spread` sorts internally and un-sorts on the way out —
+   * but the labels must be drawn in the SAME index order as `shown`, which is why the array is indexed
+   * rather than zipped.
+   */
+  const labelY = spread(
+    shown.map((r) => y(r.seatPct) - 6),
+    15,
+  );
+
   return (
     <figure className="iei-fig iei-vs">
       <svg viewBox={`0 0 ${S} ${S}`} role="img" aria-label={vsLabel(shown)}>
-        {/* PARITY, as a line. Everything in this figure is read against it. */}
+        {/* PARITY, as a line. Everything in this figure is read against it.
+            NO LABEL ON IT: the caption below already says what the line means, and the leading party's
+            marker lands exactly on its top end — so an in-plot label was both a duplicate and a collision.
+            Deleting it fixes the overlap and removes a sentence the reader was told twice. */}
         <line x1={x(0)} y1={y(0)} x2={x(ceiling)} y2={y(ceiling)} className="iei-vs-parity" />
-        {/* Below the diagonal and inset, because the leading party's marker lands ON the line's top end and
-            the two collided. */}
-        <text
-          x={x(ceiling) - 10}
-          y={y(ceiling) + 26}
-          className="iei-vs-note"
-          textAnchor="end"
-        >
-          seats = votes
-        </text>
 
         {/* Axes, minimal: two lines and two labels. */}
         <g className="iei-vs-axis" aria-hidden="true">
@@ -198,9 +209,10 @@ export function VoteSeatPlot({
           </text>
         </g>
 
-        {shown.map((r) => {
+        {shown.map((r, i) => {
           const cx = x(r.votePct as number);
           const cy = y(r.seatPct);
+          const ly = labelY[i] as number;
           const on = selected === r.party.key;
           const dim = selected !== null && !on;
           return (
@@ -208,8 +220,13 @@ export function VoteSeatPlot({
               <g opacity={dim ? 0.3 : 1}>
                 {/* The gap to parity, drawn. The marker says where the party is; this says how far from fair. */}
                 <line x1={cx} y1={cy} x2={cx} y2={y(r.votePct as number)} className="iei-vs-gap" />
+                {/* A LEADER LINE, only where the label had to move. Without it a pushed label looks like it
+                    belongs to whichever marker it drifted next to. */}
+                {Math.abs(ly - (cy - 6)) < 1.5 ? null : (
+                  <line x1={cx + 6} y1={cy} x2={cx + 9} y2={ly - 3} className="iei-vs-lead" />
+                )}
                 <circle cx={cx} cy={cy} r={on ? 7 : 5} fill={fillFor(r.party.key)} className="iei-vs-dot" />
-                <text x={cx + 9} y={cy - 6} className="iei-vs-tag">
+                <text x={cx + 9} y={ly} className="iei-vs-tag">
                   {r.party.label.length > 12 ? `${r.party.label.slice(0, 11)}…` : r.party.label}
                 </text>
                 <title>

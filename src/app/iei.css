@@ -1836,13 +1836,20 @@ html {
   opacity: 0.65;
 }
 
+/* A leader line, drawn only where `spread()` had to move a label off its marker. Quieter than the gap it
+   sits beside, because it carries no measurement — it is only saying "this name belongs to that dot". */
+.iei-vs-lead {
+  stroke: var(--iei-ink-3);
+  stroke-width: 1;
+  opacity: 0.45;
+}
+
 .iei-vs-axis line {
   stroke: var(--iei-line);
   stroke-width: 1.4;
 }
 
-.iei-vs-axis text,
-.iei-vs-note {
+.iei-vs-axis text {
   font-family: var(--iei-mono);
   font-size: 13;
   fill: var(--iei-ink-3);
