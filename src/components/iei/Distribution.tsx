@@ -303,3 +303,211 @@ export function FlipMatrix({
     </ul>
   );
 }
+
+/* ───────────────────────────── competitiveness, as five bands ───────────────────────────── */
+
+/**
+ * How many seats were close — as a segmented bar of five bands a reader already thinks in.
+ *
+ * WHY NOT THE HISTOGRAM HERE. The election page's 21 uniform bins show the SHAPE of a distribution, which is
+ * the right instrument for 543 seats. A state has 224, or 87, or 32; at that size the shape is noise and the
+ * question is blunter — how many seats are actually in play. So this is a filter with five rungs, and the
+ * width of a segment encodes HOW MANY SEATS fall in it, never how wide the band is. That is why it is a
+ * stacked bar and not a histogram: the bands are deliberately unequal (under 1%, 1–2%, 2–5%, 5–10%, safe)
+ * and a histogram of unequal bins lies about area.
+ *
+ * Every segment is a link that isolates its seats on the map, so "11 seats under a point" becomes "and here
+ * they are".
+ */
+export function MarginBands({
+  bands,
+  selected,
+  hrefFor,
+}: {
+  bands: readonly { key: string; label: string; n: number }[];
+  selected: string | null;
+  hrefFor: (band: string | null) => string;
+}) {
+  const total = bands.reduce((t, b) => t + b.n, 0);
+  if (total === 0) return null;
+  return (
+    <div className="iei-bands">
+      <div className="iei-bands-bar" role="img" aria-label={bandLabel(bands, total)}>
+        {bands.map((b, i) => {
+          if (b.n === 0) return null;
+          const on = selected === b.key;
+          // The map's ramp, brightest at the knife edge, so a band and the seats it selects agree by
+          // construction. Index 0 is the tightest band and takes the loudest step.
+          const ink = SEQUENTIAL[Math.max(0, SEQUENTIAL.length - 1 - i)] as string;
+          return (
+            <Link
+              key={b.key}
+              href={hrefFor(on ? null : b.key)}
+              className={selected === null ? undefined : on ? 'iei-legend-on' : 'iei-legend-off'}
+              style={{ flexGrow: b.n, background: ink }}
+              title={`${b.n} seat${b.n === 1 ? '' : 's'} decided by ${b.label}`}
+              aria-pressed={on}
+            >
+              <span className="iei-sr">
+                {b.n} seats, {b.label}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+      <ul className="iei-bands-key">
+        {bands.map((b, i) => (
+          <li key={b.key}>
+            <Link
+              href={hrefFor(selected === b.key ? null : b.key)}
+              className={selected === null ? undefined : selected === b.key ? 'iei-legend-on' : 'iei-legend-off'}
+            >
+              <span
+                className="iei-sw"
+                style={{ background: SEQUENTIAL[Math.max(0, SEQUENTIAL.length - 1 - i)] as string }}
+                aria-hidden="true"
+              />
+              {b.label}
+              <b>{b.n}</b>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+function bandLabel(bands: readonly { label: string; n: number }[], total: number): string {
+  return `Winning margins across ${total} seats: ${bands
+    .filter((b) => b.n > 0)
+    .map((b) => `${b.n} decided by ${b.label}`)
+    .join('; ')}.`;
+}
+
+/* ───────────────────────────── the state's trajectory ───────────────────────────── */
+
+/**
+ * What each party has done, election after election — and BROKEN wherever the map was redrawn.
+ *
+ * THE BREAK IS THE POINT. A continuous line across a delimitation asserts that the seats either side are the
+ * same seats. They are not: every order renumbers from scratch and `place_crosswalk` is empty, so Karnataka's
+ * 224 seats in 2008 are not the 224 territories of 2004. `segments()` splits the series at every epoch change
+ * and this draws each run separately, with a marked gap. A reader can still see the whole run; what they
+ * cannot do is read across the break as though nothing happened.
+ *
+ * SEATS BREAK, VOTE SHARE DOES NOT, and the asymmetry is deliberate: a share is a ratio over a whole state's
+ * votes, and a state's electorate is a real population whatever the boundaries inside it.
+ *
+ * Small multiples rather than one crowded chart: six parties on one axis is a spaghetti plot, and the
+ * question is "what did THIS party do", which is a row.
+ */
+export function Trajectory({
+  data,
+  metric,
+  hrefFor,
+  selected,
+}: {
+  data: {
+    elections: readonly { id: string; year: number; epochId: string }[];
+    parties: readonly {
+      key: string;
+      label: string;
+      points: readonly { year: number; epochId: string; seats: number; seatPct: number | null; votePct: number | null }[];
+    }[];
+    epochBreaks: readonly { afterYear: number }[];
+  };
+  /** `seatPct` breaks at an epoch change; `votePct` runs unbroken. */
+  metric: 'seatPct' | 'votePct';
+  hrefFor: (party: string | null) => string;
+  selected: string | null;
+}) {
+  const years = data.elections.map((e) => e.year);
+  if (years.length < 2) return null;
+  const minY = Math.min(...years);
+  const maxY = Math.max(...years);
+  const W = 320;
+  const H = 40;
+  const x = (yr: number) => ((yr - minY) / (maxY - minY || 1)) * W;
+  const y = (v: number) => H - (Math.min(v, 100) / 100) * H;
+
+  return (
+    <div className="iei-traj">
+      {data.parties.map((p) => {
+        const on = selected === p.key;
+        const dim = selected !== null && !on;
+        // Vote share is comparable across a redraw, so it is one run. Seat share is not, so it is split.
+        const runs: (typeof p.points)[] =
+          metric === 'votePct'
+            ? [p.points]
+            : p.points.reduce<(typeof p.points)[]>((acc, pt) => {
+                const last = acc.at(-1);
+                const prev = last?.at(-1);
+                if (last === undefined || (prev !== undefined && prev.epochId !== pt.epochId)) acc.push([pt]);
+                else (last as typeof pt[]).push(pt);
+                return acc;
+              }, []);
+        const latest = p.points.at(-1);
+        return (
+          <Link key={p.key} href={hrefFor(on ? null : p.key)} className="iei-traj-row" aria-pressed={on}>
+            <span className="iei-traj-name">
+              <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
+              {p.label}
+            </span>
+            <svg
+              viewBox={`0 -4 ${W} ${H + 8}`}
+              className="iei-traj-svg"
+              role="img"
+              aria-label={trajLabel(p, metric)}
+              preserveAspectRatio="none"
+              opacity={dim ? 0.35 : 1}
+            >
+              {runs.map((run, ri) => {
+                const pts = run
+                  .map((pt) => {
+                    const v = metric === 'seatPct' ? pt.seatPct : pt.votePct;
+                    return v === null ? null : `${x(pt.year).toFixed(1)},${y(v).toFixed(1)}`;
+                  })
+                  .filter((s): s is string => s !== null);
+                if (pts.length === 0) return null;
+                return pts.length === 1 ? (
+                  <circle key={ri} cx={Number(pts[0]?.split(',')[0])} cy={Number(pts[0]?.split(',')[1])} r={1.6} fill={fillFor(p.key)} />
+                ) : (
+                  <polyline key={ri} points={pts.join(' ')} fill="none" stroke={fillFor(p.key)} strokeWidth={1.6} />
+                );
+              })}
+            </svg>
+            <span className="iei-traj-now">
+              {metric === 'seatPct'
+                ? latest === undefined
+                  ? '—'
+                  : latest.seats
+                : latest?.votePct == null
+                  ? '—'
+                  : `${latest.votePct.toFixed(0)}%`}
+            </span>
+          </Link>
+        );
+      })}
+      <div className="iei-traj-axis" aria-hidden="true">
+        <span>{minY}</span>
+        {data.epochBreaks.length === 0 ? null : (
+          <span className="iei-traj-break">
+            {data.epochBreaks.length === 1 ? 'boundaries redrawn once' : `boundaries redrawn ${data.epochBreaks.length} times`}
+            {metric === 'seatPct' ? ' — seat lines break there' : ''}
+          </span>
+        )}
+        <span>{maxY}</span>
+      </div>
+    </div>
+  );
+}
+
+function trajLabel(
+  p: { label: string; points: readonly { year: number; seats: number; votePct: number | null }[] },
+  metric: 'seatPct' | 'votePct',
+): string {
+  const parts = p.points
+    .filter((pt) => (metric === 'seatPct' ? pt.seats > 0 : pt.votePct !== null))
+    .map((pt) => (metric === 'seatPct' ? `${pt.year}: ${pt.seats}` : `${pt.year}: ${pt.votePct?.toFixed(1)}%`));
+  return `${p.label}, ${metric === 'seatPct' ? 'seats' : 'vote share'} by election. ${parts.join('; ') || 'no seats won'}.`;
+}

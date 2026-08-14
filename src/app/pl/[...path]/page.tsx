@@ -13,6 +13,14 @@ import type { StateMapView, StateShifts } from "../../../../packages/mandate/src
 import { openRead } from "../../../../packages/mandate/src/db/open.ts";
 import { fillFor } from "../../../../packages/mandate/src/viz/party-ink.ts";
 import { StateMap } from "../../../components/iei/StateMap.tsx";
+import { electionMapView, bandOf, MARGIN_BANDS } from "../../../../packages/mandate/src/repo/election-map.ts";
+import type { ElectionMapView } from "../../../../packages/mandate/src/repo/election-map.ts";
+import { stateTrajectory } from "../../../../packages/mandate/src/repo/trajectory.ts";
+import type { StateTrajectory } from "../../../../packages/mandate/src/repo/trajectory.ts";
+import { all } from "../../../../packages/mandate/src/db/index.ts";
+import { isMode } from "../../../components/iei/ElectionMap.tsx";
+import type { MapMode } from "../../../components/iei/ElectionMap.tsx";
+import { StateSurface } from "./state.tsx";
 import { Foot, Shell } from "../../../components/iei/Shell.tsx";
 import {
   BasisChip,
@@ -165,6 +173,46 @@ function electionLabel(e: { year: number; house: string; kind: string }): string
   return bypoll ? `${e.year} by-poll` : `${e.year}`;
 }
 
+/**
+ * Everything the STATE surface needs, on one handle: the chosen election's seats and the whole run behind it.
+ *
+ * Separate from `readMap` because the state surface reads a different shape — `electionMapView` rather than
+ * `stateMapView` — and reuses the election route's data layer wholesale rather than growing a second one. A
+ * jurisdiction whose registry cannot be read renders the page without the surface instead of failing the route.
+ */
+function readState(
+  jurisdictionId: string,
+  params: NonNullable<Params>,
+): { view: ElectionMapView; trajectory: StateTrajectory } | null {
+  let db: ReturnType<typeof openRead> | null = null;
+  try {
+    db = openRead();
+    // WHICH HOUSE. A state elects two, and its Lok Sabha seats are a different geography answering a
+    // different question — so `?house=pc` is a real view and not a variant. Dropping it was a capability
+    // regression the render suite caught.
+    const house = first(params["house"]) === "pc" ? "pc" : "ac";
+    // Which election: the one asked for if this jurisdiction held it under this house, else its most recent.
+    const asked = first(params["election"]);
+    const choices = all<{ id: string }>(
+      db,
+      `SELECT e.id AS id FROM election e
+        WHERE e.jurisdiction_place_id = ? AND e.kind IN ('assembly','general') AND e.house = ?
+        ORDER BY e.year DESC, COALESCE(e.polling_month, 0) DESC, e.occurrence DESC`,
+      jurisdictionId,
+      house,
+    ).map((r) => r.id);
+    const chosen = asked !== undefined && choices.includes(asked) ? asked : choices[0];
+    if (chosen === undefined) return null;
+    const view = electionMapView(db, chosen);
+    if (view.election === null) return null;
+    return { view, trajectory: stateTrajectory(db, jurisdictionId, house) };
+  } catch {
+    return null;
+  } finally {
+    db?.close();
+  }
+}
+
 export default async function PlacePage({
   params,
   searchParams,
@@ -195,6 +243,66 @@ export default async function PlacePage({
   }
 
   if (view.kind === "parent") {
+    /* ══ THE STATE SURFACE ══════════════════════════════════════════════════════════════════════
+       A state gets the intelligence surface: one map, four encodings, and every figure below reading the
+       SAME selection out of the URL. It reuses the election route's data layer wholesale — an assembly
+       election is an election — so there is one implementation of "seats, flips, margins, vote-to-seats"
+       in this codebase rather than two that drift.
+
+       A DISTRICT KEEPS THE OLD BRIEF, deliberately: it has no election of its own, so it has no map, no
+       flips and no trajectory. Its page is the list of seats it elects, which is what the code below does. */
+    if (view.level === "state") {
+      const st = segments[0] as string;
+      const s = readState(st, searchParams ?? {});
+      const base = `/pl/${segments.join("/")}`;
+      if (s !== null) {
+        const params = searchParams ?? {};
+        const askedParty = first(params["party"]);
+        // VALIDATED BY MEMBERSHIP, never parsed: a party has to be one this election returned or ran.
+        const party =
+          askedParty !== undefined &&
+          (s.view.legend.some((l) => l.key === askedParty) ||
+            s.view.voteSeat.some((r) => r.party.key === askedParty))
+            ? askedParty
+            : null;
+        const askedBand = first(params["band"]);
+        // Party and band are mutually exclusive — two isolations on one map is two answers to one question.
+        const band =
+          party === null && askedBand !== undefined && MARGIN_BANDS.some((b) => b.key === askedBand)
+            ? askedBand
+            : null;
+        const askedDistrict = first(params["district"]);
+        const district =
+          askedDistrict !== undefined && s.view.seats.some((x) => x.districtId === askedDistrict)
+            ? askedDistrict
+            : null;
+        const askedSeat = first(params["seat"]);
+        const seat =
+          askedSeat !== undefined && s.view.seats.some((x) => x.placeId === askedSeat) ? askedSeat : null;
+        const askedMode = first(params["mode"]);
+        const mode: MapMode =
+          askedMode === "flips" && s.view.flips === null
+            ? "winners"
+            : isMode(askedMode)
+              ? askedMode
+              : "winners";
+
+        return (
+          <Shell here="place">
+            <Crumbs trail={view.trail} />
+            <StateSurface
+              name={view.name}
+              view={s.view}
+              trajectory={s.trajectory}
+              selection={{ mode, party, band, district, seat }}
+              hrefFor={(change) => link(base, searchParams, change)}
+            />
+            <Foot />
+          </Shell>
+        );
+      }
+    }
+
     // The electoral map, for a STATE. A district page is a list of its seats and has no map of its own: the
     // district level of the map is reached by selecting a district on the state's map, which reframes it.
     const read = view.level === "state" ? readMap(segments[0] as string, searchParams ?? {}) : null;

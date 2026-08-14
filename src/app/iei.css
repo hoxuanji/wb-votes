@@ -1981,11 +1981,15 @@ html {
   font-size: var(--iei-f-meta);
 }
 
-/* Sibling elections in the footer: a compact year strip, so moving between cycles is one click. */
+/* Sibling elections as a compact year strip, so moving between cycles is one click and the complete set is
+   reachable without a seventeen-row table. */
 .iei-sibs {
   display: flex;
   flex-wrap: wrap;
   gap: var(--iei-2);
+  list-style: none;
+  margin: 0;
+  padding: 0;
   font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
 }
@@ -1995,6 +1999,299 @@ html {
      the 21 bars stop being a shape and start being a row of ticks — so there is no height override here. */
   .iei-flipmx li {
     grid-template-columns: minmax(0, 1fr) 2.5rem auto;
+  }
+}
+
+/* ══ the state intelligence surface ═══════════════════════════════════════════════════════════════
+
+   Shares every token with the election route. What is new is a hero that leads with the RESULT rather than
+   with the place name, a competitiveness bar of five bands, and a trajectory of small multiples. */
+
+/* ── hero ── */
+
+.iei-hero-result {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: var(--iei-2) var(--iei-4);
+  margin-top: var(--iei-3);
+}
+
+.iei-hero-party {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iei-2);
+  font-size: var(--iei-f-lead);
+  color: var(--iei-ink);
+}
+
+.iei-hero-seats {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-lead);
+  color: var(--iei-ink);
+}
+
+.iei-hero-meta {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+}
+
+/* ── competitiveness bands ──
+   A SEGMENTED BAR, and the segment widths are seat COUNTS (flex-grow), not band widths. The bands are
+   deliberately unequal — under 1%, 1-2%, 2-5%, 5-10%, safe — so a histogram of them would lie about area.
+   This encodes the one thing a reader wants: how much of the house is actually in play. */
+
+.iei-bands-bar {
+  display: flex;
+  height: var(--iei-3);
+  border-radius: var(--iei-r);
+  overflow: hidden;
+  gap: 1px;
+}
+
+.iei-bands-bar > a {
+  display: block;
+  min-width: 2px;
+}
+
+.iei-bands-key {
+  list-style: none;
+  margin: var(--iei-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2) var(--iei-3);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+}
+
+.iei-bands-key a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--iei-ink-2);
+  text-decoration: none;
+}
+
+.iei-bands-key a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-bands-key b {
+  color: var(--iei-ink);
+}
+
+/* ── districts, as a control rather than a table ── */
+
+.iei-districts summary {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+}
+
+.iei-district-list {
+  list-style: none;
+  margin: var(--iei-2) 0 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: var(--iei-1) var(--iei-3);
+  font-size: var(--iei-f-meta);
+}
+
+.iei-district-list li {
+  display: flex;
+  align-items: baseline;
+  gap: var(--iei-1);
+}
+
+/* The arrow to a district's own page. Quiet, because the common action is the reframe beside it. */
+.iei-district-open {
+  color: var(--iei-ink-3);
+  text-decoration: none;
+  font-family: var(--iei-mono);
+}
+
+.iei-district-open:hover {
+  color: var(--iei-ink);
+}
+
+.iei-district-list > li > a:first-child {
+  flex: 1 1 auto;
+}
+
+.iei-district-list a {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--iei-2);
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  padding: 2px 0;
+}
+
+.iei-district-list a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-district-list b {
+  font-family: var(--iei-mono);
+  color: var(--iei-ink-3);
+}
+
+/* ── the party landscape's paired bars ──
+   Pale bar = vote share, solid bar = seat share, on one baseline. A solid bar longer than its pale one IS
+   the finding: the system rewarded that party. No number needed to see it. */
+
+.iei-partyrows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-2);
+}
+
+.iei-partyrows li {
+  display: grid;
+  grid-template-columns: 7.5rem minmax(0, 1fr) 4rem;
+  align-items: center;
+  gap: var(--iei-2);
+  font-size: var(--iei-f-data);
+}
+
+.iei-partyrows a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iei-partyrows a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-partyrows-bars {
+  display: grid;
+  gap: 2px;
+}
+
+.iei-partyrows-vote,
+.iei-partyrows-seat {
+  display: block;
+  height: var(--iei-1);
+  border-radius: var(--iei-r);
+  min-width: 1px;
+}
+
+.iei-partyrows-vote {
+  background: var(--iei-line-2);
+}
+
+.iei-partyrows-n {
+  font-family: var(--iei-mono);
+  text-align: right;
+  color: var(--iei-ink);
+}
+
+.iei-partyrows-n i {
+  font-style: normal;
+  font-size: var(--iei-f-mark);
+  margin-left: 0.35rem;
+}
+
+.iei-up {
+  color: var(--iei-good);
+}
+
+.iei-down {
+  color: var(--iei-alert);
+}
+
+/* ── trajectory small multiples ── */
+
+.iei-traj {
+  display: grid;
+  gap: var(--iei-1);
+}
+
+.iei-traj-head {
+  margin-bottom: var(--iei-2);
+}
+
+.iei-traj-row {
+  display: grid;
+  grid-template-columns: 6.5rem minmax(0, 1fr) 2.5rem;
+  align-items: center;
+  gap: var(--iei-2);
+  text-decoration: none;
+  color: var(--iei-ink-2);
+  padding: 2px 0;
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-traj-row:hover {
+  color: var(--iei-ink);
+  background: var(--iei-raised);
+}
+
+.iei-traj-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: var(--iei-f-meta);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A SPARKLINE BAND. `preserveAspectRatio: none` is safe because the only marks are polylines with
+   non-scaling strokes and no glyphs — the same reason the margin histogram may stretch. */
+.iei-traj-svg {
+  height: 26px;
+  width: 100%;
+  overflow: visible;
+}
+
+.iei-traj-svg polyline,
+.iei-traj-svg circle {
+  vector-effect: non-scaling-stroke;
+}
+
+.iei-traj-now {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  text-align: right;
+  color: var(--iei-ink);
+}
+
+.iei-traj-axis {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--iei-2);
+  margin-top: var(--iei-1);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+.iei-traj-break {
+  color: var(--iei-warn);
+}
+
+/* One seat, outlined because a list row asked for it. */
+.iei-seat-focus {
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+@media (max-width: 900px) {
+  .iei-partyrows li {
+    grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
+  }
+
+  .iei-traj-row {
+    grid-template-columns: 5rem minmax(0, 1fr) 2.2rem;
   }
 }
 

@@ -73,6 +73,17 @@ export type ElectionSeat = {
   reservation: string | null;
   jurisdictionId: string | null;
   jurisdictionName: string | null;
+  /**
+   * The district this seat sits in, as a GROUPING and nothing more.
+   *
+   * A district does not elect anybody — its constituencies do — so nothing downstream may colour a
+   * district by a winner. What it is good for is focus: selecting one reframes the map to the bounding box
+   * of ITS OWN SEATS, which needs no district geometry at all. That matters, because the registry holds
+   * district outlines for West Bengal only (19 of 25) and in a different projection from the
+   * constituencies, so drawing them is not an option this data supports.
+   */
+  districtId: string | null;
+  districtName: string | null;
   partyKey: string | null;
   partyLabel: string | null;
   winnerName: string | null;
@@ -159,6 +170,8 @@ type SeatSql = {
   reservation: string | null;
   jurisdictionId: string | null;
   jurisdictionName: string | null;
+  districtId: string | null;
+  districtName: string | null;
   partyKey: string | null;
   partyLabel: string | null;
   winnerName: string | null;
@@ -195,7 +208,7 @@ export function electionChoices(db: DatabaseSync, limit = 60): ElectionChoice[] 
 }
 
 /** A frame that fits these paths, with a margin, in the shared projection. */
-function frameOf(paths: readonly string[]): string {
+export function frameOf(paths: readonly string[]): string {
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -274,6 +287,7 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
       `SELECT pv.place_id AS placeId, pv.id AS versionId, pv.epoch_id AS epochId, c.id AS contestId,
               pv.canonical_name AS name, pv.number AS number, pv.reservation AS reservation,
               pv.jurisdiction_id AS jurisdictionId, j.canonical_name AS jurisdictionName,
+              pv.district_place_id AS districtId, dis.canonical_name AS districtName,
               ${KEY_SQL} AS partyKey, ${LABEL_SQL} AS partyLabel,
               per.canonical_name AS winnerName, r.votes AS votes,
               ${RUNNER(`COALESCE(pt2.id, NULLIF(cd2.party_raw, ''), 'unattached')`)} AS runnerUpKey,
@@ -285,6 +299,7 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
          FROM contest c
          JOIN place_version pv ON pv.id = c.place_version_id
          LEFT JOIN place j     ON j.id = pv.jurisdiction_id
+         LEFT JOIN place dis   ON dis.id = pv.district_place_id
          LEFT JOIN result r    ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1
          LEFT JOIN candidacy cd ON cd.id = r.candidacy_id
          LEFT JOIN person per   ON per.id = cd.person_id
@@ -360,6 +375,8 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
         reservation: r.reservation,
         jurisdictionId: r.jurisdictionId,
         jurisdictionName: r.jurisdictionName,
+        districtId: r.districtId,
+        districtName: r.districtName,
         partyKey: r.partyKey,
         partyLabel: r.partyLabel,
         winnerName: r.winnerName,
@@ -554,6 +571,105 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
       },
     };
   });
+}
+
+
+/* ───────────────────── competitiveness bands, and districts as groupings ───────────────────── */
+
+/**
+ * Named margin bands, for SELECTING rather than for comparing area.
+ *
+ * The 2-point histogram bins show the distribution's SHAPE and are uniform because area in a histogram is
+ * read whether the axis invites it or not. These are a different instrument: a filter with five rungs a
+ * reader already thinks in — under a point, a point or two, up to five, up to ten, and safe. They are
+ * deliberately NOT uniform, which is exactly why they are drawn as a segmented bar of counts and never as
+ * a histogram: the width of a segment here encodes how many seats fall in it, not how wide the band is.
+ */
+export const MARGIN_BANDS: readonly { key: string; label: string; lo: number; hi: number | null }[] = [
+  { key: "under1", label: "under 1%", lo: 0, hi: 1 },
+  { key: "1to2", label: "1–2%", lo: 1, hi: 2 },
+  { key: "2to5", label: "2–5%", lo: 2, hi: 5 },
+  { key: "5to10", label: "5–10%", lo: 5, hi: 10 },
+  { key: "over10", label: "10% and safer", lo: 10, hi: null },
+];
+
+export function bandOf(marginPct: number | null): string | null {
+  if (marginPct === null) return null;
+  for (const b of MARGIN_BANDS) {
+    if (marginPct >= b.lo && (b.hi === null || marginPct < b.hi)) return b.key;
+  }
+  return null;
+}
+
+export function isBand(v: string | undefined): boolean {
+  return MARGIN_BANDS.some((b) => b.key === v);
+}
+
+export type BandCount = { key: string; label: string; n: number };
+
+export function marginBandCounts(seats: readonly ElectionSeat[]): BandCount[] {
+  const counts = new Map<string, number>();
+  for (const s of seats) {
+    const k = bandOf(s.marginPct);
+    if (k !== null) counts.set(k, (counts.get(k) ?? 0) + 1);
+  }
+  return MARGIN_BANDS.map((b) => ({ key: b.key, label: b.label, n: counts.get(b.key) ?? 0 }));
+}
+
+export function seatsInBand(seats: readonly ElectionSeat[], band: string | null): ElectionSeat[] {
+  if (band === null) return [];
+  return seats.filter((s) => bandOf(s.marginPct) === band);
+}
+
+/**
+ * A district, as the set of seats inside it.
+ *
+ * Note what is absent, and it is the same absence `DistrictTally` has carried since the state map was
+ * built: there is no `winner` field. A district elects nobody. `parties` is plural because the honest
+ * sentence is "12 of 18 constituencies went to INC".
+ */
+export type DistrictGroup = {
+  id: string;
+  name: string;
+  seats: number;
+  parties: { key: string; label: string; n: number }[];
+};
+
+export function districtGroups(seats: readonly ElectionSeat[]): DistrictGroup[] {
+  const byId = new Map<string, { id: string; name: string; rows: ElectionSeat[] }>();
+  for (const s of seats) {
+    if (s.districtId === null) continue;
+    const at = byId.get(s.districtId) ?? {
+      id: s.districtId,
+      name: s.districtName ?? s.districtId,
+      rows: [],
+    };
+    at.rows.push(s);
+    byId.set(s.districtId, at);
+  }
+  return [...byId.values()]
+    .map((d) => {
+      const counts = new Map<string, { key: string; label: string; n: number }>();
+      for (const r of d.rows) {
+        if (r.partyKey === null) continue;
+        const at = counts.get(r.partyKey) ?? { key: r.partyKey, label: r.partyLabel ?? r.partyKey, n: 0 };
+        at.n += 1;
+        counts.set(r.partyKey, at);
+      }
+      return {
+        id: d.id,
+        name: d.name,
+        seats: d.rows.length,
+        parties: [...counts.values()].sort((a, b) => b.n - a.n || a.key.localeCompare(b.key)),
+      };
+    })
+    .sort((a, b) => a.name.localeCompare(b.name));
+}
+
+/** The seats of one district, or every seat when nothing is focused. */
+export function seatsInDistrict(seats: readonly ElectionSeat[], districtId: string | null): ElectionSeat[] {
+  if (districtId === null) return [...seats];
+  return seats.filter((s) => s.districtId === districtId);
 }
 
 /** The findings a header can state without re-deriving anything. */

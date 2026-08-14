@@ -226,6 +226,9 @@ test("every length in the stylesheet comes from the scale", () => {
     "320px", // the map's minimum column before the split stacks
     "640px", // the authored width of a chart's viewBox, so its type is not scaled up
     "200px", // the narrowest a metric tile may be before the grid drops a column
+    "140px", // the narrowest a district name may be laid out in before the state page's grid drops a column.
+             // A mark, not spacing: it is the measure of the longest district name the registry holds
+             // ("SOUTH 24 PARGANAS") at the size that list renders, so it is a property of the data.
     "1040px", // the reading measure
     "760px", // the floor under a table whose columns hold prose
     "300px",

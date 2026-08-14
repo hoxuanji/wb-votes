@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { INDIA_SHAPES } from '../../lib/india-geo.ts';
 import { fillFor, NOT_HELD } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { NATIONAL, simplified } from '../../../packages/mandate/src/viz/simplify.ts';
+import { bandOf, frameOf } from '../../../packages/mandate/src/repo/election-map.ts';
 import { SEQUENTIAL } from '../../../packages/mandate/src/repo/home.ts';
 import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
 
@@ -150,19 +151,42 @@ export function ElectionMap({
   highlight = null,
   /** A margin bin whose seats stay saturated. Set from the histogram, so a bar selects on the map. */
   bin = null,
+  /** A named competitiveness band whose seats stay saturated. The state page's coarser equivalent of `bin`. */
+  band = null,
+  /**
+   * A district to REFRAME on. Never drawn: a district elects nobody, and the registry holds outlines for one
+   * state only, in another projection. The frame comes from the district's OWN SEATS, which needs no district
+   * geometry at all and cannot be out of date with the constituencies.
+   */
+  district = null,
+  /** One seat outlined, set from the list so a row can point at the map. */
+  focusSeat = null,
 }: {
   view: ElectionMapView;
   mode: MapMode;
   highlight?: string | null;
   bin?: number | null;
+  band?: string | null;
+  district?: string | null;
+  focusSeat?: string | null;
 }) {
-  const { viewBox } = view.geometry;
-  const aspect = aspectOf(viewBox);
   const drawable = view.seats.filter((s) => s.path !== null);
   const national = view.election?.house === 'pc';
+  // A district focus reframes to its own seats. Falling back to the whole election when a district has
+  // nothing drawable is deliberate: an empty frame would zoom to nothing.
+  const inFocus = district === null ? [] : drawable.filter((s) => s.districtId === district);
+  const viewBox = inFocus.length > 0 ? frameOf(inFocus.map((s) => s.path as string)) : view.geometry.viewBox;
+  const aspect = aspectOf(viewBox);
 
-  /** Whether a seat is dimmed by the active selection. Party and bin never apply at once. */
+  /**
+   * Whether a seat is dimmed by the active selection.
+   *
+   * ONE PRECEDENCE ORDER, shared with the page's derived subset so the map and the list can never disagree
+   * about what is selected: a district narrows first (geographic), then a band or a party filters within it.
+   */
   const muted = (s: ElectionSeat): boolean => {
+    if (district !== null && s.districtId !== district) return true;
+    if (band !== null) return bandOf(s.marginPct) !== band;
     if (bin !== null) return s.marginBin !== bin;
     if (highlight === null) return false;
     return mode === 'runnerup' ? s.runnerUpKey !== highlight : s.partyKey !== highlight;
@@ -194,7 +218,12 @@ export function ElectionMap({
           <g className="iei-map-fills">
             {drawable.map((s) => {
               const shape = (
-                <path d={s.path as string} fill={inkOf(s, mode)} opacity={muted(s) ? 0.18 : 1}>
+                <path
+                  d={s.path as string}
+                  fill={inkOf(s, mode)}
+                  opacity={muted(s) ? 0.18 : 1}
+                  className={s.placeId === focusSeat ? 'iei-seat-focus' : undefined}
+                >
                   <title>{titleOf(s, mode)}</title>
                 </path>
               );
