@@ -1706,6 +1706,55 @@ html {
   stroke-width: 2.25;
 }
 
+/* ── the national electoral map: 492 parliamentary seats in the state map's projection ──
+
+   Its own block rather than a reuse of `.iei-map-state`, because the geometry is the same but the scale is
+   not: a parliamentary seat is about 9 device pixels on this frame against a constituency's 30-odd inside a
+   state, so the separating hairline that keeps 294 assembly fills from reading as one blob would consume a
+   national seat entirely. Measured, not guessed: at 0.6 units the smallest seats disappeared under their own
+   outline. 0.25 is the width at which a cluster still separates and a small seat survives. */
+.iei-map-national svg {
+  max-height: var(--iei-map-h);
+  max-width: 100%;
+  height: auto;
+}
+
+/* The country under the seats. Not decoration: 51 of 543 seats have no polygon the registry may draw them
+   on, and without a backdrop those read as holes in the page rather than as gaps in the map. Same ink as a
+   jurisdiction that held no election, which is what they are — unlit, and deliberately below the mark floor
+   so an absence cannot be mistaken for a value. */
+.iei-map-national .iei-map-canvas path {
+  stroke: none;
+}
+
+.iei-map-national .iei-map-fills path {
+  stroke: var(--iei-bg);
+  stroke-width: 0.25;
+}
+
+.iei-map-national .iei-map-fills a:hover path {
+  stroke: var(--iei-ink);
+  stroke-width: 1.25;
+}
+
+.iei-map-national .iei-map-fills a:focus-visible {
+  outline: none;
+}
+
+.iei-map-national .iei-map-fills a:focus-visible path {
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+}
+
+/* State borders over the seats, so the country stays readable through 492 small polygons. Lighter than the
+   national government map's, which has nothing but states to draw and can afford a heavier line. */
+.iei-map-national .iei-map-borders path {
+  fill: none;
+  stroke: var(--iei-bg);
+  stroke-width: 0.7;
+  opacity: 0.85;
+}
+
 /* ── legend ── */
 
 .iei-legend {
