@@ -57,6 +57,11 @@ export type StateTrajectory = {
   epochBreaks: { afterYear: number; fromEpoch: string; toEpoch: string }[];
 };
 
+/** How many of the most recent elections count as "now" for the presence test below. */
+const RECENT = 3;
+/** Vote share that earns a party a row even with no seats. A party this size is a fact about the state. */
+const PRESENT_PCT = 5;
+
 /**
  * Split a party's points wherever the epoch changes.
  *
@@ -198,6 +203,24 @@ export function stateTrajectory(
        * ones a state page exists to show.
        */
       .filter((p) => p.contested >= 2)
+      /**
+       * AND PRESENT IN LIVING MEMORY, which `contested >= 2` does not require.
+       *
+       * Karnataka's chart rendered six rows and THREE OF THEM WERE FLAT LINES AT ZERO — CPM, ADMK and CPI,
+       * whose last Karnataka seats were won in the 1970s and 80s. They passed `contested >= 2` on that
+       * ancient record and then out-ranked nobody, because ranking falls to `contested` once `latestSeats`
+       * ties at zero and a party with a long dead past has a lot of it. Half the figure was empty rows, and
+       * an empty row is worse than an absent one: it spends a line of the reader's attention saying nothing.
+       *
+       * NOT A SEAT TEST, deliberately. A party polling 18% and winning nothing is one of the most
+       * interesting things a state chart can show — it is the exact asymmetry the vote-vs-seat plot beside
+       * this one exists for — so vote share earns a row on its own. What is excluded is a party that has
+       * neither seats nor votes now, which is a party this chart has nothing to draw.
+       */
+      .filter((p) => {
+        const window = p.points.slice(-RECENT);
+        return window.some((pt) => pt.seats > 0 || (pt.votePct ?? 0) >= PRESENT_PCT);
+      })
       .sort((a, b) => b.latestSeats - a.latestSeats || b.contested - a.contested || a.key.localeCompare(b.key))
       .slice(0, limit);
 

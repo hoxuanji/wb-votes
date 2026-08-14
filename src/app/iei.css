@@ -1750,14 +1750,32 @@ html {
   stroke: none;
 }
 
+/* ── THE BOUNDARY HIERARCHY, and it is four weights rather than four colours ──
+ *
+ *   winner fill              the loudest thing, always
+ *     constituency seam      0.6px, the canvas colour — a SEAM, not a border
+ *     district silhouette    1.1px, only the focused one, drawn under the fills
+ *     state edge             1.3px, an ink line, so it reads as drawn rather than as a gap
+ *   selected constituency    2.5px ink, unmistakable
+ *
+ * 0.25px was the old constituency weight and at that width it is not there: Karnataka's 224 seats rendered
+ * as three or four continuous party-coloured blobs because every adjacent same-party pair merged. A reader
+ * could not count seats, which is most of what a constituency map is for. 0.6px separates them and is still
+ * quiet enough that the picture reads as territory rather than as a mesh — the failure in the other
+ * direction, and the one the brief names.
+ *
+ * The seam stays the CANVAS colour on purpose. A seam in the background colour reads as space between two
+ * shapes; the same weight in ink would read as a line drawn around each of 224 things, which is the GIS
+ * look. Only the state edge is allowed to be an actual line, because a state edge is an actual boundary. */
 .iei-map-national .iei-map-fills path {
   stroke: var(--iei-bg);
-  stroke-width: 0.25;
+  stroke-width: 0.6;
 }
 
 .iei-map-national .iei-map-fills a:hover path {
   stroke: var(--iei-ink);
-  stroke-width: 1.25;
+  stroke-width: 1.6;
+  filter: brightness(1.12);
 }
 
 .iei-map-national .iei-map-fills a:focus-visible {
@@ -1771,11 +1789,32 @@ html {
 
 /* State borders over the seats, so the country stays readable through 492 small polygons. Lighter than the
    national government map's, which has nothing but states to draw and can afford a heavier line. */
+/* THE STRONGEST BOUNDARY, and the only one drawn as a line. An ink stroke rather than the canvas colour:
+   at 0.7px of near-black over 492 constituencies the country's own outline disappeared into the seams
+   between seats, which is the one thing a national constituency map cannot afford — 543 small polygons stop
+   being India and become confetti. */
 .iei-map-national .iei-map-borders path {
   fill: none;
-  stroke: var(--iei-bg);
-  stroke-width: 0.7;
-  opacity: 0.85;
+  stroke: var(--iei-ink-3);
+  stroke-width: 1.3;
+  opacity: 0.9;
+}
+
+/* THE FOCUSED DISTRICT'S SILHOUETTE.
+ *
+ * Every seat of the district, concatenated into one path and drawn BENEATH the fills with a wide stroke. The
+ * fills then cover the interior half of that stroke, so what survives is the outer edge of the union — a
+ * real district outline out of geometry we already have, at the cost of one path.
+ *
+ * Why not all districts at once: the same trick for Karnataka's 31 districts would double the map's
+ * geometry bytes, and this codebase has already had one 934 kB page. A district outline earns its bytes when
+ * a district is SELECTED, which is the only moment its edge answers a question the reader asked. */
+.iei-map-district path {
+  fill: none;
+  stroke: var(--iei-ink-2);
+  stroke-width: 2.2;
+  opacity: 0.55;
+  pointer-events: none;
 }
 
 /* ══ the election route's figures ══════════════════════════════════════════════════════════════════
@@ -2265,8 +2304,11 @@ html {
 
 /* A SPARKLINE BAND. `preserveAspectRatio: none` is safe because the only marks are polylines with
    non-scaling strokes and no glyphs — the same reason the margin histogram may stretch. */
+/* 44px, not 26. At 26 a 31-point swing in seat share was eight pixels of travel and every line read as
+   flat — the height was carrying a range it could not resolve. This is the smallest band in which the
+   chart's largest real movement is unmistakable, which is the only justification a size needs. */
 .iei-traj-svg {
-  height: 26px;
+  height: 44px;
   width: 100%;
   overflow: visible;
 }
@@ -2274,6 +2316,12 @@ html {
 .iei-traj-svg polyline,
 .iei-traj-svg circle {
   vector-effect: non-scaling-stroke;
+}
+
+/* The area under a seat line. Beneath the stroke, so the line stays the precise edge and the fill is only
+   the quantity underneath it. */
+.iei-traj-svg polygon {
+  stroke: none;
 }
 
 .iei-traj-now {
@@ -2297,10 +2345,12 @@ html {
   color: var(--iei-warn);
 }
 
-/* One seat, outlined because a list row asked for it. */
+/* One seat, outlined because a list row asked for it. THE TOP OF THE HIERARCHY, so it has to beat a hover
+   (1.6px) and the state edge (1.3px) without being a black box: the widest stroke on the map, in the
+   brightest ink, and nothing else on the figure is allowed to look like it. */
 .iei-seat-focus {
   stroke: var(--iei-ink);
-  stroke-width: 2;
+  stroke-width: 2.5;
   vector-effect: non-scaling-stroke;
 }
 

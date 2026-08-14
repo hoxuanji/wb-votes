@@ -15,7 +15,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import * as stateMap from "./state-map.ts";
@@ -978,4 +978,33 @@ test("exactly one election in the registry fails the corroboration rule", live, 
   ).map((r) => r.id);
   const flagged = [...unverifiedTurnout(db, ids)].sort();
   assert.deepEqual(flagged, ["wb-assembly-2026"], `the corroboration rule now flags ${flagged.length}`);
+});
+
+test("no SVG title is assembled from several nodes, on any figure", live, () => {
+  /**
+   * A `<title>` written as several JSX children arrives at the DOM as an ARRAY, and a browser renders the
+   * whole array — comment markers and all — as the tooltip string, then hydration mismatches on it. Both of
+   * the election figures had one, and every text assertion in this file passed over it, because the rendered
+   * output still contained the right words in the right order. Only a browser complained.
+   *
+   * So this test listens the way the browser does: React writes the warning to STDERR, which means the
+   * check is "render and find nothing on stderr" — and that covers every figure added later, not just the
+   * two that happened to be wrong.
+   */
+  for (const [route, query, segs] of [
+    ["/pl", "", "ka"],
+    ["/election", "", "ka-assembly-2023"],
+    ["/", "", ""],
+  ] as const) {
+    const r = spawnSync(
+      process.execPath,
+      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", route, query, segs],
+      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+    assert.equal(r.status, 0, `${route} ${segs} failed to render:\n${r.stderr}`);
+    const noise = (r.stderr ?? "")
+      .split("\n")
+      .filter((l) => /Warning:/.test(l) && !/MODULE_TYPELESS_PACKAGE_JSON/.test(l));
+    assert.deepEqual(noise, [], `${route} ${segs} rendered with React warnings`);
+  }
 });

@@ -86,9 +86,10 @@ export function MarginDistribution({
                   stroke={on ? 'var(--iei-ink)' : 'none'}
                   strokeWidth={on ? 0.5 : 0}
                 />
-                <title>
-                  {b.overflow ? `${b.lo}% and wider` : `${b.lo}–${b.hi}%`} — {b.n} seat{b.n === 1 ? '' : 's'}
-                </title>
+                {/* ONE TEXT NODE. An SVG <title> built from several JSX children arrives as an array, and a
+                    browser renders the whole array — markup, comment nodes and all — as the tooltip text,
+                    then hydration mismatches. React warns about it; the fix is to interpolate first. */}
+                <title>{`${b.overflow ? `${b.lo}% and wider` : `${b.lo}–${b.hi}%`} — ${b.n} seat${b.n === 1 ? '' : 's'}`}</title>
               </g>
             </Link>
           );
@@ -229,12 +230,13 @@ export function VoteSeatPlot({
                 <text x={cx + 9} y={ly} className="iei-vs-tag">
                   {r.party.label.length > 12 ? `${r.party.label.slice(0, 11)}…` : r.party.label}
                 </text>
+                {/* One text node — see the histogram's title above for what an array does here. */}
                 <title>
-                  {r.party.label}: {(r.votePct as number).toFixed(1)}% of the vote, {r.seatPct.toFixed(1)}% of
-                  the seats ({r.seats} of {r.contested}) —{' '}
-                  {r.deltaPp === null
-                    ? 'no comparison'
-                    : `${r.deltaPp > 0 ? '+' : '−'}${Math.abs(r.deltaPp).toFixed(1)} points`}
+                  {`${r.party.label}: ${(r.votePct as number).toFixed(1)}% of the vote, ` +
+                    `${r.seatPct.toFixed(1)}% of the seats (${r.seats} of ${r.contested}) — ` +
+                    (r.deltaPp === null
+                      ? 'no comparison'
+                      : `${r.deltaPp > 0 ? '+' : '−'}${Math.abs(r.deltaPp).toFixed(1)} points`)}
                 </title>
               </g>
             </Link>
@@ -428,7 +430,32 @@ export function Trajectory({
   const W = 320;
   const H = 40;
   const x = (yr: number) => ((yr - minY) / (maxY - minY || 1)) * W;
-  const y = (v: number) => H - (Math.min(v, 100) / 100) * H;
+  /**
+   * THE Y AXIS IS THE DATA'S RANGE, NOT 0–100, and that one line is why these read as flat.
+   *
+   * The domain used to be a hardcoded 0–100%. Karnataka's INC went from 65 seats to 135 — a 31-point move in
+   * seat share, the largest swing in the chart — and 31 of 100 units inside a 26px band is EIGHT PIXELS of
+   * travel. Every party's line was a nearly-horizontal scribble, so the figure showed direction and refused
+   * to show magnitude, which is the one thing a trajectory is for.
+   *
+   * ONE domain across every row, computed from every point drawn. Shared because these are small multiples:
+   * the comparison between rows is the whole reason they are stacked, and a per-row axis would make a
+   * one-seat party's wobble as tall as a governing party's landslide. Rounded up to a multiple of ten so the
+   * number printed on the axis is one a reader can hold, and floored at 10 so a state where nobody clears
+   * 4% does not amplify noise to full height.
+   */
+  const top = Math.max(
+    10,
+    Math.ceil(
+      Math.max(
+        ...data.parties.flatMap((p) =>
+          p.points.map((pt) => (metric === 'seatPct' ? pt.seatPct : pt.votePct) ?? 0),
+        ),
+        0,
+      ) / 10,
+    ) * 10,
+  );
+  const y = (v: number) => H - (Math.min(v, top) / top) * H;
 
   return (
     <div className="iei-traj">
@@ -469,10 +496,32 @@ export function Trajectory({
                   })
                   .filter((s): s is string => s !== null);
                 if (pts.length === 0) return null;
-                return pts.length === 1 ? (
-                  <circle key={ri} cx={Number(pts[0]?.split(',')[0])} cy={Number(pts[0]?.split(',')[1])} r={1.6} fill={fillFor(p.key)} />
-                ) : (
-                  <polyline key={ri} points={pts.join(' ')} fill="none" stroke={fillFor(p.key)} strokeWidth={1.6} />
+                if (pts.length === 1) {
+                  return (
+                    <circle key={ri} cx={Number(pts[0]?.split(',')[0])} cy={Number(pts[0]?.split(',')[1])} r={1.6} fill={fillFor(p.key)} />
+                  );
+                }
+                /**
+                 * SEATS ARE FILLED, VOTE SHARE IS A LINE — and the difference is not decoration.
+                 *
+                 * A seat count is an extent: a party holds this much of the house, and area is how a reader
+                 * reads "how much" at 44px without needing an axis. Vote share is a ratio moving over time,
+                 * which is a line. So the two metrics are now distinguishable at a glance instead of being
+                 * the same mark twice, and the filled one carries magnitude that the line only implies.
+                 */
+                const first = pts[0]?.split(',')[0] ?? '0';
+                const last = pts.at(-1)?.split(',')[0] ?? '0';
+                return (
+                  <g key={ri}>
+                    {metric === 'seatPct' ? (
+                      <polygon
+                        points={`${first},${H} ${pts.join(' ')} ${last},${H}`}
+                        fill={fillFor(p.key)}
+                        opacity={0.28}
+                      />
+                    ) : null}
+                    <polyline points={pts.join(' ')} fill="none" stroke={fillFor(p.key)} strokeWidth={1.6} />
+                  </g>
                 );
               })}
             </svg>
@@ -489,7 +538,11 @@ export function Trajectory({
         );
       })}
       <div className="iei-traj-axis" aria-hidden="true">
-        <span>{minY}</span>
+        {/* THE DOMAIN, PRINTED. A height with no stated scale is a shape, not a measurement — and every row
+            shares this one, so it is said once rather than per row. */}
+        <span>
+          {minY} · full height = {top}% of {metric === 'seatPct' ? 'seats' : 'votes'}
+        </span>
         {data.epochBreaks.length === 0 ? null : (
           <span className="iei-traj-break">
             {data.epochBreaks.length === 1 ? 'boundaries redrawn once' : `boundaries redrawn ${data.epochBreaks.length} times`}
