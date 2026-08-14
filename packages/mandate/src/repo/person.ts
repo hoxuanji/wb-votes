@@ -320,6 +320,37 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
   // search for "%" returns the whole registry.
   const escaped = latin.replace(/[\\%_]/g, (c) => `\\${c}`);
   const like = latin.length >= 3 ? `%${escaped}%` : null;
+  // For the closeness tier: the term with dots and doubled spaces removed, so "Md. Salim" and "MD SALIM"
+  // compare equal, and a prefix pattern for "starts with what was typed".
+  const exact = latin.replace(/\./g, "").replace(/ {2,}/g, " ").trim();
+  const prefix = `${escaped}%`;
+  /**
+   * HOW CLOSELY a name matches, which the ranking did not measure at all.
+   *
+   * THE DEFECT THIS FIXES: `name_match` is a boolean, so all 50 substring hits for "Md Salim" tied on it and
+   * prominence alone decided the order. The member of parliament whose name IS "MD SALIM" ranked
+   * SIXTY-EIGHTH, behind sixty-seven people whose names merely contain "salim" — SALEEM IQBAL SHERWANI,
+   * MOHAMAD SALIMUDDIN, SAMSIR UDDIN BARBHUIYA. A person is not the sixty-eighth best answer to their own
+   * name, and no amount of prominence weighting fixes a ranking with no notion of exactness in it.
+   *
+   * 3 exact · 2 starts with · 1 contains · 0 phonetic only. Dots and doubled spaces come out before the
+   * equality test, because "MD. SALIM" and "MD SALIM" are one name written two ways.
+   */
+  const closenessSql =
+    `(SELECT MAX(CASE
+                   WHEN lower(replace(replace(a5.name, '.', ''), '  ', ' ')) = ? THEN 3
+                   WHEN lower(a5.name) LIKE ? ESCAPE '\\' THEN 2` +
+    (like === null ? "" : `
+                   WHEN lower(a5.name) LIKE ? ESCAPE '\\' THEN 1`) +
+    `
+                   ELSE 0 END)
+        FROM (SELECT name FROM person_alias WHERE person_id = p.id
+              UNION ALL
+              -- THE PERSON'S OWN DISPLAY NAME, which neither tier consulted. md-salim is called
+              -- "MD SALIM" on the person row, and its alias rows spell it differently, so a search for
+              -- its exact name scored zero on both tiers and fell to the phonetic pile. A name a surface
+              -- will actually print is a name a search has to match.
+              SELECT p.canonical_name AS name) a5)`;
 
   if (keys.length === 0 && like === null) return [];
   // A term with no phonetic key still gets its substring tier, and vice versa, so neither branch may
@@ -350,6 +381,7 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
                   : `(SELECT MAX(CASE WHEN lower(a3.name) LIKE ? ESCAPE '\\' THEN 1 ELSE 0 END)
                         FROM person_alias a3 WHERE a3.person_id = p.id)`
               } AS name_match,
+              ${closenessSql} AS closeness,
               latest.election_id, latest.place_name, latest.party_short_name,
               latest.status, latest.votes, latest.vote_share, latest.is_winner,
               latest.result_source_id
@@ -371,6 +403,8 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
          ) latest ON latest.person_id = p.id AND latest.rn = 1
         WHERE ${keyClause} OR ${likeClause}
         ORDER BY name_match DESC,
+                 -- Exactness before prominence. See closenessSql above for the defect this fixes.
+                 closeness DESC,
                  -- Prominence, as far as this registry can honestly measure it. "Has ever won a
                  -- seat" is stable; "won the most recent one" is not — Mamata Banerjee did not win
                  -- her latest recorded contest, so ranking on that pushed a winning namesake above
@@ -383,6 +417,10 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
                  p.id
         LIMIT ?`,
       // Bind order follows the SELECT, then the WHERE, then the LIMIT.
+      ...(like === null ? [] : [like]),
+      // closeness: exact form, prefix pattern, and the contains pattern (only when there is one).
+      exact,
+      prefix,
       ...(like === null ? [] : [like]),
       ...keys,
       ...(like === null ? [] : [like]),
@@ -408,6 +446,7 @@ type PersonListSql = {
   name_source_id: string | null;
   /** 1 when a recorded name contains the search term. Absent for non-search callers. */
   name_match?: number | null;
+  closeness?: number | null;
 };
 
 function toPersonRow(r: PersonListSql): PersonRow {
