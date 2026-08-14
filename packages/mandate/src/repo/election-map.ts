@@ -28,6 +28,7 @@ import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
 import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
+import { placeHref } from "./place-page.ts";
 import type { Finding, PartyRef, SeatFlips, VoteSeatEfficiency } from "./findings.ts";
 import { NATIONAL, parse, simplified } from "../viz/simplify.ts";
 import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
@@ -205,11 +206,6 @@ type SeatSql = {
   path: string | null;
   viewBox: string | null;
 };
-
-/** The name slug a place path uses. Same rule as place-page.ts's, and it has to stay the same rule. */
-function slug(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, "-");
-}
 
 /** Every election addressable on this route, newest first. */
 export function electionChoices(db: DatabaseSync, limit = 60): ElectionChoice[] {
@@ -450,7 +446,30 @@ export function electionMapView(
             ? null
             : { from: was, changed: was.key !== r.partyKey },
         path,
-        href: r.jurisdictionId === null ? null : `/pl/${r.jurisdictionId}?seat=${slug(r.name)}`,
+        /**
+         * THE CONSTITUENCY'S OWN PAGE — and this link used to go nowhere useful at all.
+         *
+         * It was `/pl/${jurisdictionId}?seat=${slug(name)}`, which did two wrong things at once. It never
+         * left the state page, so INDIA -> STATE -> DISTRICT -> SEAT was severed at the last hop and no
+         * surface in the product linked to a constituency any more. And the parameter did not even work as
+         * a focus: the page compares `?seat=` against a `placeId`, never against a name slug, so clicking a
+         * seat on the map or in the list set a value that matched nothing and highlighted nothing.
+         *
+         * Through `placeHref`, so this is the SAME url the district page and the breadcrumb build. Inventing
+         * a second convention for the same destination is how a link 404s while its own test passes.
+         *
+         * A PARLIAMENTARY SEAT HAS NO PAGE OF ITS OWN, and that is why the district is tested here rather
+         * than left to `placeHref`. Place pages are `pv.kind = 'ac'`, and a pc version carries no district
+         * parent — so handing one to `placeHref` returns "/pl", which is the India page. Routing it through
+         * unguarded made every one of Lok Sabha 2024's 543 seats link to the front page. A pc seat goes to
+         * the state whose page actually holds its result.
+         */
+        href:
+          r.districtId !== null
+            ? placeHref({ kind: "ac", id: r.placeId, canonicalName: r.name, parentId: r.districtId })
+            : r.jurisdictionId === null
+              ? null
+              : `/pl/${r.jurisdictionId}`,
       };
     });
 

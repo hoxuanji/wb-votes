@@ -1055,3 +1055,79 @@ test("a district on the state page is reachable, and its link is not hidden in a
   const focused = text(render("/pl", "district=ka.bangalore", "ka"));
   assert.match(focused, /Open the .* district page/, "a focused district offers no prominent way in");
 });
+
+test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", live, () => {
+  /**
+   * REPORTED FROM USE, twice: districts did not open, and then "clicking on any constituency" did not
+   * either — "previously when we used to click on a map it used to redirect".
+   *
+   * Both were mine, and both came from one assumption I made without being asked: that the primary click on
+   * a district and on a seat was a FILTER on the state surface rather than navigation. So `ElectionSeat.href`
+   * was `/pl/<state>?seat=<name-slug>`, which
+   *
+   *   · never left the state page, severing the walk at its last hop — after which NOTHING in the product
+   *     linked to a constituency page, though the pages themselves worked perfectly, and
+   *   · did not even work as a focus, because the page compares `?seat=` against a placeId and never against
+   *     a name slug. The parameter matched nothing and highlighted nothing.
+   *
+   * Measured before the fix: ZERO constituency-page links on /pl/ka. After: 220.
+   *
+   * WHAT THIS TEST DOES THAT THE OLD ONES DID NOT: it walks. Each hop is followed to the next page and the
+   * page has to come back right. Three tests already asserted that seats and districts "have links" and all
+   * three passed throughout, because a link that goes to the wrong place is still a link.
+   */
+  const seg = (u: string): string => u.replace(/^\/pl\/?/, "");
+  const deepLinks = (html: string, depth: number): string[] => [
+    ...new Set(
+      [...html.matchAll(/href="(\/pl\/[^"?#]*)"/g)]
+        .map((m) => m[1] as string)
+        .filter((h) => seg(h).split("/").length === depth),
+    ),
+  ];
+
+  // INDIA -> STATE
+  const india = render("/");
+  assert.ok(deepLinks(india, 1).length > 0, "the front page links to no state at all");
+
+  // STATE -> DISTRICT, and STATE -> SEAT
+  const state = render("/pl", "", "ka");
+  const districts = deepLinks(state, 2);
+  const seats = deepLinks(state, 3);
+  assert.ok(districts.length >= 20, `${districts.length} district links on a 30-district state`);
+  assert.ok(
+    seats.length >= 200,
+    `${seats.length} constituency-page links on a 224-seat state — the walk is severed at the last hop`,
+  );
+
+  // FOLLOW THEM. A spread rather than all 224: the point is that the URL SHAPE resolves, and one broken
+  // shape breaks every link built the same way.
+  for (const url of [districts[0], districts[5], seats[0], seats[40], seats[150], seats.at(-1)]) {
+    if (url === undefined) continue;
+    const page = text(render("/pl", "", seg(url)));
+    assert.ok(!/not found/i.test(page), `${url} is a dead link`);
+    assert.ok(page.length > 400, `${url} rendered an empty page`);
+  }
+
+  // DISTRICT -> SEAT: the walk continues from a district page rather than dead-ending there.
+  const district = render("/pl", "", seg(districts[0] as string));
+  assert.ok(deepLinks(district, 3).length > 0, `${districts[0]} links to none of its own seats`);
+
+  /**
+   * AND A PARLIAMENTARY SEAT MUST NOT PRETEND TO HAVE A PAGE. Place pages are `pv.kind = 'ac'`; a pc
+   * version has no district parent, so routing one through `placeHref` returns "/pl" — the India page. That
+   * regression was live for the length of one command: all 543 of Lok Sabha 2024's seats linked to the front
+   * page. A pc seat goes to the state whose page holds its result.
+   */
+  const ls = render("/election", "", "ls-2024");
+  const lsLinks = [...ls.matchAll(/href="(\/pl[^"?#]*)"/g)].map((m) => m[1] as string);
+  assert.ok(lsLinks.length > 0, "the Lok Sabha map links nowhere");
+  assert.deepEqual(
+    [...new Set(lsLinks.filter((h) => h === "/pl" || h.includes("//")))],
+    [],
+    "a parliamentary seat is linking to the India page or to a url with an empty segment",
+  );
+  assert.ok(
+    lsLinks.some((h) => /^\/pl\/[a-z]+$/.test(h)),
+    "no parliamentary seat links to its state",
+  );
+});
