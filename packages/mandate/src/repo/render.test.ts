@@ -19,6 +19,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import * as stateMap from "./state-map.ts";
+import * as electionMap from "./election-map.ts";
 import * as home from "./home.ts";
 import { all } from "../db/index.ts";
 import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey } from "../viz/party-ink.ts";
@@ -536,39 +537,6 @@ test("URL state restores the map, and the layer strip carries it", live, () => {
 
 /* ────────────────────────────── the state's electoral map ────────────────────────────── */
 
-test("a state map answers who won each constituency, and says which election", live, () => {
-  // The heading has to carry WHAT, WHEN and at which LEVEL, and Karnataka is the complete case: 224 of 224
-  // constituencies, from a published boundary set, on the epoch its 2023 result was recorded under.
-  const t = text(render("/pl", "", "ka"));
-  assert.match(t, /Karnataka · Assembly winners · \d{4}/, "the state map does not name its layer and year");
-  assert.match(t, /Which party won each constituency\?/, "the state map does not state its claim");
-  // And it is a DIFFERENT claim from the national map's, which is the whole point of the phase.
-  assert.ok(!t.includes("Government"), "the state map is labelled with the national map's layer");
-  const html = render("/pl", "", "ka");
-  const fills = html.slice(html.indexOf('class="iei-map-fills"'));
-  assert.ok((fills.match(/<path /g) ?? []).length >= 220, "the state map draws almost no constituencies");
-  // A COMPLETE MAP SAYS NOTHING, which is the change: "224 of 224 constituencies drawn" is a sentence a
-  // reader can do nothing with, and printing it either way made an epoch caveat the last word under every map
-  // in the product.
-  assert.ok(!/constituencies drawn/.test(t), "a complete map still reports its own completeness");
-
-  // A SHORT ONE STILL SAYS SO, and THE FIGURE IS THE REGISTRY'S rather than a number in this file — asserting a
-  // literal would rot the moment the shortfall is fixed, and asserting nothing would let the caption drift
-  // from the data. West Bengal is the live case while any of its place_versions carry geometry the map has to
-  // withhold; a registry where nothing is withheld prints nothing, and that is correct too.
-  const wb = stateMap.stateMapView(db, "wb");
-  assert.ok(wb.geometry.drawable > 0, "West Bengal draws nothing");
-  const wbText = text(render("/pl", "", "wb"));
-  if (wb.geometry.drawable < wb.geometry.total) {
-    assert.match(
-      wbText,
-      new RegExp(`${wb.geometry.drawable} of ${wb.geometry.total} constituencies drawn`),
-      "the caption and the repository disagree about how much was drawn",
-    );
-  } else {
-    assert.ok(!/constituencies drawn/.test(wbText), "a complete map reports its own completeness");
-  }
-});
 
 test("a map draws polygons from one coordinate space, and says how many it withheld", live, () => {
   // `place_geometry.view_box` is per row because two geometry sources need not share a projection, and a map
@@ -596,47 +564,7 @@ test("a map draws polygons from one coordinate space, and says how many it withh
 });
 
 
-test("a state's Lok Sabha map exists, is a different geography, and says so", live, () => {
-  // The requirement: parliamentary constituency maps where parliamentary data exists. They were
-  // unreachable, because a general election belongs to the UNION — ls-2024's jurisdiction_place_id is `in` —
-  // and the state's election list filtered on that column, so a state was offered its parliamentary
-  // by-elections and never the Lok Sabha.
-  const html = render("/pl", "election=ls-2024", "wb");
-  const t = text(html);
-  assert.match(t, /West Bengal · Lok Sabha winners · 2024/, "the parliamentary map does not name its house");
-  const fills = html.slice(html.indexOf('class="iei-map-fills"'));
-  const drawn = (fills.match(/<path /g) ?? []).length;
-  assert.ok(drawn >= 40 && drawn <= 42, `${drawn} parliamentary polygons — West Bengal has 42`);
-  // 41 of 42 while one seat is short; nothing at all once it is not. Either is honest; a literal is not.
-  const wbPc = stateMap.stateMapView(db, "wb", { election: "ls-2024" });
-  if (wbPc.geometry.drawable < wbPc.geometry.total) {
-    assert.match(t, new RegExp(`${wbPc.geometry.drawable} of ${wbPc.geometry.total} constituencies drawn`));
-  }
 
-  // A DIFFERENT ELECTORAL GEOMETRY, not the assembly's. 42 polygons against 294, from a separately
-  // declared, separately hashed dataset.
-  const ac = render("/pl", "", "wb");
-  const acDrawn = (ac.slice(ac.indexOf('class="iei-map-fills"')).match(/<path /g) ?? []).length;
-  assert.ok(acDrawn > drawn * 4, "the parliamentary map is drawing assembly constituencies");
-  const v = stateMap.stateMapView(db, "wb", { election: "ls-2024" });
-  assert.deepEqual([...new Set(v.seats.map((x) => x.name))].length, v.seats.length);
-
-  // …and the house is selectable, so a reader can get here.
-  assert.match(ac, /href="\/pl\/wb\?election=ls-2024[^"]*"/, "the election selector does not offer the Lok Sabha");
-});
-
-test("the table beside the map answers for the geography the map is drawing", live, () => {
-  // A parliamentary constituency is not inside a district — district_place_id is null for every one — so
-  // the district tally rendered a caption promising districts above a table with no rows.
-  const pc = text(render("/pl", "election=ls-2024", "wb"));
-  assert.doesNotMatch(pc, /Districts in 2024/, "a Lok Sabha map still promises districts");
-  assert.match(pc, /42 parliamentary constituencies in 2024/, "the Lok Sabha map has no companion table");
-  assert.match(pc, /Cooch Behar/, "the constituency table has no rows");
-  // The assembly map keeps the district tally, and keeps refusing to give a district a winner.
-  const ac = text(render("/pl", "", "ka"));
-  assert.match(ac, /Districts in \d{4}/);
-  assert.match(ac, /\d+ of \d+ won by [A-Z]/);
-});
 
 test("the state page opens on the state's own house, not the newest election", live, () => {
   // Madhya Pradesh's newest assembly is 2018 and ls-2024 is newer. Offering the Lok Sabha here made
@@ -670,84 +598,9 @@ test("a state map's polygons name their publisher and their licence, in the draw
   assert.doesNotMatch(text(outside), /sha256/, "a hash is in the primary interface");
 });
 
-test("a historical election is not drawn on boundaries it never had", live, () => {
-  // The rule the brief states most firmly. It is enforced by the data model rather than by a check:
-  // place_geometry is keyed by place_version_id, and a contest names its own version — so a 2006 result can
-  // only resolve to a 1976-epoch version, for which the registry holds no polygon.
-  const t = text(render("/pl", "election=wb-assembly-2006", "wb"));
-  assert.match(t, /Assembly winners · 2006/, "the 2006 election did not load");
-  assert.match(t, /CPM\n176|CPM 176/, "the 2006 winners are missing");
-  // No constituency map, and the reason given rather than a map with holes.
-  assert.ok(!t.includes("constituencies drawn"), "a 2006 result was drawn on 2008 boundaries");
-  assert.match(t, /holds no constituency boundary|drawn neutral/, "the map does not say why it cannot draw");
-});
 
-test("a district is offered as a container, never as a winner", live, () => {
-  // The rule that must survive constituency geometry arriving: a district is where seats are, not a thing
-  // that won. Karnataka's district tally sits beside the constituency map now rather than instead of it.
-  const t = text(render("/pl", "", "ka"));
-  assert.match(t, /a district does not elect anybody/i, "the district table does not disclaim a district winner");
-  // Every tally row is a count of the seats inside, phrased as one.
-  assert.match(t, /\d+ of \d+ won by [A-Z]/, "no district tally is phrased as a count");
-  // And the forbidden phrasing is absent: not "Bangalore won by INC", in any form.
-  assert.ok(!/BANGALORE\nwon by/i.test(t), "a district is described as having been won");
-  assert.ok(!/District winner/i.test(t), "a district is given a winner");
 
-  // Where a jurisdiction has NO constituency geometry for the election shown, the map falls back to
-  // district outlines — and those carry no party fill, because the colour would be a claim about the
-  // district. Jharkhand's 2019 result is the case: the registry holds its 1976 boundaries and not its 2008
-  // ones, so there is nothing to colour and nothing is coloured.
-  const html = render("/pl", "", "jh");
-  assert.ok(html.includes("iei-map-neutral"), "Jharkhand drew constituencies it has no boundaries for");
-  const neutral = html.slice(html.indexOf("iei-map-neutral"));
-  assert.ok(!/fill="#[0-9a-f]{6}"/.test(neutral.slice(0, 4000)), "a district polygon carries a party colour");
-  assert.match(text(html), /holds no constituency boundary/, "Jharkhand does not say why it has no map");
-});
 
-test("selecting a district reframes the map, and the URL carries it", live, () => {
-  const ka = render("/pl", "district=ka.bangalore", "ka");
-  const t = text(ka);
-  assert.match(t, /Which party won each constituency in BANGALORE\?/, "the question did not follow the focus");
-  assert.match(t, /Framed on/, "the map does not say it is framed on a district");
-  // The frame is a real viewBox change, not a caption.
-  const whole = /viewBox="([^"]+)"/.exec(render("/pl", "", "ka"))?.[1] ?? "";
-  const framed = /viewBox="([^"]+)"/.exec(ka)?.[1] ?? "";
-  assert.notEqual(framed, whole, "focusing a district did not reframe the map");
-  const area = (v: string): number => {
-    const [, , w, h] = v.split(" ").map(Number);
-    return (w ?? 0) * (h ?? 0);
-  };
-  assert.ok(area(framed) < area(whole) * 0.5, "the framed map is not meaningfully closer in");
-
-  // THE FRAME COMES FROM THE DISTRICT'S OWN CONSTITUENCIES, which is what removed the defect this test used
-  // to assert. It used to read the 2011 census polygon for the district, joined by name — and the census
-  // calls Karnataka's BANGALORE "Bengaluru Urban", so the map could not frame it at all. There is no name
-  // join left to fail.
-  const px = framed.split(" ").map(Number);
-  const wx = whole.split(" ").map(Number);
-  assert.ok((px[0] ?? 0) >= (wx[0] ?? 0) - 1 && (px[1] ?? 0) >= (wx[1] ?? 0) - 1, "the district frame left the state");
-
-  // A district whose constituencies are ALL in the staged list cannot frame itself, and says so rather than
-  // falling back to a viewBox of the whole country — which is what an empty bounding box used to do.
-  const sk = render("/pl", "district=sk.sangha", "sk");
-  assert.match(text(sk), /no boundary here can frame/, "an unframeable focus is silent");
-  assert.equal(/viewBox="([^"]+)"/.exec(sk)?.[1], /viewBox="([^"]+)"/.exec(render("/pl", "", "sk"))?.[1]);
-
-  // Validated by membership: a district this state does not have is ignored rather than emptying the map.
-  assert.ok(!text(render("/pl", "district=nonsense", "ka")).includes("Framed on"), "a bogus district was honoured");
-});
-
-test("the election selector changes every part of the map's context together", live, () => {
-  const a = text(render("/pl", "", "wb"));
-  const b = text(render("/pl", "election=wb-assembly-2021", "wb"));
-  assert.notEqual(a, b, "changing the election changed nothing");
-  assert.match(b, /Assembly winners · 2021/, "the heading did not follow the election");
-  // The legend counts must be the 2021 counts, not the default election's.
-  assert.ok(!b.includes("BJP 192"), "the legend is showing another election's counts");
-  // The district tally is where a party's name and a count sit in one string; the legend renders the count in
-  // its own element, so `text()` puts it on the next line and a "TMC 213" match would be testing the helper.
-  assert.match(b, /won by TMC/, "the 2021 winners are missing");
-});
 
 /* ────────────────────────────── navigation ────────────────────────────── */
 
@@ -910,4 +763,155 @@ test("the render harness is test scaffolding and nothing imports it", () => {
     const body = readFileSync(new URL(`../../../../src/${f}`, import.meta.url), "utf8");
     assert.ok(!body.includes("ops/probe"), `src/${f} imports the render harness`);
   }
+});
+
+/* ══════════════════ the state intelligence surface ══════════════════════════════════════════════
+ *
+ * These replace seven tests that asserted the PREVIOUS state page's markup — a `stateMapView` map, a
+ * district tally table beside it, and specific caption strings. That page is gone, so those assertions
+ * were checking a shape rather than a promise. What is asserted here is what the surface owes a reader,
+ * which is the thing that must not regress even when the markup changes again:
+ *
+ *   the map exists and colours CONSTITUENCIES, not the state
+ *   an election can be chosen, and it is scoped to this state
+ *   a district navigates AND focuses
+ *   the selection is shared: party, band, flip and district all move the map
+ *   a comparison across a redraw is refused
+ *   evidence is offered once
+ */
+
+test("a state page draws constituencies, and colours them by who won each one", live, () => {
+  const html = render("/pl", "", "ka");
+  const t = text(html);
+  assert.match(t, /Which party won each seat\?/, "the state map does not state its claim");
+  // The national map's claim is about GOVERNMENT. A state map must never be labelled with it.
+  assert.ok(!/\bGovernment\b/.test(t), "the state map wears the national map's layer name");
+  const fills = html.slice(html.indexOf('class="iei-map-fills"'));
+  assert.ok((fills.match(/<path /g) ?? []).length >= 220, "Karnataka draws almost no constituencies");
+});
+
+test("a state's Lok Sabha view is that state's seats, not the whole country", live, () => {
+  // THE DEFECT THIS REPLACES: the state page asked for ls-2024 and got 543 seats, so a page titled West
+  // Bengal drew a map of India. A general election belongs to the nation and is fought in every state, so
+  // the state's view of it is the election SCOPED — and every aggregate has to be scoped with it.
+  const expected: Record<string, number> = { ka: 28, wb: 42, up: 80, as: 14, jk: 5 };
+  for (const [state, n] of Object.entries(expected)) {
+    const v = electionMap.electionMapView(db, "ls-2024", state);
+    assert.equal(v.seats.length, n, `${state} should hold ${n} parliamentary seats, got ${v.seats.length}`);
+    assert.equal(v.scope, state, `${state}'s view does not record its own scope`);
+    // A MAJORITY OF WHAT IS IN SCOPE. 22 of West Bengal's 42, never 272 of 543.
+    assert.equal(v.majority, Math.floor(n / 2) + 1, `${state}'s majority is not of its own seats`);
+    // Every seat really is inside the state.
+    assert.ok(
+      v.seats.every((s) => s.jurisdictionId === state),
+      `${state}'s scoped view contains a seat from elsewhere`,
+    );
+    // Vote share is over the votes cast in THESE contests, so it must still sum to about a whole.
+    const share = v.voteSeat.reduce((sum, r) => sum + (r.votePct ?? 0), 0);
+    if (v.voteSeat.length > 0) {
+      assert.ok(share > 80 && share < 101, `${state}'s scoped vote shares sum to ${share.toFixed(1)}`);
+    }
+  }
+  // And unscoped is still the whole election, so the parameter adds a view rather than changing the default.
+  assert.equal(electionMap.electionMapView(db, "ls-2024").seats.length, 543);
+});
+
+test("scoping an assembly election to its own state changes nothing", live, () => {
+  // The same contract has to serve both houses, or the two drift. An assembly election is already confined
+  // to one state, so the scope is a no-op — and asserting that is what proves there is ONE code path.
+  const wide = electionMap.electionMapView(db, "ka-assembly-2023");
+  const narrow = electionMap.electionMapView(db, "ka-assembly-2023", "ka");
+  assert.equal(narrow.seats.length, wide.seats.length);
+  assert.equal(narrow.majority, wide.majority);
+  assert.equal(narrow.flips?.flipped, wide.flips?.flipped);
+  assert.equal(narrow.legend[0]?.n, wide.legend[0]?.n);
+});
+
+test("a district both navigates and focuses, and is never given a winner", live, () => {
+  const html = render("/pl", "", "ka");
+  // NAVIGATION: a district still has its own page, and the state page still offers the path to it. Losing
+  // this severed INDIA -> STATE -> DISTRICT -> SEAT once already.
+  assert.match(html, /href="\/pl\/ka\/[^/"]+"/, "the state page offers no district page");
+  // FOCUS: and it can be selected in place, which is what scopes the analytics.
+  assert.match(html, /[?&]district=ka\./, "a district cannot be focused on the map");
+  // A DISTRICT NEVER WINS. The type carries no winner field, so this asserts the vocabulary too.
+  const v = electionMap.electionMapView(db, "ka-assembly-2023", "ka");
+  const groups = electionMap.districtGroups(v.seats);
+  assert.ok(groups.length > 0, "no districts grouped");
+  for (const g of groups) {
+    assert.ok(!("winner" in g), `${g.name} was given a winner`);
+    assert.equal(
+      g.parties.reduce((n, p) => n + p.n, 0) <= g.seats,
+      true,
+      `${g.name} attributes more seats than it holds`,
+    );
+  }
+});
+
+test("focusing a district scopes the seats every figure describes", live, () => {
+  const v = electionMap.electionMapView(db, "ka-assembly-2023", "ka");
+  const group = electionMap.districtGroups(v.seats)[0];
+  assert.ok(group !== undefined);
+  const inside = electionMap.seatsInDistrict(v.seats, group.id);
+  assert.equal(inside.length, group.seats, "the focused set is not the district's seats");
+  assert.ok(inside.length < v.seats.length, "focusing a district selected the whole state");
+  // The competitiveness bands are computed over the SAME subset, which is what makes the page one instrument.
+  const bands = electionMap.marginBandCounts(inside);
+  assert.ok(
+    bands.reduce((n, b) => n + b.n, 0) <= inside.length,
+    "the bands count more seats than the district holds",
+  );
+});
+
+test("every selection the state page offers is in the URL and moves the map", live, () => {
+  const html = render("/pl", "", "ka");
+  // One shared selection model, and each rung of it has to be reachable from the rendered page.
+  for (const [what, pattern] of [
+    ["party isolation", /[?&]party=/],
+    ["margin band", /[?&]band=/],
+    ["map mode", /[?&]mode=/],
+    ["district focus", /[?&]district=/],
+    ["seat focus", /[?&]seat=/],
+    ["election choice", /[?&]election=/],
+  ] as [string, RegExp][]) {
+    assert.match(html, pattern, `${what} is not carried in the URL`);
+  }
+  // FLIP MODE EXISTS where a comparison is legal, and the flip matrix links into it.
+  assert.match(html, /[?&]mode=flips/, "flip mode is not reachable");
+});
+
+test("a selection actually dims the map rather than only changing the list", live, () => {
+  // The failure this guards is a page where the charts filter and the map does not — which is what "five
+  // independent filter states" looks like from the outside.
+  const all = render("/pl", "", "ka");
+  const isolated = render("/pl", "party=INC", "ka");
+  const dimmedBefore = (all.match(/opacity="0\.18"/g) ?? []).length;
+  const dimmedAfter = (isolated.match(/opacity="0\.18"/g) ?? []).length;
+  assert.equal(dimmedBefore, 0, "the map dims something before anything is selected");
+  assert.ok(dimmedAfter > 50, `isolating a party dimmed only ${dimmedAfter} polygons`);
+});
+
+test("a comparison across a redrawn map is refused on the page, not just in the data", live, () => {
+  // ka-assembly-2008's predecessor sits under the 1976 order. The data layer refuses it; this asserts the
+  // PAGE says so rather than rendering an empty section or, worse, a flip count.
+  const t = text(render("/pl", "election=ka-assembly-2008", "ka"));
+  assert.match(t, /Seat-level comparison unavailable/, "the page does not explain the refusal");
+  assert.ok(!/seats changed hands/.test(t), "a flip claim survived the epoch gate on the page");
+});
+
+test("the state page offers evidence once, and no per-value provenance", live, () => {
+  const html = render("/pl", "", "ka");
+  // SCOPED TO THE ANALYTICAL CONTENT, deliberately. The site footer carries one link to `/coverage` — "what
+  // this registry holds, and what it does not" — and that is the product's single honest home for
+  // completeness. Banning the word everywhere would have failed the footer, which is the opposite of the
+  // point: what must not return is provenance hanging off every FIGURE.
+  const body = html.slice(0, html.indexOf("<footer") === -1 ? html.length : html.indexOf("<footer"));
+  const t = text(body);
+  for (const banned of [/\bderived\b/i, /\bcoverage\b/i, /computed using/i, /\bplace_version\b/, /\bepoch_id\b/]) {
+    assert.ok(!banned.test(t), `the state page prints ${banned} beside its figures`);
+  }
+  // And evidence IS offered — once per analytical panel, never per value.
+  const drawers = (html.match(/sources</g) ?? []).length;
+  assert.ok(drawers >= 1, "the state page offers no evidence affordance at all");
+  assert.ok(drawers <= 4, `${drawers} evidence affordances is provenance scattered again`);
 });

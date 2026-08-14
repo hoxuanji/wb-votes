@@ -171,12 +171,24 @@ export function ElectionMap({
   focusSeat?: string | null;
 }) {
   const drawable = view.seats.filter((s) => s.path !== null);
-  const national = view.election?.house === 'pc';
+  // The country is drawn under the seats only for an UNSCOPED national view. A state-scoped Lok Sabha
+  // map is framed to that state, so 35 other states' outlines would be clipped away or, worse, visible.
+  const national = view.election?.house === 'pc' && view.scope === null;
   // A district focus reframes to its own seats. Falling back to the whole election when a district has
   // nothing drawable is deliberate: an empty frame would zoom to nothing.
   const inFocus = district === null ? [] : drawable.filter((s) => s.districtId === district);
   const viewBox = inFocus.length > 0 ? frameOf(inFocus.map((s) => s.path as string)) : view.geometry.viewBox;
   const aspect = aspectOf(viewBox);
+
+  /**
+   * NOTHING TO DRAW IS NOT AN EMPTY MAP.
+   *
+   * Assam's and Jammu & Kashmir's 2024 parliamentary seats sit under boundaries the registry holds no
+   * geometry for, so a scoped view of them has zero polygons. Rendering the figure anyway framed to the
+   * whole country — which is what `frameOf([])` falls back to — put an empty outline of India on a page
+   * about fourteen Assamese seats. The caller says why instead, and the seat list still carries every result.
+   */
+  if (drawable.length === 0) return null;
 
   /**
    * Whether a seat is dimmed by the active selection.

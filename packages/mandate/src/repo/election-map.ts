@@ -123,6 +123,14 @@ export type ElectionChoice = {
 
 export type ElectionMapView = {
   election: (ElectionChoice & { jurisdictionId: string; jurisdictionName: string }) | null;
+  /**
+   * The jurisdiction the seats were narrowed to, or null for the whole election.
+   *
+   * Distinct from `election.jurisdictionId`, which is where the ELECTION belongs — 'in' for a general
+   * election even when this view holds only West Bengal's 42 seats. A renderer needs the scope, not the
+   * election's home, to decide whether to draw the country underneath.
+   */
+  scope: string | null;
   /** Sibling elections of the same jurisdiction and house, newest first. The selector's options. */
   siblings: ElectionChoice[];
   previous: { id: string; year: number } | null;
@@ -239,10 +247,31 @@ export function frameOf(paths: readonly string[]): string {
  * `electionId` is validated by MEMBERSHIP against the elections this route serves, so an id from a URL that
  * names nothing comes back as a null election rather than reaching the SQL.
  */
-export function electionMapView(db: DatabaseSync, electionId: string): ElectionMapView {
+export function electionMapView(
+  db: DatabaseSync,
+  electionId: string,
+  /**
+   * Narrow to the seats inside one jurisdiction.
+   *
+   * A GENERAL ELECTION IS FOUGHT IN EVERY STATE, so "West Bengal's Lok Sabha result" is a real view of
+   * `ls-2024` and not a different election: 42 of its 543 seats. Without this the state page asked for
+   * ls-2024 and got the whole country — a map of India on a page titled West Bengal.
+   *
+   * EVERY AGGREGATE BELOW IS RECOMPUTED OVER THE SCOPED SET, which is the part that is easy to get wrong.
+   * A majority is of the seats IN SCOPE (22 of West Bengal's 42, not 272 of 543), vote share is over the
+   * votes cast in those contests, and the flip count compares only those seats. Scoping the map and leaving
+   * the numbers national would be worse than not scoping at all.
+   */
+  jurisdictionId?: string,
+): ElectionMapView {
   return read(() => {
+    // `pv.jurisdiction_id` rather than the election's own: a general election's jurisdiction is the nation,
+    // and what is being filtered is where each SEAT is.
+    const scope = jurisdictionId === undefined ? "" : " AND pv.jurisdiction_id = ?";
+    const scopeBind: string[] = jurisdictionId === undefined ? [] : [jurisdictionId];
     const empty: ElectionMapView = {
       election: null,
+      scope: jurisdictionId ?? null,
       siblings: [],
       previous: null,
       seats: [],
@@ -307,9 +336,10 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
          LEFT JOIN party pt          ON pt.id = pvv.party_id
          LEFT JOIN turnout t   ON t.contest_id = c.id AND t.scope = 'contest'
          LEFT JOIN place_geometry pg ON pg.place_version_id = pv.id
-        WHERE c.election_id = ?
+        WHERE c.election_id = ?${scope}
         ORDER BY pv.jurisdiction_id, pv.number`,
       electionId,
+      ...scopeBind,
     );
 
     // The previous election of the same house, and its winners keyed by (epoch, place) — the gate.
@@ -326,8 +356,9 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
            JOIN candidacy cd ON cd.id = r.candidacy_id
            LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
            LEFT JOIN party pt          ON pt.id = pvv.party_id
-          WHERE c.election_id = ?`,
+          WHERE c.election_id = ?${scope}`,
         previousId,
+        ...scopeBind,
       )) {
         before.set(seatKey(r.placeId, r.epochId), { key: r.key, label: r.label });
         beforeRows.push({ placeId: r.placeId, epochId: r.epochId });
@@ -417,13 +448,15 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
       db,
       `SELECT ${KEY_SQL} AS key, ${LABEL_SQL} AS label, SUM(r.votes) AS votes
          FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
          JOIN result r  ON r.contest_id = c.id AND r.revision = 0
          JOIN candidacy cd ON cd.id = r.candidacy_id
          LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
          LEFT JOIN party pt          ON pt.id = pvv.party_id
-        WHERE c.election_id = ?
+        WHERE c.election_id = ?${scope}
         GROUP BY 1, 2`,
       electionId,
+      ...scopeBind,
     );
     const totalVotes = partyVotes.reduce((t, r) => t + (r.votes ?? 0), 0);
     const contested = seats.length;
@@ -505,22 +538,29 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
     const turnout = get<{ voters: number | null; electors: number | null }>(
       db,
       `SELECT SUM(t.voters) AS voters, SUM(t.electors) AS electors
-         FROM contest c JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-        WHERE c.election_id = ?`,
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
+        WHERE c.election_id = ?${scope}`,
       electionId,
+      ...scopeBind,
     );
 
     const sourceIds = all<{ id: string }>(
       db,
       `SELECT DISTINCT pg.source_id AS id FROM contest c
-         JOIN place_geometry pg ON pg.place_version_id = c.place_version_id
-        WHERE c.election_id = ?
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN place_geometry pg ON pg.place_version_id = pv.id
+        WHERE c.election_id = ?${scope}
        UNION
        SELECT DISTINCT r.source_id AS id FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
          JOIN result r ON r.contest_id = c.id AND r.revision = 0
-        WHERE c.election_id = ?`,
+        WHERE c.election_id = ?${scope}`,
       electionId,
+      ...scopeBind,
       electionId,
+      ...scopeBind,
     ).map((x) => x.id);
 
     const siblings = all<ElectionChoice>(
@@ -536,6 +576,7 @@ export function electionMapView(db: DatabaseSync, electionId: string): ElectionM
     );
 
     return {
+      scope: jurisdictionId ?? null,
       election: {
         id: e.id,
         name: e.name,

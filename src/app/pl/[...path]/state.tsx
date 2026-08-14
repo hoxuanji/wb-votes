@@ -195,6 +195,15 @@ export function StateSurface({
           }))}
         />
 
+        {/* WHY THERE IS NO MAP, where there is none — stated once, beside the thing it is about, and only
+            when it is true. Assam's and J&K's 2024 parliamentary seats were drawn by delimitations the
+            registry holds no boundaries for, so there is nothing this map may legally draw them on. */}
+        {view.geometry.drawable === 0 ? (
+          <p className="iei-absent">
+            No boundary map is available for these {view.seats.length} constituencies — they were redrawn and
+            the new boundaries are not on record. Every result is in the list below.
+          </p>
+        ) : null}
         <div className="iei-linked iei-map-split">
           <ElectionMap
             view={view}
@@ -382,6 +391,14 @@ export function StateSurface({
           </div>
         </Panel>
       )}
+
+      {/* NO VOTE COUNTS, NO COMPETITIVENESS AND NO EFFICIENCY. West Bengal 2026 publishes winners, margins
+          and turnout and no candidate vote counts, so a margin cannot be computed for any seat and a vote
+          share cannot be computed for any party. Both sections are absent rather than zeroed, and this one
+          line says why — it is not a coverage panel and it appears only when it is true. */}
+      {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
+        <p className="iei-sub iei-absent">Vote-count data is not available for this election.</p>
+      ) : null}
 
       {/* ══ 4 · COMPETITIVENESS ═══════════════════════════════════════════════════════════════ */}
       {bands.every((b) => b.n === 0) ? null : (

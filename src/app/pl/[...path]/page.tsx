@@ -183,7 +183,7 @@ function electionLabel(e: { year: number; house: string; kind: string }): string
 function readState(
   jurisdictionId: string,
   params: NonNullable<Params>,
-): { view: ElectionMapView; trajectory: StateTrajectory } | null {
+): { view: ElectionMapView; trajectory: StateTrajectory; house: string; choices: string[] } | null {
   let db: ReturnType<typeof openRead> | null = null;
   try {
     db = openRead();
@@ -191,21 +191,36 @@ function readState(
     // different question — so `?house=pc` is a real view and not a variant. Dropping it was a capability
     // regression the render suite caught.
     const house = first(params["house"]) === "pc" ? "pc" : "ac";
-    // Which election: the one asked for if this jurisdiction held it under this house, else its most recent.
-    const asked = first(params["election"]);
+    /**
+     * WHICH ELECTIONS THIS STATE HAS, for this house — and the two houses are found differently.
+     *
+     * An assembly election belongs to the state. A GENERAL ELECTION BELONGS TO THE NATION and is fought in
+     * every state, so West Bengal's Lok Sabha result is `ls-2024` SCOPED to West Bengal: 42 of its 543
+     * seats. Selecting on `e.jurisdiction_place_id` for `pc` found only by-elections and came back empty,
+     * which is what made the Lok Sabha view render the whole country.
+     */
     const choices = all<{ id: string }>(
       db,
-      `SELECT e.id AS id FROM election e
-        WHERE e.jurisdiction_place_id = ? AND e.kind IN ('assembly','general') AND e.house = ?
-        ORDER BY e.year DESC, COALESCE(e.polling_month, 0) DESC, e.occurrence DESC`,
+      house === "pc"
+        ? `SELECT e.id AS id FROM election e
+            WHERE e.kind = 'general' AND e.house = 'pc'
+              AND EXISTS (SELECT 1 FROM contest c
+                            JOIN place_version pv ON pv.id = c.place_version_id
+                           WHERE c.election_id = e.id AND pv.jurisdiction_id = ?)
+            ORDER BY e.year DESC`
+        : `SELECT e.id AS id FROM election e
+            WHERE e.jurisdiction_place_id = ? AND e.kind = 'assembly'
+            ORDER BY e.year DESC, COALESCE(e.polling_month, 0) DESC, e.occurrence DESC`,
       jurisdictionId,
-      house,
     ).map((r) => r.id);
+    const asked = first(params["election"]);
     const chosen = asked !== undefined && choices.includes(asked) ? asked : choices[0];
     if (chosen === undefined) return null;
-    const view = electionMapView(db, chosen);
+    // The scope is ALWAYS the state: for an assembly election it is a no-op, for a general election it is
+    // the whole point. One code path, so the two houses cannot diverge.
+    const view = electionMapView(db, chosen, jurisdictionId);
     if (view.election === null) return null;
-    return { view, trajectory: stateTrajectory(db, jurisdictionId, house) };
+    return { view, trajectory: stateTrajectory(db, jurisdictionId, house), house, choices };
   } catch {
     return null;
   } finally {
