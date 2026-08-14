@@ -23,6 +23,10 @@ const routes = {
     params: (segs) => ({ person: segs.join("/") }),
   },
   "/search": { load: () => import("../../../src/app/search/page.tsx"), params: null },
+  "/election": {
+    load: () => import("../../../src/app/election/[id]/page.tsx"),
+    params: (segs) => ({ id: segs.join("/") }),
+  },
 };
 
 const which = process.argv[2] ?? "/";

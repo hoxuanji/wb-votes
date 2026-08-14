@@ -121,6 +121,10 @@
      standings table did not appear at all. A map's width may depend on its own shape; it may not depend on
      how tall the window happens to be. */
   --iei-map-h: 620px;
+  /* The margin distribution's band. A histogram's shape lives in its envelope, so its height is a property
+     of the mark rather than of the layout — same argument as --iei-map-h, and redeclared at the breakpoint
+     below rather than overridden rule by rule. */
+  --iei-dist-h: 128px;
   --iei-cell-y: var(--iei-2);
   --iei-cell-y-tight: var(--iei-1);
   --iei-cell-x: var(--iei-3);
@@ -1753,6 +1757,234 @@ html {
   stroke: var(--iei-bg);
   stroke-width: 0.7;
   opacity: 0.85;
+}
+
+/* ══ the election route's figures ══════════════════════════════════════════════════════════════════
+
+   Three new marks, all server-rendered SVG, all interactive through links rather than script. They share the
+   panel's type scale and the map's ramp on purpose: a histogram bar and the seats it selects are the same
+   colour because they are the same data, not because two files happen to agree. */
+
+.iei-fig {
+  margin: 0;
+}
+
+.iei-fig svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.iei-fig figcaption {
+  margin-top: var(--iei-2);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+}
+
+/* ── margin distribution ── */
+
+/* A histogram is wide and short: the shape lives in the envelope, not in individual bar heights, so the
+   figure claims a band rather than a square. `preserveAspectRatio: none` is deliberate and safe here — the
+   bars carry no glyphs and no circles, so non-uniform scaling distorts nothing a reader measures. The axis
+   labels are drawn OUTSIDE the scaled band, in their own group at a fixed size. */
+.iei-dist svg {
+  height: var(--iei-dist-h);
+}
+
+.iei-dist a {
+  cursor: pointer;
+}
+
+.iei-dist a:focus-visible {
+  outline: none;
+}
+
+.iei-dist a:focus-visible rect:nth-of-type(2) {
+  stroke: var(--iei-ink);
+  stroke-width: 0.6;
+}
+
+.iei-dist-axis text {
+  font-family: var(--iei-mono);
+  font-size: 4;
+  fill: var(--iei-ink-3);
+}
+
+/* ── vote share against seat share ── */
+
+.iei-vs svg {
+  max-height: 420px;
+  margin-inline: auto;
+}
+
+/* PARITY. Dashed, quiet, and never a party's colour: it is a reference, not a result. */
+.iei-vs-parity {
+  stroke: var(--iei-ink-3);
+  stroke-width: 0.4;
+  stroke-dasharray: 2 1.6;
+}
+
+/* The gap from a party's marker down to parity — the distance that IS the finding, drawn so it can be seen
+   rather than computed. */
+.iei-vs-gap {
+  stroke: var(--iei-ink-3);
+  stroke-width: 0.5;
+  opacity: 0.65;
+}
+
+.iei-vs-axis line {
+  stroke: var(--iei-line);
+  stroke-width: 0.4;
+}
+
+.iei-vs-axis text,
+.iei-vs-note {
+  font-family: var(--iei-mono);
+  font-size: 3.4;
+  fill: var(--iei-ink-3);
+}
+
+.iei-vs-tag {
+  font-family: var(--iei-mono);
+  font-size: 3.6;
+  fill: var(--iei-ink);
+  /* A halo, so a label crossing the parity line or another marker stays readable without a box. */
+  paint-order: stroke;
+  stroke: var(--iei-bg);
+  stroke-width: 1.1;
+}
+
+.iei-vs-dot {
+  stroke: var(--iei-bg);
+  stroke-width: 0.5;
+}
+
+.iei-vs a:focus-visible {
+  outline: none;
+}
+
+.iei-vs a:focus-visible .iei-vs-dot {
+  stroke: var(--iei-ink);
+  stroke-width: 1;
+}
+
+/* ── the flip matrix, as a row of bars rather than a mostly-empty grid ── */
+
+.iei-flipmx {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-2);
+}
+
+.iei-flipmx li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4rem auto;
+  align-items: center;
+  gap: var(--iei-2);
+  font-size: var(--iei-f-body);
+}
+
+.iei-flipmx-pair {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.iei-flipmx-arrow {
+  color: var(--iei-ink-3);
+  padding-inline: 0.1rem;
+}
+
+.iei-flipmx-bar {
+  display: block;
+  height: 0.5rem;
+  background: var(--iei-raised);
+  border-radius: var(--iei-r);
+  overflow: hidden;
+}
+
+.iei-flipmx-bar > span {
+  display: block;
+  height: 100%;
+}
+
+.iei-flipmx b {
+  font-family: var(--iei-mono);
+  text-align: right;
+}
+
+/* ── the header's seat bar, and the held/flipped tally ── */
+
+.iei-standing {
+  list-style: none;
+  margin: var(--iei-3) 0 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2) var(--iei-3);
+  font-size: var(--iei-f-meta);
+}
+
+.iei-standing a {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  color: var(--iei-ink-2);
+  text-decoration: none;
+}
+
+.iei-standing a:hover {
+  color: var(--iei-ink);
+}
+
+.iei-standing b {
+  font-family: var(--iei-mono);
+  color: var(--iei-ink);
+}
+
+.iei-tally {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-1);
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink-2);
+}
+
+.iei-tally b {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-lead);
+  color: var(--iei-ink);
+  margin-right: 0.35rem;
+}
+
+.iei-legend-note {
+  color: var(--iei-ink-3);
+  font-size: var(--iei-f-meta);
+}
+
+/* Sibling elections in the footer: a compact year strip, so moving between cycles is one click. */
+.iei-sibs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+}
+
+@media (max-width: 900px) {
+  /* The distribution keeps its full band on a phone. A histogram narrows well and shortens badly — at 96px
+     the 21 bars stop being a shape and start being a row of ticks — so there is no height override here. */
+  .iei-flipmx li {
+    grid-template-columns: minmax(0, 1fr) 2.5rem auto;
+  }
 }
 
 /* ── legend ── */
