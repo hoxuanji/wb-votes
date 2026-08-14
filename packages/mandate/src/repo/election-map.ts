@@ -228,7 +228,7 @@ export function electionChoices(db: DatabaseSync, limit = 60): ElectionChoice[] 
 }
 
 /** A frame that fits these paths, with a margin, in the shared projection. */
-export function frameOf(paths: readonly string[]): string {
+export function frameOf(paths: readonly string[], padFraction = 0.04): string {
   let x0 = Infinity;
   let y0 = Infinity;
   let x1 = -Infinity;
@@ -249,7 +249,12 @@ export function frameOf(paths: readonly string[]): string {
   const w = x1 - x0;
   const h = y1 - y0;
   // A margin proportional to the larger side, so a small state and the whole country both breathe equally.
-  const m = Math.max(w, h) * 0.04;
+  //
+  // `padFraction` exists for the DISTRICT frame. 4% is right for a whole state, whose shape a reader already
+  // recognises, and wrong for one district: cropping to Bangalore's own bounding box filled the viewport with
+  // eight magnified polygons and no answer to "where in Karnataka is this". A district needs its surroundings
+  // in frame to be located at all, so the caller asks for a wider margin and the neighbours come with it.
+  const m = Math.max(w, h) * padFraction;
   return `${(x0 - m).toFixed(1)} ${(y0 - m).toFixed(1)} ${(w + 2 * m).toFixed(1)} ${(h + 2 * m).toFixed(1)}`;
 }
 

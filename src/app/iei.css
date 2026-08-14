@@ -2142,9 +2142,56 @@ html {
 
 /* ── districts, as a control rather than a table ── */
 
+/* A CONTROL, AND IT HAS TO LOOK LIKE ONE. This summary used to inherit `.iei-ev summary`, which is the ⓘ
+   citation affordance, so "30 districts" read as provenance and nobody opened it. Its own rule now, and the
+   marker is visible rather than borrowed. */
+.iei-districts {
+  margin-top: var(--iei-3);
+}
+
 .iei-districts summary {
   font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+  cursor: pointer;
+  padding: var(--iei-1) 0;
+}
+
+.iei-districts summary:hover {
+  color: var(--iei-ink);
+}
+
+/* THE WAY OUT, at the moment a reader wants it: a district is focused, so the next question is "show me
+   this district". Full-width and unmissable, because the alternative was a 6px arrow. */
+.iei-district-open-now {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2) var(--iei-4);
+  align-items: baseline;
+  margin: var(--iei-2) 0 0;
+}
+
+.iei-district-cta {
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-ink-3);
+  padding-bottom: 1px;
+}
+
+.iei-district-cta:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-district-clear {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+  text-decoration: none;
+}
+
+.iei-district-clear:hover {
+  color: var(--iei-ink);
 }
 
 .iei-district-list {
@@ -2152,7 +2199,9 @@ html {
   margin: var(--iei-2) 0 0;
   padding: 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  /* 200px, not 140: the row now carries a name, a seat count AND an "open →" link, and at 140 the link
+     wrapped under the name on every column. */
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: var(--iei-1) var(--iei-3);
   font-size: var(--iei-f-meta);
 }
@@ -2163,15 +2212,25 @@ html {
   gap: var(--iei-1);
 }
 
-/* The arrow to a district's own page. Quiet, because the common action is the reframe beside it. */
+/* The link to a district's own page. NOT quiet any more: it was `--iei-ink-3` and a bare arrow glyph, which
+   is the dimmest ink in the system on the smallest target on the page, and a reader clicking "the district"
+   got a map reframe instead of the district. Readable ink, a word beside the arrow, and a hit area. */
 .iei-district-open {
-  color: var(--iei-ink-3);
+  color: var(--iei-ink-2);
   text-decoration: none;
   font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  white-space: nowrap;
+  flex: 0 0 auto;
+  /* NO BORDER. The first attempt at making this legible boxed all thirty of them, which turned the district
+     list into thirty chips — the same clutter this release removed from the map, moved into a list. The word
+     "open" and an arrow in readable ink is a target; a border round it is decoration. */
+  border-bottom: 1px solid transparent;
 }
 
 .iei-district-open:hover {
   color: var(--iei-ink);
+  border-bottom-color: var(--iei-ink-3);
 }
 
 .iei-district-list > li > a:first-child {

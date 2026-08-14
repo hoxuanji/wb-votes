@@ -178,7 +178,11 @@ export function ElectionMap({
   // A district focus reframes to its own seats. Falling back to the whole election when a district has
   // nothing drawable is deliberate: an empty frame would zoom to nothing.
   const inFocus = district === null ? [] : drawable.filter((s) => s.districtId === district);
-  const viewBox = inFocus.length > 0 ? frameOf(inFocus.map((s) => s.path as string)) : view.geometry.viewBox;
+  // 45% MARGIN ON A DISTRICT, against 4% on a state. A district is being located as much as it is being
+  // read, so its neighbours have to be in frame; at the default the viewport held nothing but the district
+  // and the reader lost the state. The muting and the silhouette are what single it out — not the crop.
+  const viewBox =
+    inFocus.length > 0 ? frameOf(inFocus.map((s) => s.path as string), 0.45) : view.geometry.viewBox;
   const aspect = aspectOf(viewBox);
 
   /**

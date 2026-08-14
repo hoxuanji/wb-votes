@@ -281,16 +281,31 @@ export function StateSurface({
 
             {/* DISTRICTS AS A CONTROL, not as a table. Each reframes the map and narrows everything below. */}
             {districts.length === 0 ? null : (
-              <details className="iei-ev iei-districts" open={focused !== null}>
+              /* TWO DESTINATIONS PER DISTRICT, AND THEY USED TO LOOK NOTHING ALIKE IN THE WRONG DIRECTION.
+                 The name FILTERS this page; the labelled link OPENS the district's own page. Both are real
+                 answers to "what about this district", and the first build got their weights backwards: the
+                 filter was the whole row and the way out was a bare arrow in the dimmest ink on the page,
+                 with the entire list folded inside `iei-ev` — the evidence-drawer class — so the route to
+                 thirty district pages was disguised as a citation. A reader looking for a district found a
+                 provenance affordance and reasonably assumed there was nothing behind it.
+                 Now: its own control, open by default, and "open →" is a legible link with a hit area. */
+              <details className="iei-districts" open>
                 <summary>
-                  {focused === null ? `${districts.length} districts` : `District: ${focused.name}`}
+                  {focused === null
+                    ? `${districts.length} districts — select to filter, or open one`
+                    : `District: ${focused.name}`}
                 </summary>
+                {focused === null ? null : (
+                  <p className="iei-district-open-now">
+                    <Link className="iei-district-cta" href={districtPath(focused.id)}>
+                      Open the {focused.name} district page →
+                    </Link>
+                    <Link className="iei-district-clear" href={hrefFor({ district: '', seat: '' })}>
+                      ← the whole state
+                    </Link>
+                  </p>
+                )}
                 <ul className="iei-district-list">
-                  {focused === null ? null : (
-                    <li>
-                      <Link href={hrefFor({ district: '', seat: '' })}>← the whole state</Link>
-                    </li>
-                  )}
                   {districts.map((d) => (
                     <li key={d.id}>
                       <Link
@@ -300,16 +315,12 @@ export function StateSurface({
                         {d.name}
                         <b>{d.seats}</b>
                       </Link>
-                      {/* TWO DESTINATIONS, because they answer different things and dropping either leaves a
-                          hole: the name reframes the map without leaving this surface, and the arrow opens the
-                          district's own page. The first draft offered only the reframe, which quietly severed
-                          INDIA -> STATE -> DISTRICT -> SEAT — the walk a reader uses to get anywhere. */}
                       <Link
                         className="iei-district-open"
                         href={districtPath(d.id)}
                         aria-label={`Open the ${d.name} district page`}
                       >
-                        →
+                        open →
                       </Link>
                     </li>
                   ))}

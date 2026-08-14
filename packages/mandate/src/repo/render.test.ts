@@ -1008,3 +1008,50 @@ test("no SVG title is assembled from several nodes, on any figure", live, () => 
     assert.deepEqual(noise, [], `${route} ${segs} rendered with React warnings`);
   }
 });
+
+test("a district on the state page is reachable, and its link is not hidden in a citation", live, () => {
+  /**
+   * REPORTED FROM USE: "when i click on district it's not taking me there".
+   *
+   * The links were present and the district pages worked — the existing test above proved both, and proved
+   * the wrong thing. What was broken was that a reader could not FIND them:
+   *
+   *   · the whole district list sat inside `<details class="iei-ev">`, the evidence-drawer class, collapsed
+   *     and labelled "30 districts" in the same type as "ⓘ 2 sources". The route to thirty district pages
+   *     was dressed as a citation.
+   *   · clicking a district NAME reframed the map and stayed put. The only thing that navigated was a bare
+   *     `→` glyph in `--iei-ink-3`, the dimmest ink in the system, on the smallest target on the page.
+   *
+   * So the assertions are about PROMINENCE, not existence, plus the one thing the reader actually did:
+   * follow the link and see whether a district page comes back.
+   */
+  const html = render("/pl", "", "ka");
+
+  // 1 — NOT INSIDE THE EVIDENCE DRAWER. The class combination that caused the report.
+  assert.ok(
+    !/class="iei-ev iei-districts"/.test(html),
+    "the district list is inside the evidence-drawer class again",
+  );
+
+  // 2 — EVERY district offers a link to its own page, and the label is a word rather than a glyph alone.
+  const links = [...html.matchAll(/href="(\/pl\/ka\/[a-z0-9-]+)"/g)].map((m) => m[1] as string);
+  assert.ok(links.length >= 20, `only ${links.length} district page links on a 30-district state`);
+  assert.match(
+    html,
+    /class="iei-district-open"[^>]*>open/,
+    "the district link is a bare arrow again, with no word to read",
+  );
+
+  // 3 — AND THE LINK RESOLVES. Following it must produce that district's own page, not a not-found and not
+  //     the state page over again. This is the step the report was about.
+  const target = links.find((h) => h.endsWith("/bangalore")) ?? (links[0] as string);
+  const segs = target.replace(/^\/pl\//, "");
+  const page = text(render("/pl", "", segs));
+  assert.match(page, /District/, `${target} did not render a district page`);
+  assert.ok(!/not found/i.test(page), `${target} is a dead link`);
+  assert.match(page, /assembly seats/, `${target} does not list the seats it elects`);
+
+  // 4 — WITH A DISTRICT FOCUSED, the way out is a sentence and not a glyph.
+  const focused = text(render("/pl", "district=ka.bangalore", "ka"));
+  assert.match(focused, /Open the .* district page/, "a focused district offers no prominent way in");
+});
