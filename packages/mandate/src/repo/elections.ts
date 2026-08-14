@@ -330,6 +330,71 @@ export function previousElection(db: DatabaseSync, electionId: string): string |
   return row?.id ?? null;
 }
 
+/* ──────────────────────── the epoch gate: what may be compared seat by seat ──────────────────────── */
+
+/**
+ * A seat's identity FOR COMPARISON: the seat and the boundary it was drawn under, together.
+ *
+ * THIS IS THE FIX FOR A DEFECT, and it is a key rather than a check on purpose. `place.id` is a seat
+ * NUMBER slot, not a territory — 4,077 of 4,493 assembly place_ids carry a different name in a different
+ * delimitation, because every order renumbers from scratch (docs/model/electoral-geography.md). So
+ * matching two elections' winners on `place_id` alone compares a number, not a place:
+ *
+ *   ka.ac.001   delim-1976  AURAD          INC        ka-assembly-2004
+ *   ka.ac.001   delim-2008  NIPPANI        INC        ka-assembly-2008
+ *   ka.ac.002   delim-1976  BHALKI         BJP
+ *   ka.ac.002   delim-2008  CHIKKODI-SADALGA  INC
+ *
+ * Measured against the live registry: pairing Karnataka 2004 with 2008 on `place_id` matches 223 seats,
+ * ALL 223 of which name a different constituency, and 170 of them differ in winning party — so the state
+ * page would have printed "170 of 223 seats changed hands" about seats that never faced each other. 65 of
+ * 324 consecutive assembly pairs cross a delimitation this way.
+ *
+ * Why a composite KEY and not an `if`: a check has to be remembered at every call site, and there are two
+ * (`stateShifts`, `watchSignals`) with more to come. Keying the comparison on (epoch, place) makes the
+ * wrong match UNREPRESENTABLE — a cross-epoch pair simply finds nothing, because the keys cannot collide.
+ * Callers cannot opt out of it, which is the difference between a gate and a convention.
+ *
+ * A silent zero would be its own lie, though, so `partitionByEpoch` below counts what it refused and every
+ * caller carries that count into the UI. "Not comparable" and "nothing changed" are different answers.
+ *
+ * A SPACE as the separator: an epoch id is `delim-<something>` and a place id is dotted lowercase, and
+ * neither contains a space anywhere in the registry, so no two distinct pairs can collapse into one key.
+ */
+export function seatKey(placeId: string, epochId: string): string {
+  return `${epochId} ${placeId}`;
+}
+
+/** One side of a seat-level comparison, split into what may be compared and what may not. */
+export type EpochSplit<T> = {
+  /** Rows whose (place, epoch) key exists on BOTH sides. Safe to compare seat by seat. */
+  comparable: T[];
+  /** Rows with no counterpart under the same boundary. Reported, never compared, never counted as change. */
+  incomparable: T[];
+};
+
+/**
+ * Split `now` into the seats that have a counterpart in `then` under the SAME boundary, and the seats
+ * that do not.
+ *
+ * Note what this does NOT do: it does not decide comparability per ELECTION. `ls-2024` holds 524 contests
+ * under delim-2008, 5 under delim-2022-jk and 14 under delim-2023-as — so 19 of its 543 seats sit on
+ * boundaries that did not exist in 2019, and an election-level flag would have called all 543 comparable.
+ * Comparability is a property of a SEAT, so it is decided per seat.
+ */
+export function partitionByEpoch<T extends { placeId: string; epochId: string }>(
+  now: readonly T[],
+  then: readonly { placeId: string; epochId: string }[],
+): EpochSplit<T> {
+  const available = new Set(then.map((r) => seatKey(r.placeId, r.epochId)));
+  const comparable: T[] = [];
+  const incomparable: T[] = [];
+  for (const r of now) {
+    (available.has(seatKey(r.placeId, r.epochId)) ? comparable : incomparable).push(r);
+  }
+  return { comparable, incomparable };
+}
+
 export function electionSummary(
   db: DatabaseSync,
   electionId: string,

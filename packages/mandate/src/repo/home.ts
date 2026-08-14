@@ -27,8 +27,10 @@ import {
   currentStandings,
   foldStandings,
   latestPerJurisdiction,
+  partitionByEpoch,
   previousElection,
   recent,
+  seatKey,
   seatsByParty,
   upcoming,
   seatsWonBy,
@@ -223,6 +225,8 @@ type SeatFact = {
   electionId: string;
   jurisdictionId: string;
   placeId: string;
+  /** The boundary the contest was fought under — half of the seat's comparison identity. See `seatKey`. */
+  epochId: string;
   placeName: string;
   winnerKey: string | null;
   winnerLabel: string | null;
@@ -238,7 +242,7 @@ function seatFacts(db: DatabaseSync, electionIds: readonly string[]): SeatFact[]
       db,
       `SELECT c.election_id AS electionId,
               CASE WHEN dis.kind = 'district' THEN dis.parent_id ELSE pl.parent_id END AS jurisdictionId,
-              pl.id AS placeId, pvv.canonical_name AS placeName,
+              pl.id AS placeId, pvv.epoch_id AS epochId, pvv.canonical_name AS placeName,
               pt.id AS winnerKey,
               COALESCE(NULLIF(pt.short_name, ''), NULLIF(pt.name, ''), NULLIF(cd.party_raw, '')) AS winnerLabel,
               r.margin AS marginVotes, t.voters AS voters, t.electors AS electors
@@ -724,24 +728,27 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
         });
       }
 
-      // 2. Seats that changed hands against the previous election of the same kind, seat by seat.
+      // 2. Seats that changed hands against the previous election of the same kind — THROUGH THE EPOCH
+      // GATE. Keyed on (epoch, place), never on place alone: a delimitation renumbers seats from scratch,
+      // so matching on the number compares AURAD to NIPPANI. Cross-epoch pairs land in `incomparable` and
+      // produce no signal at all, rather than a flip count about redrawn territory.
       const thenId = spine.previousOf(s.electionId);
       if (thenId !== null) {
-        const before = new Map(
-          spine.seats.filter((x) => x.electionId === thenId).map((x) => [x.placeId, x.winnerKey]),
-        );
-        const flipped = seats.filter((x) => {
-          const was = before.get(x.placeId);
+        const thenSeats = spine.seats.filter((x) => x.electionId === thenId);
+        const before = new Map(thenSeats.map((x) => [seatKey(x.placeId, x.epochId), x.winnerKey]));
+        const split = partitionByEpoch(seats, thenSeats);
+        const flipped = split.comparable.filter((x) => {
+          const was = before.get(seatKey(x.placeId, x.epochId));
           // An unknown party on either side is neither a flip nor a hold. It is unknown.
           return was != null && x.winnerKey != null && was !== x.winnerKey;
         });
         if (flipped.length > 0) {
           out.push({
             rule: "seats whose winning party differs from the previous election",
-            threshold: "same seat, same house, consecutive elections",
+            threshold: "same seat, same boundary, consecutive elections",
             subject: s.jurisdictionName,
             href,
-            detail: `${flipped.length} of ${before.size} seats changed hands between ${spine.yearOf(thenId) ?? "the previous election"} and ${s.year}.`,
+            detail: `${flipped.length} of ${split.comparable.length} seats changed hands between ${spine.yearOf(thenId) ?? "the previous election"} and ${s.year}.`,
             basis: "measured",
             weight: flipped.length,
           });

@@ -41,7 +41,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
-import { CHRONO_DESC, previousElection } from "./elections.ts";
+import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
 
 /** One constituency, as the map draws it. */
 export type SeatMark = {
@@ -411,11 +411,21 @@ export type StateShifts = {
   previousId: string | null;
   /** One observation per line, biggest first. Empty is a legitimate answer. */
   lines: string[];
+  /**
+   * Seats compared BOTH sides under the same boundary, and seats that could not be.
+   *
+   * `incomparable > 0` means a delimitation fell between the two elections, so those seats have no
+   * counterpart to change from. The UI states that count; it must never let a reader read it as continuity.
+   */
+  comparableSeats: number;
+  incomparableSeats: number;
 };
 
 type ShiftRow = {
   electionId: string;
   placeId: string;
+  /** The boundary this contest was fought under. Half of the seat's comparison identity — see `seatKey`. */
+  epochId: string;
   key: string | null;
   label: string | null;
   voters: number | null;
@@ -427,13 +437,14 @@ const IN_SEATS = new Intl.NumberFormat("en-IN");
 export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId: string): StateShifts {
   return read(() => {
     const previousId = previousElection(db, electionId);
-    if (previousId === null) return { previousYear: null, previousId: null, lines: [] };
+    const none = { previousYear: null, previousId: null, lines: [], comparableSeats: 0, incomparableSeats: 0 };
+    if (previousId === null) return none;
     const previousYear =
       get<{ y: number }>(db, `SELECT year AS y FROM election WHERE id = ?`, previousId)?.y ?? null;
 
     const rows = all<ShiftRow>(
       db,
-      `SELECT c.election_id AS electionId, pv.place_id AS placeId,
+      `SELECT c.election_id AS electionId, pv.place_id AS placeId, pv.epoch_id AS epochId,
               CASE WHEN r.candidacy_id IS NULL THEN NULL ELSE ${KEY_SQL} END AS key,
               CASE WHEN r.candidacy_id IS NULL THEN NULL ELSE ${LABEL_SQL} END AS label,
               t.voters AS voters, t.electors AS electors
@@ -452,7 +463,7 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
 
     const now = rows.filter((r) => r.electionId === electionId);
     const then = rows.filter((r) => r.electionId === previousId);
-    if (now.length === 0 || then.length === 0) return { previousYear, previousId, lines: [] };
+    if (now.length === 0 || then.length === 0) return { ...none, previousYear, previousId };
 
     const seatsBy = (side: readonly ShiftRow[]): Map<string, { label: string; n: number }> => {
       const out = new Map<string, { label: string; n: number }>();
@@ -492,22 +503,39 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
       );
     }
 
-    // 3. Seats that changed hands, seat by seat. Matched on `place_id`, which survives a renaming but NOT a
-    // redelimitation — so the denominator is the seats present in both, and it says so when that is fewer
-    // than the house.
-    const before = new Map(then.filter((r) => r.key !== null).map((r) => [r.placeId, r.key]));
+    // 3. Seats that changed hands, seat by seat — THROUGH THE EPOCH GATE.
+    //
+    // Matched on (epoch, place), never on place alone. `place_id` is a seat NUMBER, and a delimitation
+    // renumbers from scratch, so Karnataka 2004's ka.ac.001 is AURAD and 2008's is NIPPANI. Pairing them
+    // on the number matched 223 seats and called 170 of them flips, about seats that never faced each
+    // other. `partitionByEpoch` makes that match unrepresentable rather than merely discouraged, and hands
+    // back what it refused so the count can be stated instead of silently dropped — a hidden zero would
+    // read as "nothing changed", which is a different claim from "these cannot be compared".
+    const split = partitionByEpoch(now, then);
+    const before = new Map(
+      then.filter((r) => r.key !== null).map((r) => [seatKey(r.placeId, r.epochId), r.key]),
+    );
     let comparable = 0;
     let flipped = 0;
-    for (const r of now) {
+    for (const r of split.comparable) {
       if (r.key === null) continue;
-      const was = before.get(r.placeId);
+      const was = before.get(seatKey(r.placeId, r.epochId));
       if (was === undefined) continue;
       comparable += 1;
       if (was !== r.key) flipped += 1;
     }
+    const incomparable = split.incomparable.length;
     if (comparable > 0) {
       lines.push(
         `${IN_SEATS.format(flipped)} of ${IN_SEATS.format(comparable)} seat${comparable === 1 ? "" : "s"} changed hands.`,
+      );
+    }
+    // Stated, not swallowed. Karnataka 2008 against 2004 lands here with all 223 seats incomparable, and
+    // says so instead of reporting a flip count about territory that was redrawn between the two.
+    if (incomparable > 0) {
+      lines.push(
+        `${IN_SEATS.format(incomparable)} seat${incomparable === 1 ? "" : "s"} cannot be compared: the ` +
+          `constituencies were redrawn after ${previousYear ?? "the previous election"}.`,
       );
     }
 
@@ -540,6 +568,6 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
       );
     }
 
-    return { previousYear, previousId, lines };
+    return { previousYear, previousId, lines, comparableSeats: comparable, incomparableSeats: incomparable };
   });
 }

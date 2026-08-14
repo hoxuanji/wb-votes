@@ -118,7 +118,7 @@ function readMap(
       map,
       shifts:
         map.election === null
-          ? { previousYear: null, previousId: null, lines: [] }
+          ? { previousYear: null, previousId: null, lines: [], comparableSeats: 0, incomparableSeats: 0 }
           : stateShifts(db, jurisdictionId, map.election.id),
     };
   } catch {
