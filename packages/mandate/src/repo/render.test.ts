@@ -1152,9 +1152,16 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
     [],
     "a parliamentary seat is linking to a bare entity route or to a url with an empty segment",
   );
+  /**
+   * A PARLIAMENTARY SEAT LINKS TO ITSELF NOW, which inverts what this used to assert.
+   *
+   * It required a link to the seat's STATE, because place pages were `kind = 'ac'` and a Lok Sabha seat had
+   * no page. Phase D gave it one, so linking to the state would be the defect: a reader who clicks a seat on
+   * the Lok Sabha map wants that seat.
+   */
   assert.ok(
-    lsLinks.some((h) => /^\/state\/[a-z]+$/.test(h)),
-    "no parliamentary seat links to its state",
+    lsLinks.some((h) => /^\/constituency\/[a-z]+\/.+/.test(h)),
+    "no parliamentary seat links to its own page",
   );
 });
 

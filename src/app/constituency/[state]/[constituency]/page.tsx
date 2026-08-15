@@ -29,5 +29,5 @@ export default async function ConstituencyPage({
   if (segments === null) notFound();
   // AWAITED, not nested as JSX. `PlaceSurface` is an async component, and a legacy synchronous renderer
   // (the visual-QA harness uses one) cannot resolve a Promise it is handed as a child.
-  return await PlaceSurface({ segments, searchParams });
+  return await PlaceSurface({ segments, searchParams, level: 'constituency' });
 }

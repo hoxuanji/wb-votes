@@ -519,18 +519,13 @@ export function electionMapView(
          * Through `placeHref`, so this is the SAME url the district page and the breadcrumb build. Inventing
          * a second convention for the same destination is how a link 404s while its own test passes.
          *
-         * A PARLIAMENTARY SEAT HAS NO PAGE OF ITS OWN, and that is why the district is tested here rather
-         * than left to `placeHref`. Place pages are `pv.kind = 'ac'`, and a pc version carries no district
-         * parent — so handing one to `placeHref` returns "/pl", which is the India page. Routing it through
-         * unguarded made every one of Lok Sabha 2024's 543 seats link to the front page. A pc seat goes to
-         * the state whose page actually holds its result.
+         * A PARLIAMENTARY SEAT HAS A PAGE NOW, so this no longer branches on whether a district exists.
+         * It did: place pages were `pv.kind = 'ac'` and a pc carries no district, so every one of Lok Sabha
+         * 2024's 543 seats linked to its state instead of to itself. The canonical constituency URL takes the
+         * JURISDICTION and the name, which is what both bodies have.
          */
         href:
-          r.districtId !== null
-            ? placeHref({ kind: "ac", id: r.placeId, canonicalName: r.name, parentId: r.districtId })
-            : r.jurisdictionId === null
-              ? null
-              : stateHref(r.jurisdictionId),
+          r.jurisdictionId === null ? null : constituencyHref(r.jurisdictionId, r.name),
       };
     });
 

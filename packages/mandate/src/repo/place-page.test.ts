@@ -36,20 +36,31 @@ const skip = haveRegistry() ? false : `no registry at ${DEV_DB_PATH} — run npm
 // ── the URL ──────────────────────────────────────────────────────────────────────────────────────
 
 test("parsePath: the three levels of §7's grammar, and nothing else", () => {
-  assert.deepEqual(parsePath(["wb"]), { level: "state", ids: ["wb"], name: "wb", parentId: null });
+  assert.deepEqual(parsePath(["wb"]), { level: "state", ids: ["wb"], name: "wb", parentId: null, jurisdictionId: null });
   assert.deepEqual(parsePath(["wb", "Cooch-Behar"]), {
     level: "district",
     ids: ["wb.cooch-behar", "cooch-behar"],
     name: "cooch behar",
     parentId: "wb",
+    jurisdictionId: null,
   });
   assert.deepEqual(parsePath(["wb", "cooch-behar", "1"]), {
     level: "ac",
     ids: ["1", "wb.ac.001"],
     name: "1",
     parentId: "wb.cooch-behar",
+    jurisdictionId: null,
   });
   assert.equal(parsePath(["wb", "cooch-behar", "mekliganj"])?.parentId, "wb.cooch-behar");
+  // TOLD ITS KIND, not counted: two segments and a constituency, narrowed on the state because a
+  // parliamentary seat has no district to narrow on.
+  assert.deepEqual(parsePath(["wb", "mekliganj"], "constituency"), {
+    level: "ac",
+    ids: ["mekliganj", "wb.ac.mekliganj"],
+    name: "mekliganj",
+    parentId: null,
+    jurisdictionId: "wb",
+  });
   assert.equal(parsePath([]), null);
   assert.equal(parsePath(["", " "]), null);
   assert.equal(parsePath(["wb", "a", "b", "c"]), null);
@@ -156,6 +167,7 @@ function brief(contests: Contest[]): PlaceBrief {
   return {
     place: {
       id: "wb.ac.001",
+    kind: "ac",
       canonicalName: "Testganj",
       names: { en: "Testganj" },
       districtId: "wb.test",

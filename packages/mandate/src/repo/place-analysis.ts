@@ -222,7 +222,9 @@ export function getPlaceAnalysis(
          LEFT JOIN place d ON d.id = COALESCE(pv.district_place_id, pl.parent_id)
          LEFT JOIN place st ON st.id = d.parent_id
          LEFT JOIN boundary_epoch be ON be.id = pv.epoch_id
-        WHERE pv.kind = 'ac' AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
+        -- Either body. A pc has no district, so the district baseline below returns nothing for one and the
+        -- surface already renders that as absent rather than as a comparison against zero.
+        WHERE pv.kind IN ('ac', 'pc') AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
         ORDER BY be.effective_from DESC, pv.id DESC
         LIMIT 1`,
       slug,

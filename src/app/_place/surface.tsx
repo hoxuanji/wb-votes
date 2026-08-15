@@ -258,16 +258,19 @@ function readState(
 export async function PlaceSurface({
   segments: all,
   searchParams,
+  level,
 }: {
   segments: readonly string[];
   searchParams?: Record<string, string | string[] | undefined>;
+  /** Passed by the constituency route, which knows what kind of entity it resolved. */
+  level?: "constituency";
 }) {
   // Next 14 refuses a static segment AFTER a catch-all ("Catch-all must be the last part of the URL"), so
   // /pl/:state/:district/:ac/analysis is served from this same route: the lens is the trailing segment, and
   // §7's place path is what is left. Both lenses stay plain links.
   const lens = all.at(-1) === "analysis" ? "analysis" : "brief";
   const segments = lens === "analysis" ? all.slice(0, -1) : all;
-  const view = await placeView(segments, searchParams ?? {});
+  const view = await placeView(segments, searchParams ?? {}, level);
   if (view.kind === "not-found") notFound();
   if (view.kind === "unavailable") {
     return (
@@ -729,8 +732,12 @@ export async function PlaceSurface({
     <Shell here="place" reading>
       <Crumbs trail={view.trail} />
       <div className="iei-head">
+        {/* WHICH BODY, said ONCE and near the title. "Constituency" alone is ambiguous in India — a reader
+            cannot tell a Lok Sabha seat from an assembly seat, and the two are different offices with
+            different electorates. The body comes from `place_version.kind`, so this is domain data reaching
+            the surface rather than a branch: adding a third body would need no change here. */}
         <p className="iei-eyebrow">
-          Constituency
+          {p.kind === 'pc' ? 'Lok Sabha Constituency' : 'Assembly Constituency'}
           {p.number !== null && ` · No. ${p.number}`}
           {p.reservation !== null && ` · ${RESERVATION[p.reservation] ?? p.reservation}`}
         </p>

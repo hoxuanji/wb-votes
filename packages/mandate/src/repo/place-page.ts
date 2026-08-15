@@ -42,6 +42,14 @@ export type PathTarget = {
   name: string;
   /** The district id an AC path asserts, so /pl/wb/nadia/mekliganj cannot resolve. */
   parentId: string | null;
+  /**
+   * The jurisdiction a CONSTITUENCY path asserts, when it asserts no district.
+   *
+   * A parliamentary constituency has no district — `district_place_id` is NULL on all 2,065 pc versions,
+   * because a Lok Sabha seat spans districts by design. So the canonical two-segment constituency form
+   * narrows on the state instead, which is the ancestor a pc actually has.
+   */
+  jurisdictionId: string | null;
 };
 
 /** A stray percent in the path is a name no place has, not a crashed page: /pl/wb/50%25 must 404 the
@@ -55,7 +63,17 @@ function decode(s: string): string {
   }
 }
 
-export function parsePath(segments: readonly string[]): PathTarget | null {
+export function parsePath(
+  segments: readonly string[],
+  /**
+   * The entity kind, when the CALLER already knows it.
+   *
+   * The canonical routes do: `/constituency/<state>/<name>` is two segments and a constituency, which the
+   * segment-counting below would read as a district. Passing the kind is the whole point of Phase C's route
+   * architecture — the URL identifies the thing, the domain says what kind of thing it is.
+   */
+  level?: "constituency",
+): PathTarget | null {
   const clean = segments
     .map((s) => decode(s).trim().toLowerCase())
     .filter((s) => s !== "");
@@ -63,13 +81,31 @@ export function parsePath(segments: readonly string[]): PathTarget | null {
   const state = clean.at(0);
   if (last === undefined || state === undefined || clean.length > 3) return null;
   const name = last.replace(/-/g, " ");
-  if (clean.length === 1) return { level: "state", ids: [state], name, parentId: null };
+  /**
+   * A CONSTITUENCY OF EITHER BODY, told rather than counted.
+   *
+   * Two segments and no district assertion: the match narrows on the jurisdiction, which is the ancestor an
+   * assembly seat and a parliamentary seat both have. A pc has no district at all, so a district assertion
+   * would have excluded every one of them.
+   */
+  if (level === "constituency") {
+    return {
+      level: "ac",
+      ids: [last, `${state}.ac.${last.padStart(3, "0")}`],
+      name,
+      parentId: null,
+      jurisdictionId: state,
+    };
+  }
+  if (clean.length === 1) {
+    return { level: "state", ids: [state], name, parentId: null, jurisdictionId: null };
+  }
   if (clean.length === 2) {
-    return { level: "district", ids: [clean.join("."), last], name, parentId: state };
+    return { level: "district", ids: [clean.join("."), last], name, parentId: state, jurisdictionId: null };
   }
   // An AC is addressable by name ("mekliganj"), by its full id, or by its number ("1", "001").
   const ids = [last, `${state}.ac.${last.padStart(3, "0")}`];
-  return { level: "ac", ids, name, parentId: `${state}.${clean[1] ?? ""}` };
+  return { level: "ac", ids, name, parentId: `${state}.${clean[1] ?? ""}`, jurisdictionId: null };
 }
 
 /**
@@ -945,9 +981,9 @@ export async function constituencyPath(
     db = r.read(() => sql.openRead());
     const want = decode(nameSlug).trim().toLowerCase();
     const row = r.read(() =>
-      sql.get<{ district: string | null; name: string }>(
+      sql.get<{ kind: string; name: string }>(
         db as DatabaseSync,
-        `SELECT COALESCE(pv.district_place_id, pl.parent_id) AS district, pv.canonical_name AS name
+        `SELECT pv.kind AS kind, pv.canonical_name AS name
            FROM place_version pv
            JOIN place pl ON pl.id = pv.place_id
            JOIN boundary_epoch be ON be.id = pv.epoch_id
@@ -960,11 +996,11 @@ export async function constituencyPath(
         want.replace(/-/g, " "),
       ),
     );
-    if (row === undefined || row.district === null) return null;
-    const seg = row.district.startsWith(`${jurisdictionId}.`)
-      ? row.district.slice(jurisdictionId.length + 1)
-      : row.district;
-    return [jurisdictionId, seg, nameSlug];
+    if (row === undefined) return null;
+    // TWO SEGMENTS FOR EITHER BODY. The district used to be threaded back in here so the old
+    // segment-counting resolver would read three segments as a constituency; `placeView` is told the kind
+    // now, so a parliamentary seat — which has no district at all — needs no invented ancestor.
+    return [jurisdictionId, nameSlug];
   } catch {
     return null;
   } finally {
@@ -972,8 +1008,13 @@ export async function constituencyPath(
   }
 }
 
-export async function placeView(segments: readonly string[], search: Search): Promise<PlaceView> {
-  const target = parsePath(segments);
+export async function placeView(
+  segments: readonly string[],
+  search: Search,
+  /** Passed by the canonical constituency route, which knows what it resolved. */
+  level?: "constituency",
+): Promise<PlaceView> {
+  const target = parsePath(segments, level);
   if (target === null) return { kind: "not-found" };
   let db: DatabaseSync | undefined;
   let repo: RepoMod | undefined;
@@ -1018,6 +1059,8 @@ export async function placeView(segments: readonly string[], search: Search): Pr
                 -- The path asserts an ancestry, and it must narrow the match BEFORE the LIMIT: two ACs
                 -- are named Bishnupur, and the lower id is in the other district.
                 AND (? IS NULL OR COALESCE(pv.district_place_id, pl.parent_id) = ?)
+                -- And the jurisdiction, for a canonical constituency path that asserts no district.
+                AND (? IS NULL OR pv.jurisdiction_id = ?)
               ORDER BY CASE WHEN pl.id = ? THEN 0 WHEN pl.id = ? THEN 1 ELSE 2 END,
                        be.effective_from DESC, pl.id
               LIMIT 1`
@@ -1032,11 +1075,20 @@ export async function placeView(segments: readonly string[], search: Search): Pr
                 AND (id = ? OR id = ? OR LOWER(canonical_name) = ? OR LOWER(REPLACE(canonical_name, ' ', '-')) = ?
                      OR REPLACE(REPLACE(UPPER(canonical_name), ' ', ''), '-', '') = ?)
                 AND (? IS NULL OR parent_id = ?)
+                -- Never narrows here; present so both branches take the SAME positional bind list.
+                AND (? IS NULL OR ? IS NULL)
               ORDER BY CASE WHEN id = ? THEN 0 WHEN id = ? THEN 1 ELSE 2 END, id
               LIMIT 1`,
         target.level,
-        // 'ut' only for a one-segment path; every other level repeats itself, and `IN (x, x)` is `= x`.
-        target.level === "state" ? "ut" : target.level,
+        /**
+         * The SECOND kind, and the two-placeholder shape now earns its keep twice.
+         *
+         *   state  -> 'ut', because eight of India's thirty-six jurisdictions are union territories
+         *   ac     -> 'pc', because a constituency is either body and the caller does not know which
+         *
+         * `IN (x, x)` is `= x`, so a district still matches only districts.
+         */
+        target.level === "state" ? "ut" : target.level === "ac" ? "pc" : target.level,
         idA,
         idB,
         target.name,
@@ -1044,13 +1096,21 @@ export async function placeView(segments: readonly string[], search: Search): Pr
         target.name.toUpperCase().replace(/[^A-Z0-9]/g, ""),
         target.parentId,
         target.parentId,
+        target.jurisdictionId,
+        target.jurisdictionId,
         idA,
         idB,
       ),
     );
     if (place === undefined) return { kind: "not-found" };
 
-    if (place.kind !== "ac") return parentView(db, sql, r, place, segments);
+    /**
+     * EITHER BODY IS A CONSTITUENCY. This read `place.kind !== "ac"`, so a parliamentary seat resolved
+     * correctly and was then handed to `parentView` — the state/district renderer — and 606 Lok Sabha seats
+     * rendered as their own state's assembly page. A pc is a constituency; what differs is its body, and the
+     * body is data the surface reads rather than a branch in the router.
+     */
+    if (place.kind !== "ac" && place.kind !== "pc") return parentView(db, sql, r, place, segments);
 
     const brief = r.getPlaceBrief(db, place.id);
     if (brief === null) return { kind: "not-found" };

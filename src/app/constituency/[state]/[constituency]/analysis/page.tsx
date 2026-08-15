@@ -22,5 +22,5 @@ export default async function ConstituencyAnalysis({
 }) {
   const segments = await constituencyPath(params.state, params.constituency);
   if (segments === null) notFound();
-  return await PlaceSurface({ segments: [...segments, 'analysis'], searchParams });
+  return await PlaceSurface({ segments: [...segments, 'analysis'], searchParams, level: 'constituency' });
 }

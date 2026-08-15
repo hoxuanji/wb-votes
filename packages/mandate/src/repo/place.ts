@@ -29,6 +29,8 @@ export type DemographicFigure = {
 export type PlaceBrief = {
   place: {
     id: string;
+    /** 'ac' or 'pc' — which body this seat elects to. The one thing that differs between the two. */
+    kind: string;
     canonicalName: string;
     names: Names;
     districtId: string | null;
@@ -62,6 +64,7 @@ export type PlaceBrief = {
 
 type PlaceSql = {
   id: string;
+  kind: string;
   place_version_id: number;
   canonical_name: string;
   names: string;
@@ -113,15 +116,25 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
   return read(() => {
     const p = get<PlaceSql>(
       db,
-      `SELECT pl.id, pv.id AS place_version_id, pv.canonical_name, pl.names, pl.parent_id,
+      `SELECT pl.id, pv.kind, pv.id AS place_version_id, pv.canonical_name, pl.names,
+              -- A PARLIAMENTARY SEAT HAS NO DISTRICT, and the COALESCE onto pl.parent_id is an assembly-era
+              -- fallback that handed one a district anyway: district_place_id is NULL on all 2,065 pc
+              -- versions because a Lok Sabha seat spans districts by design, so the fallback fired every
+              -- time and produced an ancestor no source asserts.
+              CASE WHEN pv.kind = 'pc' THEN pv.district_place_id
+                   ELSE COALESCE(pv.district_place_id, pl.parent_id) END AS parent_id,
               d.canonical_name AS district_name,
               pv.number, pv.reservation, pv.epoch_id, be.name AS epoch_name,
               pv.electors_at_creation
          FROM place_version pv
          JOIN place pl ON pl.id = pv.place_id
-         LEFT JOIN place d ON d.id = COALESCE(pv.district_place_id, pl.parent_id)
+         LEFT JOIN place d ON d.id = CASE WHEN pv.kind = 'pc' THEN pv.district_place_id
+                                          ELSE COALESCE(pv.district_place_id, pl.parent_id) END
          LEFT JOIN boundary_epoch be ON be.id = pv.epoch_id
-        WHERE pv.kind = 'ac' AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
+        -- EITHER BODY. This was kind = 'ac', which is why a Lok Sabha seat had no page: 606 parliamentary
+        -- constituencies across six delimitations were in the registry and unreachable through the one
+        -- function that renders a constituency.
+        WHERE pv.kind IN ('ac', 'pc') AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
         ORDER BY be.effective_from DESC, pv.id DESC
         LIMIT 1`,
       slug,
@@ -172,6 +185,7 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
     return {
       place: {
         id: p.id,
+        kind: p.kind,
         canonicalName: p.canonical_name,
         names: parseNames(p.names),
         districtId: p.parent_id,

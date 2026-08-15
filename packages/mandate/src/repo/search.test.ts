@@ -111,7 +111,9 @@ test("every hit points at a URL that resolves", live, async () => {
         ? ((await constituencyPath(parts[1] as string, parts[2] as string)) ?? [])
         : parts.slice(1);
     assert.ok(segments.length > 0, `${href} does not resolve to a place at all`);
-    const view = await placeView(segments, {});
+    // The KIND is passed exactly as the canonical route passes it. Without it a two-segment constituency
+    // path is counted as a district, which is the inference Phase C removed from production code.
+    const view = await placeView(segments, {}, parts[0] === "constituency" ? "constituency" : undefined);
     assert.notEqual(view.kind, "not-found", `${href} is offered by search and 404s`);
     assert.notEqual(view.kind, "unavailable", `${href} could not be read`);
   }
