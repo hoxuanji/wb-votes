@@ -59,7 +59,8 @@ export function placePathForLegacyId(db: DatabaseSync, legacyId: string): string
     );
     if (row === undefined || row.district === null) return null;
     // Canonical, so an old WB Votes id redirects ONCE rather than into the compatibility layer and out again.
-    return constituencyHref("wb", row.ac);
+    // The previous product held West Bengal ASSEMBLY seats only, which is why the body is known here.
+    return constituencyHref({ jurisdictionId: "wb", kind: "ac", canonicalName: row.ac });
   });
 }
 

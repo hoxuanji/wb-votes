@@ -62,8 +62,12 @@ function place(path: string, query = ""): string {
   const p = lens ? parts.slice(0, -1) : parts;
   if (p.length === 1) return render("/state", query, p[0] as string);
   if (p.length === 2) return render("/district", query, p.join("/"));
-  const seat = `${p[0]}/${p[2]}`;
-  return lens ? render("/constituency/analysis", query, seat) : render("/constituency", query, seat);
+  /**
+   * A CONSTITUENCY PATH CANNOT BE REBUILT FROM A PLACE PATH, because the body is part of its identity and a
+   * `<state>/<district>/<seat>` path never carried one. Callers that need a constituency render it directly
+   * with the body the page offered them. This helper serves states and districts only.
+   */
+  throw new Error(`place() cannot build a constituency URL for ${path} — render /constituency with its body`);
 }
 
 /** The page as a reader sees it: tags stripped, entities resolved, blank lines dropped. */
@@ -235,7 +239,7 @@ test("the front page reaches a constituency, not just a state", live, () => {
   const html = render("/");
   const t = text(html);
   assert.match(t, /Closest contests/, "the closest-contests module is missing");
-  const seats = [...html.matchAll(/href="\/constituency\/[a-z]{2}\/[^"]+"/g)];
+  const seats = [...html.matchAll(/href="\/constituency\/[a-z]{2}\/(?:assembly|lok-sabha)\/[^"]+"/g)];
   assert.ok(seats.length >= 3, `the front page offers ${seats.length} links to a seat; the module renders five`);
   // Each row states the margin as votes AND as a share, so "closest" is arguable rather than asserted.
   assert.match(t, /\d+ votes/, "a close fight does not state its margin in votes");
@@ -376,7 +380,7 @@ test("the geometry's provenance is in the drawer, not in the caption", live, () 
 test("provenance is not repeated once a page has already offered it", live, () => {
   // The footers of /pl and /p each carried a second copy of the whole source list plus a paragraph explaining
   // what the ⓘ does. One affordance per fact; the drawer teaches itself.
-  for (const [route, segments] of [["/constituency", "wb/mekliganj"], ["/p", "mamata-banerjee-4a681f"]] as const) {
+  for (const [route, segments] of [["/constituency", "wb/assembly/mekliganj"], ["/p", "mamata-banerjee-4a681f"]] as const) {
     const html = render(route, "", segments);
     const drawers = (html.match(/class="iei-ev(?:\s|")/g) ?? []).length;
     assert.ok(drawers > 0, `${route} offers no evidence at all`);
@@ -668,9 +672,9 @@ test("the navigation graph walks all the way down, in five jurisdictions", live,
 
     // A seat link is a CONSTITUENCY route, and it carries the state rather than the district — a
     // delimitation can move a seat between districts while the name survives.
-    const seat = new RegExp(`href="/constituency/${state}/([^/"]+)"`).exec(districtPage)?.[1];
-    assert.ok(seat !== undefined, `/district/${state}/${district} offers no seat`);
-    const seatPage = render("/constituency", "", `${state}/${seat}`);
+    const seat = new RegExp(`href="/constituency/${state}/(assembly|lok-sabha)/([^/"]+)"`).exec(districtPage);
+    assert.ok(seat !== null, `/district/${state}/${district} offers no seat`);
+    const seatPage = render("/constituency", "", `${state}/${seat?.[1]}/${seat?.[2]}`);
     const st = text(seatPage);
     assert.ok(st.includes("Every election on record"), `${state}/${district}/${seat} has no election history`);
     assert.ok(st.includes("Analysis"), `${state}/${district}/${seat} offers no analysis lens`);
@@ -678,7 +682,9 @@ test("the navigation graph walks all the way down, in five jurisdictions", live,
     assert.match(seatPage, /href="\/"[^>]*>India</, `${state}/${district}/${seat} cannot reach India`);
 
     // And the Analysis floor renders, which is where every chart in the product lives.
-    const analysis = text(place(`${state}/${district}/${seat}/analysis`));
+    // The BODY comes from the link the district page offered, not from a rebuilt path: a canonical
+    // constituency URL cannot be assembled from a place path alone any more, which is the point of it.
+    const analysis = text(render("/constituency/analysis", "", `${state}/${seat?.[1]}/${seat?.[2]}`));
     assert.match(analysis, /How .* got this way/, `${state}/${district}/${seat}/analysis has no headline`);
     assert.ok(analysis.includes("Window"), "the analysis floor lost its window filter");
 
@@ -1216,7 +1222,7 @@ test("every /pl URL redirects to its canonical route, resolved and not guessed",
   for (const [path, want] of [
     [state, `/state/${state}`],
     [`${state}/${districtSeg}`, `/district/${state}/${districtSeg}`],
-    [`${state}/${districtSeg}/${seatSlug}`, `/constituency/${state}/${seatSlug}`],
+    [`${state}/${districtSeg}/${seatSlug}`, `/constituency/${state}/assembly/${seatSlug}`],
   ] as const) {
     const r = redirectOf(path);
     assert.ok(!r.notFound, `/pl/${path} 404s instead of redirecting`);

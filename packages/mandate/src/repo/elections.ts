@@ -631,12 +631,13 @@ export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): Cl
     if (latest.length === 0) return [];
     const ids = latest.map((l) => l.id);
     const holes = ids.map(() => "?").join(",");
-    return all<CloseFight & { districtId: string | null }>(
+    return all<CloseFight & { districtId: string | null; kind: string }>(
       db,
       // The runner-up joins on rank = 2 of the SAME contest. A LEFT JOIN, because an election the source
       // published winners-only for has no second row — and "no runner-up recorded" is a different fact
       // from "unopposed", which is why it is null here rather than blank.
-      `SELECT plv.canonical_name AS placeName, pl.id AS placeId, ${J_OF_SEAT} AS jurisdictionId,
+      // plv.kind carries the BODY, so the canonical link names it instead of assuming an assembly seat.
+      `SELECT plv.canonical_name AS placeName, pl.id AS placeId, plv.kind AS kind, ${J_OF_SEAT} AS jurisdictionId,
               ${LABEL_SQL} AS winner,
               -- The district the seat sat in UNDER THIS VERSION, which is what a place path addresses. NULL
               -- for a parliamentary constituency, whose district join lands on the jurisdiction instead.
@@ -675,7 +676,7 @@ export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): Cl
       ...r,
       href:
         districtId !== null && districtId.startsWith(`${r.jurisdictionId}.`)
-          ? constituencyHref(r.jurisdictionId, r.placeName)
+          ? constituencyHref({ jurisdictionId: r.jurisdictionId, kind: r.kind, canonicalName: r.placeName })
           : stateHref(r.jurisdictionId),
     }));
   });

@@ -3,7 +3,7 @@ import test from "node:test";
 import { existsSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import { all } from "../db/index.ts";
-import { constituencyPath, placeView } from "./place-page.ts";
+import { constituenciesNamed, constituencyPath, placeView } from "./place-page.ts";
 import { constituencyHref } from "./routes.ts";
 
 const HAVE = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
@@ -94,7 +94,10 @@ test("a parliamentary and an assembly seat resolve through the same code path", 
     }
     // 4 — MISSING GEOMETRY IS NOT A BROKEN PAGE. Two of the fixtures have none by construction.
     assert.ok(view.brief.contests.length >= 0);
-    assert.equal(constituencyHref(c.j, c.name), `/constituency/${c.j}/${slug}`);
+    assert.equal(
+      constituencyHref({ jurisdictionId: c.j, kind: c.kind, canonicalName: c.name }),
+      `/constituency/${c.j}/${c.kind === "pc" ? "lok-sabha" : "assembly"}/${slug}`,
+    );
   }
 });
 
@@ -172,4 +175,84 @@ test("the registry cannot express assembly segments of a parliamentary seat", li
       WHERE a.kind <> b.kind`,
   )[0]?.n;
   assert.equal(cross, 0, "a cross-body relationship now exists — build the assembly-segments section");
+});
+
+test("same name, same state, different body: two distinct entities, always", live, async () => {
+  /**
+   * THE CENTRAL CONTRACT OF PHASE D.1, over EVERY collision the registry holds rather than one example.
+   *
+   * A name identifies a seat within a state only if the body is fixed. It is not: 335 of 606 parliamentary
+   * seats share a name with an assembly seat in the same state and current delimitation. The pre-body URL
+   * answered with whichever version sorted first, so more than half of India's Lok Sabha seats had a
+   * canonical URL that returned a different office.
+   *
+   * Collisions are DISCOVERED. Saharanpur is not named here.
+   */
+  const collisions = all<{ j: string; name: string }>(
+    db,
+    `SELECT a.jurisdiction_id AS j, a.canonical_name AS name
+       FROM place_version a
+      WHERE a.kind = 'ac' AND a.epoch_id = 'delim-2008' AND a.jurisdiction_id IS NOT NULL
+        AND EXISTS (SELECT 1 FROM place_version b
+                     WHERE b.kind = 'pc' AND b.epoch_id = 'delim-2008'
+                       AND b.jurisdiction_id = a.jurisdiction_id
+                       AND LOWER(b.canonical_name) = LOWER(a.canonical_name))
+      GROUP BY a.jurisdiction_id, LOWER(a.canonical_name)
+      ORDER BY a.jurisdiction_id, a.canonical_name
+      LIMIT 12`,
+  );
+  assert.ok(collisions.length >= 5, `only ${collisions.length} collisions discovered`);
+
+  for (const c of collisions) {
+    const slug = c.name.trim().toLowerCase().replace(/\s+/g, "-");
+    const ac = await placeView([c.j, slug], {}, "constituency", "ac");
+    const pc = await placeView([c.j, slug], {}, "constituency", "pc");
+    assert.equal(ac.kind, "ac", `${c.j}/assembly/${slug} did not resolve`);
+    assert.equal(pc.kind, "ac", `${c.j}/lok-sabha/${slug} did not resolve`);
+    if (ac.kind !== "ac" || pc.kind !== "ac") continue;
+
+    // 1 — DIFFERENT ENTITIES. Not two views of one thing.
+    assert.notEqual(ac.brief.place.id, pc.brief.place.id, `${c.j}/${slug} resolved to one place for both bodies`);
+    // 2 — AND EACH IS THE BODY THAT WAS ASKED FOR. The failure this replaces was answering with the other.
+    assert.equal(ac.brief.place.kind, "ac", `${c.j}/assembly/${slug} answered with a ${ac.brief.place.kind}`);
+    assert.equal(pc.brief.place.kind, "pc", `${c.j}/lok-sabha/${slug} answered with a ${pc.brief.place.kind}`);
+    // 3 — AND THE URLS ROUND-TRIP: the href each entity builds resolves back to that entity.
+    assert.equal(constituencyHref(ac.brief.place).split("/")[3], "assembly");
+    assert.equal(constituencyHref(pc.brief.place).split("/")[3], "lok-sabha");
+  }
+});
+
+test("the pre-body URL asks rather than choosing, and resolves when it is unambiguous", live, async () => {
+  // AMBIGUOUS: both bodies exist, so `constituenciesNamed` returns two and the route offers a choice.
+  const collide = all<{ j: string; name: string }>(
+    db,
+    `SELECT a.jurisdiction_id AS j, a.canonical_name AS name FROM place_version a
+      WHERE a.kind = 'ac' AND a.jurisdiction_id IS NOT NULL
+        AND EXISTS (SELECT 1 FROM place_version b WHERE b.kind = 'pc'
+                     AND b.jurisdiction_id = a.jurisdiction_id
+                     AND LOWER(b.canonical_name) = LOWER(a.canonical_name))
+      LIMIT 1`,
+  )[0];
+  assert.ok(collide, "no collision to test");
+  const both = await constituenciesNamed(collide.j, collide.name.toLowerCase().replace(/\s+/g, "-"));
+  assert.equal(both.length, 2, `expected two bodies, got ${both.length}`);
+  assert.deepEqual([...both.map((b) => b.kind)].sort(), ["ac", "pc"]);
+
+  // UNAMBIGUOUS: one body only, so the old URL has exactly one correct destination and may redirect.
+  const unique = all<{ j: string; name: string }>(
+    db,
+    `SELECT a.jurisdiction_id AS j, a.canonical_name AS name FROM place_version a
+      WHERE a.kind = 'pc' AND a.jurisdiction_id IS NOT NULL
+        AND NOT EXISTS (SELECT 1 FROM place_version b WHERE b.kind = 'ac'
+                         AND b.jurisdiction_id = a.jurisdiction_id
+                         AND LOWER(b.canonical_name) = LOWER(a.canonical_name))
+      LIMIT 1`,
+  )[0];
+  assert.ok(unique, "no unambiguous parliamentary name");
+  const one = await constituenciesNamed(unique.j, unique.name.toLowerCase().replace(/\s+/g, "-"));
+  assert.equal(one.length, 1, `${unique.j}/${unique.name} is not unambiguous after all`);
+  assert.equal(one[0]?.kind, "pc");
+
+  // AND A NAME THAT IS NEITHER resolves to nothing — never to the state.
+  assert.deepEqual(await constituenciesNamed(collide.j, "no-such-constituency-zzzz"), []);
 });

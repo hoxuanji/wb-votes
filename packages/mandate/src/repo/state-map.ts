@@ -306,7 +306,7 @@ export function stateMapView(
       // and addressing it as `/pl/<state>//<name>` resolves to nothing.
       href:
         x.stateId !== null && x.districtId !== null && x.districtId.startsWith(`${x.stateId}.`)
-          ? constituencyHref(x.stateId, x.name)
+          ? constituencyHref({ jurisdictionId: x.stateId, kind: "ac", canonicalName: x.name })
           : null,
       path: x.viewBox === frame ? x.path : null,
     }));

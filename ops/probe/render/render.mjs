@@ -24,12 +24,17 @@ const routes = {
     params: (segs) => ({ state: segs[0] ?? "", district: segs[1] ?? "" }),
   },
   "/constituency": {
-    load: () => import("../../../src/app/constituency/[state]/[constituency]/page.tsx"),
-    params: (segs) => ({ state: segs[0] ?? "", constituency: segs[1] ?? "" }),
+    load: () => import("../../../src/app/constituency/[state]/[body]/[name]/page.tsx"),
+    params: (segs) => ({ state: segs[0] ?? "", body: segs[1] ?? "", name: segs[2] ?? "" }),
   },
   "/constituency/analysis": {
-    load: () => import("../../../src/app/constituency/[state]/[constituency]/analysis/page.tsx"),
-    params: (segs) => ({ state: segs[0] ?? "", constituency: segs[1] ?? "" }),
+    load: () => import("../../../src/app/constituency/[state]/[body]/[name]/analysis/page.tsx"),
+    params: (segs) => ({ state: segs[0] ?? "", body: segs[1] ?? "", name: segs[2] ?? "" }),
+  },
+  // The pre-body form, which disambiguates rather than guessing.
+  "/constituency/legacy": {
+    load: () => import("../../../src/app/constituency/[state]/[body]/page.tsx"),
+    params: (segs) => ({ state: segs[0] ?? "", body: segs[1] ?? "" }),
   },
   "/pl": {
     load: () => import("../../../src/app/pl/[...path]/page.tsx"),

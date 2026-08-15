@@ -157,12 +157,16 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
     db,
     `SELECT v.place AS place, v.name AS name, v.kind AS kind, v.number AS number,
             v.district AS district, d.canonical_name AS dname,
-            s.id AS state, s.canonical_name AS sname,
+            v.jur AS state, s.canonical_name AS sname,
             (SELECT COUNT(*) FROM contest c
                JOIN place_version v2 ON v2.id = c.place_version_id
               WHERE v2.place_id = v.place) AS contests
        FROM (
          SELECT pl.id AS place, pv.canonical_name AS name, pv.kind AS kind, pv.number AS number,
+                -- THE JURISDICTION, which is the ancestor BOTH bodies have. The state used to be derived from
+                -- the district parent, and a parliamentary seat has no district, so its parent resolved to the
+                -- nation and search offered a constituency URL whose state segment was the country.
+                pv.jurisdiction_id AS jur,
                 COALESCE(pv.district_place_id, pl.parent_id) AS district,
                 row_number() OVER (PARTITION BY pl.id ORDER BY be.effective_from DESC, pv.id DESC) AS rn
            FROM place_version pv
@@ -182,8 +186,11 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
     .map((r): Hit | null => {
       // No district or no state means no four-segment path, and a link to /pl// resolves to nothing. A seat
       // that cannot be addressed is left out rather than offered as a dead row.
-      if (r.state === null || r.district === null || !r.district.startsWith(`${r.state}.`)) return null;
-      const segment = r.district.slice(r.state.length + 1);
+      // A PARLIAMENTARY SEAT HAS NO DISTRICT, and this used to require one — so every pc hit was dropped and
+      // search could not reach a Lok Sabha constituency at all. The canonical URL carries the body and the
+      // jurisdiction now, so the district is not part of the identity and its absence is not a reason to hide
+      // the result.
+      if (r.state === null) return null;
       const where = [r.dname, r.sname].filter((x): x is string => x !== null).join(", ");
       return {
         id: r.place,
@@ -193,7 +200,7 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
           (r.number === null ? "" : ` no. ${r.number}`) +
           (where === "" ? "" : ` · ${where}`) +
           ` · ${r.contests} election${r.contests === 1 ? "" : "s"}`,
-        href: constituencyHref(r.state, r.name),
+        href: constituencyHref({ jurisdictionId: r.state, kind: r.kind, canonicalName: r.name }),
       };
     })
     .filter((h): h is Hit => h !== null);

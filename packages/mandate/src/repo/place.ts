@@ -31,6 +31,8 @@ export type PlaceBrief = {
     id: string;
     /** 'ac' or 'pc' — which body this seat elects to. The one thing that differs between the two. */
     kind: string;
+    /** The state or union territory. The ancestor BOTH bodies have, and what a canonical URL needs. */
+    jurisdictionId: string | null;
     canonicalName: string;
     names: Names;
     districtId: string | null;
@@ -65,6 +67,7 @@ export type PlaceBrief = {
 type PlaceSql = {
   id: string;
   kind: string;
+  jurisdiction_id: string | null;
   place_version_id: number;
   canonical_name: string;
   names: string;
@@ -116,7 +119,7 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
   return read(() => {
     const p = get<PlaceSql>(
       db,
-      `SELECT pl.id, pv.kind, pv.id AS place_version_id, pv.canonical_name, pl.names,
+      `SELECT pl.id, pv.kind, pv.jurisdiction_id, pv.id AS place_version_id, pv.canonical_name, pl.names,
               -- A PARLIAMENTARY SEAT HAS NO DISTRICT, and the COALESCE onto pl.parent_id is an assembly-era
               -- fallback that handed one a district anyway: district_place_id is NULL on all 2,065 pc
               -- versions because a Lok Sabha seat spans districts by design, so the fallback fired every
@@ -186,6 +189,7 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
       place: {
         id: p.id,
         kind: p.kind,
+        jurisdictionId: p.jurisdiction_id,
         canonicalName: p.canonical_name,
         names: parseNames(p.names),
         districtId: p.parent_id,

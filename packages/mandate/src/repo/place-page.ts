@@ -50,6 +50,13 @@ export type PathTarget = {
    * narrows on the state instead, which is the ancestor a pc actually has.
    */
   jurisdictionId: string | null;
+  /**
+   * The one body to match, or null for either.
+   *
+   * Null is how the ambiguous pre-body URL asks the question, and it is the ONLY caller that may: a canonical
+   * route always knows the body, because the body is in its path.
+   */
+  kind?: "ac" | "pc" | null;
 };
 
 /** A stray percent in the path is a name no place has, not a crashed page: /pl/wb/50%25 must 404 the
@@ -73,6 +80,8 @@ export function parsePath(
    * architecture — the URL identifies the thing, the domain says what kind of thing it is.
    */
   level?: "constituency",
+  /** The registry kind, when the route carried a body. Narrows to ONE body instead of matching either. */
+  kind?: "ac" | "pc",
 ): PathTarget | null {
   const clean = segments
     .map((s) => decode(s).trim().toLowerCase())
@@ -91,21 +100,23 @@ export function parsePath(
   if (level === "constituency") {
     return {
       level: "ac",
-      ids: [last, `${state}.ac.${last.padStart(3, "0")}`],
+      ids: [last, `${state}.${kind ?? "ac"}.${last.padStart(3, "0")}`],
       name,
       parentId: null,
       jurisdictionId: state,
+      // Null means "either body", which is what the ambiguous legacy URL has to ask for.
+      kind: kind ?? null,
     };
   }
   if (clean.length === 1) {
-    return { level: "state", ids: [state], name, parentId: null, jurisdictionId: null };
+    return { level: "state", ids: [state], name, parentId: null, jurisdictionId: null, kind: null };
   }
   if (clean.length === 2) {
-    return { level: "district", ids: [clean.join("."), last], name, parentId: state, jurisdictionId: null };
+    return { level: "district", ids: [clean.join("."), last], name, parentId: state, jurisdictionId: null, kind: null };
   }
   // An AC is addressable by name ("mekliganj"), by its full id, or by its number ("1", "001").
   const ids = [last, `${state}.ac.${last.padStart(3, "0")}`];
-  return { level: "ac", ids, name, parentId: `${state}.${clean[1] ?? ""}`, jurisdictionId: null };
+  return { level: "ac", ids, name, parentId: `${state}.${clean[1] ?? ""}`, jurisdictionId: null, kind: null };
 }
 
 /**
@@ -129,7 +140,7 @@ export function placeHref(p: {
   }
   // A seat's jurisdiction is the first component of its district id, or of its own.
   const state = (p.parentId ?? p.id).split(".")[0] ?? "";
-  return state === "" ? "/" : constituencyHref(state, p.canonicalName);
+  return state === "" ? "/" : constituencyHref({ jurisdictionId: state, kind: "ac", canonicalName: p.canonicalName });
 }
 
 
@@ -971,6 +982,46 @@ function stateElections(db: DatabaseSync, sql: DbMod, repo: RepoMod, jurisdictio
  * because answering a constituency request with a different entity is the silent substitution this phase
  * exists to remove.
  */
+/**
+ * Every constituency of a given name in a jurisdiction, ONE PER BODY, newest delimitation first.
+ *
+ * The compatibility route for the pre-body URL needs to know whether an old link is ambiguous, and the only
+ * honest way to find out is to ask for all of them. Returns at most two rows — a name can collide across
+ * bodies but not within one, since a jurisdiction does not hold two current seats of one body with one name.
+ */
+export async function constituenciesNamed(
+  jurisdictionId: string,
+  nameSlug: string,
+): Promise<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }[]> {
+  let db: DatabaseSync | undefined;
+  try {
+    const [r, sql] = await load();
+    db = r.read(() => sql.openRead());
+    const want = decode(nameSlug).trim().toLowerCase();
+    return r.read(() =>
+      sql.all<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }>(
+        db as DatabaseSync,
+        `SELECT pl.id AS id, pv.kind AS kind, pv.canonical_name AS canonicalName,
+                pv.jurisdiction_id AS jurisdictionId
+           FROM place_version pv
+           JOIN place pl ON pl.id = pv.place_id
+           JOIN boundary_epoch be ON be.id = pv.epoch_id
+          WHERE pv.jurisdiction_id = ? AND pv.kind IN ('ac', 'pc')
+            AND (LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ? OR LOWER(pv.canonical_name) = ?)
+          GROUP BY pv.kind
+          ORDER BY MAX(be.effective_from) DESC, pv.kind`,
+        jurisdictionId,
+        want,
+        want.replace(/-/g, " "),
+      ),
+    );
+  } catch {
+    return [];
+  } finally {
+    db?.close();
+  }
+}
+
 export async function constituencyPath(
   jurisdictionId: string,
   nameSlug: string,
@@ -1013,8 +1064,9 @@ export async function placeView(
   search: Search,
   /** Passed by the canonical constituency route, which knows what it resolved. */
   level?: "constituency",
+  kind?: "ac" | "pc",
 ): Promise<PlaceView> {
-  const target = parsePath(segments, level);
+  const target = parsePath(segments, level, kind);
   if (target === null) return { kind: "not-found" };
   let db: DatabaseSync | undefined;
   let repo: RepoMod | undefined;
@@ -1079,7 +1131,7 @@ export async function placeView(
                 AND (? IS NULL OR ? IS NULL)
               ORDER BY CASE WHEN id = ? THEN 0 WHEN id = ? THEN 1 ELSE 2 END, id
               LIMIT 1`,
-        target.level,
+        target.kind ?? target.level,
         /**
          * The SECOND kind, and the two-placeholder shape now earns its keep twice.
          *
@@ -1088,7 +1140,12 @@ export async function placeView(
          *
          * `IN (x, x)` is `= x`, so a district still matches only districts.
          */
-        target.level === "state" ? "ut" : target.level === "ac" ? "pc" : target.level,
+        target.level === "state"
+          ? "ut"
+          : target.level === "ac"
+            ? // ONE BODY when the route carried one, so a canonical URL can never answer with the other.
+              (target.kind ?? "pc")
+            : target.level,
         idA,
         idB,
         target.name,

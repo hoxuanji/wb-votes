@@ -525,7 +525,11 @@ export function electionMapView(
          * JURISDICTION and the name, which is what both bodies have.
          */
         href:
-          r.jurisdictionId === null ? null : constituencyHref(r.jurisdictionId, r.name),
+          r.jurisdictionId === null
+            ? null
+            : // THE ELECTION'S BODY DECIDES, never the seat's name. A Lok Sabha election contests pc seats
+              // and an assembly election contests ac seats, so the link builder is told rather than guessing.
+              constituencyHref({ jurisdictionId: r.jurisdictionId, kind: e.house, canonicalName: r.name }),
       };
     });
 

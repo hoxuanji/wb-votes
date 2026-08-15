@@ -36,13 +36,14 @@ const skip = haveRegistry() ? false : `no registry at ${DEV_DB_PATH} — run npm
 // ── the URL ──────────────────────────────────────────────────────────────────────────────────────
 
 test("parsePath: the three levels of §7's grammar, and nothing else", () => {
-  assert.deepEqual(parsePath(["wb"]), { level: "state", ids: ["wb"], name: "wb", parentId: null, jurisdictionId: null });
+  assert.deepEqual(parsePath(["wb"]), { level: "state", ids: ["wb"], name: "wb", parentId: null, jurisdictionId: null, kind: null });
   assert.deepEqual(parsePath(["wb", "Cooch-Behar"]), {
     level: "district",
     ids: ["wb.cooch-behar", "cooch-behar"],
     name: "cooch behar",
     parentId: "wb",
     jurisdictionId: null,
+    kind: null,
   });
   assert.deepEqual(parsePath(["wb", "cooch-behar", "1"]), {
     level: "ac",
@@ -50,6 +51,7 @@ test("parsePath: the three levels of §7's grammar, and nothing else", () => {
     name: "1",
     parentId: "wb.cooch-behar",
     jurisdictionId: null,
+    kind: null,
   });
   assert.equal(parsePath(["wb", "cooch-behar", "mekliganj"])?.parentId, "wb.cooch-behar");
   // TOLD ITS KIND, not counted: two segments and a constituency, narrowed on the state because a
@@ -60,6 +62,7 @@ test("parsePath: the three levels of §7's grammar, and nothing else", () => {
     name: "mekliganj",
     parentId: null,
     jurisdictionId: "wb",
+    kind: null,
   });
   assert.equal(parsePath([]), null);
   assert.equal(parsePath(["", " "]), null);
@@ -85,7 +88,7 @@ test("placeHref: one canonical path per level, from ids alone", () => {
   );
   assert.equal(
     placeHref({ kind: "ac", id: "wb.ac.001", canonicalName: "Mekliganj", parentId: "wb.cooch-behar" }),
-    "/constituency/wb/mekliganj",
+    "/constituency/wb/assembly/mekliganj",
   );
   // and the path it produces parses back to the place it came from
   assert.deepEqual(parsePath(["wb", "cooch-behar", "mekliganj"])?.level, "ac");
@@ -93,7 +96,7 @@ test("placeHref: one canonical path per level, from ids alone", () => {
 
 // ── filters ──────────────────────────────────────────────────────────────────────────────────────
 
-const base = "/constituency/wb/mekliganj/analysis";
+const base = "/constituency/wb/assembly/mekliganj/analysis";
 const opts = { base, years: [2026, 2021, 2016, 2011], parties: ["AIFB", "BJP", "TMC"] };
 
 test("parseFilters: valid params pass, chips drop exactly one param each", () => {
@@ -168,6 +171,7 @@ function brief(contests: Contest[]): PlaceBrief {
     place: {
       id: "wb.ac.001",
     kind: "ac",
+    jurisdictionId: "wb",
       canonicalName: "Testganj",
       names: { en: "Testganj" },
       districtId: "wb.test",
@@ -409,7 +413,7 @@ test("placeView: a district lists its seats, a state its districts", { skip }, a
   assert.equal(d.level, "district");
   assert.equal(d.children.rows.length, 9);
   assert.match(d.headline, /9 assembly seats/);
-  assert.equal(d.children.rows[0]?.href, "/constituency/wb/mekliganj");
+  assert.equal(d.children.rows[0]?.href, "/constituency/wb/assembly/mekliganj");
   assert.ok(d.sources.length > 0, "a parent level is cited too");
 
   const s = await placeView(["wb"], {});

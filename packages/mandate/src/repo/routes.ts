@@ -55,14 +55,56 @@ export function districtHref(districtId: string): string {
 }
 
 /**
- * A constituency: `/constituency/ka/jayanagar`.
+ * Which body a constituency elects to, in the reader's words. The URL segment.
  *
- * Takes the JURISDICTION, not the district. A seat's district is a grouping that changes with delimitation
- * while the seat keeps its name, so putting the district in the URL made a shared link rot at the next
- * redraw. The state is the stable ancestor and is all the name needs to be unambiguous.
+ * Two spellings of one fact exist and this is the boundary between them: `assembly` / `lok-sabha` in a URL,
+ * `ac` / `pc` in the registry. The mapping lives HERE and nowhere else, so no route handler decodes it again.
  */
-export function constituencyHref(jurisdictionId: string, name: string): string {
-  if (jurisdictionId === "" || name === "") return "/";
+export type ConstituencyBody = "assembly" | "lok-sabha";
+
+/** The registry kind for a URL body. */
+export function kindOfBody(body: ConstituencyBody): "ac" | "pc" {
+  return body === "lok-sabha" ? "pc" : "ac";
+}
+
+/** The URL body for a registry kind. Anything but 'pc' is an assembly seat. */
+export function bodyOfKind(kind: string): ConstituencyBody {
+  return kind === "pc" ? "lok-sabha" : "assembly";
+}
+
+/** A URL segment that is a real body, or null. Never normalised from a near-miss. */
+export function asBody(segment: string | undefined): ConstituencyBody | null {
+  return segment === "assembly" || segment === "lok-sabha" ? segment : null;
+}
+
+/**
+ * A constituency: `/constituency/up/lok-sabha/saharanpur`.
+ *
+ * ── WHY THE BODY IS IN THE PATH ──
+ *
+ * It was `/constituency/<state>/<name>`, on the reasoning that a name is unique within a state. It is not
+ * unique across BODIES. Saharanpur is `up.ac.004` AND `up.pc.001` in the same delimitation, and 335 of 606
+ * parliamentary seats — 55% — collide with an assembly seat this way in the current delimitation; 1,372
+ * collide across all six. The resolver answered with whichever version sorted first, so more than half of
+ * India's Lok Sabha seats had a canonical URL that silently returned a different office.
+ *
+ * The jurisdiction and the district are both wrong discriminators for this: they narrow WHERE the seat is,
+ * and the ambiguity is WHAT it is. Body is the missing third part of the identity.
+ *
+ * TAKES THE ENTITY, not three loose strings, so a caller cannot pair a name with the wrong body. Anything
+ * holding a `kind` and a `jurisdiction_id` — a place row, a version row, a seat — satisfies it as it is.
+ */
+export function constituencyHref(place: {
+  jurisdictionId: string | null;
+  kind: string;
+  canonicalName: string;
+}): string {
+  if (place.jurisdictionId === null || place.jurisdictionId === "" || place.canonicalName === "") return "/";
+  return `/constituency/${place.jurisdictionId}/${bodyOfKind(place.kind)}/${slugOf(place.canonicalName)}`;
+}
+
+/** The ambiguous pre-body form, for the compatibility route that has to recognise its own old URLs. */
+export function legacyConstituencyHref(jurisdictionId: string, name: string): string {
   return `/constituency/${jurisdictionId}/${slugOf(name)}`;
 }
 
@@ -103,5 +145,5 @@ export function canonicalHref(p: {
   if (p.kind === "state") return stateHref(p.id);
   if (p.kind === "district") return districtHref(p.id);
   const state = p.jurisdictionId ?? (p.parentId ?? "").split(".")[0] ?? "";
-  return state === "" ? "/" : constituencyHref(state, p.canonicalName);
+  return state === "" ? "/" : constituencyHref({ jurisdictionId: state, kind: "ac", canonicalName: p.canonicalName });
 }

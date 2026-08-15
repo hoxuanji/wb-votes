@@ -105,15 +105,22 @@ test("every hit points at a URL that resolves", live, async () => {
      * 404s. `constituencyPath` is what the route uses to find the seat's district, and a search hit resolving
      * means it resolves through the same function the reader's click will.
      */
+    // /constituency/<state>/<body>/<name> — the BODY is part of the identity now, so a hit is resolved with
+    // the body it advertises rather than with a name alone.
     const parts = href.split("/").filter(Boolean);
-    const segments =
-      parts[0] === "constituency"
-        ? ((await constituencyPath(parts[1] as string, parts[2] as string)) ?? [])
-        : parts.slice(1);
+    const isSeat = parts[0] === "constituency";
+    const segments = isSeat
+      ? ((await constituencyPath(parts[1] as string, parts[3] as string)) ?? [])
+      : parts.slice(1);
     assert.ok(segments.length > 0, `${href} does not resolve to a place at all`);
     // The KIND is passed exactly as the canonical route passes it. Without it a two-segment constituency
     // path is counted as a district, which is the inference Phase C removed from production code.
-    const view = await placeView(segments, {}, parts[0] === "constituency" ? "constituency" : undefined);
+    const view = await placeView(
+      segments,
+      {},
+      isSeat ? "constituency" : undefined,
+      isSeat ? (parts[2] === "lok-sabha" ? "pc" : "ac") : undefined,
+    );
     assert.notEqual(view.kind, "not-found", `${href} is offered by search and 404s`);
     assert.notEqual(view.kind, "unavailable", `${href} could not be read`);
   }
@@ -140,7 +147,7 @@ test("a constituency hit is the seat that carries the name now", live, () => {
           h.label.toLowerCase().includes(q.toLowerCase()),
           `"${q}" returned ${h.label}, which does not contain the query`,
         );
-        assert.match(h.href, /^\/constituency\/[a-z]{2}\/[^/]+$/, `${h.href} is not a canonical constituency path`);
+        assert.match(h.href, /^\/constituency\/[a-z]{2}\/(assembly|lok-sabha)\/[^/]+$/, `${h.href} is not a canonical constituency path`);
         // The detail names the district, and the path's district segment must be the same district.
         const segment = h.href.split("/")[3] ?? "";
         assert.ok(segment.length > 0, `${h.href} has an empty district segment`);

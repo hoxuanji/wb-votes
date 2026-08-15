@@ -259,18 +259,21 @@ export async function PlaceSurface({
   segments: all,
   searchParams,
   level,
+  kind,
 }: {
   segments: readonly string[];
   searchParams?: Record<string, string | string[] | undefined>;
   /** Passed by the constituency route, which knows what kind of entity it resolved. */
   level?: "constituency";
+  /** The registry kind the route's body maps to. */
+  kind?: "ac" | "pc";
 }) {
   // Next 14 refuses a static segment AFTER a catch-all ("Catch-all must be the last part of the URL"), so
   // /pl/:state/:district/:ac/analysis is served from this same route: the lens is the trailing segment, and
   // §7's place path is what is left. Both lenses stay plain links.
   const lens = all.at(-1) === "analysis" ? "analysis" : "brief";
   const segments = lens === "analysis" ? all.slice(0, -1) : all;
-  const view = await placeView(segments, searchParams ?? {}, level);
+  const view = await placeView(segments, searchParams ?? {}, level, kind);
   if (view.kind === "not-found") notFound();
   if (view.kind === "unavailable") {
     return (

@@ -42,13 +42,13 @@ test("every constituency id in the seed redirects to a real place path", opts, (
     const parts = path.split("/");
     // CANONICAL, so an old id redirects once. `/constituency/wb/<seat>` — four parts, and the district is
     // no longer in the path because a delimitation can move a seat between districts.
-    assert.equal(parts.length, 4, `${c.id} -> ${path} is not /constituency/wb/<seat>`);
+    assert.equal(parts.length, 5, `${c.id} -> ${path} is not /constituency/wb/assembly/<seat>`);
     assert.equal(parts[1], "constituency", `${c.id} -> ${path} is not a constituency route`);
     assert.ok(
       parts.every((p, i) => i === 0 || p.length > 0),
       `${c.id} -> ${path} has an empty segment`,
     );
-    assert.match(path, /^\/constituency\/wb\/[a-z0-9-]+$/, `${c.id} -> ${path} is not a slug path`);
+    assert.match(path, /^\/constituency\/wb\/assembly\/[a-z0-9-]+$/, `${c.id} -> ${path} is not a slug path`);
   }
   assert.deepEqual(missing, [], `${missing.length} constituency ids resolve to nothing`);
 });

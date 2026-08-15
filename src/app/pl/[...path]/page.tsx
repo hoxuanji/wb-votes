@@ -51,7 +51,14 @@ export default async function LegacyPlace({
    */
   const to =
     view.kind === 'ac'
-      ? constituencyHref(view.brief.place.id.split('.')[0] ?? '', view.brief.place.canonicalName)
+      ? // THE RESOLVED ENTITY, body included. `place.kind` is what the registry returned, so an old assembly
+        // path redirects to an assembly URL and an old parliamentary one to a Lok Sabha URL — neither is
+        // inferred from the path, which could not have carried the body anyway.
+        constituencyHref({
+          jurisdictionId: view.brief.place.jurisdictionId,
+          kind: view.brief.place.kind,
+          canonicalName: view.brief.place.canonicalName,
+        })
       : view.level === 'district'
         ? districtHref(`${segments[0] ?? ''}.${segments[1] ?? ''}`)
         : stateHref(segments[0] ?? '');
