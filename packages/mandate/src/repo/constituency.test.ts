@@ -5,6 +5,8 @@ import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import { all } from "../db/index.ts";
 import { constituenciesNamed, constituencyPath, placeView } from "./place-page.ts";
 import { constituencyHref } from "./routes.ts";
+import { searchAll } from "./search.ts";
+import { getPersonBrief } from "./person.ts";
 
 const HAVE = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE ? false : "no .data/registry.db" };
@@ -255,4 +257,104 @@ test("the pre-body URL asks rather than choosing, and resolves when it is unambi
 
   // AND A NAME THAT IS NEITHER resolves to nothing — never to the state.
   assert.deepEqual(await constituenciesNamed(collide.j, "no-such-constituency-zzzz"), []);
+});
+
+test("a parliamentary seat is searchable, and its state is its jurisdiction", live, async () => {
+  /**
+   * TWO DEFECTS, both of which made a Lok Sabha seat unreachable through search.
+   *
+   *   1. Search required a district and returned null without one. No pc HAS a district —
+   *      `district_place_id` is NULL on all 2,065 versions — so every pc hit was silently dropped.
+   *   2. And the state was derived from the district's parent, which for a pc resolves to the nation, so the
+   *      one URL it did build named the country as the state.
+   *
+   * Both are the same mistake: treating an assembly seat's ancestry as every seat's ancestry. The authoritative
+   * jurisdiction is `place_version.jurisdiction_id`, which both bodies carry.
+   */
+  const pc = all<{ j: string; name: string }>(
+    db,
+    `SELECT pv.jurisdiction_id AS j, pv.canonical_name AS name
+       FROM place_version pv
+      WHERE pv.kind = 'pc' AND pv.district_place_id IS NULL AND pv.jurisdiction_id IS NOT NULL
+        AND EXISTS (SELECT 1 FROM contest c WHERE c.place_version_id = pv.id)
+      ORDER BY pv.id LIMIT 4`,
+  );
+  assert.ok(pc.length > 0, "no districtless parliamentary seat with a contest");
+
+  for (const seat of pc) {
+    const hits = searchAll(db, seat.name, 20);
+    const places = hits.constituencies.filter((h) => h.href.startsWith("/constituency/"));
+    const mine = places.find((h) => h.href.includes("/lok-sabha/"));
+    assert.ok(mine, `${seat.j}/${seat.name}: search offered no parliamentary constituency`);
+
+    const parts = mine.href.split("/").filter(Boolean);
+    // 1 — THE STATE IS THE JURISDICTION, and never the nation.
+    assert.equal(parts[1], seat.j, `${mine.href} does not carry its own jurisdiction`);
+    assert.notEqual(parts[1], "in", `${mine.href} names the country as a state`);
+    // 2 — AND THE BODY IS IN THE URL.
+    assert.equal(parts[2], "lok-sabha");
+
+    // 3 — AND IT RESOLVES, to a pc and not to an assembly seat of the same name.
+    const segments = await constituencyPath(parts[1] as string, parts[3] as string);
+    assert.ok(segments !== null, `${mine.href} does not resolve`);
+    const view = await placeView(segments, {}, "constituency", "pc");
+    assert.equal(view.kind, "ac");
+    if (view.kind === "ac") assert.equal(view.brief.place.kind, "pc", `${mine.href} resolved to an assembly seat`);
+  }
+});
+
+test("no constituency URL names the country as its state, either body", live, () => {
+  // THE INVARIANT, over every seat with a contest rather than a sample. A jurisdiction_id of 'in' would mean
+  // a constituency whose state is India, which the model should make impossible.
+  const bad = all<{ n: number }>(
+    db,
+    `SELECT COUNT(*) AS n FROM place_version
+      WHERE kind IN ('ac', 'pc')
+        AND (jurisdiction_id IS NULL OR jurisdiction_id = 'in')
+        AND EXISTS (SELECT 1 FROM contest c WHERE c.place_version_id = place_version.id)`,
+  )[0]?.n;
+  assert.equal(bad, 0, `${bad} contested constituencies have no state, or claim the country as one`);
+});
+
+test("no parliamentary seat has been given a district", live, () => {
+  /**
+   * A REGRESSION GUARD ON AN ABSENCE. The registry asserts no pc -> district relationship, and the honest
+   * consequence is that a Lok Sabha seat has no district in this product. The tempting fixes — a name match, a
+   * geometry overlap, the place row's parent — are all fabrication, and one of them was already in the code:
+   * `districtId` fell back to `place.parent_id`, so every pc inherited a district no source states.
+   */
+  const fabricated = all<{ n: number }>(
+    db,
+    `SELECT COUNT(*) AS n FROM place_version WHERE kind = 'pc' AND district_place_id IS NOT NULL`,
+  )[0]?.n;
+  assert.equal(fabricated, 0, `${fabricated} parliamentary seats have acquired a district`);
+});
+
+test("a person's page reaches the constituency they contested, with the right body", live, () => {
+  /**
+   * NO MIGRATION WAS NEEDED. The audit proposed adding `candidacy.jurisdiction_id`; the relation already
+   * exists through candidacy -> contest -> place_version, which is where a contest's seat is recorded. The
+   * jurisdiction and the body both come from there, so the link is authoritative rather than inferred.
+   */
+  const person = all<{ id: string }>(
+    db,
+    `SELECT ca.person_id AS id FROM candidacy ca
+       JOIN contest c ON c.id = ca.contest_id
+       JOIN place_version pv ON pv.id = c.place_version_id
+      WHERE pv.kind = 'pc' AND pv.jurisdiction_id IS NOT NULL LIMIT 1`,
+  )[0]?.id;
+  assert.ok(person, "no person contested a parliamentary seat");
+  const brief = getPersonBrief(db, person);
+  assert.ok(brief);
+  const latest = brief.candidacies.at(0);
+  assert.ok(latest, `${person} has no candidacy`);
+  assert.ok(latest.jurisdictionId !== null, `${person}'s latest contest has no jurisdiction`);
+  assert.ok(latest.placeKind === "ac" || latest.placeKind === "pc", `unexpected body ${latest.placeKind}`);
+  const href = constituencyHref({
+    jurisdictionId: latest.jurisdictionId,
+    kind: latest.placeKind,
+    canonicalName: latest.placeName,
+  });
+  assert.match(href, /^\/constituency\/[a-z]{2}\/(assembly|lok-sabha)\/.+/, `${person} built ${href}`);
+  assert.ok(!href.includes("/in/"), `${person} links to a constituency of the country`);
 });

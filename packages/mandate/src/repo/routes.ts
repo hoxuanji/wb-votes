@@ -126,7 +126,7 @@ export function personHref(personId: string): string {
 }
 
 /** What kind of thing a `/pl/...` path was asking for, resolved rather than counted. */
-export type PlaceKind = "state" | "district" | "ac";
+export type PlaceKind = "state" | "district" | "ac" | "pc";
 
 /**
  * The canonical URL for a place whose kind is already KNOWN — resolved from the registry, never guessed

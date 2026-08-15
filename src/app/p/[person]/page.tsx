@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { constituencyHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import Link from "next/link";
 import type { PersonBrief } from "../../../../packages/mandate/src/repo/index.ts";
 import type { Problem } from "../../../../packages/mandate/src/repo/envelope.ts";
@@ -73,9 +74,29 @@ export default async function PersonBriefPage({ params }: { params: { person: st
       <Crumbs
         trail={[
           { label: "India", href: "/" },
+          /**
+           * THE CRUMB IS A LINK NOW, and the person page had none at all — a dead end at the bottom of
+           * every navigation path in the product.
+           *
+           * No migration was needed and none was made: the jurisdiction and the body come from
+           * `place_version` through candidacy -> contest, which is where a contest's seat is recorded. The
+           * crumb is unlinked only when that relation is genuinely absent, never guessed from the name.
+           */
           ...(latest === undefined || latest.placeName === null
             ? []
-            : [{ label: latest.placeName, href: undefined }]),
+            : [
+                {
+                  label: latest.placeName,
+                  href:
+                    latest.jurisdictionId === null || latest.placeKind === null
+                      ? undefined
+                      : constituencyHref({
+                          jurisdictionId: latest.jurisdictionId,
+                          kind: latest.placeKind,
+                          canonicalName: latest.placeName,
+                        }),
+                },
+              ]),
           { label: brief.person.canonicalName },
         ]}
       />

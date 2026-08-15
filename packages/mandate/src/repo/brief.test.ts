@@ -43,6 +43,8 @@ function cand(o: Partial<PersonBrief["candidacies"][number]>): PersonBrief["cand
     electionId: "wb-assembly-2021",
     electionName: "WB 2021",
     year: 2021,
+    jurisdictionId: "wb",
+    placeKind: "ac",
     placeName: "Uluberia Dakshin",
     placeNumber: 188,
     reservation: null,

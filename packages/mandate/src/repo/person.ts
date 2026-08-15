@@ -32,6 +32,9 @@ export type PersonBrief = {
     electionName: string;
     year: number;
     placeName: string;
+    /** The seat's jurisdiction and body, from `place_version` — everything a canonical link needs. */
+    jurisdictionId: string | null;
+    placeKind: string | null;
     placeNumber: number | null;
     reservation: Reservation | null;
     partyShortName: string | null;
@@ -129,6 +132,8 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
       election_id: string;
       election_name: string;
       place_name: string;
+      jurisdiction_id: string | null;
+      place_kind: string | null;
       number: number | null;
       reservation: Reservation | null;
       party_short_name: string | null;
@@ -148,7 +153,15 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
     }>(
       db,
       `SELECT ca.id AS candidacy_id, c.id AS contest_id, c.election_id, e.name AS election_name,
-              pl.canonical_name AS place_name, pv.number, pv.reservation,
+              -- THE VERSION NAME, not the place row name. place.canonical_name is a seat-NUMBER grouping
+              -- whose name comes from whichever delimitation created the row, so it can differ from the seat
+              -- the contest was actually held in, and a canonical URL built from it would not resolve.
+              pv.canonical_name AS place_name,
+              -- THE AUTHORITATIVE JURISDICTION AND BODY, and no migration was needed for either. The audit
+              -- proposed adding candidacy.jurisdiction_id; the relation already exists through
+              -- candidacy -> contest -> place_version, which is where a contest's seat is recorded.
+              pv.jurisdiction_id AS jurisdiction_id, pv.kind AS place_kind,
+              pv.number, pv.reservation,
               pt.short_name AS party_short_name,
               COALESCE(ca.symbol_id, pver.symbol_id) AS symbol_id,
               ca.status, ca.age_declared, ca.education_declared,
@@ -249,6 +262,8 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
         electionName: c.election_name,
         year: yearOf(c.election_id),
         placeName: c.place_name,
+        jurisdictionId: c.jurisdiction_id,
+        placeKind: c.place_kind,
         placeNumber: c.number,
         reservation: c.reservation,
         partyShortName: c.party_short_name,
@@ -474,6 +489,8 @@ type PersonListSql = {
   candidacy_count: number;
   election_id: string | null;
   place_name: string | null;
+  jurisdiction_id: string | null;
+  place_kind: string | null;
   party_short_name: string | null;
   status: CandidacyStatus | null;
   votes: number | null;

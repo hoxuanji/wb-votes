@@ -127,7 +127,7 @@ export function parsePath(
  * what happened. It delegates now, so every caller emits canonical routes without knowing they changed.
  */
 export function placeHref(p: {
-  kind: "state" | "district" | "ac";
+  kind: "state" | "district" | "ac" | "pc";
   id: string;
   canonicalName: string;
   parentId: string | null;
@@ -138,9 +138,11 @@ export function placeHref(p: {
     const full = p.id.includes(".") ? p.id : `${p.parentId ?? ""}.${p.id}`;
     return districtHref(full);
   }
-  // A seat's jurisdiction is the first component of its district id, or of its own.
+  // A seat's jurisdiction is the first component of its district id, or of its own. The BODY comes from the
+  // caller, because a parliamentary seat has no district to infer one from and assuming "ac" pointed a pc's
+  // own links at an assembly seat.
   const state = (p.parentId ?? p.id).split(".")[0] ?? "";
-  return state === "" ? "/" : constituencyHref({ jurisdictionId: state, kind: "ac", canonicalName: p.canonicalName });
+  return state === "" ? "/" : constituencyHref({ jurisdictionId: state, kind: p.kind, canonicalName: p.canonicalName });
 }
 
 
@@ -1191,7 +1193,9 @@ export async function placeView(
       .filter((n): n is string => n !== null);
     const years = brief.contests.map((c) => c.year);
     const base = `${placeHref({
-      kind: "ac",
+      // THE SEAT'S OWN BODY. Hardcoding "ac" here made a parliamentary page link to an ASSEMBLY seat of the
+      // same name — its own base URL pointing at a different office, or at nothing.
+      kind: place.kind === "pc" ? "pc" : "ac",
       id: place.id,
       canonicalName: place.canonical_name,
       parentId: place.parent_id,
