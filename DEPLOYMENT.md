@@ -171,7 +171,20 @@ fly volumes create registry --region sin --size 3
 fly deploy                                  # pages render "registry unavailable" until the next step
 
 npm run registry:migrate && npm run registry:ingest
-fly ssh sftp shell -a india-election-intelligence                   # put .data/registry.db /data/registry.db
+# Compress first: 581 MB of SQLite gzips to about 110 MB, and a shorter transfer is a smaller target for
+# the truncation that took the machine unhealthy on the first attempt.
+gzip -c .data/registry.db > /tmp/registry.db.gz && shasum -a 256 /tmp/registry.db.gz
+
+# INTERACTIVE — NOT A PASTEABLE BLOCK. `fly ssh sftp shell` opens a prompt; type the put on its own line
+# once the » prompt appears and wait for the byte count. Pasted together, the put arrives before the prompt
+# is ready and is swallowed, and `exit` then runs inside the shell as an unknown command. That happened.
+fly ssh sftp shell -a india-election-intelligence
+#   » put /tmp/registry.db.gz /data/registry.db.gz     <- wait for "NNN bytes written"
+#   » exit
+
+# VERIFY BEFORE DECOMPRESSING. The step that catches a truncated transfer.
+fly ssh console -a india-election-intelligence -C "sha256sum /data/registry.db.gz"
+fly ssh console -a india-election-intelligence -C "gunzip -f /data/registry.db.gz"
 fly machine restart -a india-election-intelligence
 
 curl -s https://india-election-intelligence.fly.dev/state/ka | grep -c Karnataka
@@ -199,7 +212,11 @@ The database is a build artefact. Nothing writes to it in production.
 ```sh
 npm run registry:ingest
 npm run mandate -- elections validate && npm run mandate -- geography validate
-fly ssh sftp shell -a india-election-intelligence                   # put .data/registry.db /data/registry.db.new
+gzip -c .data/registry.db > /tmp/registry.db.gz && shasum -a 256 /tmp/registry.db.gz
+# Interactive, as above: at the » prompt, `put /tmp/registry.db.gz /data/registry.db.gz.new`, then `exit`.
+fly ssh sftp shell -a india-election-intelligence
+fly ssh console -a india-election-intelligence -C "sha256sum /data/registry.db.gz.new"
+fly ssh console -a india-election-intelligence -C "gunzip -c /data/registry.db.gz.new > /data/registry.db.new"
 fly ssh console -a india-election-intelligence -C "mv /data/registry.db.new /data/registry.db"
 fly machine restart -a india-election-intelligence
 ```
