@@ -126,6 +126,14 @@ Three measured requirements decided it, and each ruled out an alternative:
 | Import `.ts` at request time | `place-page.ts` dynamic `file://` import | Cloudflare Workers — no filesystem, no runtime module loading |
 | Node ≥ 23.6 | type stripping unflagged | Node 22 without `--experimental-strip-types` |
 
+Verified on the first real build: `node:24-slim` passes the image's own self-check, and the image is 162 MB.
+
+**The region is `sin`, not `bom`.** Fly had no volume capacity in Mumbai — `no capacity available in bom` — and
+`sin` is the nearest region that does. Roughly 40-60 ms to Indian readers rather than 10-20, which is small
+and mostly invisible behind a Cloudflare cache: the origin is reached on a cache miss, not on a page view.
+Capacity fluctuates, so moving back is a one-line change plus a volume, and relocating a file-backed database
+is an upload rather than a migration.
+
 That third row is the constraint nobody predicts. `place-page.ts` loads the repo layer through a dynamic
 import of an absolute `file://` URL with a `webpackIgnore` comment, deliberately, so the bundler leaves it
 alone. `packages/mandate/src/**` therefore has to exist in the running container, and `output: 'standalone'`
@@ -141,25 +149,25 @@ instead of failing every page in production.
 Nothing here touches `wbvotes.in`; that is the last step.
 
 ```sh
-fly launch --no-deploy --name iei
-fly volumes create registry --region bom --size 3
+fly launch --no-deploy --name india-election-intelligence
+fly volumes create registry --region sin --size 3
 fly deploy                                  # pages render "registry unavailable" until the next step
 
 npm run registry:migrate && npm run registry:ingest
-fly ssh sftp shell -a iei                   # put .data/registry.db /data/registry.db
-fly machine restart -a iei
+fly ssh sftp shell -a india-election-intelligence                   # put .data/registry.db /data/registry.db
+fly machine restart -a india-election-intelligence
 
-curl -s https://iei.fly.dev/state/ka | grep -c Karnataka
+curl -s https://india-election-intelligence.fly.dev/state/ka | grep -c Karnataka
 ```
 
 `registry:ingest` runs on a workstation, never in CI: it reads source files that are not in the repository.
 
 ### Cloudflare
 
-Only after `iei.fly.dev` serves real pages.
+Only after `india-election-intelligence.fly.dev` serves real pages.
 
 1. Add the zone; point the registrar's nameservers at Cloudflare.
-2. `CNAME wbvotes.in → iei.fly.dev`, **proxied** (orange cloud).
+2. `CNAME wbvotes.in → india-election-intelligence.fly.dev`, **proxied** (orange cloud).
 3. SSL/TLS **Full (strict)** — Fly terminates TLS and `force_https` is set.
 4. Leave caching at defaults. The application already sends the right headers and Cloudflare honours them.
 5. Set `NEXT_PUBLIC_SITE_URL=https://wbvotes.in` in `fly.toml`, redeploy.
@@ -174,9 +182,9 @@ The database is a build artefact. Nothing writes to it in production.
 ```sh
 npm run registry:ingest
 npm run mandate -- elections validate && npm run mandate -- geography validate
-fly ssh sftp shell -a iei                   # put .data/registry.db /data/registry.db.new
-fly ssh console -a iei -C "mv /data/registry.db.new /data/registry.db"
-fly machine restart -a iei
+fly ssh sftp shell -a india-election-intelligence                   # put .data/registry.db /data/registry.db.new
+fly ssh console -a india-election-intelligence -C "mv /data/registry.db.new /data/registry.db"
+fly machine restart -a india-election-intelligence
 ```
 
 Upload beside the live file and move it into place, so a failed transfer cannot leave a truncated database

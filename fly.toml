@@ -1,49 +1,68 @@
-# Fly is the ORIGIN. Cloudflare is the edge in front of it — see docs/deploy.md.
+# Fly is the ORIGIN. Cloudflare is the edge in front of it — see DEPLOYMENT.md.
 #
-# `bom` because the readers are in India and the previous vercel.json already pinned `bom1`. A 40 ms origin
-# and a Cloudflare cache in front of server-rendered, zero-client-JS pages is the whole performance plan.
+# `fly launch` rewrites this file and strips comments. If you run it again, restore them from git: the
+# reasoning below is the only record of why three of these values are what they are.
 
-app = "iei"
-primary_region = "bom"
+app = 'india-election-intelligence'
+
+# ── REGION ──
+#
+# `bom` (Mumbai) is where the readers are and was the first choice. Fly had NO VOLUME CAPACITY there:
+#
+#   Error: failed to provision seed volumes: no capacity available in bom
+#
+# `sin` is the nearest region with capacity — roughly 40-60 ms to Indian readers against Mumbai's 10-20.
+# That cost is small here and mostly invisible: every page is server-rendered with zero client JavaScript
+# behind a Cloudflare cache, so the origin is reached on a cache MISS rather than on a page view.
+#
+# Capacity fluctuates. Moving back to Mumbai later is a one-line change plus a volume in the new region —
+# the database is a file, so relocating it is an upload rather than a migration.
+primary_region = 'sin'
 
 [build]
-  dockerfile = "Dockerfile"
+  dockerfile = 'Dockerfile'
 
 [env]
-  PORT = "3000"
+  PORT = '3000'
   # The registry, on the volume. `openRead()` reads this and falls back to .data/registry.db, which does not
   # exist in the image — so if this is ever unset the pages render their "registry unavailable" state rather
-  # than crashing, which is the correct failure but a confusing one. Keep it set.
-  MANDATE_DB_PATH = "/data/registry.db"
-  NEXT_PUBLIC_SITE_URL = "https://iei.fly.dev"
+  # than crashing. That is the correct failure but a confusing one. Keep it set.
+  MANDATE_DB_PATH = '/data/registry.db'
+  # The REAL hostname. `fly launch` named the app india-election-intelligence, not iei, and left this pointing
+  # at a domain that does not exist. Change it to https://wbvotes.in once Cloudflare fronts it.
+  NEXT_PUBLIC_SITE_URL = 'https://india-election-intelligence.fly.dev'
 
 [[mounts]]
-  source = "registry"
-  destination = "/data"
+  source = 'registry'
+  destination = '/data'
   # 446 MB of database, plus room for the next ingest to land beside the current one during an upload.
-  initial_size = "3gb"
+  initial_size = '3gb'
 
 [http_service]
   internal_port = 3000
   force_https = true
-  auto_stop_machines = "suspend"
+  auto_stop_machines = 'suspend'
   auto_start_machines = true
   # ONE MACHINE, and not for cost reasons. The volume holds the registry and a Fly volume attaches to exactly
   # one machine, so a second machine would boot with no database and serve the unavailable state to whichever
-  # readers it happened to get. Scaling this means a read replica strategy, not min_machines_running = 2.
+  # readers it happened to get. Scaling this means a read-replica strategy, not min_machines_running = 2.
   min_machines_running = 1
 
   [[http_service.checks]]
-    interval = "30s"
-    timeout = "5s"
-    grace_period = "20s"
-    method = "GET"
-    path = "/"
+    interval = '30s'
+    timeout = '5s'
+    # 20s of grace because the first request opens a 446 MB SQLite file and warms the page cache.
+    grace_period = '20s'
+    method = 'GET'
+    path = '/'
 
 [[vm]]
   # SQLite reads through the OS page cache, so RAM is what makes a 446 MB read-only database fast. 2 GB holds
   # the working set — the hot tables are result (76 MB), person_alias (59 MB) and candidacy (57 MB) — with
   # headroom for Next's own footprint. 1 GB would fit and would thrash.
-  memory = "2gb"
-  cpu_kind = "shared"
+  #
+  # `memory` only. `fly launch` added a redundant `memory_mb = 2048` beside it: the same value said twice, and
+  # a chance for the two to disagree after an edit.
+  memory = '2gb'
+  cpu_kind = 'shared'
   cpus = 2
