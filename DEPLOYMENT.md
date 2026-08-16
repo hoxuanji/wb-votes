@@ -84,6 +84,23 @@ data/seed/ than it did; `docs/release/PHASE-3-FINAL.md` records how the last mov
 
 ## Rebuilding the registry from scratch
 
+**`registry:ingest` IS NOT IDEMPOTENT. Rebuild; never re-ingest over a working registry.** Running it against
+an existing database re-inserted West Bengal's 2024 results on top of the rows already there and produced 36
+Lok Sabha seats declaring TWO WINNERS each — caught by `elections validate` check 1, and by the test named for
+the defect it reintroduced. It also leaves a database that only holds West Bengal: 5 events, 1,218 contests,
+42 of Lok Sabha 2024's 543 seats. `ops/rebuild.mjs` is the whole-registry path and the only one to use.
+
+Validation reads `MANDATE_DB_PATH ?? .data/registry.db` and takes no `--db` flag, so check the NEW file
+explicitly before moving it into place:
+
+```bash
+MANDATE_DB_PATH=.data/registry.db.new npm run mandate -- elections validate
+MANDATE_DB_PATH=.data/registry.db.new npm run mandate -- geography validate
+```
+
+Verified: a rebuild from the cached sources restores 1,202 events, 64,033 contests, 566,580 results and all
+543 Lok Sabha 2024 seats — the same figures as the registry it replaced.
+
 ```bash
 node ops/rebuild.mjs .data/next.db                            # ~12 min, from cached hashed sources
 node ops/rebuild-compare.mjs .data/registry.db .data/next.db  # must print REPRODUCIBLE — same content
