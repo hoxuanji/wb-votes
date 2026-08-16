@@ -61,9 +61,19 @@ export class RegistryUnavailableError extends Error {
 /** Wrap every read. A missing schema is the expected failure on a fresh clone (.data is
  *  gitignored); so are a locked database (a request during ingest, or two workers) and an
  *  unwritable cwd (a read-only container) — none of them is a bug in this process, and all of them
- *  are the same answer to a caller: the registry cannot be read right now. Anything else rethrows. */
+ *  are the same answer to a caller: the registry cannot be read right now. Anything else rethrows.
+ *
+ *  A DAMAGED FILE BELONGS ON THIS LIST TOO, and it took a real deployment to notice it was missing.
+ *  `not a database` is SQLITE_NOTADB — a file that is not SQLite at all. A TRUNCATED file is SQLite and
+ *  damaged, which is SQLITE_CORRUPT and reads `database disk image is malformed`. The two are different
+ *  strings, so an interrupted 446 MB upload to the production volume threw instead of degrading: every page
+ *  answered 500 and the health check marked the machine unhealthy, where an EMPTY volume had correctly
+ *  rendered "registry unavailable" and stayed green.
+ *
+ *  A half-uploaded database is exactly as unreadable as an absent one, and the operator needs the site to say
+ *  so while they re-upload rather than to fall over. */
 const UNAVAILABLE =
-  /no such table|no such column|not a database|unable to open|database is locked|table is locked|EACCES|EPERM|EROFS|ENOENT/i;
+  /no such table|no such column|not a database|disk image is malformed|malformed database schema|unable to open|database is locked|table is locked|EACCES|EPERM|EROFS|ENOENT/i;
 
 export function read<T>(fn: () => T): T {
   try {

@@ -84,6 +84,23 @@ data/seed/ than it did; `docs/release/PHASE-3-FINAL.md` records how the last mov
 
 ## Rebuilding the registry from scratch
 
+**`registry:ingest` IS NOT IDEMPOTENT. Rebuild; never re-ingest over a working registry.** Running it against
+an existing database re-inserted West Bengal's 2024 results on top of the rows already there and produced 36
+Lok Sabha seats declaring TWO WINNERS each — caught by `elections validate` check 1, and by the test named for
+the defect it reintroduced. It also leaves a database that only holds West Bengal: 5 events, 1,218 contests,
+42 of Lok Sabha 2024's 543 seats. `ops/rebuild.mjs` is the whole-registry path and the only one to use.
+
+Validation reads `MANDATE_DB_PATH ?? .data/registry.db` and takes no `--db` flag, so check the NEW file
+explicitly before moving it into place:
+
+```bash
+MANDATE_DB_PATH=.data/registry.db.new npm run mandate -- elections validate
+MANDATE_DB_PATH=.data/registry.db.new npm run mandate -- geography validate
+```
+
+Verified: a rebuild from the cached sources restores 1,202 events, 64,033 contests, 566,580 results and all
+543 Lok Sabha 2024 seats — the same figures as the registry it replaced.
+
 ```bash
 node ops/rebuild.mjs .data/next.db                            # ~12 min, from cached hashed sources
 node ops/rebuild-compare.mjs .data/registry.db .data/next.db  # must print REPRODUCIBLE — same content
@@ -108,29 +125,131 @@ that need one actually run. It asserts the failure COUNT is at most one rather t
 classified `searchPersons` failure stays green and a second one does not. The workflow it replaced triggered
 the deleted `/api/cron/scrape-results` endpoint.
 
-## Hosting — the unresolved part
+## Hosting — resolved
 
-`vercel.json` targets Vercel in `bom1`, and this is the honest statement of where that stands: **the registry
-is a 566 MB SQLite file that is not in the repository.** A Vercel build has no way to produce it, and a
-serverless function has no writable volume to keep it on. So the deployment story for this architecture is
-open, and these are the shapes it could take rather than a plan:
+**Cloudflare at the edge, one Node machine behind it.** The application did not change to get there, and
+that is the whole reason for this shape rather than a serverless one.
 
-* **Ship the file in the build.** `registry:ingest` during `next build`, and the file lands in the function
-  bundle. Bounded by the 250 MB unzipped limit, which the current registry exceeds.
-* **A persistent volume or an object store with local caching.** Needs a host with a filesystem — Fly, a
-  container, a VM — rather than a serverless function.
-* **Move to Postgres in production.** `docs/adr/0001-sqlite-dev-postgres-prod.md` records that decision as
-  taken and not yet done. It is the one that scales and the one with the most work in it.
+```
+reader → Cloudflare (DNS · CDN · WAF · cache) → Fly machine (Node 24, 2 GB) → /data/registry.db
+```
 
-Until one of those is real, this runs locally and in CI. Saying so is better than a guide that reads as
-though it has been deployed.
+Three measured requirements decided it, and each ruled out an alternative:
+
+| Requirement | Figure | What it rules out |
+| --- | --- | --- |
+| Read a SQLite file from disk | 581 MB (446 MB with resolution working data dropped) | Vercel functions (250 MB), Workers (10 MB) |
+| `node:sqlite`, synchronous | 151 call sites, 127 repo functions, 3 already async | Any network database, without an async port |
+| Import `.ts` at request time | `place-page.ts` dynamic `file://` import | Cloudflare Workers — no filesystem, no runtime module loading |
+| Node ≥ 23.6 | type stripping unflagged | Node 22 without `--experimental-strip-types` |
+
+Verified on the first real build: `node:24-slim` passes the image's own self-check, and the image is 162 MB.
+
+**The region is `sin`, not `bom`.** Fly had no volume capacity in Mumbai — `no capacity available in bom` — and
+`sin` is the nearest region that does. Roughly 40-60 ms to Indian readers rather than 10-20, which is small
+and mostly invisible behind a Cloudflare cache: the origin is reached on a cache miss, not on a page view.
+Capacity fluctuates, so moving back is a one-line change plus a volume, and relocating a file-backed database
+is an upload rather than a migration.
+
+That third row is the constraint nobody predicts. `place-page.ts` loads the repo layer through a dynamic
+import of an absolute `file://` URL with a `webpackIgnore` comment, deliberately, so the bundler leaves it
+alone. `packages/mandate/src/**` therefore has to exist in the running container, and `output: 'standalone'`
+is unusable — it copies what the bundler traced, and the bundler was told not to trace those files. It would
+produce an image where every route works except the place, district and constituency surfaces.
+
+`Dockerfile` checks the last two rows at **build** time — it imports the runtime `.ts` module and opens an
+in-memory `node:sqlite` database in the same form the request path uses. A wrong base image fails the build
+instead of failing every page in production.
+
+### First deploy
+
+Nothing here touches `wbvotes.in`; that is the last step.
+
+```sh
+fly launch --no-deploy --name india-election-intelligence
+fly volumes create registry --region sin --size 3
+fly deploy                                  # pages render "registry unavailable" until the next step
+
+npm run registry:migrate && npm run registry:ingest
+# Compress first: 581 MB of SQLite gzips to about 110 MB, and a shorter transfer is a smaller target for
+# the truncation that took the machine unhealthy on the first attempt.
+gzip -c .data/registry.db > /tmp/registry.db.gz && shasum -a 256 /tmp/registry.db.gz
+
+# INTERACTIVE — NOT A PASTEABLE BLOCK. `fly ssh sftp shell` opens a prompt; type the put on its own line
+# once the » prompt appears and wait for the byte count. Pasted together, the put arrives before the prompt
+# is ready and is swallowed, and `exit` then runs inside the shell as an unknown command. That happened.
+fly ssh sftp shell -a india-election-intelligence
+#   » put /tmp/registry.db.gz /data/registry.db.gz     <- wait for "NNN bytes written"
+#   » exit
+
+# VERIFY BEFORE DECOMPRESSING. The step that catches a truncated transfer.
+fly ssh console -a india-election-intelligence -C "sha256sum /data/registry.db.gz"
+fly ssh console -a india-election-intelligence -C "gunzip -f /data/registry.db.gz"
+fly machine restart -a india-election-intelligence
+
+curl -s https://india-election-intelligence.fly.dev/state/ka | grep -c Karnataka
+```
+
+`registry:ingest` runs on a workstation, never in CI: it reads source files that are not in the repository.
+
+### Cloudflare
+
+Only after `india-election-intelligence.fly.dev` serves real pages.
+
+1. Add the zone; point the registrar's nameservers at Cloudflare.
+2. `CNAME wbvotes.in → india-election-intelligence.fly.dev`, **proxied** (orange cloud).
+3. SSL/TLS **Full (strict)** — Fly terminates TLS and `force_https` is set.
+4. Leave caching at defaults. The application already sends the right headers and Cloudflare honours them.
+5. Set `NEXT_PUBLIC_SITE_URL=https://wbvotes.in` in `fly.toml`, redeploy.
+
+Do **not** add a page rule that caches HTML by default. Every election route is `force-dynamic`, and a
+by-election result cached for a day is the staleness this product exists to avoid.
+
+### Updating the registry
+
+The database is a build artefact. Nothing writes to it in production.
+
+```sh
+npm run registry:ingest
+npm run mandate -- elections validate && npm run mandate -- geography validate
+gzip -c .data/registry.db > /tmp/registry.db.gz && shasum -a 256 /tmp/registry.db.gz
+# Interactive, as above: at the » prompt, `put /tmp/registry.db.gz /data/registry.db.gz.new`, then `exit`.
+fly ssh sftp shell -a india-election-intelligence
+fly ssh console -a india-election-intelligence -C "sha256sum /data/registry.db.gz.new"
+fly ssh console -a india-election-intelligence -C "gunzip -c /data/registry.db.gz.new > /data/registry.db.new"
+fly ssh console -a india-election-intelligence -C "mv /data/registry.db.new /data/registry.db"
+fly machine restart -a india-election-intelligence
+```
+
+Upload beside the live file and move it into place, so a failed transfer cannot leave a truncated database
+where a working one was. The volume is sized for both copies.
+
+### One machine, on purpose
+
+A Fly volume attaches to exactly one machine. A second would boot with no database and serve the unavailable
+state to whichever readers it received. Scaling this is a read-replica question, not a
+`min_machines_running` question. 2 GB of RAM because SQLite reads through the OS page cache and the hot
+tables are `result` (76 MB), `person_alias` (59 MB) and `candidacy` (57 MB); 1 GB fits and thrashes.
+
+### Known data states at first deploy
+
+Stated here so nobody discovers them from a reader:
+
+* **West Bengal 2026 turnout reads "verification pending."** The registry's 93.0% is a seed defect; the value
+  and the reason are preserved in the evidence drawer. See `repo/turnout-trust.ts`.
+* **Assam and Jammu & Kashmir have no 2024 parliamentary geometry.** Those views say so and list every result.
+* **A Lok Sabha seat has no district**, and no assembly-segment list exists. The registry asserts no such
+  relationship and none was invented.
 
 ### What `vercel.json` still does
 
+Kept for the headers and the inbound rewrite; Cloudflare supplies the same caching at the edge.
+
 * Security headers on every response: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
 * `/v1/*` cached for 15 minutes with a one-hour stale-while-revalidate; static assets immutable for a year.
-* `/west-bengal/:slug` → `/constituency/:slug`, which redirects on into the place tree. An old inbound URL
-  still lands somewhere correct.
+* `/west-bengal/:slug` → `/constituency/wb/assembly/:slug`. The body is in the destination because a name
+  does not identify a seat, and `/constituency/<slug>` is now the legacy numeric-id route, which 404s on a
+  name. The old site held West Bengal assembly seats only, which is why the body is known.
 
 ## Legal and ethical notes
 
