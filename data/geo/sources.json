@@ -1,0 +1,130 @@
+{
+  "note": "Declared geometry sources. Every field here is either an assertion ABOUT a source or a hash OVER its bytes; nothing measured from the data itself is written here. docs/geo/sources.md is the search that produced it and the evidence for each classification. `mandate geography fetch` refuses a file whose sha256 does not match.",
+  "projection": {
+    "note": "One projection for the whole product, shared with ops/geo/build-india.mjs so the national basemap, district outlines and constituency polygons land in one coordinate space. Equirectangular, scaled at the 22N parallel: anything fancier buys nothing at this size and costs a dependency.",
+    "kind": "equirectangular",
+    "lon0": 68,
+    "lat0": 37.2,
+    "scale": 22,
+    "parallel": 22
+  },
+  "datasets": [
+    {
+      "id": "datameet-ac",
+      "house": "ac",
+      "form": "DIRECT_VECTOR",
+      "publisher": "DataMeet India community",
+      "title": "India — Assembly Constituencies",
+      "url": "https://raw.githubusercontent.com/datameet/maps/master/docs/data/geojson/ac.geojson",
+      "repository": "https://github.com/datameet/maps",
+      "readme": "https://github.com/datameet/maps/blob/master/assembly-constituencies/README.md",
+      "file": ".data/cache/geo/ac.geojson",
+      "sha256": "768522fdbd7d736144b2d0c5ac87bb6680735f222244851fdd10b36ce74d9a20",
+      "bytes": 18068883,
+      "licence": "CC BY 2.5 IN",
+      "publishedOn": "2014-11-24",
+      "crs": "EPSG:4326",
+      "upstream": {
+        "publisher": "Election Commission of India",
+        "url": "http://psleci.nic.in/",
+        "note": "The publisher's README: \"Scraped from ECI's Polling Station Locations Website.\" Corroborated by India_AC.shp.xml (sha256 c77d6749…): ArcGIS, created 2014-11-24, layer AS_Poly, from file://\\\\EGPDDA\\D$\\Dev_Documents\\ArcGIS\\Default.gdb, GCS_WGS_1984."
+      },
+      "fields": {
+        "state": "ST_NAME",
+        "number": "AC_NO",
+        "name": "AC_NAME",
+        "district": "DIST_NAME"
+      },
+      "epochField": "STATUS",
+      "epochVintage": {
+        "note": "WHEN each polygon's boundaries were in force. The epoch resolver takes the latest epoch the registry contests whose effective_from is on or before this date, which is a question with one answer instead of a threshold. Features the publisher marks pre-delimitation are the boundaries in force the day before DPACO 2008; everything else is the set in force when the shapefile was authored.",
+        "Pre delimitation": "2008-02-18",
+        "": "2014-11-24"
+      },
+      "jurisdictions": {
+        "note": "Only where the source's own spelling does not normalise to a registry jurisdiction name, or where one source key covers several jurisdictions. Everything else resolves by name.",
+        "ORISSA": ["od"],
+        "UTTARKHAND": ["uk"],
+        "JAMMU & KASHMIR": ["jk"],
+        "ANDHRA PRADESH": ["ap", "tg"]
+      },
+      "caveats": [
+        "The publisher declares that Jammu And Kashmir, Jharkhand, Assam, Manipur, Nagaland and Arunachal Pradesh 'appear to be pre-delimitation boundaries', and carries that per feature in STATUS. The epoch resolver reads the field, not the sentence.",
+        "The publisher declares 'there is some shift in the data'. Hence a containment check against an independent administrative dataset.",
+        "The publisher declares that some constituency names are incorrect or missing. Hence a name is never the only key.",
+        "Telangana's seats are still marked as Andhra Pradesh's, so ANDHRA PRADESH offers two candidate jurisdictions and the match decides per seat.",
+        "34 features carry AC_NO 0 and no name — unassigned slivers, Kachchh salt flats, Mumbai islets, two large areas of Jammu & Kashmir outside the 87 seats, and Sikkim's four districts. UNUSABLE: dropped, and counted in the report."
+      ]
+    },
+    {
+      "id": "datameet-pc",
+      "house": "pc",
+      "form": "DIRECT_VECTOR",
+      "publisher": "DataMeet India community",
+      "title": "India — Parliamentary Constituencies, 2014",
+      "url": "https://raw.githubusercontent.com/datameet/maps/master/docs/data/geojson/pc_14.geojson",
+      "repository": "https://github.com/datameet/maps",
+      "file": ".data/cache/geo/pc_14.geojson",
+      "sha256": "14dba998f047db384961e578dc64cac6d7907f278fedc6f93cd518c8ca9ba6cf",
+      "bytes": 39297000,
+      "licence": "CC BY 4.0",
+      "publishedOn": null,
+      "crs": "EPSG:4326",
+      "upstream": {
+        "publisher": "Election Commission of India",
+        "url": "http://psleci.nic.in/",
+        "note": "Same repository and, per its README, the same origin as the assembly set. Published under the repository's default CC BY 4.0 rather than the assembly folder's CC BY 2.5 IN."
+      },
+      "fields": {
+        "state": "ST_NAME",
+        "number": "PC_CODE",
+        "name": "PC_NAME",
+        "reservation": "Res"
+      },
+      "epochField": null,
+      "epochVintage": {
+        "note": "The 2014 Lok Sabha's constituencies, so the boundaries in force on polling day. This is what keeps the set off Assam's delim-2023-as and Jammu & Kashmir's delim-2022-jk: both orders take effect after this date, so neither can be selected.",
+        "": "2014-05-12"
+      },
+      "jurisdictions": {
+        "note": "ST_NAME here is a two-letter code, which matches most registry ids already. These are the ones that do not.",
+        "JK": ["jk", "la"],
+        "DD": ["dh"],
+        "DN": ["dh"],
+        "AP": ["ap", "tg"],
+        "OR": ["od"],
+        "UT": ["uk"],
+        "CT": ["cg"],
+        "AN": ["an"]
+      },
+      "caveats": [
+        "544 features for 543 constituencies.",
+        "Telangana is absent: its 17 seats are inside AP's 42, in the undivided numbering.",
+        "JK holds 7, which is Jammu & Kashmir's 6 plus Ladakh — a separate jurisdiction in this registry.",
+        "The set is the 2014 Lok Sabha's constituencies. It is therefore not Assam's delim-2023-as geometry and not Jammu & Kashmir's delim-2022-jk geometry, and must not be attached to either."
+      ]
+    }
+  ],
+  "rejected": [
+    {
+      "candidate": "Election Commission of India — delimitation orders (DPACO 2008)",
+      "form": "TEXT_DESCRIPTION",
+      "why": "Defines each constituency by naming the tehsils, revenue circles and municipal wards it contains. 45,693 text operators and 2 image objects in 639 pages. Deriving polygons needs the 2008 boundaries of every one of those units, which the Commission does not publish."
+    },
+    {
+      "candidate": "Election Commission of India — Assam final notification 2023, J&K final notification 2022",
+      "form": "MAP_ONLY",
+      "why": "Raster scans: 210 and 20 image objects, 0 text operators. These are the two epochs a current map most needs and the two whose only published form cannot be turned into polygons deterministically. Georeferencing a scan by eye is the unreliable extraction the brief names as a stop condition."
+    },
+    {
+      "candidate": "Survey of India",
+      "form": "UNUSABLE",
+      "why": "Administrative geometry, not electoral. A constituency is not an administrative unit. Also unreachable from this environment."
+    },
+    {
+      "candidate": "Anonymous constituency GeoJSON repositories",
+      "form": "UNUSABLE",
+      "why": "No declared upstream, no licence, no declared defects. Existing is not provenance."
+    }
+  ]
+}

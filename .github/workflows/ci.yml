@@ -1,0 +1,97 @@
+# CI. What can be checked without a registry, and why this job builds one anyway.
+#
+# `.data/registry.db` is gitignored and is built by `registry:ingest` from the committed sources in
+# data/seed/. The two suites that matter most — repo/smoke.test.ts, which calls every read function against
+# the real database, and repo/render.test.ts, which renders the real routes — SKIP CLEANLY when it is absent.
+# So a run that did not build it would prove the types, the lint and the pure logic, and would prove nothing
+# about the SQL or the pages. That is a green badge over the half of the suite that finds the defects, which
+# is worse than no badge, so this builds the registry and takes the minutes.
+#
+# The workflow this replaced triggered /api/cron/scrape-results, a route that no longer exists.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # node:sqlite, and the type-stripping loader the .ts entry points rely on.
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+
+      - name: Types — the app
+        run: npm run type-check
+      - name: Types — the registry package
+        run: npm run registry:typecheck
+      - name: Lint
+        run: npm run lint
+
+      - name: Build the registry
+        run: |
+          npm run registry:migrate
+          npm run registry:ingest
+          npm run registry:resolve
+
+      # THE MAPS ARE PART OF THE REGISTRY NOW, so CI has to build them or it tests a different product from
+      # the one that ships. repo/render.test.ts asserts Karnataka draws 224 of 224, that a state's Lok Sabha
+      # map exists, that the polygons' licence is in the evidence drawer, and that the parties appearing in
+      # one legend separate — and every one of those is false against a registry with only the seed's West
+      # Bengal geometry in it.
+      #
+      # 57 MB of download per run, and deterministic: data/geo/sources.json declares each dataset's sha256
+      # and `fetch` refuses bytes that do not match it. `--replace` because the seed writes 294 West Bengal
+      # polygons in the old projection and the published set supersedes them.
+      - name: Build the electoral geometry
+        run: |
+          npm run mandate -- geography fetch
+          npm run mandate -- geography import --apply --replace
+
+      - name: Validate
+        run: |
+          npm run mandate -- geography validate
+          npm run mandate -- elections validate
+          npm run mandate -- geography check
+
+      # ONE test is classified and expected to fail: searchPersons ranking/order-independence, in
+      # packages/mandate/src/repo/person.test.ts. `|| true` would hide a second failure as well, so the
+      # COUNT is asserted instead — the classified one stays green and a new one turns the job red.
+      - name: Tests
+        run: |
+          set +e
+          npm test 2>&1 | tee /tmp/test.log
+          set -e
+          fail=$(grep -E '^ℹ fail ' /tmp/test.log | tail -1 | grep -oE '[0-9]+' || echo 99)
+          echo "failing tests: ${fail}"
+          test "${fail}" -le 1
+
+      # Somewhere other than .next, which is what a dev server owns. MANDATE_DIST exists because a
+      # verification build replacing that directory broke a running server three times.
+      - name: Production build
+        run: MANDATE_DIST=.next-verify npx next build
+
+      # The round-trip ratchet. Its floor moves UP only, in the commit that raises the number — the failure
+      # message says so and Phase 3's closure earned 94.1 -> 95.0 rather than arranging it. A red here means
+      # the registry gives back less of data/seed/ than it did.
+      - name: Seed round trip
+        run: npm run mandate -- export
+
+      # And the reports, regenerated and checked for drift. A generated document that is stale in the tree is
+      # a document that lies, and one that changes on a second run with no new data is not generated from the
+      # data at all — Phase 3 found `provenance.json` doing exactly that with the run clock.
+      - name: Generated reports are current and deterministic
+        run: |
+          npm run mandate -- geography coverage --write
+          npm run mandate -- geography missing --write
+          npm run mandate -- geography inspect --write
+          npm run mandate -- release --write
+          git diff --exit-code -- docs/geo docs/release

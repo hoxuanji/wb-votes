@@ -1,0 +1,176 @@
+/* The merge review queue's own classes, and only the ones that are about judging a pair.
+   Tokens, primitives, tables, chrome and focus treatments all come from iei.css — this file used to sit on
+   top of mandate.css and situation.css, both of which Phase 2.5 deleted, and it carried a second copy of
+   their palette names. Every var() below is an --iei-* property. */
+
+/* Two records, side by side, because sameness is judged on the differences. */
+.rv-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--iei-4);
+  margin: var(--iei-6) 0;
+}
+
+.rv-side {
+  border: 1px solid var(--iei-line);
+  background: var(--iei-panel);
+  padding: var(--iei-3);
+  min-width: 0;
+}
+
+.rv-side dl {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  gap: var(--iei-1) var(--iei-3);
+  margin: 0 0 var(--iei-3);
+  font-size: var(--iei-f-data);
+}
+
+.rv-side dt {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.rv-side dd {
+  margin: 0;
+  color: var(--iei-ink);
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+.rv-name {
+  font-size: var(--iei-f-title);
+  font-weight: 600;
+  margin: 0 0 var(--iei-2);
+}
+
+.rv-id {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+/* A fact the two records disagree on. The rule under it is what makes the difference visible without
+   spending a hue: this page has three buttons that already need the only colours it may use. */
+.rv-warn {
+  border-bottom: 2px solid var(--iei-warn);
+  color: var(--iei-ink);
+}
+
+.rv-facts {
+  font-size: var(--iei-f-data);
+}
+
+/* The resolver's own scoring, behind a disclosure — the same idea as the evidence drawer. */
+.rv-ev {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  margin: var(--iei-4) 0;
+}
+
+.rv-ev summary {
+  cursor: pointer;
+  color: var(--iei-ink-3);
+  letter-spacing: 0.06em;
+  list-style: none;
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--iei-line-2);
+  display: inline-block;
+}
+
+.rv-ev summary::-webkit-details-marker {
+  display: none;
+}
+
+.rv-ev summary:hover {
+  color: var(--iei-ink);
+}
+
+.rv-ev summary:focus-visible {
+  outline: none;
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-ink);
+}
+
+.rv-ev table {
+  margin-top: var(--iei-3);
+  max-width: 72ch;
+}
+
+/* Three decisions, and the third is a real answer. */
+.rv-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2);
+  margin: var(--iei-4) 0 var(--iei-2);
+}
+
+.rv-actions button {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  letter-spacing: 0.06em;
+  color: var(--iei-ink);
+  background: var(--iei-raised);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  padding: var(--iei-2) var(--iei-3);
+  cursor: pointer;
+}
+
+.rv-actions button:hover {
+  border-color: var(--iei-ink-3);
+}
+
+.rv-actions button:focus-visible {
+  outline: none;
+  border-color: var(--iei-ink);
+  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
+}
+
+/* The two judgements that assert something get the two hues this product spends on direction. "Cannot tell"
+   gets none, because it asserts nothing. */
+.rv-same {
+  border-color: var(--iei-good) !important;
+}
+
+.rv-diff {
+  border-color: var(--iei-alert) !important;
+}
+
+.rv-est {
+  max-width: 88ch;
+}
+
+/* What was recorded. Shown for all three outcomes, because a decision that silently failed to record is the
+   one failure mode that would corrupt the measurement while looking like progress. */
+.rv-saved {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  line-height: 1.6;
+  color: var(--iei-ink-2);
+  border-left: 2px solid var(--iei-good);
+  padding-left: var(--iei-3);
+  margin: var(--iei-4) 0;
+  max-width: 88ch;
+}
+
+.rv-stale {
+  border-left-color: var(--iei-warn);
+}
+
+@media (max-width: 900px) {
+  .rv-pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (forced-colors: active) {
+  .rv-actions button:focus-visible,
+  .rv-ev summary:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+  }
+}

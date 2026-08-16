@@ -130,6 +130,36 @@ CREATE INDEX idx_quiz_results_session    ON quiz_session_results(session_id);
 CREATE INDEX idx_constituencies_district ON constituencies(district);
 
 -- ============================================================
+-- CIVIC REPORTS (citizen-submitted local issue reports)
+-- ============================================================
+
+CREATE TABLE civic_reports (
+  id               UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  constituency_id  TEXT NOT NULL REFERENCES constituencies(id),
+  category         TEXT NOT NULL CHECK (category IN (
+                     'road','water','electricity','health','education',
+                     'corruption','safety','environment','other'
+                   )),
+  description      TEXT NOT NULL CHECK (char_length(description) BETWEEN 10 AND 500),
+  location         TEXT,                          -- landmark / area, never personal info
+  submitted_at     TIMESTAMPTZ DEFAULT NOW(),
+  -- moderation
+  status           TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending','reviewed','resolved')),
+  resolved_at      TIMESTAMPTZ,
+  created_at       TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX idx_civic_reports_constituency ON civic_reports(constituency_id);
+CREATE INDEX idx_civic_reports_status       ON civic_reports(status);
+CREATE INDEX idx_civic_reports_category     ON civic_reports(category);
+
+ALTER TABLE civic_reports ENABLE ROW LEVEL SECURITY;
+
+-- Anyone can submit; only service role can read
+CREATE POLICY "insert_report" ON civic_reports FOR INSERT WITH CHECK (true);
+CREATE POLICY "admin_read_reports" ON civic_reports FOR SELECT USING (auth.role() = 'service_role');
+
+-- ============================================================
 -- UPDATED_AT TRIGGER
 -- ============================================================
 

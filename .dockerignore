@@ -1,0 +1,16 @@
+# The registry is 446 MB and belongs on the volume, not in the image. This is the single most important line
+# in the file: without it every build ships half a gigabyte of database it will not use, because the running
+# container reads MANDATE_DB_PATH on the mounted volume instead.
+.data
+
+.git
+.next
+.next-verify
+node_modules
+npm-debug.log
+
+# Local artefacts with no business in an image.
+docs
+ops/probe
+*.tmp.mjs
+.DS_Store

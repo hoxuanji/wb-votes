@@ -1,37 +1,46 @@
 import type { Metadata, Viewport } from 'next';
-import { Analytics } from '@vercel/analytics/react';
-import './globals.css';
-import { Header } from '@/components/layout/Header';
-import { Footer } from '@/components/layout/Footer';
-import { BottomNav } from '@/components/layout/BottomNav';
-import { Disclaimer } from '@/components/layout/Disclaimer';
-import { LanguageProvider } from '@/lib/language-context';
+
+/**
+ * The root layout owns html, body and the canvas colour, and nothing else.
+ *
+ * There is no globals.css any more, and no Tailwind. Both existed for the West Bengal dashboard, which
+ * this phase deleted. What they contributed to the surfaces that remain was a global
+ * `*:focus-visible { outline: 2px solid #3b82f6 }` competing with iei.css's own focus treatment, a
+ * `main { animation: fadeIn }` that faded the map in on every navigation, and a light-grey scrollbar
+ * thumb on a near-black page. The four rules worth keeping — smooth anchor scrolling, a stable
+ * scrollbar gutter, and iOS's two text-size behaviours — moved into iei.css, which is now the only
+ * stylesheet the product has.
+ *
+ * The Noto Sans Bengali <link> went with them. It was loaded on every route for a `.font-bengali`
+ * class in globals.css, and the registry holds no Bengali name strings at all: the source's nameBn
+ * field is empty for every candidate. A webfont fetched on every page load to render text that does
+ * not exist is the clearest case of paying for something no reader receives.
+ *
+ * ponytail: still no shell component here. Shell is mounted by the pages, because /review/merges is an
+ * internal resolution queue and must not wear the product's chrome.
+ */
 
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
+  colorScheme: 'dark',
 };
 
 export const metadata: Metadata = {
   title: {
-    default: 'WB Votes — West Bengal Voter Information',
-    template: '%s | WB Votes',
+    default: 'India Election Intelligence',
+    template: '%s · India Election Intelligence',
   },
   description:
-    'An independent, non-partisan voter information tool for West Bengal Assembly Elections. View candidate profiles, criminal records, assets, and take the policy quiz.',
-  keywords: ['West Bengal election', 'candidates', 'voter awareness', 'WB assembly', 'neta affidavit'],
+    'A canonical registry of Indian elections, in which every figure carries the source it came from, how it was derived, and what is missing.',
   openGraph: {
-    title: 'WB Votes — West Bengal Voter Information',
-    description: 'Compare candidates, view affidavits, and discover your policy alignment for West Bengal elections.',
+    title: 'India Election Intelligence',
+    description:
+      'Every figure carries its source. Assembly and Lok Sabha elections across 36 states and union territories, and a counted account of what is not loaded.',
     type: 'website',
     locale: 'en_IN',
-    siteName: 'WB Votes',
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: 'WB Votes',
-    description: 'Voter information tool for West Bengal Assembly Elections.',
+    siteName: 'India Election Intelligence',
   },
   robots: { index: true, follow: true },
 };
@@ -39,25 +48,10 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en">
-      <head>
-        <link
-          href="https://fonts.googleapis.com/css2?family=Noto+Sans+Bengali:wght@400;500;600;700&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className="font-sans antialiased bg-slate-950 text-gray-100">
-        <LanguageProvider>
-          <Disclaimer />
-          <Header />
-          {/* pb-16 reserves space for the fixed bottom nav on mobile */}
-          <main className="min-h-[calc(100vh-56px)] pb-16 md:pb-0">
-            {children}
-          </main>
-          <Footer />
-          <BottomNav />
-          <Analytics />
-        </LanguageProvider>
-      </body>
+      {/* The canvas is inline rather than in a stylesheet: a body with no background flashes white
+          before the route's own CSS arrives, and two declarations are not worth a file. The hex is
+          --iei-bg; there is one other copy of it, in iei.css, and no third. */}
+      <body style={{ background: '#07070b', color: '#f2f2f7', margin: 0 }}>{children}</body>
     </html>
   );
 }

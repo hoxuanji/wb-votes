@@ -15,21 +15,9 @@
       ]
     },
     {
-      "source": "/api/(.*)",
+      "source": "/v1/(.*)",
       "headers": [
         { "key": "Cache-Control", "value": "public, s-maxage=900, stale-while-revalidate=3600" }
-      ]
-    },
-    {
-      "source": "/api/live/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
-      ]
-    },
-    {
-      "source": "/api/cron/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" }
       ]
     },
     {
@@ -41,8 +29,9 @@
   ],
   "rewrites": [
     {
+      "_comment": "The previous product's public URLs. The destination carries the BODY because a constituency name does not identify a seat: /constituency/<slug> is now the legacy numeric-id route and 404s on a name. The old site held West Bengal ASSEMBLY seats only, which is why the body is known here.",
       "source": "/west-bengal/:slug",
-      "destination": "/constituency/:slug"
+      "destination": "/constituency/wb/assembly/:slug"
     }
   ],
   "env": {
