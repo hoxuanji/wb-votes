@@ -1,0 +1,49 @@
+# Fly is the ORIGIN. Cloudflare is the edge in front of it — see docs/deploy.md.
+#
+# `bom` because the readers are in India and the previous vercel.json already pinned `bom1`. A 40 ms origin
+# and a Cloudflare cache in front of server-rendered, zero-client-JS pages is the whole performance plan.
+
+app = "iei"
+primary_region = "bom"
+
+[build]
+  dockerfile = "Dockerfile"
+
+[env]
+  PORT = "3000"
+  # The registry, on the volume. `openRead()` reads this and falls back to .data/registry.db, which does not
+  # exist in the image — so if this is ever unset the pages render their "registry unavailable" state rather
+  # than crashing, which is the correct failure but a confusing one. Keep it set.
+  MANDATE_DB_PATH = "/data/registry.db"
+  NEXT_PUBLIC_SITE_URL = "https://iei.fly.dev"
+
+[[mounts]]
+  source = "registry"
+  destination = "/data"
+  # 446 MB of database, plus room for the next ingest to land beside the current one during an upload.
+  initial_size = "3gb"
+
+[http_service]
+  internal_port = 3000
+  force_https = true
+  auto_stop_machines = "suspend"
+  auto_start_machines = true
+  # ONE MACHINE, and not for cost reasons. The volume holds the registry and a Fly volume attaches to exactly
+  # one machine, so a second machine would boot with no database and serve the unavailable state to whichever
+  # readers it happened to get. Scaling this means a read replica strategy, not min_machines_running = 2.
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    interval = "30s"
+    timeout = "5s"
+    grace_period = "20s"
+    method = "GET"
+    path = "/"
+
+[[vm]]
+  # SQLite reads through the OS page cache, so RAM is what makes a 446 MB read-only database fast. 2 GB holds
+  # the working set — the hot tables are result (76 MB), person_alias (59 MB) and candidacy (57 MB) — with
+  # headroom for Next's own footprint. 1 GB would fit and would thrash.
+  memory = "2gb"
+  cpu_kind = "shared"
+  cpus = 2
