@@ -199,7 +199,7 @@ try {
       const given = arg("file");
       let file;
       try {
-        file = given === undefined ? await fetchState(stateFile, type, { refresh: has("refresh") }) : localFile(given, url);
+        file = given === undefined ? await fetchState(stateFile, type, { refresh: has("refresh") }) : localFile(given, url, () => nowIso);
       } catch (cause) {
         // Node's fetch does not use proxy environment variables, so on a proxied machine curl reaches
         // Lokdhaba and this does not. Rather than fail with a bare message, print the command that works.
@@ -255,7 +255,7 @@ try {
     case "audit": {
       const n = posInt("n", 200);
       const seed = num("seed", 1);
-      const db = open();
+      const db = openRead();
       const out = auditSample(db, n, seed);
       console.log(`audit n=${n} seed=${seed}:`);
       console.log(JSON.stringify(out, null, 2));
@@ -283,7 +283,7 @@ try {
       // Every key the ingest indexed this name under, unioned — blockingKeys() returns 1-3 and
       // matching only the first would miss exactly the surname-first / given-name-first pairs.
       const keys = blockingKeys(term);
-      const db = open();
+      const db = openRead();
       console.log(`blocking keys: ${keys.join(" ")}`);
       const people = all<{ id: string; canonical_name: string; matched: string }>(
         db,
@@ -355,7 +355,7 @@ try {
       break;
     }
 
-    case "coverage": {      const db = open();
+    case "coverage": {      const db = openRead();
       const tables = all<{ name: string }>(
         db,
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -420,7 +420,7 @@ try {
       const result = await runLs2024(db, {
         apply: has("apply"),
         refresh: has("refresh"),
-        nowIso: new Date().toISOString(),
+        nowIso,
       });
       console.log("");
       console.log(formatEciReport(result, db));
@@ -435,7 +435,7 @@ try {
       const sub = argv[1] ?? "";
       const apply = argv.includes("--apply");
       if (sub === "validate") {
-        const db = open();
+        const db = openRead();
         const v = validateElections(db);
         for (const c of v.checks) {
           console.log(
@@ -462,24 +462,6 @@ try {
         console.log(v.ok ? `\n${passFooter(v.checks)}` : "\nCHECKS FAILED");
         db.close();
         if (!v.ok) process.exit(1);
-        break;
-      }
-      if (sub === "delimitation") {
-        // The delimitation orders themselves: which order drew each epoch, what its dates mean, and what
-        // DPACO 2008 carried forward. docs/model/delimitation-assam-jk.md.
-        const db = open();
-        const r = applyDelimitation(db, { nowIso: new Date().toISOString(), dryRun: !has("apply") });
-        table([
-          ["documents registered", r.sources],
-          ["epochs created", r.epochsCreated],
-          ["epochs updated", r.epochsUpdated],
-          ["derivation links", r.derivationLinks],
-          ["chain claims", r.chainClaims],
-        ]);
-        console.log("\nderivations");
-        table(r.perDerivation.map((d): [string, unknown] => [`${d.jurisdiction} ${d.kind}`, `${d.links} links from ${d.note}`]));
-        console.log(has("apply") ? "\napplied" : "\ndry run — pass --apply to write");
-        db.close();
         break;
       }
       if (sub === "backfill") {
@@ -521,7 +503,7 @@ try {
             const rep = importLokdhaba(db, {
               jurisdictionId,
               type: path.includes("_GE.") ? "GE" : "AE",
-              file: localFile(path, url),
+              file: localFile(path, url, () => nowIso),
               nowIso,
             });
             return { contests: rep.contests, candidacies: rep.candidacies, results: rep.results };
@@ -546,7 +528,7 @@ try {
       // place_version and is reconstructed from the source files. docs/model/electoral-geography.md.
       const sub = argv[1] ?? "";
       if (sub === "validate") {
-        const db = open();
+        const db = openRead();
         const v = validateGeography(db);
         for (const c of v.checks) {
           const verdict = c.skipped ? "SKIPPED" : c.violations === 0 ? "pass" : `${c.violations} VIOLATIONS`;
@@ -579,7 +561,7 @@ try {
         // The delimitation orders themselves: which order drew each epoch, what its dates mean, and what
         // DPACO 2008 carried forward. docs/model/delimitation-assam-jk.md.
         const db = open();
-        const r = applyDelimitation(db, { nowIso: new Date().toISOString(), dryRun: !has("apply") });
+        const r = applyDelimitation(db, { nowIso, dryRun: !has("apply") });
         table([
           ["documents registered", r.sources],
           ["epochs created", r.epochsCreated],
@@ -799,7 +781,7 @@ try {
         }
         break;
       }
-      fail("geography <validate|check|coverage|missing|backfill|fetch|inspect|import>");
+      fail("geography <validate|check|coverage|missing|backfill|delimitation|fetch|inspect|import>");
       break;
     }
     default:
