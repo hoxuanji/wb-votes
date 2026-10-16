@@ -5,9 +5,11 @@ import {
   CHRONO_ASC,
   CHRONO_DESC,
   FULL_HOUSE,
+  byElection,
   chronoAsc,
   chronoDesc,
   facetOf,
+  fullHouse,
   majorityOf,
   typeOf,
 } from "./election-kind.ts";
@@ -68,6 +70,44 @@ test("FULL_HOUSE: keeps every election but a by-election, with the election tabl
   const ids = db.prepare(`SELECT e.id AS id FROM election e WHERE ${FULL_HOUSE} ORDER BY e.id`).all();
   assert.deepEqual(ids.map((r) => r["id"]), ["a", "b"]);
   db.close();
+});
+
+// Both fragments are exercised against every kind the schema allows, so "not a by-election" and "a by-election"
+// are shown to partition the table rather than merely to be spelled differently.
+const KINDS = ["general", "assembly", "biennial_rs", "municipal", "panchayat", "bypoll", "presidential"];
+
+// `alias` is the election table's alias, or "election" for a query that gives it none.
+function kindsWhere(alias: string, where: string): string[] {
+  const db = new DatabaseSync(":memory:");
+  db.exec(`CREATE TABLE election (id TEXT PRIMARY KEY, kind TEXT NOT NULL)`);
+  const ins = db.prepare(`INSERT INTO election (id, kind) VALUES (?, ?)`);
+  for (const kind of KINDS) ins.run(kind, kind);
+  const from = alias === "election" ? "election" : `election ${alias}`;
+  const rows = db.prepare(`SELECT ${alias}.id AS id FROM ${from} WHERE ${where} ORDER BY ${alias}.id`).all();
+  db.close();
+  return rows.map((r) => String(r["id"]));
+}
+
+test("fullHouse and byElection take the election table's alias, and partition every kind between them", () => {
+  const allKinds = [...KINDS].sort();
+  const notBypoll = allKinds.filter((k) => k !== "bypoll");
+  assert.deepEqual(kindsWhere("x", fullHouse("x")), notBypoll);
+  assert.deepEqual(kindsWhere("x", byElection("x")), ["bypoll"]);
+  // The default alias is e, and FULL_HOUSE is exactly it.
+  assert.deepEqual(kindsWhere("e", fullHouse()), notBypoll);
+  assert.deepEqual(kindsWhere("e", byElection()), ["bypoll"]);
+  assert.equal(FULL_HOUSE, fullHouse("e"));
+  assert.doesNotMatch(fullHouse("x"), /\be\./, "an aliased fragment still names e");
+  assert.doesNotMatch(byElection("x"), /\be\./, "an aliased fragment still names e");
+});
+
+test("fullHouse and byElection accept the table's own name where the query gives it no alias", () => {
+  // `FROM election WHERE election.kind = 'bypoll'` — how the unaliased count queries qualify the column.
+  assert.deepEqual(kindsWhere("election", byElection("election")), ["bypoll"]);
+  assert.deepEqual(
+    kindsWhere("election", fullHouse("election")),
+    [...KINDS].sort().filter((k) => k !== "bypoll"),
+  );
 });
 
 // Chronology is (year, polling_month, occurrence); the id string is only the last tie-break. Every id below is

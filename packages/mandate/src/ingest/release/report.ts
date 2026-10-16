@@ -17,6 +17,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../../db/index.ts";
 import { geometryCoverage } from "../geography/geometry-coverage.ts";
+import { byElection } from "../../core/election-kind.ts";
 
 export type Row = { label: string; value: number | string; note?: string };
 
@@ -59,7 +60,7 @@ export function releaseReport(db: DatabaseSync): Release {
     ["election events", n(db, `SELECT COUNT(*) AS n FROM election`)],
     ["  of those, assembly", n(db, `SELECT COUNT(*) AS n FROM election WHERE kind = 'assembly'`)],
     ["  of those, general (Lok Sabha)", n(db, `SELECT COUNT(*) AS n FROM election WHERE kind = 'general'`)],
-    ["  of those, by-elections", n(db, `SELECT COUNT(*) AS n FROM election WHERE kind = 'bypoll'`)],
+    ["  of those, by-elections", n(db, `SELECT COUNT(*) AS n FROM election WHERE ${byElection("election")}`)],
     ["contests", n(db, `SELECT COUNT(*) AS n FROM contest`)],
     ["candidacies", n(db, `SELECT COUNT(*) AS n FROM candidacy`)],
     ["result rows", n(db, `SELECT COUNT(*) AS n FROM result`)],

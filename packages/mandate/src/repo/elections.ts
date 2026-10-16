@@ -22,7 +22,7 @@ import { read } from "./index.ts";
 import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
 import type { Turnout } from "./turnout-trust.ts";
 import { JURISDICTIONS } from "../ingest/india.ts";
-import { CHRONO_DESC, chronoDesc } from "../core/election-kind.ts";
+import { CHRONO_DESC, FULL_HOUSE, byElection, chronoDesc } from "../core/election-kind.ts";
 
 // Defined once in core/election-kind.ts, where ingest can reach it too, and re-exported: every ranking in this
 // file and in repo/home.ts binds it, so the defect it exists to prevent cannot come back in one place while
@@ -470,12 +470,12 @@ export type Dated = {
 
 /** The most recent elections held, newest first — any kind, any jurisdiction. */
 export function recent(db: DatabaseSync, limit = 6): Dated[] {
-  return read(() => dated(db, "kind <> 'bypoll'", limit));
+  return read(() => dated(db, FULL_HOUSE, limit));
 }
 
 /** By-elections, which are their own election kind and their own story. */
 export function bypolls(db: DatabaseSync, limit = 8): Dated[] {
-  return read(() => dated(db, "kind = 'bypoll'", limit));
+  return read(() => dated(db, byElection(), limit));
 }
 
 /**

@@ -67,10 +67,20 @@ export function majorityOf(contested: number, fill: Fill): number | null {
 }
 
 /**
- * SQL for "not a by-election" — an election that fills its whole house. Assumes the election table is aliased
- * `e`. Portable (plain comparison, no dialect functions).
+ * SQL for "not a by-election" — an election that fills its whole house. `alias` is the election table's alias
+ * in the query, or its own name where the query gives it none. Portable (plain comparison, no dialect
+ * functions).
  */
-export const FULL_HOUSE = "e.kind <> 'bypoll'";
+export function fullHouse(alias = "e"): string {
+  return `${alias}.kind <> 'bypoll'`;
+}
+
+/** `fullHouse`, inverted: the by-elections. */
+export function byElection(alias = "e"): string {
+  return `${alias}.kind = 'bypoll'`;
+}
+
+export const FULL_HOUSE = fullHouse("e");
 
 /**
  * Chronological order for elections, newest first — the ONLY ordering any surface may rank by. `alias` is the

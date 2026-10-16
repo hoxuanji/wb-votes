@@ -24,6 +24,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
 import { CHRONO_DESC } from "./elections.ts";
+import { FULL_HOUSE } from "../core/election-kind.ts";
 
 /** One election in a state's run, for one party. */
 export type TrajectoryPoint = {
@@ -107,7 +108,7 @@ export function stateTrajectory(
               (SELECT SUM(t.electors) FROM contest c JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
                 WHERE c.election_id = e.id) AS electors
          FROM election e
-        WHERE e.jurisdiction_place_id = ? AND e.house = ? AND e.kind <> 'bypoll'
+        WHERE e.jurisdiction_place_id = ? AND e.house = ? AND ${FULL_HOUSE}
         ORDER BY ${CHRONO_DESC}`,
       jurisdictionId,
       house,

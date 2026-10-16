@@ -12,12 +12,45 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { existsSync } from "node:fs";
-import { DEV_DB_PATH, openRead } from "../db/index.ts";
+import { DEV_DB_PATH, open, openRead } from "../db/index.ts";
+import { migrate } from "../db/migrate.ts";
 import { PER_GROUP, partyAnchor, searchAll } from "./search.ts";
 import { constituencyPath, placeView } from "./place-page.ts";
 
 const live = { skip: existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH) ? false : "no .data/registry.db" };
 const db = () => openRead(DEV_DB_PATH);
+
+test("an election hit is named in the type label, whichever of the four kinds it is", () => {
+  // In memory, so it runs without a registry: the real one holds all four, but only when it has been ingested.
+  const d = open(":memory:");
+  migrate(d, "2026-08-12T00:00:00.000Z");
+  d.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('e1','Delimitation','2008-02-19');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('ka','state','Karnataka');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-assembly-2023','assembly','state','ka','e1','KA 2023','declared','ac',2023,1);
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-general-2019','general','state','ka','e1','KA LS 2019','declared','pc',2019,1);
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-bypoll-ae-2021','bypoll','state','ka','e1','KA AE by 2021','declared','ac',2021,1);
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-bypoll-ge-2018','bypoll','state','ka','e1','KA LS by 2018','declared','pc',2018,1);
+  `);
+  try {
+    // Newest first, so the order is part of the assertion as well.
+    assert.deepEqual(
+      searchAll(d, "Karnataka").elections.map((h) => [h.id, h.label]),
+      [
+        ["ka-assembly-2023", "Karnataka Assembly Election 2023"],
+        ["ka-bypoll-ae-2021", "Karnataka Assembly By-election 2021"],
+        ["ka-general-2019", "Karnataka Lok Sabha Election 2019"],
+        ["ka-bypoll-ge-2018", "Karnataka Lok Sabha By-election 2018"],
+      ],
+    );
+  } finally {
+    d.close();
+  }
+});
 
 test("an empty query returns nothing, rather than the whole registry", live, () => {
   const d = db();

@@ -23,6 +23,7 @@ import { read } from "./index.ts";
 import { searchPersons, type PersonRow } from "./person.ts";
 import { detectScript, toLatin } from "../core/indic/index.ts";
 import { CHRONO_DESC } from "./elections.ts";
+import { facetOf } from "../core/election-kind.ts";
 
 /** One navigable thing. `detail` is what the row says about itself, so a hit is informative unopened. */
 export type Hit = {
@@ -115,7 +116,7 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
     PER_GROUP,
   ).map((r) => ({
     id: r.id,
-    label: `${r.jname} ${r.house === "pc" ? "Lok Sabha" : "Assembly"} ${r.year}${r.kind === "bypoll" ? " by-election" : ""}`,
+    label: `${r.jname} ${facetOf(r.house, r.kind).type} ${r.year}`,
     detail: `${r.seats} constituenc${r.seats === 1 ? "y" : "ies"} loaded`,
     href: `/coverage?election=${r.id}#election`,
   }));

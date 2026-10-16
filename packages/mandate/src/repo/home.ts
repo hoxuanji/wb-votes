@@ -46,6 +46,7 @@ import {
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
 import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
+import { FULL_HOUSE, facetOf, majorityOf } from "../core/election-kind.ts";
 
 /* ────────────────────────────── palette ──────────────────────────────
    THE PARTY COLOURS ARE NOT HERE ANY MORE, and that is the fix rather than a move.
@@ -123,7 +124,7 @@ export function snapshot(
               SELECT id FROM (
                 SELECT e.id AS id,
                        row_number() OVER (PARTITION BY e.jurisdiction_place_id ORDER BY ${CHRONO_DESC}) AS rn
-                  FROM election e WHERE e.house = ? AND e.kind <> 'bypoll'
+                  FROM election e WHERE e.house = ? AND ${FULL_HOUSE}
               ) WHERE rn = 1)`,
           house,
         )?.n ?? 0,
@@ -561,7 +562,7 @@ export function partyLandscape(db: DatabaseSync, spine: Spine, limit = 10): Part
     // Sparkline: the last SPARK Lok Sabha elections, winners only.
     const houseRun = all<{ id: string; year: number }>(
       db,
-      `SELECT id, year FROM election e WHERE e.house = 'pc' AND e.kind <> 'bypoll'
+      `SELECT id, year FROM election e WHERE e.house = 'pc' AND ${FULL_HOUSE}
         ORDER BY ${CHRONO_DESC} LIMIT ?`,
       SPARK,
     ).reverse();
@@ -904,6 +905,9 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
       electionId,
     );
     if (e === undefined) return null;
+    // Body and fill, decoded once. A house/kind pair the product does not label throws rather than reading as
+    // an assembly election.
+    const facet = facetOf(e.house, e.kind);
 
     const n = (sql: string, ...p: (string | number)[]): number =>
       Number(get<{ n: number }>(db, sql, ...p)?.n ?? 0);
@@ -958,7 +962,7 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     // seat count describe the same house.
     const newest = get<{ id: string }>(
       db,
-      `SELECT id FROM election e WHERE e.house = ? AND e.jurisdiction_place_id = ? AND e.kind <> 'bypoll'
+      `SELECT id FROM election e WHERE e.house = ? AND e.jurisdiction_place_id = ? AND ${FULL_HOUSE}
         ORDER BY ${CHRONO_DESC} LIMIT 1`,
       e.house,
       e.j,
@@ -966,17 +970,17 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     const ref = JURISDICTIONS.find((x) => x.id === e.j);
     let expected: number | null = null;
     let expectedBasis: string;
-    if (e.kind === "bypoll") {
+    if (facet.fill === "bypoll") {
       expectedBasis = "a by-election has no expected seat count — the seats that fell vacant are the fact";
     } else if (newest !== e.id) {
-      expectedBasis = `the ${e.year} house's own size is not held as reference data — only today's is, and this is not the most recent ${e.house === "pc" ? "Lok Sabha" : "assembly"} election here`;
-    } else if (e.house === "pc" && e.j === "in") {
+      expectedBasis = `the ${e.year} house's own size is not held as reference data — only today's is, and this is not the most recent ${facet.body === "lok-sabha" ? "Lok Sabha" : "assembly"} election here`;
+    } else if (facet.body === "lok-sabha" && e.j === "in") {
       expected = INDIA_TOTALS.lokSabhaSeats;
       expectedBasis = `elected strength of the Lok Sabha, from reference data (${INDIA_TOTALS.lokSabhaSeats} across ${INDIA_TOTALS.jurisdictions} states and union territories)`;
-    } else if (e.house === "ac" && ref?.assemblySeats != null) {
+    } else if (facet.body === "assembly" && ref?.assemblySeats != null) {
       expected = ref.assemblySeats;
       expectedBasis = `elected strength of the ${ref.name} assembly, from reference data`;
-    } else if (e.house === "pc" && ref !== undefined) {
+    } else if (facet.body === "lok-sabha" && ref !== undefined) {
       expected = ref.lokSabhaSeats;
       expectedBasis = `${ref.name}'s Lok Sabha seats, from reference data`;
     } else {
@@ -989,9 +993,9 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     // 2011/2016/2021 elections each hold 307 contests for a 294-seat assembly — a pre-existing defect in
     // the imported geography that this line surfaces instead of averaging away.
     const referenceSeats =
-      e.kind === "bypoll" ? null : e.house === "pc" && e.j === "in"
+      facet.fill === "bypoll" ? null : facet.body === "lok-sabha" && e.j === "in"
         ? INDIA_TOTALS.lokSabhaSeats
-        : e.house === "ac"
+        : facet.body === "assembly"
           ? (ref?.assemblySeats ?? null)
           : (ref?.lokSabhaSeats ?? null);
 
@@ -1103,7 +1107,7 @@ export function electionCoverageView(
   const rows = all<{ id: string; name: string; year: number; j: string; house: string }>(
     db,
     `SELECT e.id AS id, e.name AS name, e.year AS year, e.jurisdiction_place_id AS j, e.house AS house
-       FROM election e WHERE e.kind <> 'bypoll' ORDER BY ${CHRONO_DESC} LIMIT ?`,
+       FROM election e WHERE ${FULL_HOUSE} ORDER BY ${CHRONO_DESC} LIMIT ?`,
     limit,
   );
   // A SHORT LABEL, BUILT HERE. `election.name` is the registry's formal name — "West Bengal Legislative
@@ -1195,7 +1199,7 @@ export function spine(db: DatabaseSync): Spine {
       db,
       `SELECT e.id AS id, e.jurisdiction_place_id AS jurisdictionId, e.year AS year,
               (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seatsContested
-         FROM election e WHERE e.house = 'pc' AND e.kind <> 'bypoll' ORDER BY ${CHRONO_DESC} LIMIT 1`,
+         FROM election e WHERE e.house = 'pc' AND ${FULL_HOUSE} ORDER BY ${CHRONO_DESC} LIMIT 1`,
     )[0] ?? null;
 
   // Previous elections, resolved once: both the flip comparison and the swing table need them.
@@ -1288,6 +1292,8 @@ export function spine(db: DatabaseSync): Spine {
             .map(([j, rows]): Standing => {
               const total = rows.reduce((n, r) => n + r.seats, 0);
               const top = [...rows].sort((a, b) => b.seats - a.seats || a.key.localeCompare(b.key))[0];
+              // `houseRow` is a full house, so a majority exists: more than half of the seats counted here.
+              const needed = majorityOf(total, "general");
               return {
                 jurisdictionId: j,
                 jurisdictionName: j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === j)?.name ?? j),
@@ -1297,7 +1303,7 @@ export function spine(db: DatabaseSync): Spine {
                 leaderKey: top?.key ?? null,
                 leaderLabel: top?.label ?? null,
                 leaderSeats: top?.seats ?? 0,
-                majority: top !== undefined && total > 0 && top.seats > total / 2,
+                majority: top !== undefined && total > 0 && needed !== null && top.seats >= needed,
               };
             })
             .sort((a, b) => b.leaderSeats - a.leaderSeats || a.jurisdictionName.localeCompare(b.jurisdictionName));

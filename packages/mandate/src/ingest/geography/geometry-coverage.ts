@@ -27,6 +27,7 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import { all } from "../../db/index.ts";
+import { FULL_HOUSE } from "../../core/election-kind.ts";
 
 /** One (jurisdiction, house, epoch) — the unit a polygon can belong to. */
 export type CoverageRow = {
@@ -140,7 +141,7 @@ export function geometryCoverage(db: DatabaseSync): Coverage {
        SELECT pv.jurisdiction_id AS j, pv.kind AS house, pv.epoch_id AS epoch,
               COUNT(DISTINCT c.election_id) AS elections,
               MAX(e.year) AS latestYear,
-              COUNT(DISTINCT CASE WHEN e.kind <> 'bypoll' THEN c.election_id END) AS fullElections
+              COUNT(DISTINCT CASE WHEN ${FULL_HOUSE} THEN c.election_id END) AS fullElections
          FROM contest c
          JOIN place_version pv ON pv.id = c.place_version_id
          JOIN election e ON e.id = c.election_id

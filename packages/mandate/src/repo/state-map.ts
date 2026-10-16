@@ -43,6 +43,7 @@ import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
 import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
+import { facetOf } from "../core/election-kind.ts";
 import { summariseAll, type Finding, type FlipPair, type PartyRef } from "./findings.ts";
 
 /** One constituency, as the map draws it. */
@@ -212,10 +213,11 @@ export function stateMapView(
     //    parliamentary map. A state's own house is what a reader came for.
     //
     // Both are still selectable; neither is what the map opens on.
+    const facet = (e: ElectionChoice) => facetOf(e.house, e.kind);
     const election =
       offered.find((e) => e.id === p.election) ??
-      offered.find((e) => e.kind !== "bypoll" && e.house === "ac") ??
-      offered.find((e) => e.kind !== "bypoll") ??
+      offered.find((e) => facet(e).fill !== "bypoll" && facet(e).body === "assembly") ??
+      offered.find((e) => facet(e).fill !== "bypoll") ??
       offered[0] ??
       null;
 

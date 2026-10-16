@@ -15,7 +15,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";
 import { read } from "./index.ts";
-import { chronoDesc } from "../core/election-kind.ts";
+import { byElection, chronoDesc } from "../core/election-kind.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
 
 /** The delimitation in force. Every seat count comparable to today's totals is scoped to it. */
@@ -89,7 +89,7 @@ export const VERTICALS: readonly Vertical[] = [
     unit: "elections",
     reachProbe: `SELECT (SELECT count(*) FROM election WHERE kind = 'assembly') || ' assembly, '
                      || (SELECT count(*) FROM election WHERE kind = 'general') || ' general, '
-                     || (SELECT count(*) FROM election WHERE kind = 'bypoll') || ' by-elections' AS reach`,
+                     || (SELECT count(*) FROM election WHERE ${byElection("election")}) || ' by-elections' AS reach`,
     scope: "no municipal or panchayat election is modelled, and no Rajya Sabha election",
     source: "Lokdhaba",
   },
