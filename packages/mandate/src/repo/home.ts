@@ -42,7 +42,6 @@ import {
   type SeatsByParty,
   type SeatsWon,
   type Standing,
-  type SwingRow,
 } from "./elections.ts";
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
 import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
@@ -1138,6 +1137,16 @@ export function electionCoverageView(
  */
 
 /* ────────────────────────────── the spine ────────────────────────────── */
+
+export type SwingRow = {
+  key: string;
+  label: string;
+  nowPct: number | null;
+  thenPct: number | null;
+  changePp: number | null;
+  nowSeats: number;
+  thenSeats: number;
+};
 
 /**
  * The reads every section shares, done once.

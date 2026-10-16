@@ -29,8 +29,8 @@ Everything is in [repo/home.ts](../../packages/mandate/src/repo/home.ts). No SQL
 the page holds no jurisdiction name or id as a literal — asserted by a test, because that rule is what makes
 a new state a data load rather than an engineering project.
 
-**One spine, shared.** The first draft cost **1,435 ms** because `swingRows()` calls `standings()` twice and
-asking it for a swing per jurisdiction is 62 full passes over `result`. It is **798 ms** median now over
+**One spine, shared.** The first draft cost **1,435 ms** because each swing read an election's party standings
+twice, and asking for a swing per jurisdiction is 62 full passes over `result`. It is **798 ms** median now over
 566,580 result rows and 1,202 elections:
 
 - `seatsByParty` does all 62 elections in one `GROUP BY` where the old path did one query each

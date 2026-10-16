@@ -54,7 +54,7 @@ type Fixtures = {
   jurisdictions: string[];
   /** Newest election per jurisdiction, by real chronology. */
   latest: Map<string, string>;
-  /** An election with a predecessor, so swings/previousElection have something to compare. */
+  /** An election with a predecessor, so previousElection has something to compare. */
   withPrevious: string | null;
   parliamentary: string | null;
   bypoll: string | null;
@@ -149,7 +149,6 @@ test("elections: every query runs, for a big, a small and a middling jurisdictio
 
   for (const kind of ["assembly", "general"] as const) {
     ran(`currentStandings(${kind})`, () => elections.currentStandings(d, kind));
-    ran(`swings(${kind})`, () => elections.swings(d, kind, 5));
     ran(`closeFights(${kind})`, () => elections.closeFights(d, kind, 5));
   }
   ran("bypolls", () => elections.bypolls(d, 5));
@@ -158,30 +157,21 @@ test("elections: every query runs, for a big, a small and a middling jurisdictio
   for (const j of f.jurisdictions) {
     const id = f.latest.get(j);
     assert.ok(id !== undefined);
-    const list = ran(`electionsIn(${j})`, () => elections.electionsIn(d, j));
-    assert.ok(list.length > 0, `electionsIn(${j}) returns rows`);
-    const summary = ran(`electionSummary(${id})`, () => elections.electionSummary(d, id, j));
-    assert.ok(summary !== null, `electionSummary(${id}) is not null`);
-    const seats = ran(`seatResults(${id}, ${j})`, () => elections.seatResults(d, id, j));
-    assert.ok(seats.length > 0, `seatResults(${id}) returns rows`);
-    for (const s of seats.slice(0, 5)) {
-      assert.ok(s.placeName !== null && s.placeName !== "", `seat ${s.number} is named`);
-    }
-    ran(`statePage(${j})`, () => elections.statePage(d, j));
-    ran(`statePage(${j}, ${id})`, () => elections.statePage(d, j, id));
     ran(`previousElection(${id})`, () => elections.previousElection(d, id));
   }
 
   if (f.withPrevious !== null) {
     const prev = ran("previousElection", () => elections.previousElection(d, f.withPrevious ?? ""));
     assert.ok(prev !== null, "the chosen election has a predecessor");
-    ran("swingRows", () => elections.swingRows(d, f.withPrevious ?? "", prev ?? ""));
   }
+  // The bulk party read on a general election and on a by-election, not only on assemblies.
   if (f.parliamentary !== null) {
-    ran("electionSummary(parliamentary)", () => elections.electionSummary(d, f.parliamentary ?? ""));
+    const id = f.parliamentary;
+    ran("seatsByParty(parliamentary)", () => elections.foldStandings(elections.seatsByParty(d, [id])));
   }
   if (f.bypoll !== null) {
-    ran("electionSummary(bypoll)", () => elections.electionSummary(d, f.bypoll ?? ""));
+    const id = f.bypoll;
+    ran("seatsByParty(bypoll)", () => elections.foldStandings(elections.seatsByParty(d, [id])));
   }
   d.close();
 });
@@ -226,19 +216,32 @@ test("people: brief and search run for a real person", { skip }, () => {
 
 test("party history: a party's record across elections runs", { skip }, () => {
   const d = db();
-  // There is no `partyHistory()` in the repo layer; the party record is what standings and swings
-  // compute per election. Assert the underlying shape runs and reconciles, so the state page's
+  // There is no `partyHistory()` in the repo layer; the party record is what `seatsByParty` and
+  // `foldStandings` compute per election. Assert the underlying shape runs and reconciles, so any
   // party-wise section has something to stand on — and so this suite fails if it stops working.
   const f = fixtures(d);
   for (const j of f.jurisdictions) {
     const id = f.latest.get(j) ?? "";
-    const summary = elections.electionSummary(d, id, j);
-    assert.ok(summary !== null);
-    ran(`party rows for ${id}`, () => summary.parties);
-    const seatsFromParties = summary.parties.reduce((n, p) => n + p.seats, 0);
+    // The jurisdiction's own slice of the election, which is what `seatsByParty` splits on.
+    const slice = ran(`seatsByParty(${id})`, () =>
+      elections.seatsByParty(d, [id]).filter((r) => r.jurisdictionId === j),
+    );
+    const { parties } = ran(`party rows for ${id}`, () => elections.foldStandings(slice));
+    const contested =
+      get<{ n: number }>(
+        d,
+        `SELECT COUNT(*) AS n FROM contest c
+           JOIN place_version pvv ON pvv.id = c.place_version_id
+           JOIN place pl          ON pl.id = pvv.place_id
+           LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)
+          WHERE c.election_id = ? AND (CASE WHEN dis.kind = 'district' THEN dis.parent_id ELSE pl.parent_id END) = ?`,
+        id,
+        j,
+      )?.n ?? 0;
+    const seatsFromParties = parties.reduce((n, p) => n + p.seats, 0);
     assert.ok(
-      seatsFromParties <= summary.seatsContested,
-      `${id}: party seats ${seatsFromParties} exceed ${summary.seatsContested} contested`,
+      seatsFromParties <= contested,
+      `${id}: party seats ${seatsFromParties} exceed ${contested} contested`,
     );
   }
   d.close();
