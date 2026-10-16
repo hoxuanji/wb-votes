@@ -18,11 +18,10 @@
  * refuses to proceed silently.
  */
 
-import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { Artefact, ApiAccess, Category } from "./discover.ts";
-import { httpGet, type Fetcher } from "./transport.ts";
+import { httpGet, sha256Hex, type Fetcher } from "../../raw/index.ts";
 
 export const ECI_CACHE_DIR = ".data/cache/eci";
 export const ECI_PUBLISHER = "Election Commission of India";
@@ -68,8 +67,6 @@ export type RawArtefact = {
 export type AcquireStatus = "OK" | "CACHED" | "HASH_DRIFT" | "FETCH_FAILED";
 
 export type ManifestRow = RawArtefact & { status: AcquireStatus; note: string };
-
-const sha256 = (bytes: Uint8Array): string => createHash("sha256").update(bytes).digest("hex");
 
 const slug = (s: string): string =>
   s.normalize("NFKD").replace(/[^\x20-\x7e]/g, "").replace(/[^A-Za-z0-9]+/g, "-").replace(/^-+|-+$/g, "").slice(0, 80);
@@ -126,7 +123,7 @@ export async function acquire(
     if (opts.refresh !== true && existsSync(path) && existsSync(metaPath)) {
       const bytes = readFileSync(path);
       const meta = JSON.parse(readFileSync(metaPath, "utf8")) as RawArtefact;
-      const got = sha256(bytes);
+      const got = sha256Hex(bytes);
       if (got !== meta.sha256) {
         manifest.push({ ...meta, bytes: bytes.length, sha256: got, status: "HASH_DRIFT", note: `recorded ${meta.sha256}` });
         failures.push(`${a.title}: cached bytes hash ${got}, manifest says ${meta.sha256}`);
@@ -173,7 +170,7 @@ export async function acquire(
       contentType: res.contentType,
       contentLength: res.contentLength,
       bytes: bytes.length,
-      sha256: sha256(bytes),
+      sha256: sha256Hex(bytes),
       etag: res.etag,
       lastModified: res.lastModified,
       cached: false,
@@ -251,7 +248,7 @@ const tsv = (v: unknown): string => String(v).replace(/[\t\r\n]+/g, " ");
 /** The stored bytes of an acquired artefact, re-hashed. Throws if they no longer match the manifest. */
 export function readRaw(a: RawArtefact): Uint8Array {
   const bytes = readFileSync(a.path);
-  const got = sha256(bytes);
+  const got = sha256Hex(bytes);
   if (got !== a.sha256) {
     throw new Error(`${a.path} hashes ${got}, manifest says ${a.sha256} — the raw store was modified`);
   }

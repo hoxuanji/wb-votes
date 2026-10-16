@@ -13,7 +13,6 @@
 //   mandate export                       rebuild data/seed/*.json FROM the registry and report
 //                                        what does not come back (a measurement, never a migration)
 
-import { createHash } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { blockingKeys } from "../src/core/indic/index.ts";
@@ -39,7 +38,7 @@ import {
 import { formatGeometryReport, markdownGeometryReport } from "../src/ingest/geography/geometry-report.ts";
 import { markdownMissing, missingGeometry } from "../src/ingest/geography/missing.ts";
 import { validateGeometry } from "../src/ingest/geography/geometry-validate.ts";
-import { httpGet } from "../src/ingest/sources/eci/transport.ts";
+import { httpGet, sha256Hex } from "../src/ingest/raw/index.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
 import { formatReport as formatEciReport, runLs2024 } from "../src/ingest/sources/eci/ls2024.ts";
@@ -201,14 +200,11 @@ try {
       try {
         file = given === undefined ? await fetchState(stateFile, type, { refresh: has("refresh") }) : localFile(given, url, () => nowIso);
       } catch (cause) {
-        // Node's fetch does not use proxy environment variables, so on a proxied machine curl reaches
-        // Lokdhaba and this does not. Rather than fail with a bare message, print the command that works.
+        // fetchState already falls back to curl when Node's fetch cannot connect (the proxy case), so what
+        // is left is a real failure; bytes obtained some other way can still be passed in with --file.
         console.error(
-          `import: could not read ${stateFile}_${type}.csv.gz — ${(cause as Error).message}\n\n` +
-            "If that was a connection failure, download it with a tool that honours your proxy and\n" +
-            "pass the file in:\n\n" +
-            `  curl -o /tmp/${stateFile}_${type}.csv.gz "${url}"\n` +
-            `  mandate import --state=${wanted} --type=${type} --file=/tmp/${stateFile}_${type}.csv.gz\n`,
+          `import: could not read ${stateFile}_${type}.csv.gz — ${(cause as Error).message}\n` +
+            "If it cannot be fetched from here, download it elsewhere and pass it in with --file=<path>.",
         );
         process.exitCode = 1;
         break;
@@ -728,7 +724,7 @@ try {
           if (!res.ok) fail(`${d.url} returned ${res.status}`);
           mkdirSync(dirname(d.file), { recursive: true });
           writeFileSync(d.file, res.bytes);
-          const got = createHash("sha256").update(res.bytes).digest("hex");
+          const got = sha256Hex(res.bytes);
           console.log(`  fetched ${res.bytes.length.toLocaleString("en-IN")} bytes  sha256 ${got.slice(0, 16)}…`);
           if (got !== d.sha256) fail(`sha256 mismatch: the manifest declares ${d.sha256}`);
         }

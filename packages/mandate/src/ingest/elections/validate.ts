@@ -8,6 +8,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
 import { all, get } from "../../db/index.ts";
+import { MANIFEST_PATH } from "../geography/backfill.ts";
 import { readManifest } from "../geography/reconstruct.ts";
 import { groupKey } from "./event.ts";
 import { planElections } from "./identity.ts";
@@ -40,10 +41,8 @@ export type ElectionValidation = {
   ok: boolean;
 };
 
-const MANIFEST = ".data/cache/lokdhaba/refetch-manifest.tsv";
-
 export function validateElections(db: DatabaseSync, opts?: { manifestPath?: string }): ElectionValidation {
-  const manifestPath = opts?.manifestPath ?? MANIFEST;
+  const manifestPath = opts?.manifestPath ?? MANIFEST_PATH;
   const haveSource = existsSync(manifestPath);
   const checks: ElectionCheck[] = [];
   const add = (n: number, name: string, rows: { ex: string }[], skipped = false, why?: string): void => {

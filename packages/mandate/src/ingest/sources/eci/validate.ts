@@ -16,9 +16,9 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { all, get } from "../../../db/index.ts";
+import { sha256Hex } from "../../raw/index.ts";
 import { LS2024_ELECTION_ID, LS2024_EXPECTED_PCS, LS2024_REPORTED_PCS, type Staged } from "./stage.ts";
 
 export type Severity = "hard" | "warning";
@@ -167,7 +167,7 @@ export function validateStaged(s: Staged, db: DatabaseSync | null): Validation {
       missing.map((a) => `${a.path} is gone`));
   } else {
     add(16, "the raw store still holds the exact bytes that were parsed", "hard",
-      s.sources.filter((a) => createHash("sha256").update(readFileSync(a.path)).digest("hex") !== a.sha256)
+      s.sources.filter((a) => sha256Hex(readFileSync(a.path)) !== a.sha256)
         .map((a) => `${a.path} no longer hashes to ${a.sha256.slice(0, 12)}`));
   }
 

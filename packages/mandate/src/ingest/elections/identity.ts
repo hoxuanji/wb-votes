@@ -25,6 +25,7 @@ import { gunzipSync } from "node:zlib";
 import { readFileSync } from "node:fs";
 import { all, get } from "../../db/index.ts";
 import { readRows } from "../sources/lokdhaba.ts";
+import { MANIFEST_PATH } from "../geography/backfill.ts";
 import { readManifest, type Manifest } from "../geography/reconstruct.ts";
 import {
   chronological,
@@ -123,7 +124,7 @@ export function backfillElections(
   db: DatabaseSync,
   opts: { apply: boolean; manifestPath?: string },
 ): ElectionBackfillReport {
-  const { usable, unusable } = readManifest(opts.manifestPath ?? ".data/cache/lokdhaba/refetch-manifest.tsv");
+  const { usable, unusable } = readManifest(opts.manifestPath ?? MANIFEST_PATH);
   if (unusable.length > 0) {
     throw new Error(
       `${unusable.length} source file(s) no longer match the sha256 recorded at import; ` +
@@ -201,7 +202,7 @@ export type RepairPlan = {
 
 /** What `repair` would remove, and what has to be re-imported to replace it. */
 export function repairPlan(db: DatabaseSync, manifestPath?: string): RepairPlan[] {
-  const { usable } = readManifest(manifestPath ?? ".data/cache/lokdhaba/refetch-manifest.tsv");
+  const { usable } = readManifest(manifestPath ?? MANIFEST_PATH);
   const plan = planElections(usable);
   const groups = new Map<string, PlannedElection[]>();
   for (const p of plan) {
@@ -351,7 +352,7 @@ export function repairElections(
     reimport: (jurisdictionId: string, sourceId: string, path: string) => { contests: number; candidacies: number; results: number };
   },
 ): RepairResult[] {
-  const manifestPath = opts.manifestPath ?? ".data/cache/lokdhaba/refetch-manifest.tsv";
+  const manifestPath = opts.manifestPath ?? MANIFEST_PATH;
   const { usable } = readManifest(manifestPath);
   const byId = new Map(usable.map((m) => [m.sourceId, m]));
   const plan = planElections(usable);

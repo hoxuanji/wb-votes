@@ -50,11 +50,11 @@
 //    Kumarganj's boundary to Gangarampur.
 
 import type { DatabaseSync } from "node:sqlite";
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { all, get, insertMany } from "../../db/index.ts";
 import { phoneticKey } from "../../core/indic/index.ts";
+import { sha256Hex } from "../raw/index.ts";
 import { boxOfRings, pathOfRings, project, ringArea, ringsOf, simplifyRing } from "./project.ts";
 
 /** Half the detail of the national basemap: a constituency is drawn at state scale, not country scale. */
@@ -813,7 +813,7 @@ export function datasetById(id: string): Dataset {
  */
 export function readDataset(dataset: Dataset): { features: Feature[]; sha256: string; bytes: number } {
   const bytes = readFileSync(dataset.file);
-  const sha256 = createHash("sha256").update(bytes).digest("hex");
+  const sha256 = sha256Hex(bytes);
   if (sha256 !== dataset.sha256) {
     throw new Error(
       `${dataset.file} hashes to ${sha256}, and data/geo/sources.json declares ${dataset.sha256}. ` +

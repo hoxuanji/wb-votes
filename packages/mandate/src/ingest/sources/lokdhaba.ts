@@ -30,7 +30,6 @@
 // declared results — with the compilation chain stated in `publisher` and `title`. Add a
 // `research_dataset` kind when a migration can safely rebuild that table.
 
-import { createHash } from "node:crypto";
 import { gunzipSync } from "node:zlib";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -38,6 +37,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../db/index.ts";
 import { all, insertMany } from "../../db/index.ts";
 import { slug } from "../../core/ids.ts";
+import { httpGet, sha256Hex, type Fetcher } from "../raw/index.ts";
 import { DISTRICT_ALIAS } from "../districts.ts";
 import { JURISDICTIONS } from "../india.ts";
 import { eventJurisdiction, eventKey, int, planFromRows } from "../elections/event.ts";
@@ -133,13 +133,13 @@ export function localFile(path: string, url: string, now = () => new Date().toIS
   if (bytes.length < 1024 || bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
     throw new Error(`${path} is ${bytes.length} bytes and is not gzip — is it an HTML error page?`);
   }
-  return { url, bytes, sha256: sha256(bytes), retrievedAt: now(), cached: true };
+  return { url, bytes, sha256: sha256Hex(bytes), retrievedAt: now(), cached: true };
 }
 
 export async function fetchState(
   state: string,
   type: ElectionType,
-  opts: { refresh?: boolean; now?: () => string; cacheDir?: string } = {},
+  opts: { refresh?: boolean; now?: () => string; cacheDir?: string; fetcher?: Fetcher } = {},
 ): Promise<Fetched> {
   const url = `${BASE}/${state}/${state}_${type}.csv.gz`;
   const dir = opts.cacheDir ?? CACHE_DIR;
@@ -152,12 +152,12 @@ export async function fetchState(
     const at = existsSync(meta)
       ? (JSON.parse(readFileSync(meta, "utf8")) as { retrievedAt: string }).retrievedAt
       : now();
-    return { url, bytes, sha256: sha256(bytes), retrievedAt: at, cached: true };
+    return { url, bytes, sha256: sha256Hex(bytes), retrievedAt: at, cached: true };
   }
 
-  const res = await fetch(url, { redirect: "follow" });
-  if (!res.ok) throw new Error(`${url} returned ${res.status} ${res.statusText}`);
-  const bytes = new Uint8Array(await res.arrayBuffer());
+  const res = await (opts.fetcher ?? httpGet)(url);
+  if (!res.ok) throw new Error(`${url} returned ${res.status}`);
+  const bytes = res.bytes;
   // A truncated or HTML error body would otherwise be cached and then fail to gunzip on every later
   // run, so the bytes are validated as gzip before anything is written to disk.
   if (bytes.length < 1024 || bytes[0] !== 0x1f || bytes[1] !== 0x8b) {
@@ -166,12 +166,9 @@ export async function fetchState(
   const retrievedAt = now();
   mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, bytes);
-  writeFileSync(`${path}.meta.json`, JSON.stringify({ url, retrievedAt, bytes: bytes.length }, null, 2));
-  return { url, bytes, sha256: sha256(bytes), retrievedAt, cached: false };
-}
-
-function sha256(bytes: Uint8Array): string {
-  return createHash("sha256").update(bytes).digest("hex");
+  const sha256 = sha256Hex(bytes);
+  writeFileSync(`${path}.meta.json`, JSON.stringify({ url, retrievedAt, bytes: bytes.length, sha256 }, null, 2));
+  return { url, bytes, sha256, retrievedAt, cached: false };
 }
 
 /**

@@ -26,11 +26,11 @@
  */
 
 import type { DatabaseSync } from "node:sqlite";
-import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { all, get } from "../../db/index.ts";
 import { ECI_CACHE_DIR } from "../sources/eci/acquire.ts";
+import { sha256Hex } from "../raw/index.ts";
 
 export const DELIMITATION_DIR = join(ECI_CACHE_DIR, "delimitation");
 
@@ -392,8 +392,6 @@ export type DelimitationReport = {
   perDerivation: { jurisdiction: string; kind: string; links: number; note: string }[];
 };
 
-const sha256 = (b: Uint8Array): string => createHash("sha256").update(b).digest("hex");
-
 /**
  * Register the documents, the epochs, the derivations and the chain. One transaction, idempotent.
  *
@@ -418,7 +416,7 @@ export function applyDelimitation(
       continue;
     }
     const bytes = readFileSync(path);
-    const got = sha256(bytes);
+    const got = sha256Hex(bytes);
     if (got !== doc.sha256 || bytes.length !== doc.bytes) {
       report.hashMismatches.push(`${doc.file}: ${bytes.length} B / ${got.slice(0, 16)} != ${doc.bytes} B / ${doc.sha256.slice(0, 16)}`);
     }

@@ -13,7 +13,6 @@
 // Idempotent by construction: every id is content- or key-derived and every write is an upsert on
 // the table's own key, so `runIngest` twice over the same bytes leaves the same row counts.
 
-import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { DatabaseSync } from "node:sqlite";
@@ -28,6 +27,7 @@ import { DISTRICT_ALIAS } from "../districts.ts";
 // not only in shape: "1 of 36 states" was a hardcoded denominator with nothing behind it.
 import { JURISDICTIONS } from "../india.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
+import { sha256Hex } from "../raw/index.ts";
 import { coverageFailures, fieldCoverage, formatCoverage, seedShapeFailures, type CoverageRow } from "../field-coverage.ts";
 
 const PARSER_VERSION = "wb-static@1";
@@ -245,7 +245,7 @@ export function readModuleDoc(file: string, dir: string = DATA_DIR): ModuleDoc {
   return {
     file,
     retrievedOn: provenance(dir)[file] ?? null,
-    docHash: createHash("sha256").update(readFileSync(dir + file)).digest("hex"),
+    docHash: sha256Hex(readFileSync(dir + file)),
   };
 }
 
@@ -265,7 +265,7 @@ export async function loadStaticBundle(dir: string = DATA_DIR): Promise<StaticBu
         {
           file,
           retrievedOn: prov[file] ?? null,
-          docHash: createHash("sha256").update(bytes).digest("hex"),
+          docHash: sha256Hex(bytes),
         },
       ];
     }),
