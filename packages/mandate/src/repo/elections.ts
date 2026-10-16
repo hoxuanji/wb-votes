@@ -22,19 +22,12 @@ import { read } from "./index.ts";
 import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
 import type { Turnout } from "./turnout-trust.ts";
 import { JURISDICTIONS } from "../ingest/india.ts";
+import { CHRONO_DESC, chronoDesc } from "../core/election-kind.ts";
 
-/**
- * Chronological order for elections, newest first — the ONLY ordering any surface may rank by.
- *
- * An election id is only accidentally chronological. It sorts by the middle of the string, so by id the
- * election after `wb-bypoll-ae-2021` is `wb-bypoll-ge-2016`, five years EARLIER, and `ka-bypoll-ge-2021`
- * outranks `ka-assembly-2023`. Every ranking in this file and in repo/home.ts binds this constant so the
- * defect cannot come back in one place while being fixed in another.
- *
- * `polling_month` is NULL for the elections whose month was never sourced (it is not derived from a
- * five-year term), so it is coalesced rather than allowed to reorder a year.
- */
-export const CHRONO_DESC = "e.year DESC, COALESCE(e.polling_month, 0) DESC, e.occurrence DESC, e.id DESC";
+// Defined once in core/election-kind.ts, where ingest can reach it too, and re-exported: every ranking in this
+// file and in repo/home.ts binds it, so the defect it exists to prevent cannot come back in one place while
+// being fixed in another.
+export { CHRONO_DESC };
 
 export type PartyStanding = {
   /** party.id, or the raw label when a party row could not be resolved. */
@@ -234,7 +227,7 @@ export function previousElection(db: DatabaseSync, electionId: string): string |
                        AND (e2.year, COALESCE(e2.polling_month, 0), e2.occurrence, e2.id)
                          < (e.year,  COALESCE(e.polling_month, 0),  e.occurrence,  e.id)
       WHERE e.id = ?
-      ORDER BY e2.year DESC, COALESCE(e2.polling_month, 0) DESC, e2.occurrence DESC, e2.id DESC
+      ORDER BY ${chronoDesc("e2")}
       LIMIT 1`,
     electionId,
   );

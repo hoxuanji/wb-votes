@@ -71,3 +71,29 @@ export function majorityOf(contested: number, fill: Fill): number | null {
  * `e`. Portable (plain comparison, no dialect functions).
  */
 export const FULL_HOUSE = "e.kind <> 'bypoll'";
+
+/**
+ * Chronological order for elections, newest first — the ONLY ordering any surface may rank by. `alias` is the
+ * election table's alias in the query.
+ *
+ * An election id is only accidentally chronological. It sorts by the middle of the string, so by id the
+ * election after `wb-bypoll-ae-2021` is `wb-bypoll-ge-2016`, five years EARLIER, and `ka-bypoll-ge-2021`
+ * outranks `ka-assembly-2023`. Chronology is (year, polling_month, occurrence), as docs/model/
+ * election-identity.md says; the id only breaks a tie, so the order is total.
+ *
+ * `polling_month` is NULL for the elections whose month was never sourced (it is not derived from a
+ * five-year term), so it is coalesced rather than allowed to reorder a year. SQLite sorts a NULL smallest
+ * and Postgres largest, so a bare `polling_month` would rank those elections differently in dev and prod
+ * (ADR 0001); the 0 fixes them last on DESC and first on ASC in both.
+ */
+export function chronoDesc(alias = "e"): string {
+  return `${alias}.year DESC, COALESCE(${alias}.polling_month, 0) DESC, ${alias}.occurrence DESC, ${alias}.id DESC`;
+}
+
+/** `chronoDesc`, oldest first: the exact mirror, id tie-break included. */
+export function chronoAsc(alias = "e"): string {
+  return `${alias}.year ASC, COALESCE(${alias}.polling_month, 0) ASC, ${alias}.occurrence ASC, ${alias}.id ASC`;
+}
+
+export const CHRONO_DESC = chronoDesc("e");
+export const CHRONO_ASC = chronoAsc("e");

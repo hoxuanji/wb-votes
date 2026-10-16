@@ -15,6 +15,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";
 import { read } from "./index.ts";
+import { chronoDesc } from "../core/election-kind.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
 
 /** The delimitation in force. Every seat count comparable to today's totals is scoped to it. */
@@ -375,8 +376,8 @@ export function geography(db: DatabaseSync): Geography {
   return read(() => {
     const n = (sql: string, ...p: string[]): number => Number(get<{ n: number }>(db, sql, ...p)?.n ?? 0);
     const states = n("SELECT count(*) AS n FROM place WHERE kind IN ('state','ut')");
-    // The latest election per jurisdiction, then the seats contested in it. A general election is one row
-    // for the whole union, so the same query serves both houses.
+    // The latest election per jurisdiction, by chronology and not by id, then the seats contested in it. A
+    // general election is one row for the whole union, so the same query serves both houses.
     const seatsNow = (kind: string): number =>
       n(
         `SELECT count(*) AS n FROM (
@@ -387,7 +388,7 @@ export function geography(db: DatabaseSync): Geography {
               AND e.id IN (
                 SELECT id FROM (
                   SELECT e2.id AS id,
-                         row_number() OVER (PARTITION BY e2.jurisdiction_place_id ORDER BY e2.id DESC) AS rn
+                         row_number() OVER (PARTITION BY e2.jurisdiction_place_id ORDER BY ${chronoDesc("e2")}) AS rn
                     FROM election e2 WHERE e2.kind = ?
                 ) WHERE rn = 1))`,
         kind,

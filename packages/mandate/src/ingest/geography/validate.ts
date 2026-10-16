@@ -13,6 +13,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
 import { all, get } from "../../db/index.ts";
+import { chronoDesc } from "../../core/election-kind.ts";
 import { MANIFEST_PATH } from "./backfill.ts";
 import { epochByElection, readManifest, reconstruct, type SourceSeat } from "./reconstruct.ts";
 
@@ -59,7 +60,7 @@ export function currentEpochs(db: DatabaseSync): Map<string, string> {
     `SELECT jurisdiction_id, kind, epoch_id FROM (
        SELECT v.jurisdiction_id, v.kind, v.epoch_id,
               row_number() OVER (PARTITION BY v.jurisdiction_id, v.kind
-                                 ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC) AS rn
+                                 ORDER BY ${chronoDesc()}) AS rn
          FROM contest c
          JOIN election e ON e.id = c.election_id
          JOIN place_version v ON v.id = c.place_version_id

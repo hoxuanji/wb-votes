@@ -24,6 +24,7 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";
+import { chronoDesc } from "../core/election-kind.ts";
 import { read } from "./index.ts";
 
 /** The auto-merge and queue thresholds from ADR 0003. Bands are cut between them. */
@@ -127,7 +128,7 @@ function loadCandidate(db: DatabaseSync, id: string): Candidate {
        LEFT JOIN party pt ON pt.id = pver.party_id
        LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
       WHERE ca.person_id = ?
-      ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC`,
+      ORDER BY ${chronoDesc()}`,
     id,
   );
   return {

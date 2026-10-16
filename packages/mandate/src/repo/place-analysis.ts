@@ -12,6 +12,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Reservation } from "../core/index.ts";
 import { all, get } from "../db/index.ts";
+import { chronoDesc } from "../core/election-kind.ts";
 import {
   enp,
   incumbency_retention,
@@ -249,7 +250,7 @@ export function getPlaceAnalysis(
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
         WHERE c.place_version_id = ?
-        ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, r.rank, r.candidacy_id`,
+        ORDER BY ${chronoDesc()}, r.rank, r.candidacy_id`,
       p.place_version_id,
     );
 
@@ -270,8 +271,9 @@ export function getPlaceAnalysis(
          JOIN place dist ON dist.id = pl.parent_id
          JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
         WHERE dist.parent_id = ?
-        GROUP BY c.election_id
-        ORDER BY MAX(e.year) DESC, MAX(e.polling_month) DESC, MAX(e.occurrence) DESC`,
+        -- grouped by e.id as well, its primary key, so the chronology columns need no aggregate to be ordered by
+        GROUP BY c.election_id, e.id
+        ORDER BY ${chronoDesc()}`,
       p.parent_id,
       p.parent_id,
       p.state_id,

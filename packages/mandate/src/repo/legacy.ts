@@ -12,6 +12,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { constituencyHref } from "./routes.ts";
 import { get } from "../db/index.ts";
+import { chronoDesc } from "../core/election-kind.ts";
 import { read } from "./index.ts";
 
 /** `c0042` -> 42. Null for anything that is not that shape, including `c0000`. */
@@ -105,7 +106,7 @@ export function sittingMemberForLegacyId(db: DatabaseSync, legacyId: string): st
            JOIN result r         ON r.contest_id = c.id AND r.is_winner = 1 AND r.revision = 0
            JOIN candidacy ca     ON ca.id = r.candidacy_id
           WHERE pv.number = ?
-          ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC
+          ORDER BY ${chronoDesc()}
           LIMIT 1`,
         n,
       )?.person_id ?? null,

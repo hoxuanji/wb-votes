@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Names, Reservation } from "../core/index.ts";
 import { all, get } from "../db/index.ts";
+import { chronoDesc } from "../core/election-kind.ts";
 import type { Provenanced, SourceRef } from "./index.ts";
 import { loadSources, read, yearOf } from "./index.ts";
 import { counted, parseNames, pct } from "./person.ts";
@@ -162,7 +163,7 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
         WHERE c.place_version_id = ?
-        ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, r.rank, r.candidacy_id`,
+        ORDER BY ${chronoDesc()}, r.rank, r.candidacy_id`,
       p.place_version_id,
     );
 
