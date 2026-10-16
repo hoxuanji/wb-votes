@@ -62,6 +62,12 @@ jobs:
           npm run mandate -- elections validate
           npm run mandate -- geography check
 
+      # The registry invariants (ADR 0001). `audit` exits 1 when one is violated, and nothing else in this job
+      # runs them against a built registry, so a defect in a write path was visible only to whoever ran the
+      # command by hand. They were measured green when the CLI gained the command.
+      - name: Registry invariants
+        run: npm run registry:audit
+
       # ONE test is classified and expected to fail: searchPersons ranking/order-independence, in
       # packages/mandate/src/repo/person.test.ts. `|| true` would hide a second failure as well, so the
       # COUNT is asserted instead — the classified one stays green and a new one turns the job red.

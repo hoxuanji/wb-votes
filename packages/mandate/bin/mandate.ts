@@ -117,6 +117,16 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+/**
+ * The footer of a validation run. A check that was not asked is not a check that passed, so say how many of
+ * each: a run that skipped half its checks (CI has no source cache) must not print the line a full run does.
+ */
+function passFooter(checks: readonly { skipped?: boolean }[]): string {
+  const notAsked = checks.filter((c) => c.skipped === true).length;
+  const asked = checks.length - notAsked;
+  return notAsked === 0 ? `all ${asked} checks pass` : `all ${asked} asked checks pass; ${notAsked} not asked`;
+}
+
 const nowIso = new Date().toISOString();
 
 try {
@@ -449,7 +459,7 @@ try {
         ]);
         console.log("\nmost recent events");
         table(perEvent(db).map((e): [string, unknown] => [e.id, `${e.contests} contests, ${e.results} results`]));
-        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        console.log(v.ok ? `\n${passFooter(v.checks)}` : "\nCHECKS FAILED");
         db.close();
         if (!v.ok) process.exit(1);
         break;
@@ -560,7 +570,7 @@ try {
           ["crosswalk rows (quantitative succession)", v.metrics.crosswalkRows],
           ["asserted succession links", v.metrics.succession],
         ]);
-        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        console.log(v.ok ? `\n${passFooter(v.checks)}` : "\nCHECKS FAILED");
         db.close();
         if (!v.ok) process.exit(1);
         break;
@@ -638,7 +648,7 @@ try {
           ["multipart polygons", v.metrics.multipart],
           ["distinct sources", v.metrics.sources],
         ]);
-        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        console.log(v.ok ? `\n${passFooter(v.checks)}` : "\nCHECKS FAILED");
         if (!v.ok) process.exit(1);
         break;
       }
