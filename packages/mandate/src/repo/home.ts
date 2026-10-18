@@ -29,11 +29,9 @@ import {
   currentStandings,
   foldStandings,
   latestPerJurisdiction,
-  partitionByEpoch,
   partyRows,
   previousElection,
   recent,
-  seatKey,
   seatsByParty,
   upcoming,
   seatsWonBy,
@@ -46,6 +44,7 @@ import {
   type Standing,
 } from "./elections.ts";
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
+import { compareSeats } from "./seat-comparison.ts";
 import {
   medianMarginShare,
   partyVotes,
@@ -702,28 +701,23 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
       }
 
       // 2. Seats that changed hands against the previous election of the same kind — THROUGH THE EPOCH
-      // GATE. Keyed on (epoch, place), never on place alone: a delimitation renumbers seats from scratch,
-      // so matching on the number compares AURAD to NIPPANI. Cross-epoch pairs land in `incomparable` and
-      // produce no signal at all, rather than a flip count about redrawn territory.
+      // GATE, which `compareSeats` is: a delimitation renumbers seats from scratch, so matching on the number
+      // compares AURAD to NIPPANI. Cross-epoch pairs are incomparable and produce no signal at all, rather than a
+      // flip count about redrawn territory; a seat with no declared winner on either side is unknown, so the
+      // "of N" is the seats that held or flipped, as the incumbency methodology counts them.
       const thenId = spine.previousOf(s.electionId);
       if (thenId !== null) {
         const thenSeats = spine.seats.filter((x) => x.electionId === thenId);
-        const before = new Map(thenSeats.map((x) => [seatKey(x.placeId, x.epochId), x.winner?.party.key]));
-        const split = partitionByEpoch(seats, thenSeats);
-        const flipped = split.comparable.filter((x) => {
-          const was = before.get(seatKey(x.placeId, x.epochId));
-          // An undeclared seat on either side is neither a flip nor a hold. It is unknown.
-          return was != null && x.winner !== null && was !== x.winner.party.key;
-        });
-        if (flipped.length > 0) {
+        const compared = compareSeats(seats, thenSeats);
+        if (compared.flipped.length > 0) {
           out.push({
             rule: "seats whose winning party differs from the previous election",
             threshold: "same seat, same boundary, consecutive elections",
             subject: s.jurisdictionName,
             href,
-            detail: `${flipped.length} of ${split.comparable.length} seats changed hands between ${spine.yearOf(thenId) ?? "the previous election"} and ${s.year}.`,
+            detail: `${compared.flipped.length} of ${compared.comparable} seats changed hands between ${spine.yearOf(thenId) ?? "the previous election"} and ${s.year}.`,
             basis: "measured",
-            weight: flipped.length,
+            weight: compared.flipped.length,
           });
         }
 

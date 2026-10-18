@@ -102,8 +102,8 @@ export type FlipPair = {
  * that 53 of them went BJP→INC and 22 JD(S)→INC, and that breakdown is the answer to the question a reader
  * actually has: not how many moved, but where the winner's gain came from.
  *
- * `comparable` is the denominator and it is the GATED one — seats present on both sides under the same
- * boundary. See `partitionByEpoch`.
+ * `comparable` is the denominator and it is the GATED one — seats that held or flipped, present on both sides under
+ * the same boundary with a winner declared on both. See `compareSeats`.
  */
 export type SeatFlips = {
   type: "seat_flips";
@@ -117,6 +117,8 @@ export type SeatFlips = {
 
 /**
  * Seats that could not be compared at all, because the constituencies were redrawn.
+ *
+ * A seat whose winner is undeclared on one side is not counted here: its boundary did not move.
  *
  * A FIRST-CLASS FINDING, not the absence of one. The defect this codebase shipped was a flip count across
  * a delimitation; the fix refuses the comparison, and a refusal that is not reported reads as "nothing

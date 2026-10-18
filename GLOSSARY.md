@@ -129,3 +129,33 @@ _Avoid_: Filter
 
 **Current revision**:
 The revision of a result that is read as the result. Seat results are read at revision 0, the original, today; whether a later revision supersedes it is not yet decided.
+
+### Comparing two elections
+
+**Seat identity**:
+What makes a seat in one election the same seat in another: the same place under the same epoch. A seat number does not identify a seat, because every delimitation renumbers constituencies from scratch.
+_Avoid_: Seat key, seat number
+
+**Paired seat**:
+A seat that has a counterpart in the other election under the same epoch, whether or not either election declared a winner for it.
+_Avoid_: Matched seat
+
+**Incomparable**:
+A seat with no counterpart in the other election under the same epoch, because it was redrawn or did not exist. It is reported and never counted as a change.
+_Avoid_: Unmatched, redrawn (a paired seat with no declared winner was not redrawn)
+
+**Unknown**:
+A paired seat that is neither held nor flipped because one election, or both, declared no winner for it. It is reported, and counted neither as a hold nor as a change.
+_Avoid_: Missing, incomparable
+
+**Held** and **flipped**:
+A paired seat with a declared winner in both elections is held when both winners belong to the same party and flipped when they do not. An independent replaced by another independent is held, because the comparison reads the party and not the person.
+_Avoid_: Retained, switched
+
+**Comparable**:
+The number of paired seats that are held or flipped, and so the denominator of "N of M seats changed hands". Unknown and incomparable seats are outside it.
+_Avoid_: Paired seats (an unknown seat is paired and not comparable)
+
+**Flip matrix**:
+The flipped seats counted by the party that lost them and the party that won them, the biggest count first.
+_Avoid_: Transition matrix

@@ -30,10 +30,11 @@ import { read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
 import { facetOf } from "../core/election-kind.ts";
 import type { Body, Fill } from "../core/election-kind.ts";
-import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
+import { CHRONO_DESC, previousElection } from "./elections.ts";
 import { placeHref } from "./place-page.ts";
 import type { Finding, PartyRef, SeatFlips, VoteSeatEfficiency } from "./findings.ts";
 import { NATIONAL, parse, simplified } from "../viz/simplify.ts";
+import { compareSeats } from "./seat-comparison.ts";
 import { partyVotes, readSeats, sourcesFor, tally, turnoutOf, votesByParty } from "./seat-results.ts";
 import { electionContext } from "./election-context.ts";
 import type { ElectionContext, SeatStanding } from "./election-context.ts";
@@ -127,7 +128,8 @@ export type ElectionSeat = {
    * Whether this seat could be compared with the previous election at all.
    *
    * False means the boundary was redrawn between the two, so there is no predecessor to have flipped from.
-   * The map must not colour it as a hold — a redrawn seat is neither.
+   * The map must not colour it as a hold — a redrawn seat is neither. A seat whose winner is undeclared at
+   * either election is comparable and has no flip: nothing was redrawn, one of the two results is missing.
    */
   comparable: boolean;
   flip: SeatFlip | null;
@@ -382,7 +384,7 @@ export function electionMapView(
     );
 
     /**
-     * The previous election of the same house, and its winners keyed by (epoch, place) — the gate.
+     * The previous election of the same house, and the seats compared with it — through the epoch gate.
      *
      * NOT FOR A BY-ELECTION. `previousElection` matches on `kind`, so a by-election's predecessor is the
      * PREVIOUS BY-ELECTION — a different handful of seats, usually in a different epoch. Comparing the two
@@ -394,28 +396,18 @@ export function electionMapView(
      * brief is explicit that it must stay subordinate to the result rather than be smuggled in as one.
      */
     const previousId = ctx?.kind === "bypoll" ? null : previousElection(db, electionId);
-    const before = new Map<string, PartyRef>();
-    const beforeRows: { placeId: string; epochId: string }[] = [];
-    if (previousId !== null) {
-      for (const r of readSeats(db, { elections: [previousId], ...within })) {
-        // A seat the previous election declared no winner for has nothing to be compared with.
-        if (r.winner === null) continue;
-        before.set(seatKey(r.placeId, r.epochId), r.winner.party);
-        beforeRows.push({ placeId: r.placeId, epochId: r.epochId });
-      }
-    }
-    const split = partitionByEpoch(
-      rows.map((r) => ({ placeId: r.placeId, epochId: r.epochId })),
-      beforeRows,
+    const compared = compareSeats(
+      rows,
+      previousId === null ? [] : readSeats(db, { elections: [previousId], ...within }),
     );
-    const comparableKeys = new Set(split.comparable.map((r) => seatKey(r.placeId, r.epochId)));
 
     let otherFrames = 0;
     let pathBytes = 0;
     const undrawable = new Set<string>();
     const kept: string[] = [];
 
-    const seats: ElectionSeat[] = rows.map((r) => {
+    const seats: ElectionSeat[] = compared.verdicts.map((verdict) => {
+      const r = verdict.now;
       const outline = outlines.get(r.versionId);
       const outlined = outline?.path ?? null;
       // A polygon in another projection is WITHHELD, never drawn: two geometry sources need not share a
@@ -434,10 +426,10 @@ export function electionMapView(
       const party = r.winner?.party ?? null;
       const partyKey = party?.key ?? null;
 
-      const key = seatKey(r.placeId, r.epochId);
       // False for every by-election seat: there is no comparison event, so nothing is comparable to it.
-      const comparable = ctx?.kind !== "bypoll" && comparableKeys.has(key);
-      const was = comparable ? before.get(key) : undefined;
+      // True for a seat whose winner is undeclared on either side: its boundary did not move, it only has no
+      // flip to report.
+      const comparable = ctx?.kind !== "bypoll" && verdict.kind !== "incomparable";
 
       return {
         placeId: r.placeId,
@@ -477,14 +469,14 @@ export function electionMapView(
               ? "won-by"
               : !comparable
               ? "not-comparable"
-              : was !== undefined && partyKey !== null && was.key === partyKey
+              : verdict.kind === "held"
                 ? "held"
                 : "won-by",
         comparable,
         flip:
-          was === undefined || partyKey === null
-            ? null
-            : { from: was, changed: was.key !== partyKey },
+          verdict.kind === "held" || verdict.kind === "flipped"
+            ? { from: verdict.from, changed: verdict.kind === "flipped" }
+            : null,
         path,
         /**
          * THE CONSTITUENCY'S OWN PAGE — and this link used to go nowhere useful at all.
@@ -584,42 +576,22 @@ export function electionMapView(
     }
     marginBins.push({ lo: BIN_MAX, hi: null, n: binCounts.get(BIN_MAX) ?? 0, overflow: true });
 
-    /* ── flips, from the gated split ── */
+    /* ── flips, from the gated comparison ── */
 
-    const changed = seats.filter((s) => s.flip !== null && s.flip.changed);
-    const held = seats.filter((s) => s.flip !== null && !s.flip.changed);
-    // One cell of the flip matrix, keyed by the party pair. NOT `seatKey`, which means something else —
-    // reusing it here would read as if a party pair were a seat identity.
-    const cellKey = (from: string, to: string): string => `${from}>${to}`;
-    const pairMap = new Map<string, { from: PartyRef; to: PartyRef; count: number }>();
-    for (const s of changed) {
-      const from = s.flip?.from;
-      if (from === undefined || s.partyKey === null) continue;
-      const cell = cellKey(from.key, s.partyKey);
-      const at = pairMap.get(cell);
-      if (at === undefined) {
-        pairMap.set(cell, { from, to: { key: s.partyKey, label: s.partyLabel ?? s.partyKey }, count: 1 });
-      } else {
-        at.count += 1;
-      }
-    }
-    const comparableCount = changed.length + held.length;
     const previousYear =
       previousId === null
         ? null
         : (get<{ y: number }>(db, `SELECT year AS y FROM election WHERE id = ?`, previousId)?.y ?? null);
 
     const flips: SeatFlips | null =
-      comparableCount === 0
+      compared.comparable === 0
         ? null
         : {
             type: "seat_flips",
-            flipped: changed.length,
-            held: held.length,
-            comparable: comparableCount,
-            pairs: [...pairMap.values()].sort(
-              (a, b) => b.count - a.count || a.from.key.localeCompare(b.from.key),
-            ),
+            flipped: compared.flipped.length,
+            held: compared.held.length,
+            comparable: compared.comparable,
+            pairs: compared.matrix,
             previousYear,
             year: e.year,
           };
@@ -663,7 +635,9 @@ export function electionMapView(
       // ZERO FOR A BY-ELECTION, not "all of them". With no comparison event every seat lands in the
       // incomparable pile by construction, and the caption then blamed a delimitation for the absence of a
       // comparison that was never possible. Nothing was redrawn; there is simply nothing to compare to.
-      incomparableSeats: ctx?.kind === "bypoll" ? 0 : split.incomparable.length,
+      // Only a seat with no counterpart under the same boundary is counted: one whose winner is undeclared on
+      // either side is unknown, not redrawn.
+      incomparableSeats: ctx?.kind === "bypoll" ? 0 : compared.incomparable.length,
       sources,
       geometry: {
         /**

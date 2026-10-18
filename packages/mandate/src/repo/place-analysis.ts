@@ -26,6 +26,7 @@ import { loadSources, read, yearOf } from "./index.ts";
 import { counted } from "./person.ts";
 import type { DemographicFigure } from "./place.ts";
 import { demographicClaims, groupDemographics } from "./place.ts";
+import { sameSeat } from "./seat-comparison.ts";
 
 /** Exactly what the Analysis page's URL exposes. A fourth filter would be a parameter with no
  *  caller. */
@@ -161,6 +162,7 @@ type PlaceSql = {
 type RowSql = {
   contest_id: string;
   election_id: string;
+  place_id: string;
   epoch_id: string;
   electors: number | null;
   voters: number | null;
@@ -188,6 +190,7 @@ type Contest = {
   contestId: string;
   electionId: string;
   year: number;
+  placeId: string;
   epochId: string;
   electors: number | null;
   voters: number | null;
@@ -235,7 +238,7 @@ export function getPlaceAnalysis(
 
     const rows = all<RowSql>(
       db,
-      `SELECT c.id AS contest_id, c.election_id, pv.epoch_id,
+      `SELECT c.id AS contest_id, c.election_id, pv.place_id, pv.epoch_id,
               t.electors, t.voters, t.source_id AS turnout_source_id,
               r.rank, r.votes, r.margin, r.source_id AS result_source_id,
               per.canonical_name AS person_name,
@@ -375,7 +378,7 @@ export function getPlaceAnalysis(
           held: incumbency_retention.compute({
             winningPartyId: w,
             previousWinningPartyId: pw,
-            sameEpoch: now.epochId === prev.epochId,
+            sameEpoch: sameSeat(now, prev),
           }),
         };
       }),
@@ -409,6 +412,7 @@ function groupContests(rows: readonly RowSql[]): Contest[] {
         contestId: r.contest_id,
         electionId: r.election_id,
         year: yearOf(r.election_id),
+        placeId: r.place_id,
         epochId: r.epoch_id,
         electors: r.electors,
         voters: r.voters,
@@ -501,7 +505,7 @@ function swings(now: Contest, prev: Contest, party: string | undefined): SwingPo
         swingPp: swing_pp.compute({
           sharePct: r.voteSharePct,
           previousSharePct: previousVoteSharePct,
-          sameEpoch: now.epochId === prev.epochId,
+          sameEpoch: sameSeat(now, prev),
         }),
       };
     });

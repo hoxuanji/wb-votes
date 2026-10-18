@@ -17,7 +17,7 @@
 // `seatsFromRecords` is the same step over rows already in hand, which is what lets every rule below be tested
 // on literal arrays; and turnout, the tally, the closest fights and the median margin share are free functions
 // over arrays, so they work on any subset — a state's seats, one side of an epoch partition, a district's.
-// There is deliberately no class: a seat book cannot be re-sliced after `partitionByEpoch` hands back plain
+// There is deliberately no class: a seat book cannot be re-sliced after `compareSeats` hands back plain
 // subsets, and it does not cross to a React prop.
 //
 // Two things a seat result does not hold are read here as well, under the same scope and the same party rule so

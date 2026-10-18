@@ -450,24 +450,26 @@ test("electionMapView: seats come in jurisdiction then number order with winner,
   }
 });
 
-test("electionMapView: flips are counted through the epoch gate, and a seat with no predecessor says so", () => {
+test("electionMapView: flips are counted through the epoch gate, and only a redrawn seat is counted as redrawn", () => {
   const d = memory();
   try {
     const v = electionMapView(d, "ka-assembly-2023");
-    // ka.ac.003 is fought under new boundaries and ka.ac.004 had no declared winner in 2018: neither can be compared.
+    // ka.ac.003 is fought under new boundaries, so it cannot be compared. ka.ac.004 had no declared winner in 2018: it
+    // is the same seat under the same boundary, so it is comparable and has no flip, and nothing was redrawn.
     // Seat B changed hands, but its outline is in another projection and is withheld: a seat that cannot be drawn is
     // undrawable whatever else is true of it. Its flip is still counted below.
     assert.deepEqual(v.seats.map((s) => [s.contestId, s.comparable, s.standing]), [
       ["c5", true, "held"],
       ["c6", true, "no-geometry"],
       ["c7", false, "not-comparable"],
-      ["c8", false, "no-geometry"],
+      ["c8", true, "no-geometry"],
     ]);
+    assert.equal(v.seats[3]?.flip, null);
     assert.deepEqual(v.seats[1]?.flip && plain(v.seats[1].flip), {
       from: { key: "CCC", label: "CCC" },
       changed: true,
     });
-    assert.equal(v.incomparableSeats, 2);
+    assert.equal(v.incomparableSeats, 1, "only the redrawn seat is counted as redrawn");
     assert.deepEqual(plain(v.flips), {
       type: "seat_flips",
       flipped: 1,

@@ -13,9 +13,9 @@
 //
 // WHY THE FIX IS A KEY AND NOT AN `if`. A check must be remembered at every call site. Keying the
 // comparison on (epoch, place) makes the wrong match UNREPRESENTABLE — the keys cannot collide across
-// epochs, so a cross-epoch pair finds nothing no matter who calls it. These tests bind that property at the
-// primitive (`seatKey`, `partitionByEpoch`) AND at both consumers, so the gate cannot be removed from one
-// of them and left in the other.
+// epochs, so a cross-epoch pair finds nothing no matter who calls it. The primitive (`seatKey`, `compareSeats`) is
+// bound in seat-comparison.test.ts with no database; these tests bind the same property at both consumers, against
+// the live registry, so the gate cannot be removed from one of them and left in the other.
 //
 // AND WHY A SILENT ZERO IS NOT ACCEPTABLE EITHER. "0 seats changed hands" reads as continuity; "223 seats
 // cannot be compared" is the truth. Both consumers carry the refused count, and that is asserted here too.
@@ -28,71 +28,15 @@ import test from "node:test";
 import { existsSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { DEV_DB_PATH, all, get, openRead } from "../db/index.ts";
-import { partitionByEpoch, previousElection, seatKey } from "./elections.ts";
+import { previousElection, seatKey } from "./elections.ts";
 import { electionMapView, headlineFindings } from "./election-map.ts";
 import { summariseAll } from "./findings.ts";
 import { spine, watchSignals } from "./home.ts";
+import { compareSeats } from "./seat-comparison.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
 const db = (): DatabaseSync => openRead();
-
-/* ─────────────────────────────── the primitive, with no database ─────────────────────────────── */
-
-test("seatKey separates the same seat number under two delimitations", () => {
-  // The exact rows behind the defect. One number, two territories, two keys.
-  assert.notEqual(seatKey("ka.ac.001", "delim-1976"), seatKey("ka.ac.001", "delim-2008"));
-  // And the same seat under the same boundary is the same key, or nothing could ever be compared.
-  assert.equal(seatKey("ka.ac.001", "delim-2008"), seatKey("ka.ac.001", "delim-2008"));
-});
-
-test("seatKey cannot collide: no two distinct (place, epoch) pairs produce one key", () => {
-  const pairs: [string, string][] = [
-    ["ka.ac.001", "delim-2008"],
-    ["ka.ac.001", "delim-1976"],
-    ["ka.ac.0", "delim-2008 1"], // the adversarial case a naive concatenation would collapse
-    ["wb.ac.084", "delim-2008"],
-    ["up.ac.306", "delim-1952"],
-  ];
-  const keys = new Set(pairs.map(([p, e]) => seatKey(p, e)));
-  assert.equal(keys.size, pairs.length, "two different seats share a comparison key");
-});
-
-test("partitionByEpoch refuses every seat when the boundary changed, and refuses none when it did not", () => {
-  const then2004 = [
-    { placeId: "ka.ac.001", epochId: "delim-1976" },
-    { placeId: "ka.ac.002", epochId: "delim-1976" },
-  ];
-  const now2008 = [
-    { placeId: "ka.ac.001", epochId: "delim-2008" },
-    { placeId: "ka.ac.002", epochId: "delim-2008" },
-  ];
-
-  const across = partitionByEpoch(now2008, then2004);
-  assert.equal(across.comparable.length, 0, "a redrawn seat was admitted to the comparison");
-  assert.equal(across.incomparable.length, 2, "the refused seats were not reported");
-
-  const within = partitionByEpoch(now2008, now2008);
-  assert.equal(within.comparable.length, 2);
-  assert.equal(within.incomparable.length, 0);
-});
-
-test("partitionByEpoch splits a MIXED election per seat, not per election", () => {
-  // ls-2024 is this shape in the live registry: 524 contests under delim-2008, 5 under delim-2022-jk and
-  // 14 under delim-2023-as. An election-level flag would have called all 543 comparable to 2019.
-  const then = [
-    { placeId: "ka.pc.001", epochId: "delim-2008" },
-    { placeId: "jk.pc.001", epochId: "delim-2008" },
-  ];
-  const now = [
-    { placeId: "ka.pc.001", epochId: "delim-2008" },
-    { placeId: "jk.pc.001", epochId: "delim-2022-jk" },
-  ];
-  const split = partitionByEpoch(now, then);
-  assert.equal(split.comparable.length, 1, "the seat on unchanged boundaries should compare");
-  assert.equal(split.incomparable.length, 1, "the redrawn seat should not");
-  assert.equal(split.incomparable[0]?.placeId, "jk.pc.001");
-});
 
 /* ─────────────────────────── the consumers, against the live registry ─────────────────────────── */
 
@@ -270,8 +214,13 @@ test("the OLD matching rule really did produce a false flip count — the defect
     );
 
     // AND THE GATE, on the very same data, refuses all of it.
-    const gated = partitionByEpoch(now, then);
-    assert.equal(gated.comparable.length, 0);
+    const asSeat = (r: { placeId: string; epochId: string; party: string | null }) => ({
+      placeId: r.placeId,
+      epochId: r.epochId,
+      winner: r.party === null ? null : { party: { key: r.party, label: r.party } },
+    });
+    const gated = compareSeats(now.map(asSeat), then.map(asSeat));
+    assert.equal(gated.comparable, 0);
     assert.equal(
       electionMapView(d, pair.now, pair.jurisdiction).flips?.comparable ?? 0,
       0,
