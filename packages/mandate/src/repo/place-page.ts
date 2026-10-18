@@ -814,6 +814,11 @@ export type PlaceView =
   | {
       kind: "parent";
       level: "state" | "district";
+      /**
+       * The place this path resolved to, as the registry spells it: `ka` for `/state/KA`. What a caller reads the
+       * registry with, rather than the segment it was reached by, which is any case and may be a name.
+       */
+      placeId: string;
       name: string;
       headline: string;
       children: ChildTable;
@@ -1253,6 +1258,7 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
     return {
       kind: "parent",
       level: "district",
+      placeId: place.id,
       name: place.canonical_name,
       headline:
         rows.length === 0
@@ -1319,6 +1325,7 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
   return {
     kind: "parent",
     level: "state",
+    placeId: place.id,
     name: place.canonical_name,
     headline:
       rows.length === 0

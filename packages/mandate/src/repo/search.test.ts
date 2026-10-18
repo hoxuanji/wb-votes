@@ -16,6 +16,7 @@ import { DEV_DB_PATH, open, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { PER_GROUP, partyAnchor, searchAll } from "./search.ts";
 import { constituencyPath, placeView } from "./place-page.ts";
+import { electionMapView } from "./election-map.ts";
 
 const live = { skip: existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH) ? false : "no .data/registry.db" };
 const db = () => openRead(DEV_DB_PATH);
@@ -46,6 +47,25 @@ test("an election hit is named in the type label, whichever of the four kinds it
         ["ka-general-2019", "Karnataka Lok Sabha Election 2019"],
         ["ka-bypoll-ge-2018", "Karnataka Lok Sabha By-election 2018"],
       ],
+    );
+  } finally {
+    d.close();
+  }
+});
+
+test("an election hit opens the election's own page", () => {
+  const d = open(":memory:");
+  migrate(d, "2026-08-12T00:00:00.000Z");
+  d.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('e1','Delimitation','2008-02-19');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('ka','state','Karnataka');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-assembly-2023','assembly','state','ka','e1','KA 2023','declared','ac',2023,1);
+  `);
+  try {
+    assert.deepEqual(
+      searchAll(d, "Karnataka").elections.map((h) => h.href),
+      ["/election/ka-assembly-2023"],
     );
   } finally {
     d.close();
@@ -158,9 +178,16 @@ test("every hit points at a URL that resolves", live, async () => {
     assert.notEqual(view.kind, "unavailable", `${href} could not be read`);
   }
 
-  // An election hit goes to its coverage record; a party hit goes to a landscape row anchor.
-  for (const href of new Set(elections)) {
-    assert.match(href, /^\/coverage\?election=[^&]+#election$/, `${href} is not an election's record`);
+  // An election hit goes to the election's own page, which answers for it; a party hit goes to a landscape row anchor.
+  const registry = db();
+  try {
+    for (const href of new Set(elections)) {
+      const id = /^\/election\/([^/]+)$/.exec(href)?.[1];
+      assert.ok(id !== undefined, `${href} is not an election's page`);
+      assert.notEqual(electionMapView(registry, id).election, null, `${href} is offered by search and 404s`);
+    }
+  } finally {
+    registry.close();
   }
   for (const href of new Set(parties)) {
     assert.match(href, /^\/#party-[a-z0-9-]+$/, `${href} is not a landscape anchor`);

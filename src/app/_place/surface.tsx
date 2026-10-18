@@ -14,11 +14,8 @@ import type { StateMapView, StateShifts } from "../../../packages/mandate/src/re
 import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
 import { fillFor } from "../../../packages/mandate/src/viz/party-ink.ts";
 import { StateMap } from "../../components/iei/StateMap.tsx";
-import { electionMapView, bandOf, MARGIN_BANDS } from "../../../packages/mandate/src/repo/election-map.ts";
-import type { ElectionMapView } from "../../../packages/mandate/src/repo/election-map.ts";
-import { stateTrajectory } from "../../../packages/mandate/src/repo/trajectory.ts";
-import type { StateTrajectory } from "../../../packages/mandate/src/repo/trajectory.ts";
-import { all, get } from "../../../packages/mandate/src/db/index.ts";
+import { bandOf, MARGIN_BANDS } from "../../../packages/mandate/src/repo/election-map.ts";
+import { stateView } from "../../../packages/mandate/src/repo/state-view.ts";
 import { isMode } from "../../components/iei/ElectionMap.tsx";
 import type { MapMode } from "../../components/iei/ElectionMap.tsx";
 import { bodyOfKind, districtHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
@@ -151,80 +148,6 @@ function readMap(
  */
 
 /**
- * Everything the STATE surface needs, in one session: the chosen election's seats and the whole run behind it.
- *
- * Separate from `readMap` because the state surface reads a different shape — `electionMapView` rather than
- * `stateMapView` — and reuses the election route's data layer wholesale rather than growing a second one. A
- * jurisdiction whose registry cannot be read renders the page without the surface instead of failing the route;
- * a defect in one of its queries is thrown, not shown as the same page.
- */
-function readState(
-  jurisdictionId: string,
-  params: NonNullable<Params>,
-): { view: ElectionMapView; trajectory: StateTrajectory; house: string; choices: string[] } | null {
-  const r = readRegistry((db) => {
-    // WHICH HOUSE. A state elects two, and its Lok Sabha seats are a different geography answering a
-    // different question — so `?house=pc` is a real view and not a variant. Dropping it was a capability
-    // regression the render suite caught.
-    const house = first(params["house"]) === "pc" ? "pc" : "ac";
-    /**
-     * WHICH ELECTIONS THIS STATE HAS, for this house — and the two houses are found differently.
-     *
-     * An assembly election belongs to the state. A GENERAL ELECTION BELONGS TO THE NATION and is fought in
-     * every state, so West Bengal's Lok Sabha result is `ls-2024` SCOPED to West Bengal: 42 of its 543
-     * seats. Selecting on `e.jurisdiction_place_id` for `pc` found only by-elections and came back empty,
-     * which is what made the Lok Sabha view render the whole country.
-     */
-    const choices = all<{ id: string }>(
-      db,
-      house === "pc"
-        ? `SELECT e.id AS id FROM election e
-            WHERE e.kind = 'general' AND e.house = 'pc'
-              AND EXISTS (SELECT 1 FROM contest c
-                            JOIN place_version pv ON pv.id = c.place_version_id
-                           WHERE c.election_id = e.id AND pv.jurisdiction_id = ?)
-            ORDER BY e.year DESC`
-        : `SELECT e.id AS id FROM election e
-            WHERE e.jurisdiction_place_id = ? AND e.kind = 'assembly'
-            ORDER BY e.year DESC, COALESCE(e.polling_month, 0) DESC, e.occurrence DESC`,
-      jurisdictionId,
-    ).map((r) => r.id);
-    const asked = first(params["election"]);
-    /**
-     * A REQUEST FOR A BY-ELECTION IS HONOURED, not silently swapped for the general election.
-     *
-     * `choices` is the full-house strip — 608 by-elections in the registry do not belong in a state's tab
-     * row. But an id that was asked for explicitly and belongs to this jurisdiction is a real destination,
-     * and the previous behaviour was to drop it and render the assembly instead, so a link to a by-election
-     * silently answered with a different election and said nothing. Substituting one election for another is
-     * worse than a 404: the page looks correct and is about something else.
-     */
-    const askedIsValid =
-      asked !== undefined &&
-      !choices.includes(asked) &&
-      get<{ id: string }>(
-        db,
-        `SELECT e.id AS id FROM election e
-          WHERE e.id = ? AND e.house = ?
-            AND EXISTS (SELECT 1 FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
-                         WHERE c.election_id = e.id AND pv.jurisdiction_id = ?)`,
-        asked,
-        house,
-        jurisdictionId,
-      ) !== undefined;
-    const chosen =
-      asked !== undefined && (choices.includes(asked) || askedIsValid) ? asked : choices[0];
-    if (chosen === undefined) return null;
-    // The scope is ALWAYS the state: for an assembly election it is a no-op, for a general election it is
-    // the whole point. One code path, so the two houses cannot diverge.
-    const view = electionMapView(db, chosen, jurisdictionId);
-    if (view.election === null) return null;
-    return { view, trajectory: stateTrajectory(db, jurisdictionId, house), house, choices };
-  });
-  return r.ok ? r.value : null;
-}
-
-/**
  * THE ONE PLACE SURFACE, now reached by four routes instead of by one catch-all.
  *
  * Extracted rather than copied: `/state`, `/district` and `/constituency` each resolve their own entity and
@@ -275,20 +198,30 @@ export async function PlaceSurface({
        A DISTRICT KEEPS THE OLD BRIEF, deliberately: it has no election of its own, so it has no map, no
        flips and no trajectory. Its page is the list of seats it elects, which is what the code below does. */
     if (view.level === "state") {
-      const st = segments[0] as string;
-      const s = readState(st, searchParams ?? {});
+      // READ WITH THE ID THE PATH RESOLVED TO, not the segment it was reached by: `/state/KA` and `/state/ka` are
+      // one state, and the registry spells it `ka`. Handing it the raw segment made `KA` find no elections and
+      // render the fallback below.
+      const outcome = readRegistry((db) =>
+        stateView(db, view.placeId, {
+          house: first(searchParams?.["house"]),
+          election: first(searchParams?.["election"]),
+        }),
+      );
+      // A registry that cannot be read, or a state with no election to open on, renders the page without the
+      // surface instead of failing the route; a defect in one of the queries is thrown, not shown as that page.
+      const s = outcome.ok && outcome.value.kind === "ready" ? outcome.value : null;
       // THE ENTITY'S OWN CANONICAL BASE, not the path this surface was reached by. It is rendered under
       // /state, /district and /constituency now, so joining the segments would have produced `/pl/...` from
       // every one of them — a query link that navigated back into the compatibility layer on each click.
-      const base = stateHref(st);
+      const base = stateHref(view.placeId);
       if (s !== null) {
         const params = searchParams ?? {};
         const askedParty = first(params["party"]);
         // VALIDATED BY MEMBERSHIP, never parsed: a party has to be one this election returned or ran.
         const party =
           askedParty !== undefined &&
-          (s.view.legend.some((l) => l.key === askedParty) ||
-            s.view.voteSeat.some((r) => r.party.key === askedParty))
+          (s.map.legend.some((l) => l.key === askedParty) ||
+            s.map.voteSeat.some((r) => r.party.key === askedParty))
             ? askedParty
             : null;
         const askedBand = first(params["band"]);
@@ -299,15 +232,15 @@ export async function PlaceSurface({
             : null;
         const askedDistrict = first(params["district"]);
         const district =
-          askedDistrict !== undefined && s.view.seats.some((x) => x.districtId === askedDistrict)
+          askedDistrict !== undefined && s.map.seats.some((x) => x.districtId === askedDistrict)
             ? askedDistrict
             : null;
         const askedSeat = first(params["seat"]);
         const seat =
-          askedSeat !== undefined && s.view.seats.some((x) => x.placeId === askedSeat) ? askedSeat : null;
+          askedSeat !== undefined && s.map.seats.some((x) => x.placeId === askedSeat) ? askedSeat : null;
         const askedMode = first(params["mode"]);
         const mode: MapMode =
-          askedMode === "flips" && s.view.flips === null
+          askedMode === "flips" && s.map.flips === null
             ? "winners"
             : isMode(askedMode)
               ? askedMode
@@ -318,7 +251,9 @@ export async function PlaceSurface({
             <Crumbs trail={view.trail} />
             <StateSurface
               name={view.name}
-              view={s.view}
+              view={s.map}
+              choices={s.choices}
+              asked={s.asked}
               trajectory={s.trajectory}
               selection={{ mode, party, band, district, seat }}
               hrefFor={(change) => link(base, searchParams, change)}

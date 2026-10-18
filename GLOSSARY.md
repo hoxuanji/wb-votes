@@ -35,6 +35,20 @@ _Avoid_: Sort order, recency
 The newest full-house election of a body in a jurisdiction, by chronology key. A by-election never replaces it.
 _Avoid_: Latest election, newest election
 
+### What a state page opens on
+
+**Offer**:
+An election a jurisdiction can show, with the number of its seats that lie inside that jurisdiction. West Bengal's offer of the 2024 Lok Sabha election is its 42 seats, not the nation's 543.
+_Avoid_: Option
+
+**Own house**:
+The house a jurisdiction's page opens on: its assembly where it holds full-house assembly elections, and otherwise its Lok Sabha seats, the only house it has. The other house is shown only when a link asks for it.
+_Avoid_: Default house, primary house
+
+**Asked**:
+Whether the election a link names is the one that opens. It is honoured when the jurisdiction can show it, a by-election included, and defaulted when it cannot: its current election opens instead and the page says so. A link that names none is neither.
+_Avoid_: Fallback, requested election
+
 ### Reading the registry
 
 **Registry session**:

@@ -142,6 +142,10 @@ export type ElectionSeat = {
   href: string | null;
 };
 
+/**
+ * An election as a picker offers it. The one declaration: a map's election and siblings and the state view's
+ * choices are all this.
+ */
 export type ElectionChoice = {
   id: string;
   name: string;
@@ -153,10 +157,10 @@ export type ElectionChoice = {
 };
 
 /** The columns a choice is selected with. */
-type ChoiceRow = Omit<ElectionChoice, "body" | "fill"> & { house: string; kind: string };
+export type ChoiceRow = Omit<ElectionChoice, "body" | "fill"> & { house: string; kind: string };
 
 /** A selected row with its body and fill decoded. Throws for a house/kind pair the product does not label. */
-function choiceOf(r: ChoiceRow): ElectionChoice {
+export function choiceOf(r: ChoiceRow): ElectionChoice {
   const { body, fill } = facetOf(r.house, r.kind);
   return { id: r.id, name: r.name, year: r.year, body, fill, seats: r.seats };
 }

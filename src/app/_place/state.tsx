@@ -1,6 +1,6 @@
 import Link from 'next/link';
-import { constituencyHref, districtHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
-import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
+import { constituencyHref, districtHref, electionHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
+import type { ElectionChoice, ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
 import {
   MARGIN_BANDS,
   bandOf,
@@ -10,6 +10,7 @@ import {
   seatsInDistrict,
 } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';
+import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
 import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
@@ -91,12 +92,18 @@ export type StateSelection = {
 export function StateSurface({
   name,
   view,
+  choices,
+  asked,
   trajectory,
   selection,
   hrefFor,
 }: {
   name: string;
   view: ElectionMapView;
+  /** The offers to switch between, newest first: the state view's `choices`, not the map's `siblings`. */
+  choices: readonly ElectionChoice[];
+  /** What became of the election the URL asked for. `defaulted` earns a notice. */
+  asked: Asked;
   trajectory: StateTrajectory;
   selection: StateSelection;
   /** A link to this page with parameters changed. The component builds no URLs of its own. */
@@ -168,6 +175,15 @@ export function StateSurface({
         {/* ONE analytical statement, from the findings the data layer already produced — never authored
             here, so it cannot claim something the registry does not hold. */}
         {view.flips === null ? null : <p className="iei-sub">{summarise(view.flips)}</p>}
+        {/* AN ELECTION THE URL ASKED FOR AND THIS PAGE CANNOT SHOW is replaced by the default, and the reader is
+            told. A link to one election that answered with another and said nothing looks right and is about
+            something else. */}
+        {asked !== 'defaulted' ? null : (
+          <p className="iei-note">
+            The election in the link is not one this page can show for {name}, so this is the{' '}
+            {typeLabel(e.body, e.fill)} {e.year}.
+          </p>
+        )}
       </div>
 
       {/* ══ 2 · THE ELECTORAL MAP — constituency winners, never a state filled with its government ══ */}
@@ -190,7 +206,7 @@ export function StateSurface({
         <Tabs
           label="Election"
           current={e.id}
-          choices={view.siblings.slice(0, 8).map((s) => ({
+          choices={choices.slice(0, 8).map((s) => ({
             key: s.id,
             label: String(s.year),
             // Changing election drops every selection: a party's seats, a margin band and a district focus
@@ -198,6 +214,14 @@ export function StateSurface({
             href: hrefFor({ election: s.id, party: '', band: '', district: '', seat: '' }),
           }))}
         />
+        {/* A STATE'S LOK SABHA VIEW IS A NATIONAL ELECTION NARROWED TO ONE STATE, and the election's own page is the
+            only place that shows the rest of it. */}
+        {e.body !== 'lok-sabha' ? null : (
+          <p className="iei-note">
+            The {e.year} Lok Sabha election, narrowed to the seats in {name}.{' '}
+            <Link href={electionHref(e.id)}>See the whole country</Link>.
+          </p>
+        )}
         <Tabs
           label="What the map shows"
           current={mode}
@@ -512,10 +536,10 @@ export function StateSurface({
       {/* EVERY ELECTION ON RECORD, as a compact strip. The selector above shows the recent ones because a
           reader almost always wants those; this is the complete set, so an election from 1978 is still one
           click away rather than unreachable. It replaced a 17-row table that carried the same links. */}
-      {view.siblings.length <= 1 ? null : (
+      {choices.length <= 1 ? null : (
         <Panel id="elections" title="Elections on record" question="What has this state voted in?">
           <ul className="iei-sibs">
-            {view.siblings.map((sib) => (
+            {choices.map((sib) => (
               <li key={sib.id}>
                 <Link
                   href={hrefFor({ election: sib.id, party: '', band: '', district: '', seat: '' })}

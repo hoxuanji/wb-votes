@@ -130,7 +130,7 @@ function registry(...broken: string[]): string {
 
 /**
  * Each page, the table whose query is broken, and why that route. The state page reads twice after `placeView`
- * has resolved the place: `readState` for the surface, and `readMap` when there is no surface to draw (a house
+ * has resolved the place: `stateView` for the surface, and `readMap` when there is no surface to draw (a house
  * with no election). Both used to catch anything and render the page without a map.
  */
 const DEFECTS: [route: string, query: string, segments: string, broken: string][] = [

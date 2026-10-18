@@ -45,7 +45,7 @@ import type { SourceRef } from "./index.ts";
 import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
 import { partyRef, sourcesFor } from "./seat-results.ts";
 import { facetOf } from "../core/election-kind.ts";
-import type { Body, Fill } from "../core/election-kind.ts";
+import type { ElectionChoice } from "./election-map.ts";
 import { summariseAll, type Finding, type FlipPair, type PartyRef } from "./findings.ts";
 
 /** One constituency, as the map draws it. */
@@ -83,16 +83,6 @@ export type DistrictTally = {
   seats: number;
   /** Biggest first. `n` of `seats` went to this party. */
   parties: { key: string; label: string; n: number }[];
-};
-
-export type ElectionChoice = {
-  id: string;
-  name: string;
-  year: number;
-  /** The registry's `house` and `kind`, decoded once where the rows are read. The codes themselves do not leave. */
-  body: Body;
-  fill: Fill;
-  seats: number;
 };
 
 export type StateMapView = {

@@ -20,6 +20,7 @@ import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import * as stateMap from "./state-map.ts";
 import * as electionMap from "./election-map.ts";
+import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
 import { all } from "../db/index.ts";
@@ -607,9 +608,11 @@ test("the state page opens on the state's own house, not the newest election", l
   // Madhya Pradesh's newest assembly is 2018 and ls-2024 is newer. Offering the Lok Sabha here made
   // "newest full election" open a state page on the parliamentary map, which is not what a reader came for.
   for (const j of ["mp", "rj", "wb", "ka"]) {
-    const v = stateMap.stateMapView(db, j);
-    assert.equal(v.election?.body, "assembly", `${j} opens on ${v.election?.id}`);
-    assert.notEqual(v.election?.fill, "bypoll", `${j} opens on a by-election`);
+    const v = stateView(db, j);
+    assert.ok(v.kind === "ready", `${j} has nothing to open on`);
+    assert.equal(v.house, "assembly", `${j} opens on the ${v.house}`);
+    assert.equal(v.map.election?.body, "assembly", `${j} opens on ${v.map.election?.id}`);
+    assert.notEqual(v.map.election?.fill, "bypoll", `${j} opens on a by-election`);
   }
 });
 

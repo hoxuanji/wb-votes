@@ -17,7 +17,7 @@
 // module must not flatten — a phonetic hit is a suggestion to check, not a person found.
 
 import type { DatabaseSync } from "node:sqlite";
-import { constituencyHref, districtHref, stateHref } from "./routes.ts";
+import { constituencyHref, districtHref, electionHref, stateHref } from "./routes.ts";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
 import { searchPersons, type PersonRow } from "./person.ts";
@@ -96,8 +96,8 @@ function states(db: DatabaseSync, pattern: string, prefix: string, q: string): H
 /**
  * Elections, by their formal name or by their jurisdiction's.
  *
- * An election has no page of its own; what it has is a coverage record, which is the honest destination —
- * "how much of this election do we hold" is the question a reader who searched for one is closest to.
+ * A hit opens the election's own page: its seat map and how it went, which is what a reader who searched for an
+ * election is after. How much of it the registry holds is the coverage record, at /coverage.
  */
 function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
   return all<{ id: string; name: string; year: number; house: string; kind: string; seats: number; jname: string }>(
@@ -118,7 +118,7 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
     id: r.id,
     label: `${r.jname} ${facetOf(r.house, r.kind).type} ${r.year}`,
     detail: `${r.seats} constituenc${r.seats === 1 ? "y" : "ies"} loaded`,
-    href: `/coverage?election=${r.id}#election`,
+    href: electionHref(r.id),
   }));
 }
 

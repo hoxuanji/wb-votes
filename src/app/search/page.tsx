@@ -140,7 +140,7 @@ export default function SearchPage({
             />
             <DataRow
               title="Elections"
-              detail="By the jurisdiction's name or the election's own. An election opens its coverage record — how much of it is loaded, and what is missing."
+              detail="By the jurisdiction's name or the election's own. An election opens its seat map and how it went."
             />
             <DataRow
               title="Constituencies"

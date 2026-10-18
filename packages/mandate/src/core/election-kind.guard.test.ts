@@ -7,8 +7,8 @@
 // there), and this reads the source text, as render.test.ts does for hardcoded states, for what tsc cannot see:
 // a row typed loosely, a SQL string, a literal compared in a page.
 //
-// The allow-list is a ratchet. It names the uses that are not an election row's codes, and the SQL the state view
-// will replace. A use that is not on it fails; an entry that no longer occurs fails too, so it can only shrink.
+// The allow-list is a ratchet. It names the uses that are not an election row's codes. A use that is not on it
+// fails; an entry that no longer occurs fails too, so it can only shrink.
 
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
@@ -54,23 +54,17 @@ type Allowed = { file: string; includes: string; n?: number; why: string };
 const PLACE_VIEW = "PlaceView's discriminant: which level of the place hierarchy was resolved, not an election";
 const SEAT_KIND = "a place or place_version kind ('ac' | 'pc'), which names a seat's body, not an election's";
 const FILL = "ElectionContext.kind, which is already a Fill";
-const URL_HOUSE = "the ?house= URL parameter, and the local parsed from it, before any election is read";
-const READ_STATE =
-  "readState's SQL, which selects a state's elections by the registry's codes; the state view replaces it";
+const STATE_VIEW = "StateView's discriminant: whether the state has an election to open on, not an election's kind";
 
 const ALLOWED: Allowed[] = [
   { file: "app/_place/analysis/floor.tsx", includes: `{ kind: "ac" }`, why: PLACE_VIEW },
   { file: "app/_place/state.tsx", includes: "view.ctx.kind", why: FILL },
-  { file: "app/_place/surface.tsx", includes: `first(params["house"]) === "pc"`, why: URL_HOUSE },
-  { file: "app/_place/surface.tsx", includes: `house === "pc"`, why: URL_HOUSE },
-  { file: "app/_place/surface.tsx", includes: "WHERE e.kind = 'general' AND e.house = 'pc'", why: READ_STATE },
-  { file: "app/_place/surface.tsx", includes: "AND e.kind = 'assembly'", why: READ_STATE },
-  { file: "app/_place/surface.tsx", includes: "WHERE e.id = ? AND e.house = ?", why: READ_STATE },
   { file: "app/_place/surface.tsx", includes: `kind?: "ac" | "pc"`, why: "the constituency route's seat kind" },
   { file: "app/_place/surface.tsx", includes: `view.kind === "not-found"`, why: PLACE_VIEW },
   { file: "app/_place/surface.tsx", includes: `view.kind === "unavailable"`, why: PLACE_VIEW },
   { file: "app/_place/surface.tsx", includes: `view.kind !== "ac"`, why: PLACE_VIEW },
   { file: "app/_place/surface.tsx", includes: `view.kind === "parent"`, why: PLACE_VIEW },
+  { file: "app/_place/surface.tsx", includes: `outcome.value.kind === "ready"`, why: STATE_VIEW },
   { file: "app/_place/surface.tsx", includes: "bodyOfKind(p.kind)", why: SEAT_KIND },
   { file: "app/constituency/[state]/[body]/page.tsx", includes: "${c.kind}-${c.id}", why: SEAT_KIND },
   { file: "app/constituency/[state]/[body]/page.tsx", includes: "bodyOfKind(c.kind)", why: SEAT_KIND },
@@ -155,7 +149,6 @@ const VIEW_TYPES: { file: string; type: string }[] = [
   { file: "elections.ts", type: "Dated" },
   { file: "home.ts", type: "ElectionCoverage" },
   { file: "election-map.ts", type: "ElectionChoice" },
-  { file: "state-map.ts", type: "ElectionChoice" },
   { file: "place-page.ts", type: "StateElection" },
 ];
 
