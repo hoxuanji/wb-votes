@@ -17,6 +17,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { blockingKeys } from "../core/index.ts";
 import { open, openRead } from "../db/index.ts";
+import { ensureEpochs } from "../db/epochs.ts";
 import { migrate } from "../db/migrate.ts";
 import type { Envelope, Meta, Reply } from "./envelope.ts";
 import { personReply, placeReply, searchReply, unavailable } from "./envelope.ts";
@@ -120,7 +121,51 @@ function buildFixture(): string {
   return path;
 }
 
+/**
+ * Two states in one registry with both of their epochs registered: West Bengal on DPACO 2008 and Assam on its
+ * 2023 order. `meta.epoch` used to be "the newest epoch with no `effective_to`" — which is every epoch, since
+ * nothing writes one — so this registry told a reader of the Bengal seat that Assam's order governs it.
+ */
+function buildTwoStateFixture(): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-fixture-")), "registry.db");
+  const d = open(path);
+  migrate(d, NOW);
+  d.exec(`
+    INSERT INTO source (id,kind,publisher,title,url,retrieved_at,doc_hash,hash_kind,retrieval_kind)
+      VALUES ('src-results','eci_declaration','ECI','Results','repo:x','2026-07-01T00:00:00.000Z','h1','document_bytes','fetched');
+    INSERT INTO ingest_run (pipeline,parser_version,started_at,finished_at,status)
+      VALUES ('static:fixture','v1','${NOW}','${NOW}','ok');
+    INSERT INTO place (id,kind,canonical_name) VALUES ('in','nation','India');
+    INSERT INTO place (id,kind,parent_id,canonical_name) VALUES ('wb','state','in','West Bengal'), ('as','state','in','Assam');
+    INSERT INTO place (id,kind,parent_id,canonical_name) VALUES
+      ('wb.pc.001','pc','wb','Cooch Behar'), ('as.pc.001','pc','as','Kokrajhar');
+  `);
+  ensureEpochs(d, ["delim-2008", "delim-2023-as"]);
+  d.exec(`
+    INSERT INTO place_version (id,place_id,jurisdiction_id,kind,epoch_id,number,canonical_name) VALUES
+      (1,'wb.pc.001','wb','pc','delim-2008',1,'Cooch Behar'),
+      (2,'as.pc.001','as','pc','delim-2023-as',1,'Kokrajhar');
+    INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle,house,year,occurrence)
+      VALUES ('ls-2024','general','union','in','delim-2008','Lok Sabha 2024','declared','pc',2024,1);
+    INSERT INTO contest (id,election_id,place_version_id,lifecycle) VALUES
+      ('ls-2024:wb1','ls-2024',1,'declared'), ('ls-2024:as1','ls-2024',2,'declared');
+    INSERT INTO party (id,name,short_name,kind) VALUES ('p','A Party','AP','state');
+    INSERT INTO party_version (id,party_id,valid_from,name) VALUES (1,'p','2011-01-01','A Party');
+    INSERT INTO person (id,canonical_name,names,review_state,created_at) VALUES ('one-person-000001','ONE PERSON','{}','auto','${NOW}');
+    INSERT INTO person_alias (person_id,name,script,norm_key,kind,source_id) VALUES ${aliasRows("one-person-000001", "ONE PERSON")};
+    INSERT INTO candidacy (id,contest_id,person_id,party_version_id,status) VALUES
+      ('ls-2024:wb1:a','ls-2024:wb1','one-person-000001',1,'elected'),
+      ('ls-2024:as1:a','ls-2024:as1','one-person-000001',1,'elected');
+    INSERT INTO result (contest_id,candidacy_id,revision,votes,vote_share,rank,is_winner,margin,source_id,ingested_at) VALUES
+      ('ls-2024:wb1','ls-2024:wb1:a',0,100,60,1,1,50,'src-results','${NOW}'),
+      ('ls-2024:as1','ls-2024:as1:a',0,100,60,1,1,50,'src-results','${NOW}');
+  `);
+  d.close();
+  return path;
+}
+
 const FIXTURE = buildFixture();
+const TWO_STATES = buildTwoStateFixture();
 /** True when this machine also has the real registry — then the contract is asserted twice. */
 const live = await withDb(undefined, async () => {
   try {
@@ -137,18 +182,22 @@ function ok200<T>(r: Reply<T>): Envelope<T> {
   return r.body;
 }
 
-/** The complete meta block of §20 — every key, right type, no placeholder. */
-function assertMeta(m: Meta, label: string): void {
+/**
+ * The complete meta block of §20 — every key, right type, no placeholder. `epoch` is named for a response
+ * about one jurisdiction and absent for one that is not, so the caller says which it expects.
+ */
+function assertMeta(m: Meta, label: string, epoch: string | undefined): void {
   assert.match(m.dataVersion, /^\d{4}-\d{2}-\d{2}T/, `${label}: dataVersion is an ISO timestamp`);
   assert.match(m.freshness.oldestSource, /^\d{4}-\d{2}-\d{2}$/, `${label}: freshness.oldestSource`);
   assert.match(m.freshness.computedAt, /^\d{4}-\d{2}-\d{2}T/, `${label}: freshness.computedAt`);
-  assert.ok(m.epoch.length > 0 && m.epoch !== "unknown", `${label}: epoch is named`);
+  assert.equal(m.epoch, epoch, `${label}: epoch`);
+  assert.equal("epoch" in m, epoch !== undefined, `${label}: an unscoped response omits the key rather than guessing`);
   assert.equal(typeof m.estimated, "boolean", `${label}: estimated`);
   assert.ok(Array.isArray(m.caveats), `${label}: caveats is an array`);
   assert.deepEqual(m.gated, [], `${label}: gated is empty this cycle`);
 }
 
-function assertEnvelope<T>(label: string, r: Reply<T>): Envelope<T> {
+function assertEnvelope<T>(label: string, r: Reply<T>, epoch?: string): Envelope<T> {
   const e = ok200(r);
   // P2: an empty sources array is a contract violation, not an edge case.
   assert.ok(e.sources.length > 0, `${label}: sources must be non-empty`);
@@ -160,7 +209,7 @@ function assertEnvelope<T>(label: string, r: Reply<T>): Envelope<T> {
     assert.ok(["fetched", "asserted_by_upstream"].includes(s.retrievalKind), `${label}: retrievalKind`);
     assert.ok(["document_bytes", "url_only"].includes(s.hashKind), `${label}: hashKind`);
   }
-  assertMeta(e.meta, label);
+  assertMeta(e.meta, label, epoch);
   assert.equal(r.headers["X-Data-Version"], e.meta.dataVersion, `${label}: X-Data-Version`);
   assert.ok(r.headers["ETag"]?.includes(e.meta.dataVersion), `${label}: ETag carries the data version`);
   return e;
@@ -176,7 +225,8 @@ async function personSlug(name: string): Promise<string> {
 /** The whole §20 contract, run against whichever registry MANDATE_DB_PATH points at. */
 async function assertContract(where: string, searchTerm: string): Promise<void> {
   const person = assertEnvelope(`${where} person`, await personReply(await personSlug(searchTerm)));
-  const place = assertEnvelope(`${where} place`, await placeReply(AC));
+  // A seat in West Bengal is on DPACO 2008; a person and a search are about no one jurisdiction.
+  const place = assertEnvelope(`${where} place`, await placeReply(AC), "delim-2008");
   const search = assertEnvelope(`${where} search`, await searchReply(searchTerm, 5));
   assert.ok(search.data.count > 0, `${where}: search count`);
 
@@ -302,8 +352,7 @@ test("a bug in a query is thrown, not answered as 'registry not built'", async (
   const path = join(mkdtempSync(join(tmpdir(), "mandate-defect-")), "registry.db");
   const d = open(path);
   d.exec(`
-    CREATE TABLE ingest_run (finished_at TEXT, status TEXT);
-    CREATE VIEW boundary_epoch AS SELECT no_such_function() AS id, NULL AS effective_to, NULL AS effective_from;
+    CREATE VIEW ingest_run AS SELECT no_such_function() AS finished_at, NULL AS status;
   `);
   d.close();
   const read = at(path);
@@ -314,6 +363,20 @@ test("a bug in a query is thrown, not answered as 'registry not built'", async (
 
 test("§20 contract holds on a fixture registry (the CI case)", async () => {
   await withDb(FIXTURE, () => assertContract("fixture", "AA TEST WINNER"));
+});
+
+test("meta.epoch is the epoch in force for the response's jurisdiction, and absent when there is none", async () => {
+  await withDb(TWO_STATES, async () => {
+    // Same registry, two states, two answers. The old query named one epoch for both.
+    assertEnvelope("wb seat", await placeReply("wb.pc.001"), "delim-2008");
+    assertEnvelope("as seat", await placeReply("as.pc.001"), "delim-2023-as");
+    // One person stood in both states, so no jurisdiction speaks for the response, and neither does a search.
+    assertEnvelope("person", await personReply("one-person-000001"), undefined);
+    assertEnvelope("search", await searchReply("ONE PERSON", 5), undefined);
+    // …and it is a plain absence on the wire, not a null or an "unknown".
+    const wire = JSON.parse(JSON.stringify((await searchReply("ONE PERSON", 5)).body)) as { meta: Record<string, unknown> };
+    assert.equal(Object.hasOwn(wire.meta, "epoch"), false);
+  });
 });
 
 test("§20 contract: a name with no person-level claim still carries provenance", async () => {

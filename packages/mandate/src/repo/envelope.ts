@@ -10,7 +10,7 @@
 // error in a src/ file as "src/...", and registry:typecheck greps for "^packages/mandate" — a
 // strict-mode error in this file would have been filtered out of its own gate.
 //
-// ponytail: the two `meta` queries (ingest run / current epoch, and the claim tally that generates
+// ponytail: the two `meta` queries (the newest ingest run, and the claim tally that generates
 // the confidence caveat) are SQL here because repo/ exposes neither a run reader nor claim
 // confidence. Move them to repo/meta.ts the moment a second caller needs them.
 
@@ -24,13 +24,16 @@ import {
   marks,
   searchPersons,
 } from "./index.ts";
+import { inForce } from "../core/epochs.ts";
 import type { PersonBrief, PersonRow, PlaceBrief, SourceRef } from "./index.ts";
 import { readRegistry } from "./session.ts";
 
 export type Meta = {
   dataVersion: string;
   freshness: { oldestSource: string; computedAt: string };
-  epoch: string;
+  /** The epoch in force for the response's jurisdiction on the day it was computed. Absent when the response
+   *  is not about one jurisdiction: a person who stood in two states, or a search. */
+  epoch?: string;
   /** True when any figure is crosswalk-derived. Derived, never typed by hand — see `tally`. */
   estimated: boolean;
   caveats: string[];
@@ -67,6 +70,8 @@ type Payload<T> = {
   refs: string[];
   /** Optional LIKE pattern for compound subject refs ('candidacy:<election>:<place>:<person>'). */
   like: string | null;
+  /** The one jurisdiction this payload is about, or null. Decides whether `meta.epoch` is named. */
+  jurisdictionId: string | null;
   /** Caveats only the endpoint's own data knows about (e.g. a census vintage). */
   caveats: string[];
   /** True when a figure in this payload is derived rather than measured for this entity. */
@@ -99,26 +104,23 @@ function notFound(kind: string, slug: string): Problem {
   );
 }
 
-type MetaBase = { dataVersion: string; epoch: string };
+type MetaBase = { dataVersion: string };
 
 /**
- * dataVersion is the finished_at of the newest run that finished; epoch is the open boundary
- * epoch. Both in one round trip.
+ * dataVersion is the finished_at of the newest run that finished.
  * ponytail: 'partial' counts as successful — a partial run is what every real ingest of this
  * corpus is (unresolved party strings land in `anomalies`), and gating dataVersion on 'ok' would
  * leave a live registry versionless. Tighten to status='ok' when the pipeline can reach it.
  */
 function metaBase(db: DatabaseSync): MetaBase {
-  const r = get<{ data_version: string | null; epoch: string | null }>(
+  const r = get<{ data_version: string | null }>(
     db,
     `SELECT (SELECT finished_at FROM ingest_run
               WHERE finished_at IS NOT NULL AND status IN ('ok','partial')
-              ORDER BY finished_at DESC LIMIT 1) AS data_version,
-            (SELECT id FROM boundary_epoch WHERE effective_to IS NULL
-              ORDER BY effective_from DESC LIMIT 1) AS epoch`,
+              ORDER BY finished_at DESC LIMIT 1) AS data_version`,
   );
   if (r === undefined || r.data_version === null) throw new RegistryUnavailableError();
-  return { dataVersion: r.data_version, epoch: r.epoch ?? "unknown" };
+  return { dataVersion: r.data_version };
 }
 
 type Tally = { claims: number; provisional: number };
@@ -239,10 +241,11 @@ async function run<T>(
     }
     const t = tally(db, p.refs, p.like);
     const oldest = p.sources.reduce((a, s) => (s.retrievedAt < a ? s.retrievedAt : a), p.sources[0]!.retrievedAt);
+    const computedAt = new Date().toISOString();
     const meta: Meta = {
       dataVersion: base.dataVersion,
-      freshness: { oldestSource: oldest.slice(0, 10), computedAt: new Date().toISOString() },
-      epoch: base.epoch,
+      freshness: { oldestSource: oldest.slice(0, 10), computedAt },
+      ...(p.jurisdictionId === null ? {} : { epoch: inForce(p.jurisdictionId, computedAt.slice(0, 10)).id }),
       estimated: p.estimated,
       caveats: caveats(p.sources, t, p.caveats),
       gated: [],
@@ -268,6 +271,7 @@ export function personReply(slug: string, read = readRegistry): Promise<Reply<Pe
       sources: b.sources,
       refs: [`person:${b.person.id}`],
       like: `%:${b.person.id}`,
+      jurisdictionId: null,
       caveats: [],
       estimated: false,
     };
@@ -283,6 +287,7 @@ export function placeReply(slug: string, read = readRegistry): Promise<Reply<Pla
       sources: b.sources,
       refs: [`place:${b.place.id}`],
       like: null,
+      jurisdictionId: b.place.jurisdictionId,
       caveats: vintageCaveat(b),
       estimated: crosswalked(b.sources),
     };
@@ -332,6 +337,7 @@ export function searchReply(q: string, limit = 20, read = readRegistry): Promise
       sources,
       refs,
       like: null,
+      jurisdictionId: null,
       caveats: [],
       estimated: false,
     };

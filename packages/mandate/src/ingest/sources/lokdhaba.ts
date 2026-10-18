@@ -36,6 +36,8 @@ import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../db/index.ts";
 import { all, insertMany } from "../../db/index.ts";
+import { ensureEpochs } from "../../db/epochs.ts";
+import { epochOfDelimId } from "../../core/epochs.ts";
 import { slug } from "../../core/ids.ts";
 import { httpGet, sha256Hex, type Fetcher } from "../raw/index.ts";
 import { DISTRICT_ALIAS } from "../districts.ts";
@@ -43,44 +45,6 @@ import { JURISDICTIONS } from "../india.ts";
 import { eventJurisdiction, eventKey, int, planFromRows } from "../elections/event.ts";
 
 export type ElectionType = "AE" | "GE";
-
-/**
- * TCPD's `DelimID` mapped to the delimitation it actually is.
- *
- * The file gives an opaque integer, and the year ranges identify it beyond doubt: in Bihar, DelimID 1
- * covers 1962-1964, 2 covers 1967-1972, 3 covers 1977-2009 and 4 covers 2010-2021 — India's four
- * delimitations, whose orders were published in 1952, 1963, 1976 and 2008.
- *
- * DelimID 4 maps to `delim-2008`, which is the epoch the West Bengal seed already created. That reuse is
- * the point: a parallel `delim-4` epoch would put Bihar's and West Bengal's current seats in different
- * boundary regimes and quietly break every cross-state comparison.
- *
- * Only the 2008 order's exact date is on record here (19 February 2008, from the existing epoch row).
- * The other three carry January of the order year and say so in their name, because a fabricated day is
- * worse than an admitted approximation.
- */
-const DELIMITATIONS: Record<string, { id: string; name: string; from: string }> = {
-  "1": {
-    id: "delim-1952",
-    name: "Delimitation Commission Order, 1952 (day precision not recorded)",
-    from: "1952-01-01",
-  },
-  "2": {
-    id: "delim-1963",
-    name: "Delimitation Commission Order, 1963 (day precision not recorded)",
-    from: "1963-01-01",
-  },
-  "3": {
-    id: "delim-1976",
-    name: "Delimitation Commission Order, 1976 (day precision not recorded)",
-    from: "1976-01-01",
-  },
-  "4": {
-    id: "delim-2008",
-    name: "Delimitation of Parliamentary and Assembly Constituencies Order, 2008",
-    from: "2008-02-19",
-  },
-};
 
 const BASE = "https://lokdhaba.ashoka.edu.in/downloads";
 const CACHE_DIR = ".data/cache/lokdhaba";
@@ -389,7 +353,7 @@ export function importLokdhaba(
     ],
   ];
 
-  const epochRows = new Map<string, Param[]>();
+  const epochsSeen = new Set<string>();
   const placeRows = new Map<string, Param[]>();
   const versionRows = new Map<number, Param[]>();
   const electionRows = new Map<string, Param[]>();
@@ -501,13 +465,13 @@ export function importLokdhaba(
     }
 
     // ── geography ────────────────────────────────────────────────────────────────────────────
-    const delim = DELIMITATIONS[String(delimId)];
+    const delim = epochOfDelimId(delimId);
     if (delim === undefined) {
-      skip(`unknown TCPD DelimID ${delimId} — add it to DELIMITATIONS before importing`);
+      skip(`unknown TCPD DelimID ${delimId} — add it to EPOCHS in core/epochs.ts before importing`);
       continue;
     }
     const epochId = delim.id;
-    if (!epochRows.has(epochId)) epochRows.set(epochId, [epochId, delim.name, delim.from, null]);
+    epochsSeen.add(epochId);
 
     const seatName = r["Constituency_Name"] ?? `Seat ${seatNo}`;
     const kind = input.type === "AE" ? "ac" : "pc";
@@ -546,7 +510,7 @@ export function importLokdhaba(
     const reservation = (r["Constituency_Type"] ?? "").toLowerCase();
     const vKey = `${placeId} ${epochId}`;
     const adoptedV = adoptedVersion.get(vKey);
-    const vId = adoptedV ?? versionId(stateIdx, delimId, seatNo, kind);
+    const vId = adoptedV ?? versionId(stateIdx, delim.versionBlock, seatNo, kind);
     if (adoptedV === undefined) {
       // THE NAME GOES ON THE VERSION, NOT THE PLACE. `place` is keyed by seat number, and a seat number
       // means nothing across delimitations: Karnataka's parliamentary seat 1 is BIDAR under the 1976 order
@@ -819,7 +783,7 @@ export function importLokdhaba(
 
   function writeAll(): void {
     w("source", ["id", "kind", "publisher", "title", "url", "archived_url", "retrieved_at", "published_on", "doc_hash", "hash_kind", "retrieval_kind"], ["id"], sourceRows);
-    w("boundary_epoch", ["id", "name", "effective_from", "effective_to"], ["id"], epochRows.values());
+    ensureEpochs(db, epochsSeen);
     w("place", ["id", "kind", "parent_id", "canonical_name", "names", "lgd_code", "eci_code"], ["id"], placeRows.values());
     w(
       "place_version",
@@ -892,7 +856,7 @@ export function importLokdhaba(
     persons: personRows.size,
     tcpdIds: identifierRows.size,
     parties: partyRows.size,
-    epochs: epochRows.size,
+    epochs: epochsSeen.size,
     adoptedVersions,
     adoptedContests,
     adoptedPlaces: adoptedPlaces.size,

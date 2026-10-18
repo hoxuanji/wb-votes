@@ -521,7 +521,7 @@ Every response, without exception:
   "meta": {
     "dataVersion":  "2026-08-07T03:00:00Z",
     "freshness":    { "oldestSource": "2024-06-06", "computedAt": "…" },
-    "epoch":        "delim-2008",
+    "epoch":        "delim-2008",   // in force for the response's jurisdiction; absent when it has none
     "estimated":    false,          // true when crosswalk-derived — the UI must label it
     "caveats":      ["Turnout excludes postal votes for pre-2014 contests."],
     "gated":        []              // measures suppressed by the compliance gate

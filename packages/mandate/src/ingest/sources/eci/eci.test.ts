@@ -386,6 +386,40 @@ test("a failure mid-import leaves the registry exactly as it was", () => {
   db.close();
 });
 
+test("an import into a re-delimited jurisdiction registers its epoch itself, and a rollback leaves none behind", () => {
+  // `geography delimitation` used to have to run first: nothing else wrote delim-2023-as, and the seat's
+  // foreign key to it failed. The importer now registers the epochs its seats sit in, from the epoch table,
+  // inside its own transaction.
+  const db = fixtureRegistry();
+  db.exec("INSERT INTO place (id,kind,parent_id,canonical_name) VALUES ('as','state','in','Assam')");
+  const base = fixtureStaged();
+  const kokrajhar: StagedContest = {
+    ...(base.contests[0] as StagedContest),
+    jurisdictionId: "as", epochId: "delim-2023-as", number: 1, rawName: "Kokrajhar", normName: "KOKRAJHAR",
+    placeVersionId: null, resolution: "CREATE", resolutionNote: "created", nameMismatch: null,
+  };
+  const staged: Staged = { ...base, contests: [kokrajhar] };
+  const epochs = (): unknown[] => db.prepare("SELECT id FROM boundary_epoch WHERE id = 'delim-2023-as'").all();
+
+  assert.equal(epochs().length, 0, "the fixture has only DPACO 2008");
+  assert.throws(
+    () => importStaged(db, staged, { nowIso: NOW, hook: () => { throw new Error("disk on fire"); } }),
+    /disk on fire/,
+  );
+  assert.equal(epochs().length, 0, "the rollback took the epoch with it");
+
+  importStaged(db, staged, { nowIso: NOW });
+  const e = db.prepare(
+    "SELECT jurisdiction_id AS j, effective_from AS ef, effective_date_basis AS basis, order_date AS od, source_id AS src FROM boundary_epoch WHERE id = 'delim-2023-as'",
+  ).get() as { j: string; ef: string; basis: string; od: string | null; src: string | null };
+  assert.deepEqual({ ...e }, { j: "as", ef: "2023-08-11", basis: "publication_date", od: null, src: null });
+  // 1,000,000 + Assam's state index 3 * 20,000 + block 6 * 1,000 + 500 for a parliamentary seat + seat 1. It
+  // is the id the doc records for Assam PC 1, and it must be the same however the epoch got registered.
+  const v = db.prepare("SELECT id, epoch_id FROM place_version WHERE jurisdiction_id = 'as'").all() as { id: number; epoch_id: string }[];
+  assert.deepEqual(v.map((x) => ({ ...x })), [{ id: 1066501, epoch_id: "delim-2023-as" }]);
+  db.close();
+});
+
 test("two constituencies claiming one seat are refused, and the run rolls back", () => {
   // `contest` is UNIQUE (election_id, place_version_id) and the upsert keys on `id`, so two staged
   // constituencies pointing at one seat RAISE rather than overwrite. Asserted because the opposite —

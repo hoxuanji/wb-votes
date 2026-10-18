@@ -19,9 +19,6 @@ import { byElection, currentIds } from "../core/election-kind.ts";
 import type { Body } from "../core/election-kind.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
 
-/** The delimitation in force. Every seat count comparable to today's totals is scoped to it. */
-export const CURRENT_EPOCH = "delim-2008";
-
 /**
  * `no-model` — nothing in the schema can hold this yet.
  * `empty`    — a table models it and holds zero rows.

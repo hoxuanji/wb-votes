@@ -82,9 +82,10 @@ console.log(`  ${imported} files imported, ${absent} not cached`);
 //   — as's delim-2008 numbering disagrees with the source
 //
 // Which is the validator working. Assam's 2023 order renumbered its parliamentary constituencies, so until
-// `geography delimitation` has registered `delim-2023-as` there is no epoch for those fourteen seats to
-// belong to and the importer will not guess. Same for Jammu & Kashmir's five under `delim-2022-jk`.
-// docs/model/delimitation-assam-jk.md is the evidence; this is the step that puts it in the registry.
+// `geography delimitation` has registered the order that drew `delim-2023-as` there is no cited epoch for those
+// fourteen seats to belong to and the validator will not defend them. Same for Jammu & Kashmir's five under
+// `delim-2022-jk`. docs/model/delimitation-assam-jk.md is the evidence; this is the step that puts it in the
+// registry.
 console.log("== election and geography identity");
 mandate(["elections", "backfill", "--apply"]);
 mandate(["geography", "backfill", "--apply"]);

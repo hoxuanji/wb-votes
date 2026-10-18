@@ -27,16 +27,17 @@ import { DISTRICT_ALIAS } from "../districts.ts";
 // not only in shape: "1 of 36 states" was a hardcoded denominator with nothing behind it.
 import { JURISDICTIONS } from "../india.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
+import { ensureEpochs } from "../../db/epochs.ts";
 import { sha256Hex } from "../raw/index.ts";
 import { coverageFailures, fieldCoverage, formatCoverage, seedShapeFailures, type CoverageRow } from "../field-coverage.ts";
 
 const PARSER_VERSION = "wb-static@1";
-const EPOCH_ID = "delim-2008";
 // The Presidential order under s.10(2) of the Delimitation Act 2002 brought the redrawn
-// constituencies into force on this date; WB first polled on them in 2011. Every seat in these
+// constituencies into force on 2008-02-19; WB first polled on them in 2011. Every seat in these
 // datasets is a post-2008 seat, so this is the only epoch cycle 1 can honestly assert — there is
-// no 1976 boundary data in the repo and inventing an epoch is worse than having one.
-const EPOCH_FROM = "2008-02-19";
+// no 1976 boundary data in the repo and inventing an epoch is worse than having one. Its name and
+// date are the epoch table's (core/epochs.ts).
+const EPOCH_ID = "delim-2008";
 const STATE_PLACE = "wb";
 /** India. The registry had no `nation` row: `wb` was a root with no parent, which made "national
  *  platform" true of the DDL and false of the data. A Lok Sabha election's jurisdiction is the union,
@@ -1758,7 +1759,9 @@ function ingest(
   // when a reader can hit the db mid-ingest.
   // symbol / party / party_version are already written, above: candidacy needs their ids.
   w("source", ["id","kind","publisher","title","url","archived_url","retrieved_at","published_on","doc_hash","page_count","licence","hash_kind","retrieval_kind"], ["id"], [...sourceRows.values()]);
-  w("boundary_epoch", ["id","name","effective_from","effective_to","source_id"], ["id"], [[EPOCH_ID, "Delimitation of Parliamentary and Assembly Constituencies Order, 2008", EPOCH_FROM, null, src("constituencies")]]);
+  // The epoch row is the table's; the seed attaches the source that cites its seats.
+  ensureEpochs(db, [EPOCH_ID]);
+  db.prepare("UPDATE boundary_epoch SET source_id = ? WHERE id = ?").run(src("constituencies"), EPOCH_ID);
   w("place", ["id","kind","parent_id","canonical_name","names","lgd_code","eci_code"], ["id"], placeRows);
   w("place_version", ["id","place_id","jurisdiction_id","kind","epoch_id","number","canonical_name","district_place_id","reservation","geometry_ref","electors_at_creation","source_constituency_key","name_source_id","name_conflict","name_variants"], ["id"], placeVersionRows);
   // After place_version: place_geometry references it, and writing first failed the foreign key.

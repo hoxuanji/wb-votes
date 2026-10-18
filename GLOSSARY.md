@@ -56,3 +56,17 @@ _Avoid_: outage, unavailable, bug (when it is shown to a reader)
 **Read outcome**:
 What a registry session reports: either the value that was read, or that the registry was in an outage, with a sentence for the reader and the underlying cause for the log.
 _Avoid_: result (a result is an election result)
+
+### Delimitation
+
+**Epoch**:
+One delimitation order and the constituency boundaries it drew. A national epoch (the Delimitation Commission orders of 1952, 1963, 1976 and 2008) covers every state; a jurisdictional epoch (Jammu & Kashmir 2022, Assam 2023) redraws one state or union territory and leaves the rest alone. An epoch ends in a jurisdiction where its successor there begins, so the same epoch can be over in Assam and still current in Bihar.
+_Avoid_: delimitation (for the order's boundaries), vintage, boundary version
+
+**Epoch in force**:
+The epoch the law says governs a jurisdiction on a given date. It is a legal fact and changes the day an order takes effect, whether or not any election has yet been held under it.
+_Avoid_: current epoch, active epoch, latest epoch
+
+**Voting epoch**:
+The epoch a jurisdiction's house is actually elected under: the epoch of the seats in its newest full-house election. A by-election never decides it, because a by-election fills a few vacancies of a house elected earlier and cannot introduce a delimitation. It differs from the epoch in force whenever an order has taken effect that no election has yet been held under.
+_Avoid_: current epoch, epoch of the latest election

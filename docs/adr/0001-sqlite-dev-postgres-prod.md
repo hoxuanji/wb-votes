@@ -89,7 +89,10 @@ it, and the CLI exits 1 when any of them returns rows. There are nine:
    trigger (full candidate-level results landing).
 3. `margin_is_rank1_minus_rank2` — split out of the share check so its 0 violations stay visible
 4. `contest_epoch_matches_election_epoch` (P4: no cross-epoch contests)
-5. `contested_place_version_has_crosswalk_to_current_epoch`
+5. `contested_place_version_has_crosswalk_to_current_epoch` — **half-checked on purpose** while
+   `place_crosswalk` is empty: a crosswalk begun for a superseded epoch must cover its contested seats (which
+   epochs are superseded comes from `core/epochs.ts`, per jurisdiction). The unconditional form would be red
+   by construction.
 6. `booth_votes_not_more_than_result_votes`
 7. `party_version_no_overlapping_validity` — D2's view, standing in for the dropped `EXCLUDE`
 8. `party_version_no_two_open_ended_rows` — the case a reviewer proved reachable through D2

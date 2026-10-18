@@ -86,17 +86,6 @@ export function missingGeometry(db: DatabaseSync, vintages: ReadonlyMap<string, 
          FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
         WHERE pv.kind IN ('ac','pc')
      ),
-     latest AS (
-       -- The epoch each jurisdiction and house currently votes under: the one its newest election used.
-       SELECT j, house, epoch FROM (
-         SELECT s.j, s.house, s.epoch,
-                ROW_NUMBER() OVER (PARTITION BY s.j, s.house ORDER BY MAX(e.year) DESC, s.epoch) AS rn
-           FROM seat s
-           JOIN contest c ON c.place_version_id = s.version_id
-           JOIN election e ON e.id = c.election_id
-          GROUP BY s.j, s.house, s.epoch)
-        WHERE rn = 1
-     ),
      gframe AS (
        SELECT s.j, s.house, s.epoch, g.view_box AS vb, COUNT(*) AS n
          FROM seat s JOIN place_geometry g ON g.place_version_id = s.version_id
@@ -121,7 +110,7 @@ export function missingGeometry(db: DatabaseSync, vintages: ReadonlyMap<string, 
             g.view_box AS vb, mf.vb AS mainFrame,
             t.drawn AS epochDrawn, t.seats AS epochSeats
        FROM seat s
-       JOIN latest l ON l.j = s.j AND l.house = s.house AND l.epoch = s.epoch
+       JOIN voting_epoch l ON l.jurisdiction_id = s.j AND l.house = s.house AND l.epoch_id = s.epoch
        JOIN place p ON p.id = s.j
        JOIN tally t ON t.j = s.j AND t.house = s.house AND t.epoch = s.epoch
        LEFT JOIN place_geometry g ON g.place_version_id = s.version_id

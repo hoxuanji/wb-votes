@@ -18,9 +18,10 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { gzipSync } from "node:zlib";
 import { DEV_DB_PATH, all, get, openRead } from "../../db/index.ts";
+import { EPOCHS, epochOfDelimId } from "../../core/epochs.ts";
 import { EPOCH_OF_DELIM, reconstruct } from "./reconstruct.ts";
 import { MANIFEST_PATH } from "./backfill.ts";
-import { currentEpochs, validateGeography } from "./validate.ts";
+import { validateGeography } from "./validate.ts";
 
 function haveRegistry(): boolean {
   try {
@@ -238,9 +239,18 @@ test("a succession claim cannot be stored without a source", { skip }, () => {
   w.close();
 });
 
-test("the importer and the reconstruction agree on which delimitation is which", { skip: false }, () => {
-  // Both files map TCPD's DelimID to an epoch. If they ever disagree, the reconstruction would be
-  // repairing rows against a different notion of the same delimitation.
+test("the reconstruction's DelimID map is derived from the epoch table, which the importer reads too", { skip: false }, () => {
+  // Two copies of this map used to be kept equal by a test. If they ever disagreed, the reconstruction would
+  // be repairing rows against a different notion of the same delimitation, so now there is one table and this
+  // holds the derivation (and the numbers themselves, which every place_version id was minted from).
+  assert.deepEqual(
+    EPOCH_OF_DELIM,
+    Object.fromEntries(EPOCHS.filter((e) => e.tcpdDelimId !== null).map((e) => [String(e.tcpdDelimId), e.id])),
+  );
+  // Every DelimID the importer accepts is one the reconstruction accepts, to the same epoch.
+  for (const e of EPOCHS) {
+    if (e.tcpdDelimId !== null) assert.equal(EPOCH_OF_DELIM[String(e.tcpdDelimId)], epochOfDelimId(e.tcpdDelimId)?.id);
+  }
   assert.deepEqual(EPOCH_OF_DELIM, {
     "1": "delim-1952",
     "2": "delim-1963",
@@ -321,16 +331,5 @@ test("all ten checks pass on the live registry", { skip: skip || skipSource }, (
   // that these jurisdictions' 2008 content is an earlier order carried forward. The rule was never "record
   // no relationships", it was "invent none".
   assert.equal(v.metrics.citedDerivations, 418, "the derivations DPACO 2008 states about itself");
-  d.close();
-});
-
-test("the current epoch is derived from the data, never a literal", { skip }, () => {
-  const d = db();
-  const cur = currentEpochs(d);
-  assert.ok(cur.size > 30, `every jurisdiction and house has a current epoch, got ${cur.size}`);
-  // Karnataka's assembly and Lok Sabha seats are both under the 2008 order today — established by the
-  // most recent election on record, not by a constant.
-  assert.equal(cur.get("ka ac"), "delim-2008");
-  assert.equal(cur.get("ka pc"), "delim-2008");
   d.close();
 });

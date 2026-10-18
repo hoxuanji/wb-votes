@@ -34,7 +34,7 @@ export const LS2024_ELECTION_ID = "ls-2024";
  *
  * NOT a constant any more, and that is the point: Assam was re-delimited in 2023 and Jammu & Kashmir in
  * 2022, so their 2024 constituencies are not `delim-2008` slots. `currentEpochFor` reads the answer out of
- * `boundary_epoch`, so the mapping is a property of the registry's own cited geography rather than a list of
+ * the epoch table (core/epochs.ts), so the mapping is a property of the cited orders rather than a list of
  * state exceptions in the importer. This value remains the fallback for every jurisdiction with nothing
  * newer than DPACO 2008, which is most of them. See ingest/geography/delimitation.ts.
  */
@@ -190,7 +190,7 @@ export type Resolution = "ADOPTED" | "CREATE" | "UNRESOLVED";
 
 export type StagedContest = {
   jurisdictionId: string;
-  /** The delimitation this seat belongs to, resolved from boundary_epoch, never assumed. */
+  /** The delimitation this seat belongs to, resolved from the epoch table (core/epochs.ts), never assumed. */
   epochId: string;
   number: number;
   /** The source's own spelling, kept exactly. Reservation marker and all. */
@@ -473,7 +473,7 @@ export function stageLs2024(
   // epoch is what made Assam and J&K look like renumbered `delim-2008` states rather than states with a
   // newer delimitation of their own.
   const epochOf = new Map<string, string>();
-  for (const j of new Set([...groups.values()].map((g) => g.j))) epochOf.set(j, currentEpochFor(db, j));
+  for (const j of new Set([...groups.values()].map((g) => g.j))) epochOf.set(j, currentEpochFor(j));
 
   const slots = new Map<string, { id: number; name: string; reservation: string | null }>();
   /** Which numbers each name currently occupies, so renumbering can be told from a spelling variant. */
@@ -523,7 +523,7 @@ export function stageLs2024(
       detail: `${suratJ} PC ${surat.number} came from both report 33 and report 2(A) — ECI's exclusion note no longer holds`,
     });
   } else {
-    contests.push(suratContest(surat, suratJ, epochOf.get(suratJ) ?? currentEpochFor(db, suratJ), slots, nameAt, unresolved));
+    contests.push(suratContest(surat, suratJ, epochOf.get(suratJ) ?? currentEpochFor(suratJ), slots, nameAt, unresolved));
   }
 
   /**

@@ -13,7 +13,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { existsSync } from "node:fs";
 import { all, get } from "../../db/index.ts";
-import { chronoDesc } from "../../core/election-kind.ts";
+import { votingEpochs } from "../../db/epochs.ts";
 import { MANIFEST_PATH } from "./backfill.ts";
 import { epochByElection, readManifest, reconstruct, type SourceSeat } from "./reconstruct.ts";
 
@@ -51,24 +51,6 @@ export type GeographyValidation = {
 
 const NORM = "UPPER(REPLACE(REPLACE(REPLACE(?, ' ', ''), '-', ''), '.', ''))";
 const norm = (s: string): string => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
-
-/** The epoch each (jurisdiction, house) is currently in: the epoch of its most recent election. Never a
- *  literal — 'delim-2008' appears nowhere in this file, so the next delimitation needs no code change. */
-export function currentEpochs(db: DatabaseSync): Map<string, string> {
-  const rows = all<{ jurisdiction_id: string; kind: string; epoch_id: string }>(
-    db,
-    `SELECT jurisdiction_id, kind, epoch_id FROM (
-       SELECT v.jurisdiction_id, v.kind, v.epoch_id,
-              row_number() OVER (PARTITION BY v.jurisdiction_id, v.kind
-                                 ORDER BY ${chronoDesc()}) AS rn
-         FROM contest c
-         JOIN election e ON e.id = c.election_id
-         JOIN place_version v ON v.id = c.place_version_id
-        WHERE v.kind IN ('ac','pc'))
-      WHERE rn = 1`,
-  );
-  return new Map(rows.map((r) => [`${r.jurisdiction_id} ${r.kind}`, r.epoch_id]));
-}
 
 export function validateGeography(db: DatabaseSync, opts?: { manifestPath?: string }): GeographyValidation {
   const manifestPath = opts?.manifestPath ?? MANIFEST_PATH;
@@ -197,7 +179,7 @@ export function validateGeography(db: DatabaseSync, opts?: { manifestPath?: stri
     add(5, "current seats carry current names", "current-epoch names the source names differently", [], true, sourceWhy);
     add(6, "historical seats carry historical names", "older-epoch names the source names differently", [], true, sourceWhy);
   } else {
-    const cur = currentEpochs(db);
+    const cur = votingEpochs(db);
     const rows = all<{ jurisdiction_id: string; kind: string; epoch_id: string; number: number; nm: string; conflict: number; key: string | null }>(
       db,
       `SELECT jurisdiction_id, kind, epoch_id, number, canonical_name AS nm, name_conflict AS conflict,

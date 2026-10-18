@@ -29,6 +29,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { all, get } from "../../db/index.ts";
+import { EPOCHS, inForce } from "../../core/epochs.ts";
 import { ECI_CACHE_DIR } from "../sources/eci/acquire.ts";
 import { sha256Hex } from "../raw/index.ts";
 
@@ -182,56 +183,6 @@ export const DELIM_DOCS: readonly DelimDoc[] = [
       "Appoints 20 May 2022 as the date on which Order No. 1 of 14 March 2022 (O.N. 6(E)) and Order No. 2 " +
       "of 5 May 2022 (O.N. 17(E)) take effect, under s.62(2)-(3) of the J&K Reorganisation Act, 2019. " +
       "F. No. H.11019/03/2019-Leg.",
-  },
-];
-
-// ── the epochs ────────────────────────────────────────────────────────────────────────────────────
-
-export type EpochSpec = {
-  id: string;
-  name: string;
-  jurisdictionId: string | null;
-  effectiveFrom: string;
-  effectiveDateBasis: "legal_effective_date" | "order_date" | "publication_date" | "not_established";
-  orderDate: string | null;
-  orderReference: string | null;
-  sourceId: string;
-};
-
-/** The two delimitations that unblock the 19, and the provenance DPACO 2008 gains. */
-export const EPOCHS: readonly EpochSpec[] = [
-  {
-    id: "delim-2022-jk",
-    name:
-      "Delimitation Commission for the Union Territory of Jammu & Kashmir, Order No. 2 " +
-      "(effective 20 May 2022 by S.O. 2223(E))",
-    jurisdictionId: "jk",
-    // The Central Government appointed this date. Not a publication date, not the order's date.
-    effectiveFrom: "2022-05-20",
-    effectiveDateBasis: "legal_effective_date",
-    orderDate: "2022-05-05",
-    orderReference:
-      "Delimitation Commission Order No. 2 dated 5 May 2022, Gazette of India Extraordinary II-3(iii) " +
-      "O.N. 17(E); with Order No. 1 dated 14 March 2022, O.N. 6(E); given effect by S.O. 2223(E) dated " +
-      "20 May 2022 under s.62(2)-(3), Jammu and Kashmir Reorganisation Act, 2019 (34 of 2019)",
-    sourceId: "delim:jk-so-2223e-2022",
-  },
-  {
-    id: "delim-2023-as",
-    name:
-      "Delimitation of Parliamentary and Assembly Constituencies in the State of Assam — ECI final " +
-      "notification (order date not established; ECI published it on 2023-08-11)",
-    jurisdictionId: "as",
-    // The ECI's own publication date for the final notification. The notification is a scan, so its own
-    // order date and effective date are not readable, and `effectiveDateBasis` says exactly that.
-    effectiveFrom: "2023-08-11",
-    effectiveDateBasis: "publication_date",
-    orderDate: null,
-    orderReference:
-      "ECI final notification (document 15220), published 2023-08-11, following the rescindment of the " +
-      "2008 deferment by S.O. 903(E) dated 28 February 2020. The notification is a scanned image with no " +
-      "text layer, so neither its own order date nor its constituency schedule is machine-readable",
-    sourceId: "delim:assam-final-2023",
   },
 ];
 
@@ -460,7 +411,7 @@ export function applyDelimitation(
       .run(DPACO_2008_REFERENCE, "delim:dpaco-2008");
     report.epochsUpdated += 1;
 
-    // ── the two new epochs ────────────────────────────────────────────────────────────────────────
+    // ── the epochs that cite an order this module has just verified ─────────────────────────────────
     const epochSql =
       `INSERT INTO boundary_epoch (id, name, effective_from, jurisdiction_id, order_date, order_reference,
          effective_date_basis, source_id)
@@ -469,7 +420,7 @@ export function applyDelimitation(
          jurisdiction_id=excluded.jurisdiction_id, order_date=excluded.order_date,
          order_reference=excluded.order_reference, effective_date_basis=excluded.effective_date_basis,
          source_id=excluded.source_id`;
-    for (const e of EPOCHS) {
+    for (const e of EPOCHS.filter((x) => x.sourceId !== null)) {
       const existed = get<{ n: number }>(db, "SELECT COUNT(*) AS n FROM boundary_epoch WHERE id = ?", e.id)?.n ?? 0;
       db.prepare(epochSql).run(
         e.id, e.name, e.effectiveFrom, e.jurisdictionId, e.orderDate, e.orderReference,
@@ -546,42 +497,17 @@ function countPairs(db: DatabaseSync, d: Derivation, kind: "ac" | "pc"): number 
 }
 
 /**
- * The epoch in force for one jurisdiction and house — the newest one that either names this jurisdiction or
- * is national.
+ * The newest epoch the table holds for a jurisdiction: a shim over `inForce`, asked at the end of time.
  *
- * This is what replaces the 2024 importer's hardcoded `delim-2008`. Assam resolves to `delim-2023-as`
- * (2023-08-11) and J&K to `delim-2022-jk` (2022-05-20) because those beat DPACO 2008's 2008-02-19; every
- * other jurisdiction still resolves to `delim-2008` because it has nothing newer. So the mapping is a
- * property of the registry's own cited geography, not a list of state exceptions in the importer.
+ * It replaces the 2024 importer's hardcoded `delim-2008`. Assam resolves to `delim-2023-as` (2023-08-11) and
+ * J&K to `delim-2022-jk` (2022-05-20) because those beat DPACO 2008's 2008-02-19; every other jurisdiction
+ * still resolves to `delim-2008` because it has nothing newer. The answer comes from core/epochs.ts and not
+ * from `boundary_epoch` rows, which only `geography delimitation` used to write, so staging no longer
+ * depends on which commands ran before it.
+ *
+ * ponytail: the ECI stage wants "the epoch these seats belong to" and should ask `inForce` as of the
+ * election's counting day (the registry's ls-2024 row carries 2024-06-04); that moves with the call site.
  */
-/**
- * The integer each epoch occupies in `versionId`'s key space, so a seat's place_version id stays unique
- * across delimitations. 1-4 are the Lokdhaba importer's DelimID values and must not move; the new epochs
- * take the next free slots. `versionId` allows 0-19.
- */
-export const EPOCH_DELIM_ID: Record<string, number> = {
-  "delim-1952": 1,
-  "delim-1963": 2,
-  "delim-1976": 3,
-  "delim-2008": 4,
-  "delim-2022-jk": 5,
-  "delim-2023-as": 6,
-};
-
-export function delimIdOf(epochId: string): number {
-  const n = EPOCH_DELIM_ID[epochId];
-  if (n === undefined) throw new Error(`no versionId slot allocated for epoch '${epochId}' — add it to EPOCH_DELIM_ID`);
-  return n;
-}
-
-export function currentEpochFor(db: DatabaseSync, jurisdictionId: string): string {
-  const row = get<{ id: string }>(
-    db,
-    `SELECT id FROM boundary_epoch
-      WHERE jurisdiction_id = ? OR jurisdiction_id IS NULL
-      ORDER BY effective_from DESC, id DESC LIMIT 1`,
-    jurisdictionId,
-  );
-  if (row === undefined) throw new Error(`no boundary_epoch applies to '${jurisdictionId}'`);
-  return row.id;
+export function currentEpochFor(jurisdictionId: string): string {
+  return inForce(jurisdictionId, "9999-12-31").id;
 }
