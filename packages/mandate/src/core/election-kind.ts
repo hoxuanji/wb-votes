@@ -14,6 +14,9 @@
 //
 // Anything else is NOT defaulted to "Assembly Election". A municipal poll described as an assembly election is
 // a wrong claim that renders fine, so `facetOf` throws and the registry-matrix test is the alarm.
+//
+// Nothing past the view builders reads the two columns again: the view types carry `body` and `fill`, and
+// election-kind.guard.test.ts fails on a page that reaches for either code.
 
 /** Which body was elected. From `house`, which is the column that actually says so. */
 export type Body = "assembly" | "lok-sabha";

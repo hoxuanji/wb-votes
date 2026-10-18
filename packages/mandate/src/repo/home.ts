@@ -831,8 +831,6 @@ export type Completeness = "complete" | "partial" | "unavailable";
 export type ElectionCoverage = {
   electionId: string;
   name: string;
-  kind: string;
-  house: string;
   year: number;
   jurisdictionId: string;
   jurisdictionName: string;
@@ -1023,8 +1021,6 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     return {
       electionId: e.id,
       name: e.name,
-      kind: e.kind,
-      house: e.house,
       year: e.year,
       jurisdictionId: e.j,
       jurisdictionName: e.j === "in" ? "India" : (ref?.name ?? e.j),

@@ -135,21 +135,19 @@ export type ElectionChoice = {
   id: string;
   name: string;
   year: number;
-  house: string;
-  kind: string;
-  /** `house` and `kind` decoded once, in `choiceOf`. A surface reads these, not the registry's codes. */
+  /** The registry's `house` and `kind`, decoded once in `choiceOf`. The codes themselves do not leave it. */
   body: Body;
   fill: Fill;
   seats: number;
 };
 
 /** The columns a choice is selected with. */
-type ChoiceRow = Omit<ElectionChoice, "body" | "fill">;
+type ChoiceRow = Omit<ElectionChoice, "body" | "fill"> & { house: string; kind: string };
 
 /** A selected row with its body and fill decoded. Throws for a house/kind pair the product does not label. */
 function choiceOf(r: ChoiceRow): ElectionChoice {
   const { body, fill } = facetOf(r.house, r.kind);
-  return { ...r, body, fill };
+  return { id: r.id, name: r.name, year: r.year, body, fill, seats: r.seats };
 }
 
 export type ElectionMapView = {

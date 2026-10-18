@@ -38,7 +38,7 @@
 // not to say it.
 
 import type { DatabaseSync } from "node:sqlite";
-import { constituencyHref, districtHref, stateHref } from "./routes.ts";
+import { bodyOfKind, constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
@@ -88,9 +88,7 @@ export type ElectionChoice = {
   id: string;
   name: string;
   year: number;
-  house: string;
-  kind: string;
-  /** `house` and `kind` decoded once, where the rows are read. A surface reads these, not the registry's codes. */
+  /** The registry's `house` and `kind`, decoded once where the rows are read. The codes themselves do not leave. */
   body: Body;
   fill: Fill;
   seats: number;
@@ -191,7 +189,7 @@ export function stateMapView(
     // Sabha itself. A state's Lok Sabha map was unreachable, which is a requirement rather than a nicety.
     //
     // `seats` is counted WITHIN the jurisdiction too: West Bengal's row for ls-2024 says 42, not 543.
-    const elections = all<Omit<ElectionChoice, "body" | "fill">>(
+    const elections = all<Omit<ElectionChoice, "body" | "fill"> & { house: string; kind: string }>(
       db,
       `SELECT e.id AS id, e.name AS name, e.year AS year, e.house AS house, e.kind AS kind,
               COUNT(*) AS seats
@@ -204,13 +202,13 @@ export function stateMapView(
       jurisdictionId,
     ).map((r): ElectionChoice => {
       const { body, fill } = facetOf(r.house, r.kind);
-      return { ...r, body, fill };
+      return { id: r.id, name: r.name, year: r.year, body, fill, seats: r.seats };
     });
 
     // A house filter narrows the selector rather than the map: a reader who asked for the Lok Sabha should see
     // the Lok Sabha elections, and if there are none they should be told, not silently shown an assembly.
-    const house = p.house === "pc" || p.house === "ac" ? p.house : null;
-    const offered = house === null ? elections : elections.filter((e) => e.house === house);
+    const body = p.house === "pc" || p.house === "ac" ? bodyOfKind(p.house) : null;
+    const offered = body === null ? elections : elections.filter((e) => e.body === body);
     // THE DEFAULT IS THE LATEST FULL ASSEMBLY ELECTION, in that order of preference.
     //
     //  · Not merely the newest row: Jammu & Kashmir's newest is a single-seat 2017 by-election, and opening

@@ -465,16 +465,13 @@ export type Dated = {
   name: string;
   jurisdictionId: string;
   jurisdictionName: string;
-  kind: string;
   year: number;
   /** 'declared' for a result we hold; 'due' for a term expiring, which is derived, not announced. */
   status: "declared" | "due";
   leaderLabel: string | null;
   leaderSeats: number;
   seatsContested: number;
-  /** 'ac' or 'pc' — which house was, or is to be, elected. */
-  house: string;
-  /** `house` and `kind` decoded once, where the row is built. A page reads these, not the registry's codes. */
+  /** The registry's `house` and `kind`, decoded once where the row is built. The codes themselves do not leave. */
   body: Body;
   fill: Fill;
   /**
@@ -550,8 +547,6 @@ function dated(db: DatabaseSync, where: string, limit: number): Dated[] {
       name: e.name,
       jurisdictionId: e.j,
       jurisdictionName: nameOf(e.j),
-      kind: e.kind,
-      house: e.house,
       ...decoded(e.house, e.kind),
       year: e.year,
       status: "declared" as const,
@@ -620,8 +615,6 @@ export function upcoming(db: DatabaseSync, thisYear: number, kind = "assembly", 
         name: e.name,
         jurisdictionId: e.j,
         jurisdictionName: nameOf(e.j),
-        kind: e.kind,
-        house: e.house,
         ...decoded(e.house, e.kind),
         year: e.year,
         status: "due",
@@ -645,8 +638,6 @@ export function upcoming(db: DatabaseSync, thisYear: number, kind = "assembly", 
           name: `${s.jurisdictionName} — next ${kind === "assembly" ? "assembly" : "general"} election`,
           jurisdictionId: s.jurisdictionId,
           jurisdictionName: s.jurisdictionName,
-          kind,
-          house,
           ...decoded(house, kind),
           year: s.year + TERM_YEARS,
           status: "due",

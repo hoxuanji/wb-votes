@@ -787,9 +787,7 @@ export type Crumb = { label: string; href?: string };
 export type StateElection = {
   id: string;
   year: number;
-  /** 'ac' or 'pc', in the registry's codes. A page reads `body` and `fill`, which are these decoded. */
-  house: string;
-  kind: string;
+  /** The registry's `house` and `kind`, decoded once in `stateElections`. The codes themselves do not leave it. */
   body: Body;
   fill: Fill;
   seats: number;
@@ -957,8 +955,6 @@ function stateElections(db: DatabaseSync, sql: DbMod, repo: RepoMod, jurisdictio
     return {
       id: r.id,
       year: r.year,
-      house: r.house,
-      kind: r.kind,
       body,
       fill,
       seats: r.seats,

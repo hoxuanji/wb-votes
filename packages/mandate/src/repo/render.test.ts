@@ -594,8 +594,8 @@ test("the state page opens on the state's own house, not the newest election", l
   // "newest full election" open a state page on the parliamentary map, which is not what a reader came for.
   for (const j of ["mp", "rj", "wb", "ka"]) {
     const v = stateMap.stateMapView(db, j);
-    assert.equal(v.election?.house, "ac", `${j} opens on ${v.election?.id}`);
-    assert.notEqual(v.election?.kind, "bypoll", `${j} opens on a by-election`);
+    assert.equal(v.election?.body, "assembly", `${j} opens on ${v.election?.id}`);
+    assert.notEqual(v.election?.fill, "bypoll", `${j} opens on a by-election`);
   }
 });
 
