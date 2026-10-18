@@ -12,7 +12,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { blockingKeys } from "../core/index.ts";
@@ -20,6 +20,7 @@ import { open, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import type { Envelope, Meta, Reply } from "./envelope.ts";
 import { personReply, placeReply, searchReply, unavailable } from "./envelope.ts";
+import { readRegistry } from "./session.ts";
 
 const AC = "wb.ac.001";
 const NOW = "2026-08-01T00:00:00.000Z";
@@ -38,6 +39,12 @@ async function withDb<T>(path: string | undefined, fn: () => Promise<T>): Promis
     else process.env["MANDATE_DB_PATH"] = prev;
   }
 }
+
+/** A reader bound to one file: the registry is chosen by argument, not by the process's environment. */
+const at =
+  (path: string): typeof readRegistry =>
+  (fn) =>
+    readRegistry(fn, { path });
 
 function aliasRows(personId: string, name: string): string {
   return blockingKeys(name)
@@ -266,6 +273,43 @@ test("a registry that is not there is a 503 problem document, never a throw", as
       assert.deepEqual(r.body, unavailable());
     }
   });
+});
+
+test("a registry that is unmigrated, damaged or never ingested is a 503 problem document", async () => {
+  const unmigrated = join(mkdtempSync(join(tmpdir(), "mandate-unmigrated-")), "registry.db");
+  open(unmigrated).close();
+  const damaged = join(mkdtempSync(join(tmpdir(), "mandate-damaged-")), "registry.db");
+  writeFileSync(damaged, "this is not a sqlite database ".repeat(300));
+  // A schema and no ingest run: there is no dataVersion to name, so nothing can be served.
+  const neverRun = join(mkdtempSync(join(tmpdir(), "mandate-neverrun-")), "registry.db");
+  const d = open(neverRun);
+  migrate(d, NOW);
+  d.close();
+  for (const path of [unmigrated, damaged, neverRun]) {
+    const read = at(path);
+    for (const r of [await placeReply(AC, read), await personReply("x", read), await searchReply("Mamata", 5, read)]) {
+      assert.equal(r.status, 503, JSON.stringify(r.body));
+      assert.deepEqual(r.body, unavailable());
+    }
+  }
+  // and the injected reader reads the fixture without touching the environment
+  assert.equal((await placeReply(AC, at(FIXTURE))).status, 200);
+});
+
+test("a bug in a query is thrown, not answered as 'registry not built'", async () => {
+  // metaBase's query, over a view that calls a function SQLite does not have: a defect in this process, which
+  // used to be one of the failures a reader could be told was "the registry is not built".
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-defect-")), "registry.db");
+  const d = open(path);
+  d.exec(`
+    CREATE TABLE ingest_run (finished_at TEXT, status TEXT);
+    CREATE VIEW boundary_epoch AS SELECT no_such_function() AS id, NULL AS effective_to, NULL AS effective_from;
+  `);
+  d.close();
+  const read = at(path);
+  await assert.rejects(placeReply(AC, read), /no such function/);
+  await assert.rejects(personReply("x", read), /no such function/);
+  await assert.rejects(searchReply("Mamata", 5, read), /no such function/);
 });
 
 test("§20 contract holds on a fixture registry (the CI case)", async () => {

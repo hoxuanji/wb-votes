@@ -394,8 +394,8 @@ test("a repo: source is never described as a document read from the publisher", 
  * 404 path, dead not-found.tsx, 500 for every reader.
  *
  * A .tsx file cannot be imported under `node --test` (Node strips types, not JSX) and node:test
- * cannot run webpack, so this guards the source instead: the page must load the registry through
- * envelope.ts's `import(/* webpackIgnore *\/ ...)`, which webpack leaves alone, and must not
+ * cannot run webpack, so this guards the source instead: the page must read the registry through
+ * personReply (envelope.ts imports the repo layer statically, which webpack can follow), and must not
  * reintroduce a require webpack has to guess at.
  * ponytail: a source assertion. Replace it with a rendered-page assertion the day the app grows a
  * JSX-capable test transform — until then a build + a request through the real handler is the

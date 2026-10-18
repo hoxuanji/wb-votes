@@ -34,3 +34,25 @@ _Avoid_: Sort order, recency
 **Current election**:
 The newest full-house election of a body in a jurisdiction, by chronology key. A by-election never replaces it.
 _Avoid_: Latest election, newest election
+
+### Reading the registry
+
+**Registry session**:
+One scoped use of the registry: it is opened, read and closed within a single call, and nothing that holds it outlives that call.
+_Avoid_: connection, handle, database access
+
+**Read-then-render**:
+The rule that a page reads everything it needs inside one registry session, returns plain data, and only then renders, so the open registry never reaches the components. Pages are being moved to it one at a time; those not yet moved still open the registry themselves.
+_Avoid_: lazy read, render-time query
+
+**Outage**:
+The registry cannot be read right now: it is absent, was never built, is damaged, or is busy with a writer. A reader is told the registry is unavailable and what fixes it.
+_Avoid_: error, failure, downtime
+
+**Defect**:
+A fault in this program, such as a malformed query or a mistake in the code around it, as opposed to a state of the deployment. A defect should fail loudly rather than read as an outage; today a query naming a table or column the registry lacks still reads as one, until the schema is checked directly instead of guessed from the error message.
+_Avoid_: outage, unavailable, bug (when it is shown to a reader)
+
+**Read outcome**:
+What a registry session reports: either the value that was read, or that the registry was in an outage, with a sentence for the reader and the underlying cause for the log.
+_Avoid_: result (a result is an election result)

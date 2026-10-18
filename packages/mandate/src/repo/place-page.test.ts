@@ -1,12 +1,18 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DEV_DB_PATH, openRead } from "../db/index.ts";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DEV_DB_PATH, open, openRead } from "../db/index.ts";
+import { migrate } from "../db/migrate.ts";
 import { turnout_pct } from "../semantic/index.ts";
 import { getPlaceAnalysis } from "./place-analysis.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
 import {
   analysisCards,
   anomalies,
+  constituenciesNamed,
+  constituencyPath,
   parseFilters,
   parsePath,
   placeHeadline,
@@ -16,6 +22,7 @@ import {
   provenance,
   tally,
 } from "./place-page.ts";
+import { readRegistry } from "./session.ts";
 
 // Same guard idiom as place-analysis.test.ts: the schema, not the file.
 function haveRegistry(): boolean {
@@ -440,7 +447,7 @@ test("placeView: a missing registry is a handled state naming the fix, never a t
   try {
     process.chdir("/");
     const v = await placeView(["wb"], {});
-    // /: no packages/mandate to import and no .data/registry.db — either way it is `unavailable`.
+    // /: there is no .data/registry.db relative to it.
     assert.equal(v.kind, "unavailable");
     if (v.kind === "unavailable") assert.match(v.detail, /npm run registry:migrate/);
   } finally {
@@ -489,4 +496,83 @@ test("placeTiles and anomalies survive an analysis that is null", { skip }, () =
   assert.deepEqual(anomalies(b, null), [
     "2026's margin was 0.5% of votes cast — under one point, so a recount-scale error would change the winner.",
   ]);
+});
+
+// ── the registry session: an outage is a state, a defect is thrown ──────────────────────────────
+
+/** A reader bound to one file, so a test needs neither the environment nor the cwd to point at it. */
+const at =
+  (path: string): typeof readRegistry =>
+  (fn) =>
+    readRegistry(fn, { path });
+
+/** A migrated registry holding West Bengal, one district and one seat, and no election at all. */
+function bareRegistry(): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-placepage-")), "registry.db");
+  const d = open(path);
+  migrate(d, "2026-08-12T00:00:00.000Z");
+  d.exec(`
+    INSERT INTO place (id, kind, canonical_name) VALUES ('wb', 'state', 'West Bengal');
+    INSERT INTO place (id, kind, parent_id, canonical_name) VALUES ('wb.coochbehar', 'district', 'wb', 'Cooch Behar');
+    INSERT INTO place (id, kind, parent_id, canonical_name) VALUES ('wb.ac.001', 'ac', 'wb.coochbehar', 'Mekliganj');
+  `);
+  d.close();
+  return path;
+}
+
+/** A registry whose `place` is a view over a function SQLite does not have: a bug in a query, not an outage. */
+function defectiveRegistry(): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-placepage-")), "registry.db");
+  const d = open(path);
+  d.exec(`
+    CREATE VIEW place AS
+      SELECT no_such_function() AS id, 'state' AS kind, 'x' AS canonical_name, NULL AS parent_id;
+    CREATE TABLE place_version (id INTEGER, place_id TEXT, jurisdiction_id TEXT, kind TEXT, epoch_id TEXT,
+                                canonical_name TEXT);
+    CREATE TABLE boundary_epoch (id TEXT, effective_from TEXT);
+  `);
+  d.close();
+  return path;
+}
+
+test("placeView on a fixture registry: a state lists its districts and a district its seats", async () => {
+  const read = at(bareRegistry());
+  const s = await placeView(["wb"], {}, undefined, undefined, read);
+  assert.equal(s.kind, "parent");
+  if (s.kind === "parent") {
+    assert.equal(s.level, "state");
+    assert.equal(s.name, "West Bengal");
+    assert.deepEqual(s.trail, [{ label: "India", href: "/" }, { label: "West Bengal" }]);
+  }
+  const d = await placeView(["wb", "coochbehar"], {}, undefined, undefined, read);
+  assert.equal(d.kind, "parent");
+  if (d.kind === "parent") assert.equal(d.level, "district");
+  assert.equal((await placeView(["xx"], {}, undefined, undefined, read)).kind, "not-found");
+});
+
+test("placeView, constituenciesNamed and constituencyPath: an unreadable registry is a state, never a throw", async () => {
+  const gone = at(join(mkdtempSync(join(tmpdir(), "mandate-placepage-")), "registry.db"));
+  const unmigrated = at(
+    (() => {
+      const path = join(mkdtempSync(join(tmpdir(), "mandate-placepage-")), "registry.db");
+      open(path).close();
+      return path;
+    })(),
+  );
+  for (const read of [gone, unmigrated]) {
+    const v = await placeView(["wb"], {}, undefined, undefined, read);
+    assert.equal(v.kind, "unavailable");
+    if (v.kind === "unavailable") assert.match(v.detail, /npm run registry:migrate/);
+    assert.deepEqual(await constituenciesNamed("wb", "mekliganj", read), []);
+    assert.equal(await constituencyPath("wb", "mekliganj", read), null);
+  }
+});
+
+test("placeView, constituenciesNamed and constituencyPath: a defect in a query is thrown, not hidden as unavailable or 404", async () => {
+  // These two lookups used to catch everything and answer [] / null, so a bug in their SQL read as "no such
+  // constituency" and the route answered 404 for every name in India.
+  const read = at(defectiveRegistry());
+  await assert.rejects(placeView(["wb"], {}, undefined, undefined, read), /no such function/);
+  await assert.rejects(constituenciesNamed("wb", "mekliganj", read), /no such function/);
+  await assert.rejects(constituencyPath("wb", "mekliganj", read), /no such function/);
 });

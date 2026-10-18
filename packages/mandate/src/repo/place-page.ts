@@ -8,8 +8,6 @@
 // build itself reported success. Here it is a static import from the page and a checked file under
 // registry:typecheck.
 
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import type { DatabaseSync } from "node:sqlite";
 import {
   enp as enpMeasure,
@@ -23,15 +21,18 @@ import type { Chart, Series, SlopeRow } from "../viz/charts.ts";
 import { bars, lines, slope } from "../viz/charts.ts";
 import type { Tile } from "./brief.ts";
 import { fromRepo } from "./brief.ts";
+import { all, get } from "../db/index.ts";
 import { facetOf } from "../core/election-kind.ts";
 import type { Body, Fill } from "../core/election-kind.ts";
 // A const string, not a query: importing it here opens no database and keeps one definition of what
 // "newest first" means across every module that orders elections.
 import { CHRONO_DESC } from "./elections.ts";
 import { constituencyHref, districtHref, slugOf, stateHref } from "./routes.ts";
-import { unavailable } from "./envelope.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
+import { getPlaceBrief, loadSources, yearOf } from "./index.ts";
 import type { PartyPoint, PlaceAnalysis, PlaceAnalysisFilters } from "./place-analysis.ts";
+import { getPlaceAnalysis } from "./place-analysis.ts";
+import { readRegistry } from "./session.ts";
 
 // ── the URL ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -828,28 +829,6 @@ export type PlaceView =
       elections: StateElection[];
     };
 
-type RepoMod = typeof import("./index.ts");
-type DbMod = typeof import("../db/index.ts");
-type AnalysisMod = typeof import("./place-analysis.ts");
-
-let mods: Promise<[RepoMod, DbMod, AnalysisMod]> | undefined;
-
-/** ponytail: a second copy of envelope.ts's runtime loader, because `load()` there is not exported
- *  and this cycle does not own that file. Export it there when a third caller appears.
- *  webpackIgnore + an absolute file URL is the form webpack leaves alone (see envelope.ts). */
-function load(): Promise<[RepoMod, DbMod, AnalysisMod]> {
-  const base = pathToFileURL(join(process.cwd(), "packages/mandate/src/")).href;
-  mods ??= Promise.all([
-    import(/* webpackIgnore: true */ `${base}repo/index.ts`) as Promise<RepoMod>,
-    import(/* webpackIgnore: true */ `${base}db/index.ts`) as Promise<DbMod>,
-    import(/* webpackIgnore: true */ `${base}repo/place-analysis.ts`) as Promise<AnalysisMod>,
-  ]).catch((cause: unknown) => {
-    mods = undefined;
-    throw cause;
-  });
-  return mods;
-}
-
 type PlaceRow = { id: string; kind: string; canonical_name: string; parent_id: string | null };
 
 /**
@@ -864,13 +843,7 @@ type PlaceRow = { id: string; kind: string; canonical_name: string; parent_id: s
  * a slug is not a name. A label that cannot be found falls back to the slug with its hyphens opened out,
  * so a crumb is never blank.
  */
-function trailOf(
-  db: DatabaseSync,
-  sql: DbMod,
-  repo: RepoMod,
-  segments: readonly string[],
-  current: string,
-): Crumb[] {
+function trailOf(db: DatabaseSync, segments: readonly string[], current: string): Crumb[] {
   const state = segments.at(0);
   const district = segments.at(1);
   const ids = [state, district === undefined || state === undefined ? undefined : `${state}.${district}`].filter(
@@ -878,12 +851,10 @@ function trailOf(
   );
   const names = new Map<string, string>();
   if (ids.length > 0) {
-    for (const row of repo.read(() =>
-      sql.all<{ id: string; canonical_name: string }>(
-        db,
-        `SELECT id, canonical_name FROM place WHERE id IN (${ids.map(() => "?").join(",")})`,
-        ...ids,
-      ),
+    for (const row of all<{ id: string; canonical_name: string }>(
+      db,
+      `SELECT id, canonical_name FROM place WHERE id IN (${ids.map(() => "?").join(",")})`,
+      ...ids,
     )) {
       names.set(row.id, row.canonical_name);
     }
@@ -919,32 +890,28 @@ function trailOf(
  * Winners only. Reading every losing row to compute a share nothing displays is the difference between
  * 300,000 rows and a few hundred, and the same argument the deleted history grid made.
  */
-function stateElections(db: DatabaseSync, sql: DbMod, repo: RepoMod, jurisdiction: string): StateElection[] {
-  const rows = repo.read(() =>
-    sql.all<{ id: string; year: number; house: string; kind: string; seats: number }>(
-      db,
-      `SELECT e.id AS id, e.year AS year, e.house AS house, e.kind AS kind,
-              (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
-         FROM election e
-        WHERE e.jurisdiction_place_id = ?
-        ORDER BY ${CHRONO_DESC}`,
-      jurisdiction,
-    ),
+function stateElections(db: DatabaseSync, jurisdiction: string): StateElection[] {
+  const rows = all<{ id: string; year: number; house: string; kind: string; seats: number }>(
+    db,
+    `SELECT e.id AS id, e.year AS year, e.house AS house, e.kind AS kind,
+            (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
+       FROM election e
+      WHERE e.jurisdiction_place_id = ?
+      ORDER BY ${CHRONO_DESC}`,
+    jurisdiction,
   );
   if (rows.length === 0) return [];
-  const won = repo.read(() =>
-    sql.all<{ eid: string; party: string | null; n: number }>(
-      db,
-      `SELECT c.election_id AS eid, COALESCE(pt.short_name, ca.party_raw) AS party, COUNT(*) AS n
-         FROM contest c
-         JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
-         JOIN candidacy ca ON ca.id = r.candidacy_id
-         LEFT JOIN party_version pver ON pver.id = ca.party_version_id
-         LEFT JOIN party pt ON pt.id = pver.party_id
-        WHERE c.election_id IN (${rows.map(() => "?").join(",")})
-        GROUP BY eid, party`,
-      ...rows.map((r) => r.id),
-    ),
+  const won = all<{ eid: string; party: string | null; n: number }>(
+    db,
+    `SELECT c.election_id AS eid, COALESCE(pt.short_name, ca.party_raw) AS party, COUNT(*) AS n
+       FROM contest c
+       JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
+       JOIN candidacy ca ON ca.id = r.candidacy_id
+       LEFT JOIN party_version pver ON pver.id = ca.party_version_id
+       LEFT JOIN party pt ON pt.id = pver.party_id
+      WHERE c.election_id IN (${rows.map(() => "?").join(",")})
+      GROUP BY eid, party`,
+    ...rows.map((r) => r.id),
   );
   return rows.map((r) => {
     const top = won
@@ -997,71 +964,57 @@ function stateElections(db: DatabaseSync, sql: DbMod, repo: RepoMod, jurisdictio
 export async function constituenciesNamed(
   jurisdictionId: string,
   nameSlug: string,
+  read = readRegistry,
 ): Promise<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }[]> {
-  let db: DatabaseSync | undefined;
-  try {
-    const [r, sql] = await load();
-    db = r.read(() => sql.openRead());
-    const want = decode(nameSlug).trim().toLowerCase();
-    return r.read(() =>
-      sql.all<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }>(
-        db as DatabaseSync,
-        `SELECT pl.id AS id, pv.kind AS kind, pv.canonical_name AS canonicalName,
-                pv.jurisdiction_id AS jurisdictionId
-           FROM place_version pv
-           JOIN place pl ON pl.id = pv.place_id
-           JOIN boundary_epoch be ON be.id = pv.epoch_id
-          WHERE pv.jurisdiction_id = ? AND pv.kind IN ('ac', 'pc')
-            AND (LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ? OR LOWER(pv.canonical_name) = ?)
-          GROUP BY pv.kind
-          ORDER BY MAX(be.effective_from) DESC, pv.kind`,
-        jurisdictionId,
-        want,
-        want.replace(/-/g, " "),
-      ),
-    );
-  } catch {
-    return [];
-  } finally {
-    db?.close();
-  }
+  const want = decode(nameSlug).trim().toLowerCase();
+  // An outage is "no such constituency" here; a bug is thrown, not hidden behind a 404.
+  const r = read((db) =>
+    all<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }>(
+      db,
+      `SELECT pl.id AS id, pv.kind AS kind, pv.canonical_name AS canonicalName,
+              pv.jurisdiction_id AS jurisdictionId
+         FROM place_version pv
+         JOIN place pl ON pl.id = pv.place_id
+         JOIN boundary_epoch be ON be.id = pv.epoch_id
+        WHERE pv.jurisdiction_id = ? AND pv.kind IN ('ac', 'pc')
+          AND (LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ? OR LOWER(pv.canonical_name) = ?)
+        GROUP BY pv.kind
+        ORDER BY MAX(be.effective_from) DESC, pv.kind`,
+      jurisdictionId,
+      want,
+      want.replace(/-/g, " "),
+    ),
+  );
+  return r.ok ? r.value : [];
 }
 
 export async function constituencyPath(
   jurisdictionId: string,
   nameSlug: string,
+  read = readRegistry,
 ): Promise<readonly string[] | null> {
-  let db: DatabaseSync | undefined;
-  try {
-    const [r, sql] = await load();
-    db = r.read(() => sql.openRead());
-    const want = decode(nameSlug).trim().toLowerCase();
-    const row = r.read(() =>
-      sql.get<{ kind: string; name: string }>(
-        db as DatabaseSync,
-        `SELECT pv.kind AS kind, pv.canonical_name AS name
-           FROM place_version pv
-           JOIN place pl ON pl.id = pv.place_id
-           JOIN boundary_epoch be ON be.id = pv.epoch_id
-          WHERE pv.jurisdiction_id = ? AND pv.kind IN ('ac', 'pc')
-            AND (LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ? OR LOWER(pv.canonical_name) = ?)
-          ORDER BY be.effective_from DESC, pl.id
-          LIMIT 1`,
-        jurisdictionId,
-        want,
-        want.replace(/-/g, " "),
-      ),
-    );
-    if (row === undefined) return null;
-    // TWO SEGMENTS FOR EITHER BODY. The district used to be threaded back in here so the old
-    // segment-counting resolver would read three segments as a constituency; `placeView` is told the kind
-    // now, so a parliamentary seat — which has no district at all — needs no invented ancestor.
-    return [jurisdictionId, nameSlug];
-  } catch {
-    return null;
-  } finally {
-    db?.close();
-  }
+  const want = decode(nameSlug).trim().toLowerCase();
+  const r = read((db) =>
+    get<{ kind: string; name: string }>(
+      db,
+      `SELECT pv.kind AS kind, pv.canonical_name AS name
+         FROM place_version pv
+         JOIN place pl ON pl.id = pv.place_id
+         JOIN boundary_epoch be ON be.id = pv.epoch_id
+        WHERE pv.jurisdiction_id = ? AND pv.kind IN ('ac', 'pc')
+          AND (LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ? OR LOWER(pv.canonical_name) = ?)
+        ORDER BY be.effective_from DESC, pl.id
+        LIMIT 1`,
+      jurisdictionId,
+      want,
+      want.replace(/-/g, " "),
+    ),
+  );
+  if (!r.ok || r.value === undefined) return null;
+  // TWO SEGMENTS FOR EITHER BODY. The district used to be threaded back in here so the old
+  // segment-counting resolver would read three segments as a constituency; `placeView` is told the kind
+  // now, so a parliamentary seat — which has no district at all — needs no invented ancestor.
+  return [jurisdictionId, nameSlug];
 }
 
 export async function placeView(
@@ -1070,15 +1023,12 @@ export async function placeView(
   /** Passed by the canonical constituency route, which knows what it resolved. */
   level?: "constituency",
   kind?: "ac" | "pc",
+  read = readRegistry,
 ): Promise<PlaceView> {
   const target = parsePath(segments, level, kind);
   if (target === null) return { kind: "not-found" };
-  let db: DatabaseSync | undefined;
-  let repo: RepoMod | undefined;
-  try {
-    const [r, sql, an] = await load();
-    repo = r;
-    db = r.read(() => sql.openRead());
+  // An unreadable registry comes back as `unavailable`; a bug in this process is thrown.
+  const r = read((db): PlaceView => {
     const idA = target.ids.at(0) ?? "";
     const idB = target.ids.at(1) ?? idA;
     // A CONSTITUENCY IS RESOLVED THROUGH ITS VERSION, not through `place`.
@@ -1091,78 +1041,76 @@ export async function placeView(
     //
     // Newest epoch first, so a name means the seat that carries it NOW. Ancestry narrows on the version's
     // district, because district membership changes with delimitation too.
-    const place = r.read(() =>
-      sql.get<PlaceRow>(
-        db as DatabaseSync,
-        target.level === "ac"
-          ? `SELECT pl.id, pv.kind, pv.canonical_name, COALESCE(pv.district_place_id, pl.parent_id) AS parent_id
-               FROM place_version pv
-               JOIN place pl ON pl.id = pv.place_id
-               JOIN boundary_epoch be ON be.id = pv.epoch_id
-              -- Two placeholders here as well, so both branches of this ternary take the SAME bind list.
-              -- Adding one to the jurisdiction branch alone made every AC path raise "column index out of
-              -- range" — the binds are positional and shared, and node:sqlite counts them.
-              WHERE pv.kind IN (?, ?)
-                AND (pl.id = ? OR pl.id = ? OR LOWER(pv.canonical_name) = ?
-                     OR LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ?
-                     -- The source appends the reservation to the name — 'BISHNUPUR(SC)', 'KHANAPUR(ST)',
-                     -- 102 of 16,785 versions — so a name-based URL for one of those never resolved. The
-                     -- marker is stripped for MATCHING only; canonical_name keeps whatever the source
-                     -- wrote, and pv.reservation is where the reservation is actually read from. (For 25 of
-                     -- them the name carries a marker the column does not: a data-quality note, recorded
-                     -- rather than reconciled here.)
-                     OR REPLACE(REPLACE(REPLACE(REPLACE(UPPER(pv.canonical_name),
-                        '(SC)', ''), '(ST)', ''), ' ', ''), '-', '') = ?)
-                -- The path asserts an ancestry, and it must narrow the match BEFORE the LIMIT: two ACs
-                -- are named Bishnupur, and the lower id is in the other district.
-                AND (? IS NULL OR COALESCE(pv.district_place_id, pl.parent_id) = ?)
-                -- And the jurisdiction, for a canonical constituency path that asserts no district.
-                AND (? IS NULL OR pv.jurisdiction_id = ?)
-              ORDER BY CASE WHEN pl.id = ? THEN 0 WHEN pl.id = ? THEN 1 ELSE 2 END,
-                       be.effective_from DESC, pl.id
-              LIMIT 1`
-          // `kind IN (?, ?)`, not `kind = ?`. A one-segment path is a JURISDICTION, and eight of India's
-          // thirty-six are union territories with `kind = 'ut'` — so matching 'state' alone 404'd Jammu &
-          // Kashmir, Delhi, Puducherry, Ladakh, Chandigarh, Andaman & Nicobar, Lakshadweep and Dadra &
-          // Nagar Haveli. Survivable while nothing linked to them; a dead end on the primary navigation
-          // surface the moment the national map did, which is how it was found.
-          : `SELECT id, kind, canonical_name, parent_id
-               FROM place
-              WHERE kind IN (?, ?)
-                AND (id = ? OR id = ? OR LOWER(canonical_name) = ? OR LOWER(REPLACE(canonical_name, ' ', '-')) = ?
-                     OR REPLACE(REPLACE(UPPER(canonical_name), ' ', ''), '-', '') = ?)
-                AND (? IS NULL OR parent_id = ?)
-                -- Never narrows here; present so both branches take the SAME positional bind list.
-                AND (? IS NULL OR ? IS NULL)
-              ORDER BY CASE WHEN id = ? THEN 0 WHEN id = ? THEN 1 ELSE 2 END, id
-              LIMIT 1`,
-        target.kind ?? target.level,
-        /**
-         * The SECOND kind, and the two-placeholder shape now earns its keep twice.
-         *
-         *   state  -> 'ut', because eight of India's thirty-six jurisdictions are union territories
-         *   ac     -> 'pc', because a constituency is either body and the caller does not know which
-         *
-         * `IN (x, x)` is `= x`, so a district still matches only districts.
-         */
-        target.level === "state"
-          ? "ut"
-          : target.level === "ac"
-            ? // ONE BODY when the route carried one, so a canonical URL can never answer with the other.
-              (target.kind ?? "pc")
-            : target.level,
-        idA,
-        idB,
-        target.name,
-        target.name.replace(/\s+/g, "-"),
-        target.name.toUpperCase().replace(/[^A-Z0-9]/g, ""),
-        target.parentId,
-        target.parentId,
-        target.jurisdictionId,
-        target.jurisdictionId,
-        idA,
-        idB,
-      ),
+    const place = get<PlaceRow>(
+      db,
+      target.level === "ac"
+        ? `SELECT pl.id, pv.kind, pv.canonical_name, COALESCE(pv.district_place_id, pl.parent_id) AS parent_id
+             FROM place_version pv
+             JOIN place pl ON pl.id = pv.place_id
+             JOIN boundary_epoch be ON be.id = pv.epoch_id
+            -- Two placeholders here as well, so both branches of this ternary take the SAME bind list.
+            -- Adding one to the jurisdiction branch alone made every AC path raise "column index out of
+            -- range" — the binds are positional and shared, and node:sqlite counts them.
+            WHERE pv.kind IN (?, ?)
+              AND (pl.id = ? OR pl.id = ? OR LOWER(pv.canonical_name) = ?
+                   OR LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ?
+                   -- The source appends the reservation to the name — 'BISHNUPUR(SC)', 'KHANAPUR(ST)',
+                   -- 102 of 16,785 versions — so a name-based URL for one of those never resolved. The
+                   -- marker is stripped for MATCHING only; canonical_name keeps whatever the source
+                   -- wrote, and pv.reservation is where the reservation is actually read from. (For 25 of
+                   -- them the name carries a marker the column does not: a data-quality note, recorded
+                   -- rather than reconciled here.)
+                   OR REPLACE(REPLACE(REPLACE(REPLACE(UPPER(pv.canonical_name),
+                      '(SC)', ''), '(ST)', ''), ' ', ''), '-', '') = ?)
+              -- The path asserts an ancestry, and it must narrow the match BEFORE the LIMIT: two ACs
+              -- are named Bishnupur, and the lower id is in the other district.
+              AND (? IS NULL OR COALESCE(pv.district_place_id, pl.parent_id) = ?)
+              -- And the jurisdiction, for a canonical constituency path that asserts no district.
+              AND (? IS NULL OR pv.jurisdiction_id = ?)
+            ORDER BY CASE WHEN pl.id = ? THEN 0 WHEN pl.id = ? THEN 1 ELSE 2 END,
+                     be.effective_from DESC, pl.id
+            LIMIT 1`
+        // `kind IN (?, ?)`, not `kind = ?`. A one-segment path is a JURISDICTION, and eight of India's
+        // thirty-six are union territories with `kind = 'ut'` — so matching 'state' alone 404'd Jammu &
+        // Kashmir, Delhi, Puducherry, Ladakh, Chandigarh, Andaman & Nicobar, Lakshadweep and Dadra &
+        // Nagar Haveli. Survivable while nothing linked to them; a dead end on the primary navigation
+        // surface the moment the national map did, which is how it was found.
+        : `SELECT id, kind, canonical_name, parent_id
+             FROM place
+            WHERE kind IN (?, ?)
+              AND (id = ? OR id = ? OR LOWER(canonical_name) = ? OR LOWER(REPLACE(canonical_name, ' ', '-')) = ?
+                   OR REPLACE(REPLACE(UPPER(canonical_name), ' ', ''), '-', '') = ?)
+              AND (? IS NULL OR parent_id = ?)
+              -- Never narrows here; present so both branches take the SAME positional bind list.
+              AND (? IS NULL OR ? IS NULL)
+            ORDER BY CASE WHEN id = ? THEN 0 WHEN id = ? THEN 1 ELSE 2 END, id
+            LIMIT 1`,
+      target.kind ?? target.level,
+      /**
+       * The SECOND kind, and the two-placeholder shape now earns its keep twice.
+       *
+       *   state  -> 'ut', because eight of India's thirty-six jurisdictions are union territories
+       *   ac     -> 'pc', because a constituency is either body and the caller does not know which
+       *
+       * `IN (x, x)` is `= x`, so a district still matches only districts.
+       */
+      target.level === "state"
+        ? "ut"
+        : target.level === "ac"
+          ? // ONE BODY when the route carried one, so a canonical URL can never answer with the other.
+            (target.kind ?? "pc")
+          : target.level,
+      idA,
+      idB,
+      target.name,
+      target.name.replace(/\s+/g, "-"),
+      target.name.toUpperCase().replace(/[^A-Z0-9]/g, ""),
+      target.parentId,
+      target.parentId,
+      target.jurisdictionId,
+      target.jurisdictionId,
+      idA,
+      idB,
     );
     if (place === undefined) return { kind: "not-found" };
 
@@ -1172,26 +1120,23 @@ export async function placeView(
      * rendered as their own state's assembly page. A pc is a constituency; what differs is its body, and the
      * body is data the surface reads rather than a branch in the router.
      */
-    if (place.kind !== "ac" && place.kind !== "pc") return parentView(db, sql, r, place, segments);
+    if (place.kind !== "ac" && place.kind !== "pc") return parentView(db, place, segments);
 
-    const brief = r.getPlaceBrief(db, place.id);
+    const brief = getPlaceBrief(db, place.id);
     if (brief === null) return { kind: "not-found" };
-    const parties = r
-      .read(() =>
-        sql.all<{ name: string | null }>(
-          db as DatabaseSync,
-          `SELECT DISTINCT COALESCE(pt.short_name, ca.party_raw) AS name
-             FROM contest c
-             JOIN place_version pv ON pv.id = c.place_version_id
-             JOIN result r ON r.contest_id = c.id AND r.revision = 0
-             JOIN candidacy ca ON ca.id = r.candidacy_id
-             LEFT JOIN party_version pver ON pver.id = ca.party_version_id
-             LEFT JOIN party pt ON pt.id = pver.party_id
-            WHERE pv.place_id = ?
-            ORDER BY name`,
-          place.id,
-        ),
-      )
+    const parties = all<{ name: string | null }>(
+      db,
+      `SELECT DISTINCT COALESCE(pt.short_name, ca.party_raw) AS name
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN result r ON r.contest_id = c.id AND r.revision = 0
+         JOIN candidacy ca ON ca.id = r.candidacy_id
+         LEFT JOIN party_version pver ON pver.id = ca.party_version_id
+         LEFT JOIN party pt ON pt.id = pver.party_id
+        WHERE pv.place_id = ?
+        ORDER BY name`,
+      place.id,
+    )
       .map((row) => row.name)
       .filter((n): n is string => n !== null);
     const years = brief.contests.map((c) => c.year);
@@ -1204,7 +1149,7 @@ export async function placeView(
       parentId: place.parent_id,
     })}/analysis`;
     const filters = parseFilters(search, { base, years, parties });
-    const analysis = an.getPlaceAnalysis(db, place.id, filters.filters);
+    const analysis = getPlaceAnalysis(db, place.id, filters.filters);
     if (analysis === null) return { kind: "not-found" };
     return {
       kind: "ac",
@@ -1214,20 +1159,10 @@ export async function placeView(
       years,
       parties,
       filters,
-      trail: trailOf(db, sql, r, segments, brief.place.canonicalName),
+      trail: trailOf(db, segments, brief.place.canonicalName),
     };
-  } catch (e) {
-    if (repo !== undefined && e instanceof repo.RegistryUnavailableError) {
-      return { kind: "unavailable", detail: e.message };
-    }
-    if (repo === undefined) {
-      console.error("mandate: packages/mandate failed to load", e);
-      return { kind: "unavailable", detail: unavailable().detail };
-    }
-    throw e;
-  } finally {
-    db?.close();
-  }
+  });
+  return r.ok ? r.value : { kind: "unavailable", detail: r.detail };
 }
 
 type DistrictChildSql = {
@@ -1264,13 +1199,7 @@ function ids(rows: readonly { source_ids: string | null }[]): string[] {
  * its latest declared result. getPlaceAnalysis is an AC measure, so there are no charts here and no
  * placeholder saying there will be.
  */
-function parentView(
-  db: DatabaseSync,
-  sql: DbMod,
-  repo: RepoMod,
-  place: PlaceRow,
-  segments: readonly string[],
-): PlaceView {
+function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string[]): PlaceView {
   // The latest assembly election IN THIS JURISDICTION, by year.
   //
   // This was `SELECT MAX(election_id) FROM contest`, which was survivable while the registry held one
@@ -1280,47 +1209,43 @@ function parentView(
   // election id (see repo/index.ts yearOf) and `place_version.jurisdiction_id` is what scopes it.
   const jurisdiction = place.kind === "district" ? (place.parent_id ?? place.id) : place.id;
   const election =
-    repo.read(() =>
-      sql.get<{ id: string | null }>(
-        db,
-        `SELECT c.election_id AS id
-           FROM contest c
-           JOIN place_version pv ON pv.id = c.place_version_id
-           JOIN election e ON e.id = c.election_id AND e.kind = 'assembly'
-          WHERE pv.jurisdiction_id = ?
-          ORDER BY ${CHRONO_DESC}
-          LIMIT 1`,
-        jurisdiction,
-      ),
+    get<{ id: string | null }>(
+      db,
+      `SELECT c.election_id AS id
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN election e ON e.id = c.election_id AND e.kind = 'assembly'
+        WHERE pv.jurisdiction_id = ?
+        ORDER BY ${CHRONO_DESC}
+        LIMIT 1`,
+      jurisdiction,
     )?.id ?? null;
-  const year = election === null ? "" : repo.yearOf(election);
+  const year = election === null ? "" : yearOf(election);
 
 
   if (place.kind === "district") {
-    const rows = repo.read(() =>
-      sql.all<DistrictChildSql>(
-        db,
-        `SELECT pl.id, pv.canonical_name, pv.number, pv.reservation,
-                t.voters, t.electors, r.margin,
-                per.canonical_name AS person_name,
-                COALESCE(pt.short_name, ca.party_raw) AS party,
-                t.source_id || ',' || COALESCE(r.source_id, '') AS source_ids
-           FROM place pl
-           JOIN place_version pv ON pv.place_id = pl.id
-           JOIN contest c ON c.place_version_id = pv.id AND c.election_id = ?
-           LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-           LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
-           LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
-           LEFT JOIN person per ON per.id = ca.person_id
-           LEFT JOIN party_version pver ON pver.id = ca.party_version_id
-           LEFT JOIN party pt ON pt.id = pver.party_id
-          WHERE pl.parent_id = ? AND pl.kind = 'ac'
-          ORDER BY pv.number, pv.canonical_name`,
-        election ?? "",
-        place.id,
-      ),
+    const rows = all<DistrictChildSql>(
+      db,
+      `SELECT pl.id, pv.canonical_name, pv.number, pv.reservation,
+              t.voters, t.electors, r.margin,
+              per.canonical_name AS person_name,
+              COALESCE(pt.short_name, ca.party_raw) AS party,
+              t.source_id || ',' || COALESCE(r.source_id, '') AS source_ids
+         FROM place pl
+         JOIN place_version pv ON pv.place_id = pl.id
+         JOIN contest c ON c.place_version_id = pv.id AND c.election_id = ?
+         LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
+         LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
+         LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
+         LEFT JOIN person per ON per.id = ca.person_id
+         LEFT JOIN party_version pver ON pver.id = ca.party_version_id
+         LEFT JOIN party pt ON pt.id = pver.party_id
+        WHERE pl.parent_id = ? AND pl.kind = 'ac'
+        ORDER BY pv.number, pv.canonical_name`,
+      election ?? "",
+      place.id,
     );
-    const sources = repo.read(() => repo.loadSources(db, ids(rows), [`place:${place.id}`]));
+    const sources = loadSources(db, ids(rows), [`place:${place.id}`]);
     const counts = tally(rows.map((x) => x.party));
     const lead = counts.at(0);
     return {
@@ -1359,37 +1284,35 @@ function parentView(
       },
       sources,
       electionId: election,
-      trail: trailOf(db, sql, repo, segments, place.canonical_name),
+      trail: trailOf(db, segments, place.canonical_name),
       // A district holds no elections of its own: an election is called for a jurisdiction, and the
       // district is a grouping inside one.
       elections: [],
     };
   }
 
-  const rows = repo.read(() =>
-    sql.all<StateChildSql>(
-      db,
-      `SELECT d.id, d.canonical_name, COUNT(DISTINCT pl.id) AS acs,
-              SUM(t.voters) AS voters, SUM(t.electors) AS electors,
-              GROUP_CONCAT(CASE WHEN r.rank = 1 THEN COALESCE(pt.short_name, ca.party_raw) END) AS winners,
-              GROUP_CONCAT(DISTINCT t.source_id) AS source_ids
-         FROM place d
-         JOIN place pl ON pl.parent_id = d.id AND pl.kind = 'ac'
-         JOIN place_version pv ON pv.place_id = pl.id
-         JOIN contest c ON c.place_version_id = pv.id AND c.election_id = ?
-         LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-         LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
-         LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
-         LEFT JOIN party_version pver ON pver.id = ca.party_version_id
-         LEFT JOIN party pt ON pt.id = pver.party_id
-        WHERE d.parent_id = ? AND d.kind = 'district'
-        GROUP BY d.id
-        ORDER BY d.canonical_name`,
-      election ?? "",
-      place.id,
-    ),
+  const rows = all<StateChildSql>(
+    db,
+    `SELECT d.id, d.canonical_name, COUNT(DISTINCT pl.id) AS acs,
+            SUM(t.voters) AS voters, SUM(t.electors) AS electors,
+            GROUP_CONCAT(CASE WHEN r.rank = 1 THEN COALESCE(pt.short_name, ca.party_raw) END) AS winners,
+            GROUP_CONCAT(DISTINCT t.source_id) AS source_ids
+       FROM place d
+       JOIN place pl ON pl.parent_id = d.id AND pl.kind = 'ac'
+       JOIN place_version pv ON pv.place_id = pl.id
+       JOIN contest c ON c.place_version_id = pv.id AND c.election_id = ?
+       LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
+       LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
+       LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
+       LEFT JOIN party_version pver ON pver.id = ca.party_version_id
+       LEFT JOIN party pt ON pt.id = pver.party_id
+      WHERE d.parent_id = ? AND d.kind = 'district'
+      GROUP BY d.id
+      ORDER BY d.canonical_name`,
+    election ?? "",
+    place.id,
   );
-  const sources = repo.read(() => repo.loadSources(db, ids(rows), [`place:${place.id}`]));
+  const sources = loadSources(db, ids(rows), [`place:${place.id}`]);
   const seats = rows.reduce((a, x) => a + x.acs, 0);
   const statewide = tally(rows.flatMap((x) => (x.winners ?? "").split(",")));
   const lead = statewide.at(0);
@@ -1431,8 +1354,8 @@ function parentView(
     },
     sources,
     electionId: election,
-    trail: trailOf(db, sql, repo, segments, place.canonical_name),
-    elections: stateElections(db, sql, repo, place.id),
+    trail: trailOf(db, segments, place.canonical_name),
+    elections: stateElections(db, place.id),
   };
 }
 

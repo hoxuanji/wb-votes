@@ -140,7 +140,6 @@ Three measured requirements decided it, and each ruled out an alternative:
 | --- | --- | --- |
 | Read a SQLite file from disk | 581 MB (446 MB with resolution working data dropped) | Vercel functions (250 MB), Workers (10 MB) |
 | `node:sqlite`, synchronous | 151 call sites, 127 repo functions, 3 already async | Any network database, without an async port |
-| Import `.ts` at request time | `place-page.ts` dynamic `file://` import | Cloudflare Workers — no filesystem, no runtime module loading |
 | Node ≥ 23.6 | type stripping unflagged | Node 22 without `--experimental-strip-types` |
 
 Verified on the first real build: `node:24-slim` passes the image's own self-check, and the image is 162 MB.
@@ -151,15 +150,15 @@ and mostly invisible behind a Cloudflare cache: the origin is reached on a cache
 Capacity fluctuates, so moving back is a one-line change plus a volume, and relocating a file-backed database
 is an upload rather than a migration.
 
-That third row is the constraint nobody predicts. `place-page.ts` loads the repo layer through a dynamic
-import of an absolute `file://` URL with a `webpackIgnore` comment, deliberately, so the bundler leaves it
-alone. `packages/mandate/src/**` therefore has to exist in the running container, and `output: 'standalone'`
-is unusable — it copies what the bundler traced, and the bundler was told not to trace those files. It would
-produce an image where every route works except the place, district and constituency surfaces.
+The repo layer is bundled by `next build`: `envelope.ts` and `place-page.ts` import it statically. It used to
+be loaded at request time through a dynamic import of an absolute `file://` URL with a `webpackIgnore`
+comment, which kept `packages/mandate/src/**` in the container as TypeScript source and made
+`output: 'standalone'` unusable. Neither is true now. The image still copies `packages/` and `standalone` is
+still off, until a container build has shown the image serves without them.
 
-`Dockerfile` checks the last two rows at **build** time — it imports the runtime `.ts` module and opens an
-in-memory `node:sqlite` database in the same form the request path uses. A wrong base image fails the build
-instead of failing every page in production.
+`Dockerfile` checks `node:sqlite` at **build** time — it opens an in-memory database — and still imports the
+repo layer as `.ts`, the old request-time form. A wrong base image fails the build instead of failing every
+page in production.
 
 ### First deploy
 

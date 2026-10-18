@@ -4,12 +4,12 @@
 #
 # TWO THINGS ABOUT THIS APP DECIDE THE WHOLE DOCKERFILE, and both are easy to get wrong.
 #
-# 1. THE REPO LAYER IS IMPORTED AT REQUEST TIME, AS TYPESCRIPT SOURCE. `place-page.ts` loads it through a
-#    dynamic import of an absolute file:// URL with a webpackIgnore comment, deliberately, so the bundler
-#    leaves it alone. That means `packages/mandate/src/**` must EXIST in the running container and Node must
-#    be able to import a .ts file with no loader and no flags. Node strips types by default from 23.6, so the
-#    version below is a requirement rather than a preference. `output: 'standalone'` is NOT used for exactly
-#    this reason: it copies what the bundler traced, and the bundler was told not to trace these files.
+# 1. THE REPO LAYER IS BUNDLED, NOT IMPORTED AT REQUEST TIME. `envelope.ts` and `place-page.ts` import it
+#    statically, so `next build` traces it into `.next` like any other module. It used to be loaded through a
+#    dynamic import of an absolute file:// URL with a webpackIgnore comment, which put `packages/mandate/src/**`
+#    on the request path as TypeScript source (so Node had to strip types, from 23.6) and ruled out
+#    `output: 'standalone'`. Neither holds now; the COPY of `packages/` and the .ts import check below stay
+#    until a container build has shown the image serves without them.
 #
 # 2. THE REGISTRY IS A 446 MB READ-ONLY SQLITE FILE, on a volume, reached through MANDATE_DB_PATH. It is not
 #    in the image and not in git — it is built offline by `npm run registry:ingest` and uploaded once.
@@ -45,13 +45,13 @@ COPY --from=build /app/.next ./.next
 COPY --from=build /app/public ./public
 COPY --from=build /app/package.json ./package.json
 COPY --from=build /app/next.config.mjs ./next.config.mjs
-# THE RUNTIME-IMPORTED SOURCE. See note 1 above — without this the place, district and constituency surfaces
-# throw on first request while every other route works, which is the confusing half-broken failure to avoid.
+# The repo layer's source. Nothing on the request path reads it any more (note 1); kept until a container build
+# shows the image serves without it.
 COPY --from=build /app/packages ./packages
 
-# A BUILD THAT CANNOT SERVE SHOULD NOT SHIP. Both mechanisms note 1 depends on are checked here, in the exact
-# form the request path uses them, so a Node version without unflagged type stripping or without node:sqlite
-# fails the image build instead of failing every page in production.
+# A BUILD THAT CANNOT SERVE SHOULD NOT SHIP. Every page reads the registry through node:sqlite, so a Node
+# version without it fails the image build instead of failing every page in production. The .ts import is the
+# old request-time form (note 1), checked for as long as the COPY above stays.
 RUN node --input-type=module -e "\
   import { join } from 'node:path'; \
   import { pathToFileURL } from 'node:url'; \
