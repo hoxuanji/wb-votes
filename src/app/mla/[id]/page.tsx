@@ -1,7 +1,7 @@
 import { notFound, permanentRedirect } from 'next/navigation';
-import { openRead } from '../../../../packages/mandate/src/db/open.ts';
 import { sittingMemberForLegacyId } from '../../../../packages/mandate/src/repo/legacy.ts';
 import { personHref } from '../../../../packages/mandate/src/repo/routes.ts';
+import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 
 /**
  * `/mla/c0001` -> the sitting member's Person Brief.
@@ -19,14 +19,12 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export default function LegacyMLA({ params }: { params: { id: string } }) {
-  let person: string | null = null;
-  try {
-    person = sittingMemberForLegacyId(openRead(), params.id);
-  } catch {
-    // A 404 rather than West Bengal. A state-specific fallback in the routing layer is a state-specific
-    // routing rule, and an unresolvable legacy id is not a request for a particular state.
-    notFound();
-  }
-  if (person === null) notFound();
-  permanentRedirect(personHref(person));
+  const read = readRegistry((db) => sittingMemberForLegacyId(db, params.id));
+  // A registry that cannot be read is thrown, not a 404: a crawler keeps a 404 and drops the redirect for
+  // good, and an outage is a state of the deployment rather than a verdict on the id.
+  if (!read.ok) throw read.cause;
+  // A 404 rather than West Bengal. A state-specific fallback in the routing layer is a state-specific
+  // routing rule, and an unresolvable legacy id is not a request for a particular state.
+  if (read.value === null) notFound();
+  permanentRedirect(personHref(read.value));
 }

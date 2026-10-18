@@ -11,7 +11,7 @@ import {
 } from "../../../packages/mandate/src/repo/place-page.ts";
 import { stateMapView, stateShifts } from "../../../packages/mandate/src/repo/state-map.ts";
 import type { StateMapView, StateShifts } from "../../../packages/mandate/src/repo/state-map.ts";
-import { openRead } from "../../../packages/mandate/src/db/open.ts";
+import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
 import { fillFor } from "../../../packages/mandate/src/viz/party-ink.ts";
 import { StateMap } from "../../components/iei/StateMap.tsx";
 import { electionMapView, bandOf, MARGIN_BANDS } from "../../../packages/mandate/src/repo/election-map.ts";
@@ -108,19 +108,18 @@ function link(base: string, params: Params, change: Record<string, string>): str
 }
 
 /**
- * The state's map data and what moved since the last election of the same house, on one handle.
+ * The state's map data and what moved since the last election of the same house, in one session.
  *
- * `placeView` opens and closes its own connection and this needs a second read; opening one here keeps the
- * two independent, and a jurisdiction whose registry cannot be read renders the page without a map rather
- * than failing the whole route.
+ * `placeView` runs its own session and this needs a second read; keeping the two apart means a jurisdiction
+ * whose registry cannot be read renders the page without a map rather than failing the whole route. That is
+ * for an OUTAGE only. A defect in a map query is thrown, where it used to be caught here and shown as a page
+ * that simply had no map.
  */
 function readMap(
   jurisdictionId: string,
   params: NonNullable<Params>,
 ): { map: StateMapView; shifts: StateShifts } | null {
-  let db: ReturnType<typeof openRead> | null = null;
-  try {
-    db = openRead();
+  const r = readRegistry((db) => {
     const map = stateMapView(db, jurisdictionId, {
       election: first(params["election"]),
       house: first(params["house"]),
@@ -139,11 +138,8 @@ function readMap(
             }
           : stateShifts(db, jurisdictionId, map.election.id),
     };
-  } catch {
-    return null;
-  } finally {
-    db?.close();
-  }
+  });
+  return r.ok ? r.value : null;
 }
 
 /**
@@ -155,19 +151,18 @@ function readMap(
  */
 
 /**
- * Everything the STATE surface needs, on one handle: the chosen election's seats and the whole run behind it.
+ * Everything the STATE surface needs, in one session: the chosen election's seats and the whole run behind it.
  *
  * Separate from `readMap` because the state surface reads a different shape — `electionMapView` rather than
  * `stateMapView` — and reuses the election route's data layer wholesale rather than growing a second one. A
- * jurisdiction whose registry cannot be read renders the page without the surface instead of failing the route.
+ * jurisdiction whose registry cannot be read renders the page without the surface instead of failing the route;
+ * a defect in one of its queries is thrown, not shown as the same page.
  */
 function readState(
   jurisdictionId: string,
   params: NonNullable<Params>,
 ): { view: ElectionMapView; trajectory: StateTrajectory; house: string; choices: string[] } | null {
-  let db: ReturnType<typeof openRead> | null = null;
-  try {
-    db = openRead();
+  const r = readRegistry((db) => {
     // WHICH HOUSE. A state elects two, and its Lok Sabha seats are a different geography answering a
     // different question — so `?house=pc` is a real view and not a variant. Dropping it was a capability
     // regression the render suite caught.
@@ -225,11 +220,8 @@ function readState(
     const view = electionMapView(db, chosen, jurisdictionId);
     if (view.election === null) return null;
     return { view, trajectory: stateTrajectory(db, jurisdictionId, house), house, choices };
-  } catch {
-    return null;
-  } finally {
-    db?.close();
-  }
+  });
+  return r.ok ? r.value : null;
 }
 
 /**

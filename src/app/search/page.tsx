@@ -1,7 +1,7 @@
 import Link from 'next/link';
-import { openRead } from '../../../packages/mandate/src/db/open.ts';
 import { PER_GROUP, searchAll } from '../../../packages/mandate/src/repo/search.ts';
 import type { Hit, Results } from '../../../packages/mandate/src/repo/search.ts';
+import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
 import type { PersonRow } from '../../../packages/mandate/src/repo/person.ts';
 import { Foot, Shell } from '../../components/iei/Shell.tsx';
 import { DataList, DataRow, EmptyState, Panel, RegistryMissing } from '../../components/iei/parts.tsx';
@@ -107,25 +107,17 @@ export default function SearchPage({
 }) {
   const q = (first(searchParams?.['q']) ?? '').trim();
 
-  let r: Results | null = null;
-  let unavailable = false;
-  let db: ReturnType<typeof openRead> | null = null;
-  try {
-    db = openRead();
-    r = searchAll(db, q);
-  } catch {
-    unavailable = true;
-  } finally {
-    db?.close();
-  }
-
-  if (r === null || unavailable) {
+  // An outage reads as "registry not built". A defect in the search is thrown: it used to be caught here and
+  // shown as the same page, so a broken query looked like a fresh clone.
+  const read = readRegistry((db) => searchAll(db, q));
+  if (!read.ok) {
     return (
       <Shell here="search" q={q} reading>
         <RegistryMissing />
       </Shell>
     );
   }
+  const r = read.value;
 
   return (
     <Shell here="search" q={q} reading>

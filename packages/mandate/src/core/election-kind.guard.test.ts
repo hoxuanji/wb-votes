@@ -77,6 +77,7 @@ const ALLOWED: Allowed[] = [
   { file: "app/election/[id]/page.tsx", includes: "typeLabel(ctx.body, ctx.kind)", why: FILL },
   { file: "app/election/[id]/page.tsx", includes: "ctx?.kind === 'bypoll'", why: FILL },
   { file: "app/pl/[...path]/page.tsx", includes: "view.kind === 'not-found'", why: PLACE_VIEW },
+  { file: "app/pl/[...path]/page.tsx", includes: "view.kind === 'unavailable'", why: PLACE_VIEW },
   { file: "app/pl/[...path]/page.tsx", includes: "view.kind === 'ac'", why: PLACE_VIEW },
   { file: "app/pl/[...path]/page.tsx", includes: "view.brief.place.kind", why: SEAT_KIND },
   { file: "components/iei/parts.tsx", includes: "s.kind.replace", why: "a source's kind" },

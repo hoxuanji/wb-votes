@@ -1,12 +1,11 @@
 import Link from 'next/link';
 import { constituencyHref, districtHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
-import { openRead } from '../../packages/mandate/src/db/open.ts';
 import { homeView } from '../../packages/mandate/src/repo/home.ts';
 import { bodyWord } from '../../packages/mandate/src/core/election-kind.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
-import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
+import { readRegistry } from '../../packages/mandate/src/repo/session.ts';
 import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
 import { Foot, Shell } from '../components/iei/Shell.tsx';
@@ -122,40 +121,17 @@ export default function Home({
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  let v: HomeView | null = null;
-  let unavailable = false;
-  // openRead() is INSIDE the try. A missing .data/registry.db throws there, not in homeView, so opening
-  // outside it sent a fresh clone a 500 instead of the page that names the command to fix it.
-  let db: ReturnType<typeof openRead> | null = null;
-  try {
-    db = openRead();
-    v = homeView(db, { layer: first(searchParams?.['layer']), thisYear: THIS_YEAR });
-  } catch (e) {
-    // A fresh clone has no registry. That is the expected failure, not a bug in this process, and the page
-    // says so with the command that fixes it rather than rendering a 500.
-    if (!(e instanceof RegistryUnavailableError) && !/unable to open database file/.test(String(e))) throw e;
-    unavailable = true;
-  } finally {
-    db?.close();
-  }
-
-  if (v === null) {
+  // A fresh clone has no registry. That is the expected failure, not a bug in this process, and the page
+  // says so with the command that fixes it rather than rendering a 500. Anything else is thrown.
+  const read = readRegistry((db) => homeView(db, { layer: first(searchParams?.['layer']), thisYear: THIS_YEAR }));
+  if (!read.ok) {
     return (
       <Shell here="india">
-        {unavailable ? (
-          <RegistryMissing />
-        ) : (
-          <div className="iei-empty">
-            <h1 className="iei-answer">No elections are loaded.</h1>
-            <p className="iei-sub">
-              The registry is built but holds no election. Ingest one with{' '}
-              <code>npm run registry:ingest</code>.
-            </p>
-          </div>
-        )}
+        <RegistryMissing />
       </Shell>
     );
   }
+  const v = read.value;
 
   const next = [...v.announced, ...v.upcoming];
   // VALIDATED BY MEMBERSHIP, never parsed: `?party=` has to name a party the CURRENT layer actually shows, so

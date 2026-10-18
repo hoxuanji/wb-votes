@@ -23,6 +23,7 @@ export const dynamic = 'force-dynamic';
  *               the silent substitution the whole route architecture exists to prevent — and it would be
  *               wrong about half the time by construction.
  * NONE       -> 404. Never the state page: a reader who asked for a constituency did not ask for a state.
+ *               A registry that cannot be read is not NONE: `constituenciesNamed` throws, because a 404 is cached.
  *
  * The second segment is named `body` because Next allows one slug name per path position and the canonical
  * three-segment route beside it owns that name. What arrives here is a constituency name.

@@ -967,7 +967,6 @@ export async function constituenciesNamed(
   read = readRegistry,
 ): Promise<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }[]> {
   const want = decode(nameSlug).trim().toLowerCase();
-  // An outage is "no such constituency" here; a bug is thrown, not hidden behind a 404.
   const r = read((db) =>
     all<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }>(
       db,
@@ -985,7 +984,10 @@ export async function constituenciesNamed(
       want.replace(/-/g, " "),
     ),
   );
-  return r.ok ? r.value : [];
+  // THROWN, not []: this answers a legacy redirect route, where [] is a 404 and a crawler keeps a 404 for good.
+  // An outage is a state of the deployment, not "no such constituency", so it fails like a bug does.
+  if (!r.ok) throw r.cause;
+  return r.value;
 }
 
 export async function constituencyPath(
@@ -1010,7 +1012,9 @@ export async function constituencyPath(
       want.replace(/-/g, " "),
     ),
   );
-  if (!r.ok || r.value === undefined) return null;
+  // Thrown for the reason constituenciesNamed gives: null is "no such constituency", and an outage is not.
+  if (!r.ok) throw r.cause;
+  if (r.value === undefined) return null;
   // TWO SEGMENTS FOR EITHER BODY. The district used to be threaded back in here so the old
   // segment-counting resolver would read three segments as a constituency; `placeView` is told the kind
   // now, so a parliamentary seat — which has no district at all — needs no invented ancestor.

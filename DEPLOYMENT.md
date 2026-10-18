@@ -140,7 +140,7 @@ Three measured requirements decided it, and each ruled out an alternative:
 | --- | --- | --- |
 | Read a SQLite file from disk | 581 MB (446 MB with resolution working data dropped) | Vercel functions (250 MB), Workers (10 MB) |
 | `node:sqlite`, synchronous | 151 call sites, 127 repo functions, 3 already async | Any network database, without an async port |
-| Node ≥ 23.6 | type stripping unflagged | Node 22 without `--experimental-strip-types` |
+| Node ≥ 23.6 | type stripping unflagged, for the image's own `.ts` import check only | Node 22 without `--experimental-strip-types`, while that check stays |
 
 Verified on the first real build: `node:24-slim` passes the image's own self-check, and the image is 162 MB.
 
@@ -150,7 +150,8 @@ and mostly invisible behind a Cloudflare cache: the origin is reached on a cache
 Capacity fluctuates, so moving back is a one-line change plus a volume, and relocating a file-backed database
 is an upload rather than a migration.
 
-The repo layer is bundled by `next build`: `envelope.ts` and `place-page.ts` import it statically. It used to
+The repo layer is bundled by `next build`: every page and route imports it statically, and
+`repo/brief.test.ts` fails if a `webpackIgnore` or a `createRequire` comes back. It used to
 be loaded at request time through a dynamic import of an absolute `file://` URL with a `webpackIgnore`
 comment, which kept `packages/mandate/src/**` in the container as TypeScript source and made
 `output: 'standalone'` unusable. Neither is true now. The image still copies `packages/` and `standalone` is

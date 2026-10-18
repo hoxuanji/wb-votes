@@ -38,15 +38,15 @@ _Avoid_: Latest election, newest election
 ### Reading the registry
 
 **Registry session**:
-One scoped use of the registry: it is opened, read and closed within a single call, and nothing that holds it outlives that call.
+One scoped use of the registry: it is opened, read or written, and closed within a single call, and nothing that holds it outlives that call.
 _Avoid_: connection, handle, database access
 
 **Read-then-render**:
-The rule that a page reads everything it needs inside one registry session, returns plain data, and only then renders, so the open registry never reaches the components. Pages are being moved to it one at a time; those not yet moved still open the registry themselves.
+The rule that a page reads everything it needs inside one registry session, returns plain data, and only then renders, so the open registry never reaches the components. Every page follows it.
 _Avoid_: lazy read, render-time query
 
 **Outage**:
-The registry cannot be read right now: it is absent, was never built, is damaged, or is busy with a writer. A reader is told the registry is unavailable and what fixes it.
+The registry cannot be read right now: it is absent, was never built, is damaged, or is busy with a writer. A page tells the reader the registry is unavailable and what fixes it; a legacy redirect fails instead of answering "not found", which a crawler would remember.
 _Avoid_: error, failure, downtime
 
 **Defect**:
@@ -54,7 +54,7 @@ A fault in this program, such as a malformed query or a mistake in the code arou
 _Avoid_: outage, unavailable, bug (when it is shown to a reader)
 
 **Read outcome**:
-What a registry session reports: either the value that was read, or that the registry was in an outage, with a sentence for the reader and the underlying cause for the log.
+What a registry session reports: either the value it produced, or that the registry was in an outage, with a sentence for the reader and the underlying cause for the log.
 _Avoid_: result (a result is an election result)
 
 ### Delimitation

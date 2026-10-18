@@ -10,7 +10,7 @@ import { DatabaseSync } from "node:sqlite";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { RegistryUnavailableError, getPersonBrief } from "./index.ts";
-import { readRegistry } from "./session.ts";
+import { readRegistry, writeRegistry } from "./session.ts";
 
 const NOW = "2026-08-12T00:00:00.000Z";
 
@@ -179,4 +179,52 @@ test("an outage is recognised by name, so a second copy of the package still cou
   );
   assert.equal(r.ok, false);
   if (!r.ok) assert.equal(r.detail, "thrown by another copy of the package");
+});
+
+test("a write session creates the file where there is none, writes, closes, and a read sees it", () => {
+  // open() is the write path: it makes the directory and the file, which a read never does.
+  const path = join(dir(), "nested", "registry.db");
+  let seen: DatabaseSync | undefined;
+  const w = writeRegistry(
+    (db) => {
+      seen = db;
+      db.exec("CREATE TABLE person (id TEXT)");
+      return db.prepare("INSERT INTO person VALUES ('p1')").run().changes;
+    },
+    { path },
+  );
+  assert.deepEqual(w, { ok: true, value: 1 });
+  assert.equal(isOpen(seen), false);
+  assert.deepEqual(readRegistry((db) => db.prepare("SELECT id FROM person").get()?.["id"], { path }), {
+    ok: true,
+    value: "p1",
+  });
+});
+
+test("a write session reports an outage as one and rethrows a defect, closing the handle either way", () => {
+  const path = join(dir(), "registry.db");
+  open(path).close(); // a database with no schema: the write has nothing to write into
+  let seen: DatabaseSync | undefined;
+  const w = writeRegistry(
+    (db) => {
+      seen = db;
+      return db.prepare("INSERT INTO person VALUES ('p1')").run();
+    },
+    { path },
+  );
+  assert.equal(w.ok, false);
+  assert.equal(isOpen(seen), false, "handle left open after an outage");
+
+  assert.throws(
+    () =>
+      writeRegistry(
+        (db) => {
+          seen = db;
+          throw new TypeError("cannot read properties of undefined");
+        },
+        { path },
+      ),
+    /cannot read properties/,
+  );
+  assert.equal(isOpen(seen), false, "handle left open after a defect");
 });

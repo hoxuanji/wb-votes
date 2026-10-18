@@ -1,6 +1,6 @@
 import { notFound, permanentRedirect } from 'next/navigation';
-import { openRead } from '../../../../packages/mandate/src/db/open.ts';
 import { placePathForLegacyId } from '../../../../packages/mandate/src/repo/legacy.ts';
+import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 
 /**
  * `/constituency/c0001` -> `/constituency/wb/mekliganj`.
@@ -23,14 +23,11 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export default function LegacyConstituency({ params }: { params: { state: string } }) {
-  let path: string | null = null;
-  try {
-    path = placePathForLegacyId(openRead(), params.state);
-  } catch {
-    // Registry unavailable, so nothing can be resolved. A 404 rather than a guess: this used to redirect to
-    // West Bengal, which is a state-specific default sitting in the routing layer.
-    notFound();
-  }
-  if (path === null) notFound();
-  permanentRedirect(path);
+  const read = readRegistry((db) => placePathForLegacyId(db, params.state));
+  // Registry unavailable, so nothing can be resolved. Thrown rather than a 404 or a guess: a crawler keeps a
+  // 404 and drops the redirect for good, and this used to redirect to West Bengal, which is a state-specific
+  // default sitting in the routing layer.
+  if (!read.ok) throw read.cause;
+  if (read.value === null) notFound();
+  permanentRedirect(read.value);
 }

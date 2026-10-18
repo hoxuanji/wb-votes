@@ -4,12 +4,13 @@
 #
 # TWO THINGS ABOUT THIS APP DECIDE THE WHOLE DOCKERFILE, and both are easy to get wrong.
 #
-# 1. THE REPO LAYER IS BUNDLED, NOT IMPORTED AT REQUEST TIME. `envelope.ts` and `place-page.ts` import it
-#    statically, so `next build` traces it into `.next` like any other module. It used to be loaded through a
-#    dynamic import of an absolute file:// URL with a webpackIgnore comment, which put `packages/mandate/src/**`
-#    on the request path as TypeScript source (so Node had to strip types, from 23.6) and ruled out
-#    `output: 'standalone'`. Neither holds now; the COPY of `packages/` and the .ts import check below stay
-#    until a container build has shown the image serves without them.
+# 1. THE REPO LAYER IS BUNDLED, NOT IMPORTED AT REQUEST TIME. Every page and route imports it statically, so
+#    `next build` traces it into `.next` like any other module, and repo/brief.test.ts fails if a webpackIgnore
+#    or a createRequire comes back. It used to be loaded through a dynamic import of an absolute file:// URL
+#    with a webpackIgnore comment, which put `packages/mandate/src/**` on the request path as TypeScript source
+#    (so Node had to strip types, from 23.6) and ruled out `output: 'standalone'`. Neither holds now; the COPY
+#    of `packages/` and the .ts import check below stay until a container build has shown the image serves
+#    without them.
 #
 # 2. THE REGISTRY IS A 446 MB READ-ONLY SQLITE FILE, on a volume, reached through MANDATE_DB_PATH. It is not
 #    in the image and not in git — it is built offline by `npm run registry:ingest` and uploaded once.

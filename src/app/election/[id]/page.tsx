@@ -1,7 +1,5 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { openRead } from '../../../../packages/mandate/src/db/open.ts';
-import { RegistryUnavailableError } from '../../../../packages/mandate/src/repo/index.ts';
 import {
   electionMapView,
   seatsInBin,
@@ -12,6 +10,7 @@ import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
 import { stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
+import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
@@ -92,28 +91,17 @@ export default function ElectionPage({
   params: { id: string };
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  let v: ElectionMapView | null = null;
-  let unavailable = false;
-  let db: ReturnType<typeof openRead> | null = null;
-  try {
-    db = openRead();
-    v = electionMapView(db, decodeURIComponent(params.id));
-  } catch (e) {
-    if (!(e instanceof RegistryUnavailableError) && !/unable to open database file/.test(String(e))) throw e;
-    unavailable = true;
-  } finally {
-    db?.close();
-  }
-
-  if (unavailable) {
+  const read = readRegistry((db) => electionMapView(db, decodeURIComponent(params.id)));
+  if (!read.ok) {
     return (
       <Shell here="india">
         <RegistryMissing />
       </Shell>
     );
   }
+  const v = read.value;
   // An id that names no election this route serves is a 404, not an empty page.
-  if (v === null || v.election === null) notFound();
+  if (v.election === null) notFound();
 
   const e = v.election;
   const ctx = v.ctx;

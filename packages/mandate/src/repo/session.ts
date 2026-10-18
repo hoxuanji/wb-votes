@@ -12,7 +12,7 @@
 // closed under before it settled. Add an async flavour the day a caller has something to await inside a read.
 
 import type { DatabaseSync } from "node:sqlite";
-import { openRead } from "../db/index.ts";
+import { open, openRead } from "../db/index.ts";
 import { read } from "./index.ts";
 
 /** What a session produced. `detail` is the sentence to show a reader; `cause` is for the log. */
@@ -39,10 +39,26 @@ function isOutage(e: unknown): e is Error {
  * test passes `(fn) => readRegistry(fn, { path })` instead of changing the process's environment or cwd.
  */
 export function readRegistry<T>(fn: (db: DatabaseSync) => T, o: { path?: string } = {}): Read<T> {
+  return session(() => openRead(o.path), fn);
+}
+
+/**
+ * The same session for the one caller that writes from a request: open() instead of openRead(), so it creates
+ * the file and the directory and sets WAL, exactly as the route did before it came here. The outcome has the
+ * same shape, because a write finds the registry in an outage the same ways a read does (a read-only volume
+ * is `EROFS` on the mkdir), and a defect in the write is thrown for the same reason a defect in a read is.
+ *
+ * Nothing here wraps `fn` in a transaction: a write that must be atomic says so itself, as the repo's do.
+ */
+export function writeRegistry<T>(fn: (db: DatabaseSync) => T, o: { path?: string } = {}): Read<T> {
+  return session(() => open(o.path), fn);
+}
+
+function session<T>(opener: () => DatabaseSync, fn: (db: DatabaseSync) => T): Read<T> {
   let db: DatabaseSync | undefined;
   try {
-    const open = (db = read(() => openRead(o.path)));
-    return { ok: true, value: read(() => fn(open)) };
+    const opened = (db = read(opener));
+    return { ok: true, value: read(() => fn(opened)) };
   } catch (cause) {
     if (!isOutage(cause)) throw cause;
     return { ok: false, detail: cause.message, cause };

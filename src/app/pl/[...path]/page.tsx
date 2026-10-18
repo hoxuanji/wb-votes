@@ -1,4 +1,5 @@
 import { notFound, permanentRedirect } from 'next/navigation';
+import { RegistryUnavailableError } from '../../../../packages/mandate/src/repo/index.ts';
 import { placeView } from '../../../../packages/mandate/src/repo/place-page.ts';
 import { constituencyHref, districtHref, stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
 
@@ -17,7 +18,8 @@ export const dynamic = 'force-dynamic';
  * RESOLVED FIRST — through the same `placeView` the surfaces use — and the canonical URL is built from what
  * came back, never from the shape of the incoming path. A path that resolves to nothing is a 404 rather than
  * a redirect up the tree, because sending a reader who asked for a constituency to a state page is the
- * silent substitution this phase exists to end.
+ * silent substitution this phase exists to end. A registry that cannot be read resolves nothing for a
+ * different reason, and is thrown instead.
  *
  * The `?...` query survives the redirect: `?election=`, `?district=`, `?party=`, `?mode=` and `?seat=` mean
  * the same thing on the canonical state route as they did here.
@@ -35,8 +37,10 @@ export default async function LegacyPlace({
   const segments = lens === null ? all : all.slice(0, -1);
 
   const view = await placeView(segments, searchParams ?? {});
-  // A registry that cannot answer must not produce a redirect to a guess.
-  if (view.kind === 'not-found' || view.kind === 'unavailable') notFound();
+  // A registry that cannot answer must not produce a redirect to a guess, and it is not a 404 either: a crawler
+  // keeps a 404 and drops the redirect for good. It is thrown, which a crawler retries.
+  if (view.kind === 'unavailable') throw new RegistryUnavailableError();
+  if (view.kind === 'not-found') notFound();
 
   /**
    * The canonical destination, from what the REGISTRY returned.

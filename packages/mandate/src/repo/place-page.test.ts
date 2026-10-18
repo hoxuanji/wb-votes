@@ -442,19 +442,6 @@ test("placeView: the path's ancestry must be true, and an unknown place is not-f
   if (byNumber.kind === "ac") assert.equal(byNumber.brief.place.canonicalName, "Mekliganj");
 });
 
-test("placeView: a missing registry is a handled state naming the fix, never a throw", async () => {
-  const cwd = process.cwd();
-  try {
-    process.chdir("/");
-    const v = await placeView(["wb"], {});
-    // /: there is no .data/registry.db relative to it.
-    assert.equal(v.kind, "unavailable");
-    if (v.kind === "unavailable") assert.match(v.detail, /npm run registry:migrate/);
-  } finally {
-    process.chdir(cwd);
-  }
-});
-
 test("provenance: counts what was never fetched, so the page can say it in words", () => {
   const s = (id: string, kind: "fetched" | "asserted_by_upstream", url: string | null): SourceRef => ({
     id,
@@ -550,7 +537,7 @@ test("placeView on a fixture registry: a state lists its districts and a distric
   assert.equal((await placeView(["xx"], {}, undefined, undefined, read)).kind, "not-found");
 });
 
-test("placeView, constituenciesNamed and constituencyPath: an unreadable registry is a state, never a throw", async () => {
+test("placeView says an unreadable registry is unavailable, and the two legacy lookups throw it", async () => {
   const gone = at(join(mkdtempSync(join(tmpdir(), "mandate-placepage-")), "registry.db"));
   const unmigrated = at(
     (() => {
@@ -563,9 +550,17 @@ test("placeView, constituenciesNamed and constituencyPath: an unreadable registr
     const v = await placeView(["wb"], {}, undefined, undefined, read);
     assert.equal(v.kind, "unavailable");
     if (v.kind === "unavailable") assert.match(v.detail, /npm run registry:migrate/);
-    assert.deepEqual(await constituenciesNamed("wb", "mekliganj", read), []);
-    assert.equal(await constituencyPath("wb", "mekliganj", read), null);
+    // The lookups answer legacy redirect routes, where [] and null are a 404 and a crawler keeps a 404 for good.
+    // An unreadable registry is not "no such constituency", so it is thrown.
+    await assert.rejects(constituenciesNamed("wb", "mekliganj", read), /npm run registry:migrate/);
+    await assert.rejects(constituencyPath("wb", "mekliganj", read), /npm run registry:migrate/);
   }
+});
+
+test("constituenciesNamed and constituencyPath still answer [] and null for a name the registry does not hold", async () => {
+  const read = at(bareRegistry());
+  assert.deepEqual(await constituenciesNamed("wb", "nowhere", read), []);
+  assert.equal(await constituencyPath("wb", "nowhere", read), null);
 });
 
 test("placeView, constituenciesNamed and constituencyPath: a defect in a query is thrown, not hidden as unavailable or 404", async () => {
