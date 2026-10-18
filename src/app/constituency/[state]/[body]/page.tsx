@@ -4,7 +4,8 @@ import { permanentRedirect } from 'next/navigation';
 import { Shell } from '../../../../components/iei/Shell.tsx';
 import { Crumbs, Panel } from '../../../../components/iei/parts.tsx';
 import { constituenciesNamed } from '../../../../../packages/mandate/src/repo/place-page.ts';
-import { constituencyHref, stateHref } from '../../../../../packages/mandate/src/repo/routes.ts';
+import { constituencyHref, bodyOfKind, stateHref } from '../../../../../packages/mandate/src/repo/routes.ts';
+import { bodyWord } from '../../../../../packages/mandate/src/core/election-kind.ts';
 import '../../../iei.css';
 
 export const runtime = 'nodejs';
@@ -61,7 +62,7 @@ export default async function ConstituencyDisambiguation({
             <li key={`${c.kind}-${c.id}`}>
               <Link href={constituencyHref(c)}>
                 {c.canonicalName}
-                <b>{c.kind === 'pc' ? 'Lok Sabha' : 'Assembly'}</b>
+                <b>{bodyWord(bodyOfKind(c.kind))}</b>
               </Link>
             </li>
           ))}

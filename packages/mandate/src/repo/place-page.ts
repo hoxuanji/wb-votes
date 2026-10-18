@@ -23,6 +23,8 @@ import type { Chart, Series, SlopeRow } from "../viz/charts.ts";
 import { bars, lines, slope } from "../viz/charts.ts";
 import type { Tile } from "./brief.ts";
 import { fromRepo } from "./brief.ts";
+import { facetOf } from "../core/election-kind.ts";
+import type { Body, Fill } from "../core/election-kind.ts";
 // A const string, not a query: importing it here opens no database and keeps one definition of what
 // "newest first" means across every module that orders elections.
 import { CHRONO_DESC } from "./elections.ts";
@@ -785,9 +787,11 @@ export type Crumb = { label: string; href?: string };
 export type StateElection = {
   id: string;
   year: number;
-  /** 'ac' or 'pc', in the registry's codes; the page turns it into a word. */
+  /** 'ac' or 'pc', in the registry's codes. A page reads `body` and `fill`, which are these decoded. */
   house: string;
   kind: string;
+  body: Body;
+  fill: Fill;
   seats: number;
   leaderLabel: string | null;
   leaderSeats: number;
@@ -949,11 +953,14 @@ function stateElections(db: DatabaseSync, sql: DbMod, repo: RepoMod, jurisdictio
       .filter((w) => w.eid === r.id && w.party !== null)
       .sort((a, b) => b.n - a.n || (a.party ?? "").localeCompare(b.party ?? ""))
       .at(0);
+    const { body, fill } = facetOf(r.house, r.kind);
     return {
       id: r.id,
       year: r.year,
       house: r.house,
       kind: r.kind,
+      body,
+      fill,
       seats: r.seats,
       leaderLabel: top?.party ?? null,
       leaderSeats: top?.n ?? 0,

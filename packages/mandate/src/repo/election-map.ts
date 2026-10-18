@@ -28,6 +28,8 @@ import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
+import { facetOf } from "../core/election-kind.ts";
+import type { Body, Fill } from "../core/election-kind.ts";
 import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
 import { placeHref } from "./place-page.ts";
 import type { Finding, PartyRef, SeatFlips, VoteSeatEfficiency } from "./findings.ts";
@@ -135,8 +137,20 @@ export type ElectionChoice = {
   year: number;
   house: string;
   kind: string;
+  /** `house` and `kind` decoded once, in `choiceOf`. A surface reads these, not the registry's codes. */
+  body: Body;
+  fill: Fill;
   seats: number;
 };
+
+/** The columns a choice is selected with. */
+type ChoiceRow = Omit<ElectionChoice, "body" | "fill">;
+
+/** A selected row with its body and fill decoded. Throws for a house/kind pair the product does not label. */
+function choiceOf(r: ChoiceRow): ElectionChoice {
+  const { body, fill } = facetOf(r.house, r.kind);
+  return { ...r, body, fill };
+}
 
 export type ElectionMapView = {
   election: (ElectionChoice & { jurisdictionId: string; jurisdictionName: string }) | null;
@@ -235,7 +249,7 @@ type SeatSql = {
 /** Every election addressable on this route, newest first. */
 export function electionChoices(db: DatabaseSync, limit = 60): ElectionChoice[] {
   return read(() =>
-    all<ElectionChoice>(
+    all<ChoiceRow>(
       db,
       `SELECT e.id AS id, e.name AS name, e.year AS year, e.house AS house, e.kind AS kind,
               (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
@@ -244,7 +258,7 @@ export function electionChoices(db: DatabaseSync, limit = 60): ElectionChoice[] 
         ORDER BY ${CHRONO_DESC}
         LIMIT ?`,
       limit,
-    ),
+    ).map(choiceOf),
   );
 }
 
@@ -696,7 +710,7 @@ export function electionMapView(
       ...scopeBind,
     ).map((x) => x.id);
 
-    const siblings = all<ElectionChoice>(
+    const siblings = all<ChoiceRow>(
       db,
       `SELECT e.id AS id, e.name AS name, e.year AS year, e.house AS house, e.kind AS kind,
               (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
@@ -706,17 +720,12 @@ export function electionMapView(
       e.jurisdictionId,
       e.house,
       e.kind,
-    );
+    ).map(choiceOf);
 
     return {
       scope: jurisdictionId ?? null,
       election: {
-        id: e.id,
-        name: e.name,
-        year: e.year,
-        house: e.house,
-        kind: e.kind,
-        seats: seats.length,
+        ...choiceOf({ id: e.id, name: e.name, year: e.year, house: e.house, kind: e.kind, seats: seats.length }),
         jurisdictionId: e.jurisdictionId,
         jurisdictionName: e.jurisdictionName,
       },

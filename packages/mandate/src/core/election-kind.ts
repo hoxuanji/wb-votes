@@ -28,10 +28,25 @@ export type Fill = "general" | "bypoll";
 
 export type Facet = { body: Body; fill: Fill; type: string };
 
+/** "Lok Sabha" or "Assembly" — the body, in the word a reader uses for it. */
+export function bodyWord(body: Body): string {
+  return body === "lok-sabha" ? "Lok Sabha" : "Assembly";
+}
+
 /** "Assembly Election", "Lok Sabha By-election" — the type, in the words a reader uses for it. */
 export function typeOf(body: Body, fill: Fill): string {
-  const house = body === "lok-sabha" ? "Lok Sabha" : "Assembly";
+  const house = bodyWord(body);
   return fill === "bypoll" ? `${house} By-election` : `${house} Election`;
+}
+
+/**
+ * An election's label in a year picker, in words rather than in codes: '2021', '2021 by-poll', 'LS 2019',
+ * 'LS 2019 by-poll'. Short because twelve of them share a strip; the strip's own body is the context for an
+ * assembly year, so only a Lok Sabha year says which body it is.
+ */
+export function chipOf(body: Body, fill: Fill, year: number): string {
+  const lead = body === "lok-sabha" ? "LS " : "";
+  return fill === "bypoll" ? `${lead}${year} by-poll` : `${lead}${year}`;
 }
 
 /** The (house, kind) pairs the registry holds and the product can name. */
@@ -107,3 +122,32 @@ export function chronoAsc(alias = "e"): string {
 
 export const CHRONO_DESC = chronoDesc("e");
 export const CHRONO_ASC = chronoAsc("e");
+
+/**
+ * SQL for "an election of this body". `alias` is the election table's alias in the query.
+ *
+ * From `house`, the column that says which body was elected, the same as `facetOf`.
+ */
+export function bodyIs(body: Body, alias = "e"): string {
+  return `${alias}.house = '${body === "lok-sabha" ? "pc" : "ac"}'`;
+}
+
+/**
+ * SQL for the ids of the CURRENT election of `body` in each jurisdiction: its newest full-house election, by
+ * chronology. Meant for `x IN (...)`; it binds nothing and its `e` is its own, so it nests in any query.
+ *
+ * A by-election never is current. Four seats falling vacant do not replace the election that formed the
+ * house, and Jammu & Kashmir's newest row is a single-seat by-election on 87 seats' worth of state.
+ *
+ * Per jurisdiction because that is how a house is held: an assembly election belongs to its state, and a
+ * general election is one row for the union (`in`), so asking for the Lok Sabha yields one id.
+ * `currentElection` in repo/elections.ts is this rule as a verb; a query that must count over every
+ * jurisdiction's current election embeds this directly rather than spelling the rule a third time.
+ */
+export function currentIds(body: Body): string {
+  return (
+    `SELECT id FROM (SELECT e.id AS id, ` +
+    `row_number() OVER (PARTITION BY e.jurisdiction_place_id ORDER BY ${CHRONO_DESC}) AS rn ` +
+    `FROM election e WHERE ${bodyIs(body)} AND ${FULL_HOUSE}) WHERE rn = 1`
+  );
+}

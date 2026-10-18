@@ -22,7 +22,8 @@ import { read } from "./index.ts";
 import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
 import type { Turnout } from "./turnout-trust.ts";
 import { JURISDICTIONS } from "../ingest/india.ts";
-import { CHRONO_DESC, FULL_HOUSE, byElection, chronoDesc } from "../core/election-kind.ts";
+import { CHRONO_DESC, FULL_HOUSE, byElection, chronoDesc, currentIds, facetOf } from "../core/election-kind.ts";
+import type { Body, Fill } from "../core/election-kind.ts";
 
 // Defined once in core/election-kind.ts, where ingest can reach it too, and re-exported: every ranking in this
 // file and in repo/home.ts binds it, so the defect it exists to prevent cannot come back in one place while
@@ -320,7 +321,32 @@ export type LatestElection = {
 };
 
 /**
+ * The CURRENT election of a body: its newest full-house election, by chronology, or null when it has none.
+ *
+ * `scope` is a jurisdiction id. Given, this is that jurisdiction's own current election; omitted, it is the
+ * newest of them all — for the Lok Sabha, the one general election of the union. The rule itself is
+ * `currentIds` in core, so a query that counts over every current election shares it rather than copying it.
+ */
+export function currentElection(db: DatabaseSync, body: Body, scope?: string): LatestElection | null {
+  return read(
+    () =>
+      get<LatestElection>(
+        db,
+        `SELECT e.id AS id, e.jurisdiction_place_id AS jurisdictionId, e.year AS year,
+                (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seatsContested
+           FROM election e
+          WHERE e.id IN (${currentIds(body)})${scope === undefined ? "" : " AND e.jurisdiction_place_id = ?"}
+          ORDER BY ${CHRONO_DESC} LIMIT 1`,
+        ...(scope === undefined ? [] : [scope]),
+      ) ?? null,
+  );
+}
+
+/**
  * The most recent election of one kind in each jurisdiction, by real chronology.
+ *
+ * Per KIND, so a by-election kind has a latest of its own; the current election of a house is
+ * `currentElection`, which never lands on a by-election.
  *
  * `ORDER BY e.id DESC` was here, and inside one kind it happened to agree with the calendar because an
  * assembly id ends in its year. It does not agree for by-elections: `wb-bypoll-ge-2016` sorts above
@@ -448,6 +474,9 @@ export type Dated = {
   seatsContested: number;
   /** 'ac' or 'pc' — which house was, or is to be, elected. */
   house: string;
+  /** `house` and `kind` decoded once, where the row is built. A page reads these, not the registry's codes. */
+  body: Body;
+  fill: Fill;
   /**
    * A date the COMMISSION set, never one this codebase computed.
    *
@@ -476,6 +505,12 @@ export function recent(db: DatabaseSync, limit = 6): Dated[] {
 /** By-elections, which are their own election kind and their own story. */
 export function bypolls(db: DatabaseSync, limit = 8): Dated[] {
   return read(() => dated(db, byElection(), limit));
+}
+
+/** The body and fill of a `Dated`, decoded from the row's own house and kind. */
+function decoded(house: string, kind: string): { body: Body; fill: Fill } {
+  const { body, fill } = facetOf(house, kind);
+  return { body, fill };
 }
 
 /**
@@ -517,6 +552,7 @@ function dated(db: DatabaseSync, where: string, limit: number): Dated[] {
       jurisdictionName: nameOf(e.j),
       kind: e.kind,
       house: e.house,
+      ...decoded(e.house, e.kind),
       year: e.year,
       status: "declared" as const,
       leaderLabel: parties[0]?.label ?? null,
@@ -586,6 +622,7 @@ export function upcoming(db: DatabaseSync, thisYear: number, kind = "assembly", 
         jurisdictionName: nameOf(e.j),
         kind: e.kind,
         house: e.house,
+        ...decoded(e.house, e.kind),
         year: e.year,
         status: "due",
         leaderLabel: null,
@@ -598,6 +635,7 @@ export function upcoming(db: DatabaseSync, thisYear: number, kind = "assembly", 
     );
     const covered = new Set(announced.map((a) => a.jurisdictionId));
 
+    const house = kind === "assembly" ? "ac" : "pc";
     const rows = currentStandings(db, kind)
       // A jurisdiction whose next election is already announced does not also get a derived guess at it.
       .filter((s) => !covered.has(s.jurisdictionId))
@@ -608,7 +646,8 @@ export function upcoming(db: DatabaseSync, thisYear: number, kind = "assembly", 
           jurisdictionId: s.jurisdictionId,
           jurisdictionName: s.jurisdictionName,
           kind,
-          house: kind === "assembly" ? "ac" : "pc",
+          house,
+          ...decoded(house, kind),
           year: s.year + TERM_YEARS,
           status: "due",
           leaderLabel: s.leaderLabel,

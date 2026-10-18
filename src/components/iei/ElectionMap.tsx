@@ -175,7 +175,7 @@ export function ElectionMap({
   const drawable = view.seats.filter((s) => s.path !== null);
   // The country is drawn under the seats only for an UNSCOPED national view. A state-scoped Lok Sabha
   // map is framed to that state, so 35 other states' outlines would be clipped away or, worse, visible.
-  const national = view.election?.house === 'pc' && view.scope === null;
+  const national = view.election?.body === 'lok-sabha' && view.scope === null;
   // A district focus reframes to its own seats. Falling back to the whole election when a district has
   // nothing drawable is deliberate: an empty frame would zoom to nothing.
   const inFocus = district === null ? [] : drawable.filter((s) => s.districtId === district);

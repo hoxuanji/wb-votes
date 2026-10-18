@@ -12,6 +12,7 @@ import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
 import { stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
+import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
 import { ElectionMap, MODES, isMode } from '../../../components/iei/ElectionMap.tsx';
@@ -83,9 +84,6 @@ function pct(v: number | null, dp = 1): string {
   if (v !== 0 && Number(v.toFixed(dp)) === 0) return '<0.1%';
   return `${v.toFixed(dp)}%`;
 }
-
-/** The house in the words a reader uses. `ac`/`pc` are the registry's codes and never reach the page. */
-const houseWord = (h: string): string => (h === 'pc' ? 'Lok Sabha' : h === 'ac' ? 'Assembly' : h);
 
 export default function ElectionPage({
   params,
@@ -172,17 +170,17 @@ export default function ElectionPage({
       <Crumbs
         trail={[
           { label: 'India', href: '/' },
-          ...(e.house === 'ac'
+          ...(e.body === 'assembly'
             ? [{ label: e.jurisdictionName, href: stateHref(e.jurisdictionId) }]
             : []),
-          { label: `${houseWord(e.house)} ${e.year}` },
+          { label: `${bodyWord(e.body)} ${e.year}` },
         ]}
       />
 
       {/* ── 1 · HEADER. One sentence of result, then the five figures that frame it. Not a tile grid. ── */}
       <div className="iei-head">
-        {/* THE TYPE, FROM ElectionContext. Not `houseWord(house)`, which says "Lok Sabha" for a Lok Sabha
-            by-election and so described 829 elections as something they are not. */}
+        {/* THE TYPE, FROM ElectionContext. The body alone says "Lok Sabha" for a Lok Sabha by-election, which
+            would describe 829 elections as something they are not. */}
         <p className="iei-eyebrow">
           {ctx === null
             ? null
@@ -239,7 +237,7 @@ export default function ElectionPage({
       {/* ── 2 and 3 · THE MAP, and the four ways of reading it ── */}
       <Panel
         id="map"
-        title={`${e.house === 'pc' ? 'India' : e.jurisdictionName} · ${
+        title={`${e.body === 'lok-sabha' ? 'India' : e.jurisdictionName} · ${
           MODES.find((m) => m.key === mode)?.label ?? ''
         }`}
         question={MODES.find((m) => m.key === mode)?.question ?? ''}
@@ -345,7 +343,7 @@ export default function ElectionPage({
                       {' · '}
                       {pct(s.marginPct, 2)}
                       {turnoutHeadline(s.turnout) === null ? null : <> · {turnoutHeadline(s.turnout)}</>}
-                      {e.house === 'pc' && s.jurisdictionName !== null ? <> · {s.jurisdictionName}</> : null}
+                      {e.body === 'lok-sabha' && s.jurisdictionName !== null ? <> · {s.jurisdictionName}</> : null}
                     </>
                   }
                 />

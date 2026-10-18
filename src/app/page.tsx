@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { constituencyHref, districtHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
 import { openRead } from '../../packages/mandate/src/db/open.ts';
 import { homeView } from '../../packages/mandate/src/repo/home.ts';
+import { bodyWord } from '../../packages/mandate/src/core/election-kind.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
@@ -108,11 +109,6 @@ function href(params: Params, change: Record<string, string>): string {
 /** The span of the elections the party table sums over, so its caveat states its own range. */
 const oldest = (v: HomeView): number => Math.min(...v.standings.map((s) => s.year));
 const newest = (v: HomeView): number => Math.max(...v.standings.map((s) => s.year));
-
-/** The house a row is about, in the words a reader uses. `ac`/`pc` are the registry's codes. */
-function houseWord(house: string): string {
-  return house === 'pc' ? 'Lok Sabha' : house === 'ac' ? 'Assembly' : house;
-}
 
 const IN = new Intl.NumberFormat('en-IN');
 
@@ -426,12 +422,12 @@ export default function Home({
                     <>
                       {r.jurisdictionName}
                       <span className="iei-rule">
-                        {houseWord(r.house)} {r.year}
-                        {r.kind === 'bypoll' ? ' by-election' : ''}
+                        {bodyWord(r.body)} {r.year}
+                        {r.fill === 'bypoll' ? ' by-election' : ''}
                       </span>
                     </>
                   }
-                  href={r.kind === 'general' ? undefined : stateHref(r.jurisdictionId)}
+                  href={r.body === 'lok-sabha' && r.fill === 'general' ? undefined : stateHref(r.jurisdictionId)}
                   aside={
                     <b>
                       {/* A reading, never a bare number: West Bengal 2026's 93.0% is a seed defect, and

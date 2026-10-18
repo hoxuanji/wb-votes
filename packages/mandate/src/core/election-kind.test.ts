@@ -5,9 +5,13 @@ import {
   CHRONO_ASC,
   CHRONO_DESC,
   FULL_HOUSE,
+  bodyIs,
+  bodyWord,
   byElection,
+  chipOf,
   chronoAsc,
   chronoDesc,
+  currentIds,
   facetOf,
   fullHouse,
   majorityOf,
@@ -45,6 +49,18 @@ test("typeOf: the type label is body plus fill, in a reader's words", () => {
   for (const [house, kind, body, fill, type] of REAL) {
     assert.equal(typeOf(body as "assembly" | "lok-sabha", fill as "general" | "bypoll"), type, `${house}/${kind}`);
   }
+});
+
+test("bodyWord: the body in a reader's word", () => {
+  assert.equal(bodyWord("assembly"), "Assembly");
+  assert.equal(bodyWord("lok-sabha"), "Lok Sabha");
+});
+
+test("chipOf: a year picker label — only a Lok Sabha year names its body, only a by-election says by-poll", () => {
+  assert.equal(chipOf("assembly", "general", 2021), "2021");
+  assert.equal(chipOf("assembly", "bypoll", 2021), "2021 by-poll");
+  assert.equal(chipOf("lok-sabha", "general", 2019), "LS 2019");
+  assert.equal(chipOf("lok-sabha", "bypoll", 2019), "LS 2019 by-poll");
 });
 
 test("majorityOf: more than half the seats contested for a full house", () => {
@@ -178,4 +194,65 @@ test("chronoDesc and chronoAsc take the election table's alias, and the constant
   assert.doesNotMatch(chronoDesc("e2"), /\be\./, "an aliased fragment still names e");
   assert.equal(CHRONO_DESC, chronoDesc("e"));
   assert.equal(CHRONO_ASC, chronoAsc("e"));
+});
+
+// An election table in miniature: the columns `bodyIs` and `currentIds` filter and rank on, and nothing else.
+type Row = [id: string, house: string, kind: string, j: string, year: number, month: number | null, occ: number];
+
+function electionsWhere(where: string, rows: Row[]): string[] {
+  const db = new DatabaseSync(":memory:");
+  db.exec(`CREATE TABLE election (id TEXT PRIMARY KEY, house TEXT NOT NULL, kind TEXT NOT NULL,
+                                  jurisdiction_place_id TEXT NOT NULL, year INTEGER NOT NULL,
+                                  polling_month INTEGER, occurrence INTEGER NOT NULL)`);
+  const ins = db.prepare(`INSERT INTO election VALUES (?, ?, ?, ?, ?, ?, ?)`);
+  for (const r of rows) ins.run(...r);
+  const found = db.prepare(`SELECT e.id AS id FROM election e WHERE ${where} ORDER BY e.id`).all();
+  db.close();
+  return found.map((r) => String(r["id"]));
+}
+
+test("bodyIs: the assembly and the Lok Sabha partition the elections, and an unlabelled house is neither", () => {
+  const rows: Row[] = [
+    ["a", "ac", "assembly", "ka", 2023, 5, 1],
+    ["p", "pc", "general", "in", 2024, 4, 1],
+    ["n", "none", "municipal", "ka", 2022, null, 1],
+  ];
+  assert.deepEqual(electionsWhere(bodyIs("assembly"), rows), ["a"]);
+  assert.deepEqual(electionsWhere(bodyIs("lok-sabha"), rows), ["p"]);
+});
+
+// Every row is placed so that ranking by id, or by the newest row of any kind, would name the wrong election.
+const CURRENT: Row[] = [
+  // Bihar 2005 held two assembly elections. The October one is current although its id sorts first.
+  ["br-assembly-2005-a", "ac", "assembly", "br", 2005, 10, 2],
+  ["br-assembly-2005-z", "ac", "assembly", "br", 2005, 2, 1],
+  // A by-election newer than the house's election does not replace it.
+  ["ka-assembly-2013", "ac", "assembly", "ka", 2013, 5, 1],
+  ["ka-assembly-2018", "ac", "assembly", "ka", 2018, 5, 1],
+  ["ka-bypoll-ae-2021", "ac", "bypoll", "ka", 2021, null, 1],
+  // Jammu & Kashmir's newest row is a single-seat by-election.
+  ["jk-assembly-2014", "ac", "assembly", "jk", 2014, 12, 1],
+  ["jk-bypoll-ae-2017", "ac", "bypoll", "jk", 2017, null, 1],
+  // A jurisdiction with by-elections only has no current assembly election.
+  ["wb-bypoll-ae-2021", "ac", "bypoll", "wb", 2021, null, 1],
+  // An unsourced month ranks as the earliest of its year, so the dated election is the later one.
+  ["tn-assembly-2021-a", "ac", "assembly", "tn", 2021, 4, 1],
+  ["tn-assembly-2021-z", "ac", "assembly", "tn", 2021, null, 1],
+  // The Lok Sabha is one row for the union, and a parliamentary by-election in a state is not it.
+  ["ls-2019", "pc", "general", "in", 2019, 4, 1],
+  ["ls-2024", "pc", "general", "in", 2024, 4, 1],
+  ["ka-bypoll-ge-2025", "pc", "bypoll", "ka", 2025, null, 1],
+];
+
+test("currentIds: each jurisdiction's newest full-house election of the body, by chronology", () => {
+  const assembly = electionsWhere(`e.id IN (${currentIds("assembly")})`, CURRENT);
+  assert.deepEqual(assembly, ["br-assembly-2005-a", "jk-assembly-2014", "ka-assembly-2018", "tn-assembly-2021-a"]);
+  assert.deepEqual(electionsWhere(`e.id IN (${currentIds("lok-sabha")})`, CURRENT), ["ls-2024"]);
+});
+
+test("currentIds binds nothing, so it composes with the caller's own predicates", () => {
+  assert.doesNotMatch(currentIds("assembly"), /\?/);
+  // The fragment's inner `e` is its own: the outer query's `e` narrows the result without changing the rule.
+  const found = electionsWhere(`e.id IN (${currentIds("assembly")}) AND e.jurisdiction_place_id = 'ka'`, CURRENT);
+  assert.deepEqual(found, ["ka-assembly-2018"]);
 });

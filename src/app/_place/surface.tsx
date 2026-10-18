@@ -21,7 +21,8 @@ import type { StateTrajectory } from "../../../packages/mandate/src/repo/traject
 import { all, get } from "../../../packages/mandate/src/db/index.ts";
 import { isMode } from "../../components/iei/ElectionMap.tsx";
 import type { MapMode } from "../../components/iei/ElectionMap.tsx";
-import { districtHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { bodyOfKind, districtHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { bodyWord, chipOf } from "../../../packages/mandate/src/core/election-kind.ts";
 import { StateSurface } from "./state.tsx";
 import { Foot, Shell } from "../../components/iei/Shell.tsx";
 import {
@@ -145,11 +146,6 @@ function readMap(
   }
 }
 
-/** The house a row is about, in the words a reader uses. */
-function houseWord(house: string): string {
-  return house === "pc" ? "Lok Sabha" : house === "ac" ? "Assembly" : house;
-}
-
 /**
  * A district's own page, from the ids the map already holds.
  *
@@ -157,18 +153,6 @@ function houseWord(house: string): string {
  * state. Built here rather than threaded through the view, because it is one `slice` and the alternative is a
  * field on a type whose whole point is that a district has no winner.
  */
-
-/**
- * An election's label in the selector, in words rather than in codes.
- *
- * It used to be `LS2021 BY`, which is not a word in any language. Twelve of those in a strip above the map was
- * the reader's only route to another election, and they had to decode it first.
- */
-function electionLabel(e: { year: number; house: string; kind: string }): string {
-  const bypoll = e.kind === "bypoll";
-  if (e.house === "pc") return bypoll ? `LS ${e.year} by-poll` : `LS ${e.year}`;
-  return bypoll ? `${e.year} by-poll` : `${e.year}`;
-}
 
 /**
  * Everything the STATE surface needs, on one handle: the chosen election's seats and the whole run behind it.
@@ -395,8 +379,8 @@ export async function PlaceSurface({
                 <b>{lead.n}</b> <span className="iei-of">of {seatsContested}</span>
               </span>
               <span className="iei-result-w">
-                {houseWord(map.election.house)} {map.election.year}
-                {map.election.kind === "bypoll" ? " by-election" : ""}
+                {bodyWord(map.election.body)} {map.election.year}
+                {map.election.fill === "bypoll" ? " by-election" : ""}
               </span>
             </div>
           ) : (
@@ -410,7 +394,7 @@ export async function PlaceSurface({
             /* WHAT, WHEN, AND AT WHICH LEVEL, in the heading, at a glance. "Assembly winners" is a claim about
                each constituency — the opposite end of the product from the national map's "Government", which
                is one figure for a whole state. A reader must never have to guess which they are looking at. */
-            title={`${map.jurisdictionName} · ${map.election.house === "pc" ? "Lok Sabha" : "Assembly"} winners · ${map.election.year}`}
+            title={`${map.jurisdictionName} · ${bodyWord(map.election.body)} winners · ${map.election.year}`}
             question={
               focus === null
                 ? "Which party won each constituency?"
@@ -432,13 +416,13 @@ export async function PlaceSurface({
               label="Election"
               current={map.election.id}
               choices={[
-                ...map.elections.filter((e) => e.kind !== "bypoll"),
-                ...map.elections.filter((e) => e.kind === "bypoll"),
+                ...map.elections.filter((e) => e.fill !== "bypoll"),
+                ...map.elections.filter((e) => e.fill === "bypoll"),
               ]
                 .slice(0, 12)
                 .map((e) => ({
                   key: e.id,
-                  label: electionLabel(e),
+                  label: chipOf(e.body, e.fill, e.year),
                   href: link(base, searchParams, { election: e.id, district: "" }),
                 }))}
             />
@@ -702,7 +686,7 @@ export async function PlaceSurface({
                   </th>
                   {/* Inline, not a sub-line: a conditional second line made every by-election row taller
                       than the rows around it, and a table of 17 elections rippled. */}
-                  <td>{houseWord(e.house)}{e.kind === "bypoll" ? " by-election" : ""}</td>
+                  <td>{bodyWord(e.body)}{e.fill === "bypoll" ? " by-election" : ""}</td>
                   <td>
                     {e.leaderLabel === null ? (
                       <span className="iei-absent">no winner recorded</span>
@@ -740,7 +724,7 @@ export async function PlaceSurface({
             different electorates. The body comes from `place_version.kind`, so this is domain data reaching
             the surface rather than a branch: adding a third body would need no change here. */}
         <p className="iei-eyebrow">
-          {p.kind === 'pc' ? 'Lok Sabha Constituency' : 'Assembly Constituency'}
+          {`${bodyWord(bodyOfKind(p.kind))} Constituency`}
           {p.number !== null && ` · No. ${p.number}`}
           {p.reservation !== null && ` · ${RESERVATION[p.reservation] ?? p.reservation}`}
         </p>

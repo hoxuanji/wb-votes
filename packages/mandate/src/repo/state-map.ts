@@ -44,6 +44,7 @@ import { loadSources, read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
 import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
 import { facetOf } from "../core/election-kind.ts";
+import type { Body, Fill } from "../core/election-kind.ts";
 import { summariseAll, type Finding, type FlipPair, type PartyRef } from "./findings.ts";
 
 /** One constituency, as the map draws it. */
@@ -89,6 +90,9 @@ export type ElectionChoice = {
   year: number;
   house: string;
   kind: string;
+  /** `house` and `kind` decoded once, where the rows are read. A surface reads these, not the registry's codes. */
+  body: Body;
+  fill: Fill;
   seats: number;
 };
 
@@ -187,7 +191,7 @@ export function stateMapView(
     // Sabha itself. A state's Lok Sabha map was unreachable, which is a requirement rather than a nicety.
     //
     // `seats` is counted WITHIN the jurisdiction too: West Bengal's row for ls-2024 says 42, not 543.
-    const elections = all<ElectionChoice>(
+    const elections = all<Omit<ElectionChoice, "body" | "fill">>(
       db,
       `SELECT e.id AS id, e.name AS name, e.year AS year, e.house AS house, e.kind AS kind,
               COUNT(*) AS seats
@@ -198,7 +202,10 @@ export function stateMapView(
         GROUP BY e.id
         ORDER BY ${CHRONO_DESC}`,
       jurisdictionId,
-    );
+    ).map((r): ElectionChoice => {
+      const { body, fill } = facetOf(r.house, r.kind);
+      return { ...r, body, fill };
+    });
 
     // A house filter narrows the selector rather than the map: a reader who asked for the Lok Sabha should see
     // the Lok Sabha elections, and if there are none they should be told, not silently shown an assembly.
@@ -213,11 +220,10 @@ export function stateMapView(
     //    parliamentary map. A state's own house is what a reader came for.
     //
     // Both are still selectable; neither is what the map opens on.
-    const facet = (e: ElectionChoice) => facetOf(e.house, e.kind);
     const election =
       offered.find((e) => e.id === p.election) ??
-      offered.find((e) => facet(e).fill !== "bypoll" && facet(e).body === "assembly") ??
-      offered.find((e) => facet(e).fill !== "bypoll") ??
+      offered.find((e) => e.fill !== "bypoll" && e.body === "assembly") ??
+      offered.find((e) => e.fill !== "bypoll") ??
       offered[0] ??
       null;
 

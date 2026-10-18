@@ -25,6 +25,7 @@ import {
   CHRONO_DESC,
   bypolls,
   closeFights,
+  currentElection,
   currentStandings,
   foldStandings,
   latestPerJurisdiction,
@@ -46,7 +47,8 @@ import {
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
 import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
-import { FULL_HOUSE, facetOf, majorityOf } from "../core/election-kind.ts";
+import { FULL_HOUSE, bodyIs, bodyWord, currentIds, facetOf, majorityOf } from "../core/election-kind.ts";
+import type { Body } from "../core/election-kind.ts";
 
 /* ────────────────────────────── palette ──────────────────────────────
    THE PARTY COLOURS ARE NOT HERE ANY MORE, and that is the fix rather than a move.
@@ -111,22 +113,16 @@ export function snapshot(
 ): Snapshot {
   return read(() => {
     const n = (sql: string): number => Number(get<{ n: number }>(db, sql)?.n ?? 0);
-    const seatsHeld = (house: string): number =>
+    const seatsHeld = (body: Body): number =>
       Number(
         get<{ n: number }>(
           db,
-          // Seats in the NEWEST election of this house per jurisdiction — the only denominator that
+          // Seats in the CURRENT election of this body per jurisdiction — the only denominator that
           // compares with today's India. Every place row would exceed 100%: undivided Bihar's 324
           // assembly seats are real, just not current.
           `SELECT COUNT(DISTINCT c.place_version_id) AS n
              FROM contest c
-            WHERE c.election_id IN (
-              SELECT id FROM (
-                SELECT e.id AS id,
-                       row_number() OVER (PARTITION BY e.jurisdiction_place_id ORDER BY ${CHRONO_DESC}) AS rn
-                  FROM election e WHERE e.house = ? AND ${FULL_HOUSE}
-              ) WHERE rn = 1)`,
-          house,
+            WHERE c.election_id IN (${currentIds(body)})`,
         )?.n ?? 0,
       );
     return {
@@ -140,9 +136,9 @@ export function snapshot(
         ...houseStandings.map((s) => s.jurisdictionId),
       ]).size,
       assemblySeatsTotal: INDIA.assemblySeats,
-      assemblySeatsHeld: seatsHeld("ac"),
+      assemblySeatsHeld: seatsHeld("assembly"),
       lokSabhaSeatsTotal: INDIA.lokSabhaSeats,
-      lokSabhaSeatsHeld: seatsHeld("pc"),
+      lokSabhaSeatsHeld: seatsHeld("lok-sabha"),
       elections: n("SELECT COUNT(*) AS n FROM election"),
       earliestYear: get<{ y: number }>(db, "SELECT MIN(year) AS y FROM election")?.y ?? null,
       latest,
@@ -562,7 +558,7 @@ export function partyLandscape(db: DatabaseSync, spine: Spine, limit = 10): Part
     // Sparkline: the last SPARK Lok Sabha elections, winners only.
     const houseRun = all<{ id: string; year: number }>(
       db,
-      `SELECT id, year FROM election e WHERE e.house = 'pc' AND ${FULL_HOUSE}
+      `SELECT id, year FROM election e WHERE ${bodyIs("lok-sabha")} AND ${FULL_HOUSE}
         ORDER BY ${CHRONO_DESC} LIMIT ?`,
       SPARK,
     ).reverse();
@@ -958,15 +954,9 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
       e.id,
     );
 
-    // Is this the newest election of its house in its jurisdiction? Only then does today's reference
+    // Is this the current election of its body in its jurisdiction? Only then does today's reference
     // seat count describe the same house.
-    const newest = get<{ id: string }>(
-      db,
-      `SELECT id FROM election e WHERE e.house = ? AND e.jurisdiction_place_id = ? AND ${FULL_HOUSE}
-        ORDER BY ${CHRONO_DESC} LIMIT 1`,
-      e.house,
-      e.j,
-    )?.id;
+    const newest = currentElection(db, facet.body, e.j)?.id;
     const ref = JURISDICTIONS.find((x) => x.id === e.j);
     let expected: number | null = null;
     let expectedBasis: string;
@@ -1104,9 +1094,10 @@ export function electionCoverageView(
   asked: string | undefined,
   limit = ELECTION_CHOICES,
 ): { choices: ElectionChoice[]; chosen: ElectionCoverage | null } {
-  const rows = all<{ id: string; name: string; year: number; j: string; house: string }>(
+  const rows = all<{ id: string; name: string; year: number; j: string; house: string; kind: string }>(
     db,
-    `SELECT e.id AS id, e.name AS name, e.year AS year, e.jurisdiction_place_id AS j, e.house AS house
+    `SELECT e.id AS id, e.name AS name, e.year AS year, e.jurisdiction_place_id AS j, e.house AS house,
+            e.kind AS kind
        FROM election e WHERE ${FULL_HOUSE} ORDER BY ${CHRONO_DESC} LIMIT ?`,
     limit,
   );
@@ -1117,9 +1108,9 @@ export function electionCoverageView(
     id: r.id,
     name: r.name,
     year: r.year,
-    short: `${r.j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === r.j)?.name ?? r.j)} ${
-      r.house === "pc" ? "Lok Sabha" : "Assembly"
-    } ${r.year}`,
+    short: `${r.j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === r.j)?.name ?? r.j)} ${bodyWord(
+      facetOf(r.house, r.kind).body,
+    )} ${r.year}`,
   }));
   const id = choices.find((c) => c.id === asked)?.id ?? choices[0]?.id ?? null;
   return { choices, chosen: id === null ? null : electionCoverage(db, id) };
@@ -1194,13 +1185,7 @@ export function spine(db: DatabaseSync): Spine {
   const states = jurisdictions(db);
   const standings = currentStandings(db);
   const latest = latestPerJurisdiction(db, "assembly");
-  const houseRow =
-    all<LatestElection>(
-      db,
-      `SELECT e.id AS id, e.jurisdiction_place_id AS jurisdictionId, e.year AS year,
-              (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seatsContested
-         FROM election e WHERE e.house = 'pc' AND ${FULL_HOUSE} ORDER BY ${CHRONO_DESC} LIMIT 1`,
-    )[0] ?? null;
+  const houseRow = currentElection(db, "lok-sabha");
 
   // Previous elections, resolved once: both the flip comparison and the swing table need them.
   const previous = new Map<string, string | null>();

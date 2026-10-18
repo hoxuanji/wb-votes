@@ -13,6 +13,7 @@ import type { StateTrajectory } from '../../../packages/mandate/src/repo/traject
 import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
+import { bodyWord } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { ElectionMap, MODES } from '../../components/iei/ElectionMap.tsx';
 import type { MapMode } from '../../components/iei/ElectionMap.tsx';
@@ -70,8 +71,6 @@ function pct(v: number | null, dp = 1): string {
   if (v !== 0 && Number(v.toFixed(dp)) === 0) return '<0.1%';
   return `${v.toFixed(dp)}%`;
 }
-
-const houseWord = (h: string): string => (h === 'pc' ? 'Lok Sabha' : 'Assembly');
 
 /**
  * A district's own page, from the dotted place id the seats already carry.
@@ -156,9 +155,9 @@ export function StateSurface({
               <span className="iei-of"> / {IN.format(view.seats.length)}</span>
             </span>
             <span className="iei-hero-meta">
-              {/* THE TYPE AND THE SCALE, both from ElectionContext. `houseWord(house)` called a Lok Sabha
-                  by-election a "Lok Sabha", and "majority N" is a claim only a full house can support. */}
-              {view.ctx === null ? `${houseWord(e.house)} ${e.year}` : `${scaleLabel(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
+              {/* THE TYPE AND THE SCALE, both from ElectionContext: "majority N" is a claim only a full house
+                  can support, and a by-election is not one. */}
+              {view.ctx === null ? `${bodyWord(e.body)} ${e.year}` : `${scaleLabel(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
               {/* NOT a number when the registry cannot corroborate one. West Bengal 2026's 93.0% used to
                   sit right here, in the same type as a real majority count, and a first-time reader had no
                   way to discount it. `turnoutHeadline` cannot return a figure for an unverified reading. */}
