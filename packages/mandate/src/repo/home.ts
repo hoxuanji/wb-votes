@@ -20,7 +20,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
-import { loadSources, read, type SourceRef } from "./index.ts";
+import { read, type SourceRef } from "./index.ts";
 import {
   CHRONO_DESC,
   bypolls,
@@ -30,6 +30,7 @@ import {
   foldStandings,
   latestPerJurisdiction,
   partitionByEpoch,
+  partyRows,
   previousElection,
   recent,
   seatKey,
@@ -45,7 +46,15 @@ import {
   type Standing,
 } from "./elections.ts";
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
-import { medianMarginShare, readSeats, turnoutOf, type SeatResult } from "./seat-results.ts";
+import {
+  medianMarginShare,
+  partyVotes,
+  readSeats,
+  sourcesFor,
+  tallyByJurisdiction,
+  turnoutOf,
+  type SeatResult,
+} from "./seat-results.ts";
 import { turnoutHeadline } from "./turnout-trust.ts";
 import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
@@ -1002,7 +1011,7 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
       candidaciesWithoutResult,
       turnoutRows,
       epochs,
-      sources: loadSources(db, sourceIdsOf(db, e.id), []),
+      sources: sourcesFor(db, { elections: [e.id] }, { turnout: true }, SOURCES_SHOWN),
       completeness,
       gaps,
       anomalies,
@@ -1010,22 +1019,9 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
   });
 }
 
-/** The distinct sources behind an election's results and turnout. Capped, because a Lokdhaba import can
- *  cite one source per row and the panel shows publishers, not a bibliography. */
-function sourceIdsOf(db: DatabaseSync, electionId: string): string[] {
-  return all<{ id: string }>(
-    db,
-    `SELECT id FROM (
-       SELECT DISTINCT r.source_id AS id FROM result r JOIN contest c ON c.id = r.contest_id
-         WHERE c.election_id = ?
-       UNION
-       SELECT DISTINCT t.source_id AS id FROM turnout t JOIN contest c ON c.id = t.contest_id
-         WHERE c.election_id = ?
-     ) LIMIT 12`,
-    electionId,
-    electionId,
-  ).map((r) => r.id);
-}
+/** How many of an election's sources the coverage panel names. It shows publishers, not a bibliography, and a
+ *  Lokdhaba import can cite one source per row. */
+const SOURCES_SHOWN = 12;
 
 /** Completeness for many elections at once, for the recent-elections rows. */
 export function completenessOf(db: DatabaseSync, electionIds: readonly string[]): Map<string, Completeness> {
@@ -1162,7 +1158,9 @@ export function spine(db: DatabaseSync): Spine {
     elections: [...latest.map((l) => l.id), ...[...previous.values()].filter((v): v is string => v !== null)],
   });
 
-  const latestAssemblySeats = seatsWonBy(db, latest.map((l) => l.id));
+  // The seats above already hold every latest assembly's winners, so they are tallied rather than read again.
+  const latestIds = new Set(latest.map((l) => l.id));
+  const latestAssemblySeats = tallyByJurisdiction(facts.filter((x) => latestIds.has(x.electionId)));
 
   const ids = latest.map((l) => l.id);
   const counted = new Set(
@@ -1194,7 +1192,9 @@ export function spine(db: DatabaseSync): Spine {
   const priorIds = [...previous.values()].filter((v): v is string => v !== null);
   let bulkRows: SeatsByParty[] | null = null;
   const bulk = (): SeatsByParty[] => {
-    bulkRows ??= seatsByParty(db, [...new Set([...latest.map((l) => l.id), ...priorIds])]);
+    // The seats are the ones read above, for the same elections; only the votes of every candidate are read here.
+    const ranked = [...new Set([...latest.map((l) => l.id), ...priorIds])];
+    bulkRows ??= partyRows(facts, partyVotes(db, { elections: ranked }));
     return bulkRows;
   };
   const partyCache = new Map<string, readonly PartyStanding[]>();

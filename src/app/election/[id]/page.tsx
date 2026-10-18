@@ -311,7 +311,11 @@ export default function ElectionPage({
                   title={s.name}
                   href={s.href ?? undefined}
                   aside={
-                    <b>{s.marginVotes === null ? '—' : `${IN.format(s.marginVotes)} votes`}</b>
+                    <b>
+                      {s.marginVotes === null
+                        ? '—'
+                        : `${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`}
+                    </b>
                   }
                   detail={
                     <>

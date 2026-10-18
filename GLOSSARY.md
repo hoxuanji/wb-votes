@@ -86,7 +86,7 @@ The candidate ranked second in a seat. A source that published only its winners 
 _Avoid_: Second place, opponent
 
 **Margin basis**:
-Whether a seat's margin was counted from its winner's and runner-up's votes, or declared by the source with no counts behind it. A counted margin can be checked against the votes; a declared one cannot.
+Whether a seat's margin was counted from its winner's and runner-up's votes, or declared by the source with no counts behind it. A counted margin can be checked against the votes; a declared one cannot, so the election page marks it "declared".
 _Avoid_: Margin source
 
 **Margin share**:
@@ -106,7 +106,7 @@ An election whose turnout has nothing to reconcile it against, because its sourc
 _Avoid_: Suspect election, bad data
 
 **Scope**:
-The elections a read covers, optionally narrowed to the seats inside one jurisdiction. A general election narrowed to one state is that state's share of it.
+The elections a read covers, optionally narrowed to the seats inside one jurisdiction or one district. A general election narrowed to one state is that state's share of it.
 _Avoid_: Filter
 
 **Current revision**:

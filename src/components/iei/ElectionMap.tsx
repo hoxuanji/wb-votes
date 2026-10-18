@@ -115,7 +115,7 @@ function titleOf(s: ElectionSeat, mode: MapMode): string {
         : `${where} — 2nd: ${s.runnerUpLabel}`;
     case 'margin':
       return `${where} — ${pct(s.marginPct)}${
-        s.marginVotes === null ? '' : `, ${IN.format(s.marginVotes)} votes`
+        s.marginVotes === null ? '' : `, ${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`
       }`;
     case 'flips':
       if (!s.comparable) return `${where} — boundary redrawn, not comparable`;

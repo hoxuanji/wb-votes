@@ -40,9 +40,10 @@
 import type { DatabaseSync } from "node:sqlite";
 import { bodyOfKind, constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
-import { loadSources, read } from "./index.ts";
+import { read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
 import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elections.ts";
+import { partyRef, sourcesFor } from "./seat-results.ts";
 import { facetOf } from "../core/election-kind.ts";
 import type { Body, Fill } from "../core/election-kind.ts";
 import { summariseAll, type Finding, type FlipPair, type PartyRef } from "./findings.ts";
@@ -137,7 +138,7 @@ export type StateMapView = {
   };
 };
 
-type SeatSql = {
+type SeatSql = WinnerParty & {
   placeId: string;
   versionId: string;
   name: string;
@@ -146,8 +147,6 @@ type SeatSql = {
   districtId: string | null;
   districtName: string | null;
   stateId: string | null;
-  partyKey: string | null;
-  partyLabel: string | null;
   winnerName: string | null;
   winnerPersonId: string | null;
   votes: number | null;
@@ -159,8 +158,24 @@ type SeatSql = {
   epoch: string;
 };
 
-const KEY_SQL = `COALESCE(pt.id, NULLIF(cd.party_raw, ''), 'unattached')`;
-const LABEL_SQL = `COALESCE(NULLIF(pt.short_name, ''), NULLIF(pt.name, ''), NULLIF(cd.party_raw, ''), 'Unattached')`;
+/** The columns a winner's party is selected with. `declared` is null when the seat has no declared winner. */
+type WinnerParty = {
+  declared: string | null;
+  partyId: string | null;
+  partyShort: string | null;
+  partyName: string | null;
+  partyRaw: string | null;
+};
+
+const WINNER_PARTY_SQL = `r.candidacy_id AS declared, pt.id AS partyId, pt.short_name AS partyShort,
+              pt.name AS partyName, cd.party_raw AS partyRaw`;
+
+/** The party rule is `partyRef`'s. A seat with no declared winner has no party, and is not "Unattached". */
+function partyOf(w: WinnerParty): PartyRef | null {
+  return w.declared === null
+    ? null
+    : partyRef({ id: w.partyId, shortName: w.partyShort, name: w.partyName, raw: w.partyRaw });
+}
 
 /** The slug a place path uses for a seat name. Same rule as place-page.ts's, and it has to stay the same. */
 function slug(name: string): string {
@@ -254,8 +269,7 @@ export function stateMapView(
       `SELECT pl.id AS placeId, pv.id AS versionId, pv.canonical_name AS name,
               pv.number AS number, pv.reservation AS reservation, pv.epoch_id AS epoch,
               d.id AS districtId, d.canonical_name AS districtName, s.id AS stateId,
-              CASE WHEN r.candidacy_id IS NULL THEN NULL ELSE ${KEY_SQL} END AS partyKey,
-              CASE WHEN r.candidacy_id IS NULL THEN NULL ELSE ${LABEL_SQL} END AS partyLabel,
+              ${WINNER_PARTY_SQL},
               per.canonical_name AS winnerName, per.id AS winnerPersonId,
               r.votes AS votes, r.margin AS marginVotes,
               t.voters AS voters, t.electors AS electors,
@@ -300,8 +314,8 @@ export function stateMapView(
       reservation: x.reservation,
       districtId: x.districtId,
       districtName: x.districtName,
-      partyKey: x.partyKey,
-      partyLabel: x.partyLabel,
+      partyKey: partyOf(x)?.key ?? null,
+      partyLabel: partyOf(x)?.label ?? null,
       winnerName: x.winnerName,
       winnerPersonId: x.winnerPersonId,
       votes: x.votes,
@@ -350,22 +364,6 @@ export function stateMapView(
       .sort((a, b) => b[1].n - a[1].n || a[0].localeCompare(b[0]))
       .map(([key, v]) => ({ key, label: v.label, n: v.n }));
 
-    const sourceIds = all<{ id: string }>(
-      db,
-      `SELECT DISTINCT g.source_id AS id
-         FROM contest c JOIN place_geometry g ON g.place_version_id = c.place_version_id
-        WHERE c.election_id = ? AND EXISTS (SELECT 1 FROM place_version pv WHERE pv.id = c.place_version_id AND pv.jurisdiction_id = ?)
-       UNION
-       SELECT DISTINCT r.source_id AS id
-         FROM contest c JOIN result r ON r.contest_id = c.id
-         JOIN place_version pv ON pv.id = c.place_version_id
-        WHERE c.election_id = ? AND pv.jurisdiction_id = ?`,
-      election.id,
-      jurisdictionId,
-      election.id,
-      jurisdictionId,
-    ).map((r) => r.id);
-
     return {
       jurisdictionId,
       jurisdictionName: name,
@@ -374,7 +372,7 @@ export function stateMapView(
       seats,
       districts,
       legend,
-      sources: loadSources(db, sourceIds, []),
+      sources: sourcesFor(db, { elections: [election.id], within: jurisdictionId }, { geometry: true }),
       geometry: {
         viewBox: frame,
         drawable: seats.filter((s) => s.path !== null).length,
@@ -465,11 +463,10 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
     // The year on the OTHER side, so a finding can name both ends without the caller re-reading.
     const year = get<{ y: number }>(db, `SELECT year AS y FROM election WHERE id = ?`, electionId)?.y ?? null;
 
-    const rows = all<ShiftRow>(
+    const rows = all<WinnerParty & Omit<ShiftRow, "key" | "label">>(
       db,
       `SELECT c.election_id AS electionId, pv.place_id AS placeId, pv.epoch_id AS epochId,
-              CASE WHEN r.candidacy_id IS NULL THEN NULL ELSE ${KEY_SQL} END AS key,
-              CASE WHEN r.candidacy_id IS NULL THEN NULL ELSE ${LABEL_SQL} END AS label,
+              ${WINNER_PARTY_SQL},
               t.voters AS voters, t.electors AS electors
          FROM contest c
          JOIN place_version pv ON pv.id = c.place_version_id
@@ -482,6 +479,16 @@ export function stateShifts(db: DatabaseSync, jurisdictionId: string, electionId
       electionId,
       previousId,
       jurisdictionId,
+    ).map(
+      (r): ShiftRow => ({
+        electionId: r.electionId,
+        placeId: r.placeId,
+        epochId: r.epochId,
+        key: partyOf(r)?.key ?? null,
+        label: partyOf(r)?.label ?? null,
+        voters: r.voters,
+        electors: r.electors,
+      }),
     );
 
     const now = rows.filter((r) => r.electionId === electionId);

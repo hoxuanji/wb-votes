@@ -19,14 +19,14 @@
 //   THE MARGIN'S SHAPE. 63,334 computable margins currently surface as a list of five. Binned here, so the
 //                   distribution is drawable and a bin is addressable from a URL.
 //
-// ONE READ FOR THE SEATS, one for the previous election's winners, and everything else is folded in memory.
-// The seat query carries four correlated subqueries for rank 2, each a point lookup on the primary key's
-// prefix — measured at about 220 ms for 543 seats, which is a route-level cost on a route-level instrument.
+// ONE READ FOR THE SEATS (seat-results.ts), one for the previous election's winners, one for the outlines the
+// seats are drawn with, and everything else is folded in memory. What a seat's winner, runner-up and margin are
+// is not decided here: this module adds geometry, the flip and the standing to a seat result.
 
 import type { DatabaseSync } from "node:sqlite";
 import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
-import { loadSources, read } from "./index.ts";
+import { read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
 import { facetOf } from "../core/election-kind.ts";
 import type { Body, Fill } from "../core/election-kind.ts";
@@ -34,7 +34,7 @@ import { CHRONO_DESC, partitionByEpoch, previousElection, seatKey } from "./elec
 import { placeHref } from "./place-page.ts";
 import type { Finding, PartyRef, SeatFlips, VoteSeatEfficiency } from "./findings.ts";
 import { NATIONAL, parse, simplified } from "../viz/simplify.ts";
-import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
+import { partyVotes, readSeats, sourcesFor, tally, turnoutOf, votesByParty } from "./seat-results.ts";
 import { electionContext } from "./election-context.ts";
 import type { ElectionContext, SeatStanding } from "./election-context.ts";
 import type { Turnout } from "./turnout-trust.ts";
@@ -79,7 +79,7 @@ export type ElectionSeat = {
   name: string;
   number: number | null;
   reservation: string | null;
-  jurisdictionId: string | null;
+  jurisdictionId: string;
   jurisdictionName: string | null;
   /**
    * The district this seat sits in, as a GROUPING and nothing more.
@@ -100,9 +100,20 @@ export type ElectionSeat = {
   runnerUpLabel: string | null;
   runnerUpName: string | null;
   runnerUpVotes: number | null;
-  /** Winner minus runner-up, from the two vote counts rather than from `result.margin`. */
+  /**
+   * Winner minus runner-up: from the two vote counts where both exist, else the margin the source declared. Null
+   * for a seat with no declared winner, or one the source gave no margin for.
+   */
   marginVotes: number | null;
-  /** Over votes polled, never over the sum of the result rows. */
+  /**
+   * Which of the two `marginVotes` is, so a page does not present a margin nobody can check against the votes as
+   * though it were one. West Bengal 2026 publishes no vote counts, and every one of its margins is declared.
+   */
+  marginBasis: "declared" | "counted" | null;
+  /**
+   * Over votes polled, never over the sum of the result rows. Null where the election's votes polled are
+   * unverified, whatever the margin: a share is only as good as the figure it divides by.
+   */
   marginPct: number | null;
   /** `binOf(marginPct)`, carried so the map and the histogram agree without recomputing. */
   marginBin: number | null;
@@ -208,38 +219,10 @@ export type ElectionMapView = {
   };
 };
 
-const KEY_SQL = `COALESCE(pt.id, NULLIF(cd.party_raw, ''), 'unattached')`;
-const LABEL_SQL = `COALESCE(NULLIF(pt.short_name, ''), NULLIF(pt.name, ''), NULLIF(cd.party_raw, ''), 'Unattached')`;
-const RUNNER = (col: string): string =>
-  `(SELECT ${col} FROM result r2
-      JOIN candidacy cd2 ON cd2.id = r2.candidacy_id
-      LEFT JOIN person per2 ON per2.id = cd2.person_id
-      LEFT JOIN party_version pv2 ON pv2.id = cd2.party_version_id
-      LEFT JOIN party pt2 ON pt2.id = pv2.party_id
-     WHERE r2.contest_id = c.id AND r2.revision = 0 AND r2.rank = 2)`;
-
-type SeatSql = {
-  placeId: string;
+/** An outline for a seat's place version, and the name of the jurisdiction the seat is in. */
+type OutlineRow = {
   versionId: number;
-  epochId: string;
-  contestId: string;
-  name: string;
-  number: number | null;
-  reservation: string | null;
-  jurisdictionId: string | null;
   jurisdictionName: string | null;
-  districtId: string | null;
-  districtName: string | null;
-  partyKey: string | null;
-  partyLabel: string | null;
-  winnerName: string | null;
-  votes: number | null;
-  runnerUpKey: string | null;
-  runnerUpLabel: string | null;
-  runnerUpName: string | null;
-  runnerUpVotes: number | null;
-  voters: number | null;
-  electors: number | null;
   path: string | null;
   viewBox: string | null;
 };
@@ -366,45 +349,32 @@ export function electionMapView(
     );
     if (e === undefined) return empty;
 
-    /**
-     * Whether this election's turnout can be corroborated — decided ONCE, then applied to the aggregate
-     * and to all 293 seat readings. Per-election rather than per-seat because the reason is per-election:
-     * the whole import published no vote counts.
-     */
-    const turnoutUnverified = unverifiedTurnout(db, [e.id]).has(e.id);
-
     // The election's own semantics, decided once. Nothing below re-reads `house` or `kind`.
     const ctx = electionContext(db, electionId, jurisdictionId);
 
-    const rows = all<SeatSql>(
-      db,
-      `SELECT pv.place_id AS placeId, pv.id AS versionId, pv.epoch_id AS epochId, c.id AS contestId,
-              pv.canonical_name AS name, pv.number AS number, pv.reservation AS reservation,
-              pv.jurisdiction_id AS jurisdictionId, j.canonical_name AS jurisdictionName,
-              pv.district_place_id AS districtId, dis.canonical_name AS districtName,
-              ${KEY_SQL} AS partyKey, ${LABEL_SQL} AS partyLabel,
-              per.canonical_name AS winnerName, r.votes AS votes,
-              ${RUNNER(`COALESCE(pt2.id, NULLIF(cd2.party_raw, ''), 'unattached')`)} AS runnerUpKey,
-              ${RUNNER(`COALESCE(NULLIF(pt2.short_name, ''), NULLIF(pt2.name, ''), NULLIF(cd2.party_raw, ''), 'Unattached')`)} AS runnerUpLabel,
-              ${RUNNER("per2.canonical_name")} AS runnerUpName,
-              ${RUNNER("r2.votes")} AS runnerUpVotes,
-              t.voters AS voters, t.electors AS electors,
-              pg.path AS path, pg.view_box AS viewBox
-         FROM contest c
-         JOIN place_version pv ON pv.id = c.place_version_id
-         LEFT JOIN place j     ON j.id = pv.jurisdiction_id
-         LEFT JOIN place dis   ON dis.id = pv.district_place_id
-         LEFT JOIN result r    ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1
-         LEFT JOIN candidacy cd ON cd.id = r.candidacy_id
-         LEFT JOIN person per   ON per.id = cd.person_id
-         LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
-         LEFT JOIN party pt          ON pt.id = pvv.party_id
-         LEFT JOIN turnout t   ON t.contest_id = c.id AND t.scope = 'contest'
-         LEFT JOIN place_geometry pg ON pg.place_version_id = pv.id
-        WHERE c.election_id = ?${scope}
-        ORDER BY pv.jurisdiction_id, pv.number`,
-      electionId,
-      ...scopeBind,
+    // The seats are a seat result each, in seat order. A result does not know its polygon, so the outline is its
+    // own join, keyed by the version the contest was fought under.
+    const within = jurisdictionId === undefined ? {} : { within: jurisdictionId };
+    const results = readSeats(db, { elections: [electionId], ...within });
+    const outlines = new Map(
+      all<OutlineRow>(
+        db,
+        `SELECT pv.id AS versionId, j.canonical_name AS jurisdictionName,
+                pg.path AS path, pg.view_box AS viewBox
+           FROM contest c
+           JOIN place_version pv ON pv.id = c.place_version_id
+           LEFT JOIN place j     ON j.id = pv.jurisdiction_id
+           LEFT JOIN place_geometry pg ON pg.place_version_id = pv.id
+          WHERE c.election_id = ?${scope}`,
+        electionId,
+        ...scopeBind,
+      ).map((o) => [o.versionId, o]),
+    );
+    const rows = [...results].sort(
+      (a, b) =>
+        (a.jurisdictionId < b.jurisdictionId ? -1 : a.jurisdictionId > b.jurisdictionId ? 1 : 0) ||
+        // A seat with no number sorts first, as it does in SQL.
+        (a.number === b.number ? 0 : a.number === null ? -1 : b.number === null ? 1 : a.number - b.number),
     );
 
     /**
@@ -423,20 +393,10 @@ export function electionMapView(
     const before = new Map<string, PartyRef>();
     const beforeRows: { placeId: string; epochId: string }[] = [];
     if (previousId !== null) {
-      for (const r of all<{ placeId: string; epochId: string; key: string; label: string }>(
-        db,
-        `SELECT pv.place_id AS placeId, pv.epoch_id AS epochId, ${KEY_SQL} AS key, ${LABEL_SQL} AS label
-           FROM contest c
-           JOIN place_version pv ON pv.id = c.place_version_id
-           JOIN result r  ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1
-           JOIN candidacy cd ON cd.id = r.candidacy_id
-           LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
-           LEFT JOIN party pt          ON pt.id = pvv.party_id
-          WHERE c.election_id = ?${scope}`,
-        previousId,
-        ...scopeBind,
-      )) {
-        before.set(seatKey(r.placeId, r.epochId), { key: r.key, label: r.label });
+      for (const r of readSeats(db, { elections: [previousId], ...within })) {
+        // A seat the previous election declared no winner for has nothing to be compared with.
+        if (r.winner === null) continue;
+        before.set(seatKey(r.placeId, r.epochId), r.winner.party);
         beforeRows.push({ placeId: r.placeId, epochId: r.epochId });
       }
     }
@@ -452,21 +412,23 @@ export function electionMapView(
     const kept: string[] = [];
 
     const seats: ElectionSeat[] = rows.map((r) => {
+      const outline = outlines.get(r.versionId);
+      const outlined = outline?.path ?? null;
       // A polygon in another projection is WITHHELD, never drawn: two geometry sources need not share a
       // frame, and drawing one in the other's puts a seat somewhere it is not.
-      const wrongFrame = r.path !== null && r.viewBox !== SHARED_FRAME;
+      const wrongFrame = outlined !== null && outline?.viewBox !== SHARED_FRAME;
       if (wrongFrame) otherFrames += 1;
-      const usable = r.path !== null && !wrongFrame;
+      const usable = outlined !== null && !wrongFrame;
       if (!usable) undrawable.add(r.epochId);
-      const path = usable ? simplified(r.path as string, NATIONAL) : null;
+      const path = usable ? simplified(outlined, NATIONAL) : null;
       if (path !== null) {
         pathBytes += path.length;
         kept.push(path);
       }
 
-      const marginVotes = r.votes !== null && r.runnerUpVotes !== null ? r.votes - r.runnerUpVotes : null;
-      const marginPct =
-        marginVotes !== null && r.voters !== null && r.voters > 0 ? (100 * marginVotes) / r.voters : null;
+      // A seat with no declared winner belongs to no party. It used to read as one called "Unattached".
+      const party = r.winner?.party ?? null;
+      const partyKey = party?.key ?? null;
 
       const key = seatKey(r.placeId, r.epochId);
       // False for every by-election seat: there is no comparison event, so nothing is comparable to it.
@@ -482,21 +444,22 @@ export function electionMapView(
         number: r.number,
         reservation: r.reservation,
         jurisdictionId: r.jurisdictionId,
-        jurisdictionName: r.jurisdictionName,
+        jurisdictionName: outline?.jurisdictionName ?? null,
         districtId: r.districtId,
         districtName: r.districtName,
-        partyKey: r.partyKey,
-        partyLabel: r.partyLabel,
-        winnerName: r.winnerName,
-        votes: r.votes,
-        runnerUpKey: r.runnerUpKey,
-        runnerUpLabel: r.runnerUpLabel,
-        runnerUpName: r.runnerUpName,
-        runnerUpVotes: r.runnerUpVotes,
-        marginVotes,
-        marginPct,
-        marginBin: binOf(marginPct),
-        turnout: turnoutReading(r.voters, r.electors, turnoutUnverified),
+        partyKey,
+        partyLabel: party?.label ?? null,
+        winnerName: r.winner?.name ?? null,
+        votes: r.winner?.votes ?? null,
+        runnerUpKey: r.runnerUp?.party.key ?? null,
+        runnerUpLabel: r.runnerUp?.party.label ?? null,
+        runnerUpName: r.runnerUp?.name ?? null,
+        runnerUpVotes: r.runnerUp?.votes ?? null,
+        marginVotes: r.margin?.votes ?? null,
+        marginBasis: r.margin?.basis ?? null,
+        marginPct: r.marginShare,
+        marginBin: binOf(r.marginShare),
+        turnout: r.turnout,
         /**
          * Order matters, and it is an order of KNOWABILITY. A seat we cannot draw is undrawable whatever
          * else is true of it; a seat we cannot compare has a winner but no predecessor; and only then does
@@ -510,14 +473,14 @@ export function electionMapView(
               ? "won-by"
               : !comparable
               ? "not-comparable"
-              : was !== undefined && r.partyKey !== null && was.key === r.partyKey
+              : was !== undefined && partyKey !== null && was.key === partyKey
                 ? "held"
                 : "won-by",
         comparable,
         flip:
-          was === undefined || r.partyKey === null
+          was === undefined || partyKey === null
             ? null
-            : { from: was, changed: was.key !== r.partyKey },
+            : { from: was, changed: was.key !== partyKey },
         path,
         /**
          * THE CONSTITUENCY'S OWN PAGE — and this link used to go nowhere useful at all.
@@ -536,12 +499,9 @@ export function electionMapView(
          * 2024's 543 seats linked to its state instead of to itself. The canonical constituency URL takes the
          * JURISDICTION and the name, which is what both bodies have.
          */
-        href:
-          r.jurisdictionId === null
-            ? null
-            : // THE ELECTION'S BODY DECIDES, never the seat's name. A Lok Sabha election contests pc seats
-              // and an assembly election contests ac seats, so the link builder is told rather than guessing.
-              constituencyHref({ jurisdictionId: r.jurisdictionId, kind: e.house, canonicalName: r.name }),
+        // THE ELECTION'S BODY DECIDES, never the seat's name. A Lok Sabha election contests pc seats
+        // and an assembly election contests ac seats, so the link builder is told rather than guessing.
+        href: constituencyHref({ jurisdictionId: r.jurisdictionId, kind: e.house, canonicalName: r.name }),
       };
     });
 
@@ -578,47 +538,29 @@ export function electionMapView(
 
     /* ── party aggregates: seats, votes, and the gap between the two shares ── */
 
-    const counts = new Map<string, { key: string; label: string; n: number }>();
-    for (const s of seats) {
-      if (s.partyKey === null) continue;
-      const at = counts.get(s.partyKey) ?? { key: s.partyKey, label: s.partyLabel ?? s.partyKey, n: 0 };
-      at.n += 1;
-      counts.set(s.partyKey, at);
-    }
-    const legend = [...counts.values()].sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
+    const won = tally(results);
+    const legend = won.map((p) => ({ key: p.key, label: p.label, n: p.seats }));
+    const seatsWon = new Map(won.map((p) => [p.key, p.seats]));
 
-    // Votes per party across the whole election. Its own read: the seat query holds winners only, and a
-    // party's vote share is over every candidate it ran, not just the ones who won.
-    const partyVotes = all<{ key: string; label: string; votes: number | null }>(
-      db,
-      `SELECT ${KEY_SQL} AS key, ${LABEL_SQL} AS label, SUM(r.votes) AS votes
-         FROM contest c
-         JOIN place_version pv ON pv.id = c.place_version_id
-         JOIN result r  ON r.contest_id = c.id AND r.revision = 0
-         JOIN candidacy cd ON cd.id = r.candidacy_id
-         LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
-         LEFT JOIN party pt          ON pt.id = pvv.party_id
-        WHERE c.election_id = ?${scope}
-        GROUP BY 1, 2`,
-      electionId,
-      ...scopeBind,
-    );
-    const totalVotes = partyVotes.reduce((t, r) => t + (r.votes ?? 0), 0);
+    // Votes per party across the whole election. Its own read: a seat result holds the winner and the
+    // runner-up, and a party's vote share is over every candidate it ran, not just the ones who won.
+    const voted = votesByParty(partyVotes(db, { elections: [electionId], ...within }));
+    const totalVotes = voted.reduce((t, r) => t + (r.votes ?? 0), 0);
     const contested = seats.length;
-    const voteSeat: VoteSeatEfficiency[] = partyVotes
+    const voteSeat: VoteSeatEfficiency[] = voted
       .map((r) => {
-        const seatsWon = counts.get(r.key)?.n ?? 0;
+        const seatCount = seatsWon.get(r.party.key) ?? 0;
         const votePct = totalVotes > 0 && r.votes !== null ? (100 * r.votes) / totalVotes : null;
-        const seatPct = contested > 0 ? (100 * seatsWon) / contested : 0;
+        const seatPct = contested > 0 ? (100 * seatCount) / contested : 0;
         return {
           type: "vote_seat_efficiency" as const,
-          party: { key: r.key, label: r.label },
+          party: { key: r.party.key, label: r.party.label },
           votePct,
           seatPct,
           deltaPp: votePct === null ? null : seatPct - votePct,
-          seats: seatsWon,
+          seats: seatCount,
           contested,
-          seatsPerPoint: votePct === null || votePct === 0 ? null : seatsWon / votePct,
+          seatsPerPoint: votePct === null || votePct === 0 ? null : seatCount / votePct,
         };
       })
       // A party with no seats AND no measurable share is noise on a scatter plot.
@@ -678,35 +620,9 @@ export function electionMapView(
             year: e.year,
           };
 
-    /* ── turnout across the election, and provenance ── */
+    /* ── provenance: the sources of the results read and of the outlines drawn ── */
 
-    const turnout = get<{ voters: number | null; electors: number | null }>(
-      db,
-      `SELECT SUM(t.voters) AS voters, SUM(t.electors) AS electors
-         FROM contest c
-         JOIN place_version pv ON pv.id = c.place_version_id
-         JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-        WHERE c.election_id = ?${scope}`,
-      electionId,
-      ...scopeBind,
-    );
-
-    const sourceIds = all<{ id: string }>(
-      db,
-      `SELECT DISTINCT pg.source_id AS id FROM contest c
-         JOIN place_version pv ON pv.id = c.place_version_id
-         JOIN place_geometry pg ON pg.place_version_id = pv.id
-        WHERE c.election_id = ?${scope}
-       UNION
-       SELECT DISTINCT r.source_id AS id FROM contest c
-         JOIN place_version pv ON pv.id = c.place_version_id
-         JOIN result r ON r.contest_id = c.id AND r.revision = 0
-        WHERE c.election_id = ?${scope}`,
-      electionId,
-      ...scopeBind,
-      electionId,
-      ...scopeBind,
-    ).map((x) => x.id);
+    const sources = sourcesFor(db, { elections: [electionId], ...within }, { geometry: true });
 
     const siblings = all<ChoiceRow>(
       db,
@@ -736,7 +652,7 @@ export function electionMapView(
       // contest count IS the house — which is exactly what a by-election is not.
       majority: ctx?.majority ?? null,
       context: contextShapes,
-      turnout: turnoutReading(turnout?.voters ?? null, turnout?.electors ?? null, turnoutUnverified),
+      turnout: turnoutOf(results),
       voteSeat,
       marginBins,
       flips,
@@ -744,7 +660,7 @@ export function electionMapView(
       // incomparable pile by construction, and the caption then blamed a delimitation for the absence of a
       // comparison that was never possible. Nothing was redrawn; there is simply nothing to compare to.
       incomparableSeats: ctx?.kind === "bypoll" ? 0 : split.incomparable.length,
-      sources: loadSources(db, sourceIds, []),
+      sources,
       geometry: {
         /**
          * THE FRAME INCLUDES THE SEATS THAT DID NOT VOTE.

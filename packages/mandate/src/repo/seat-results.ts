@@ -20,12 +20,17 @@
 // There is deliberately no class: a seat book cannot be re-sliced after `partitionByEpoch` hands back plain
 // subsets, and it does not cross to a React prop.
 //
+// Two things a seat result does not hold are read here as well, under the same scope and the same party rule so
+// that they cannot drift from it: what each party polled over EVERY candidate it ran (`partyVotes`), and the
+// sources behind the results (`sourcesFor`).
+//
 // Turnout leaves a seat only as a READING (turnout-trust.ts): a value together with whether it has earned the
 // right to be printed. For an unverified election the counts exist under `turnout.evidence` and nowhere else.
 
 import type { DatabaseSync } from "node:sqlite";
 import { all } from "../db/index.ts";
-import { marks, read } from "./index.ts";
+import { loadSources, marks, read } from "./index.ts";
+import type { SourceRef } from "./index.ts";
 import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
 import type { Turnout } from "./turnout-trust.ts";
 
@@ -233,6 +238,34 @@ export function tally(seats: readonly SeatResult[]): PartySeats[] {
 /** Binary order, which is what SQLite's default collation gives the `ORDER BY name` this stands in for. */
 const compare = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
 
+export type JurisdictionPartySeats = PartySeats & { electionId: string; jurisdictionId: string };
+
+/**
+ * `tally` within each election and each jurisdiction the seats sit in, which is how a general election is
+ * read as thirty-six state shares of itself. In election, jurisdiction, party order.
+ */
+export function tallyByJurisdiction(seats: readonly SeatResult[]): JurisdictionPartySeats[] {
+  const groups = new Map<string, SeatResult[]>();
+  for (const s of seats) {
+    const key = `${s.electionId}\u0000${s.jurisdictionId}`;
+    const at = groups.get(key);
+    if (at === undefined) groups.set(key, [s]);
+    else at.push(s);
+  }
+  return [...groups.values()]
+    .flatMap((group) =>
+      tally(group).map((p) => ({
+        electionId: (group[0] as SeatResult).electionId,
+        jurisdictionId: (group[0] as SeatResult).jurisdictionId,
+        ...p,
+      })),
+    )
+    .sort(
+      (a, b) =>
+        compare(a.electionId, b.electionId) || compare(a.jurisdictionId, b.jurisdictionId) || compare(a.key, b.key),
+    );
+}
+
 /**
  * The `n` seats decided by the smallest share of votes polled. Seats with no margin share — undeclared,
  * unverified, or without votes polled — are not close, they are unknown, and are not ranked.
@@ -261,12 +294,28 @@ export function medianMarginShare(seats: readonly SeatResult[]): number | null {
 /* ────────────────────────────── the registry adapter ────────────────────────────── */
 
 /**
- * Which seats to read: every contest of these elections, optionally only those inside one jurisdiction.
+ * Which seats to read: every contest of these elections, optionally only those inside one jurisdiction, or one
+ * district of it.
  *
  * `within` is `place_version.jurisdiction_id` — where the SEAT is, which for a general election is not where
- * the election belongs ('in').
+ * the election belongs ('in'). `district` is `place_version.district_place_id`, and a parliamentary seat has none.
  */
-export type SeatScope = { elections: readonly string[]; within?: string };
+export type SeatScope = { elections: readonly string[]; within?: string; district?: string };
+
+/** The WHERE terms a scope adds to a query over `contest c JOIN place_version pv`, and what they bind. */
+function scoped(scope: SeatScope): { where: string; binds: string[] } {
+  return {
+    where:
+      `c.election_id IN (${marks(scope.elections.length)})` +
+      (scope.within === undefined ? "" : " AND pv.jurisdiction_id = ?") +
+      (scope.district === undefined ? "" : " AND pv.district_place_id = ?"),
+    binds: [
+      ...scope.elections,
+      ...(scope.within === undefined ? [] : [scope.within]),
+      ...(scope.district === undefined ? [] : [scope.district]),
+    ],
+  };
+}
 
 type SeatRow = {
   electionId: string;
@@ -350,6 +399,7 @@ function recordOf(r: SeatRow): SeatRecord {
 export function readSeats(db: DatabaseSync, scope: SeatScope): SeatResult[] {
   if (scope.elections.length === 0) return [];
   return read(() => {
+    const at = scoped(scope);
     const rows = all<SeatRow>(
       db,
       `SELECT c.election_id AS electionId, c.id AS contestId,
@@ -377,11 +427,130 @@ export function readSeats(db: DatabaseSync, scope: SeatScope): SeatResult[] {
          LEFT JOIN party_version pvv2 ON pvv2.id = cd2.party_version_id
          LEFT JOIN party pt2          ON pt2.id = pvv2.party_id
          LEFT JOIN turnout t    ON t.contest_id = c.id AND t.scope = 'contest'
-        WHERE c.election_id IN (${marks(scope.elections.length)})${scope.within === undefined ? "" : " AND pv.jurisdiction_id = ?"}
+        WHERE ${at.where}
         ORDER BY c.election_id, c.place_version_id`,
-      ...scope.elections,
-      ...(scope.within === undefined ? [] : [scope.within]),
+      ...at.binds,
     );
     return seatsFromRecords(rows.map(recordOf), unverifiedTurnout(db, scope.elections));
+  });
+}
+
+/* ────────────────────────────── what a seat result does not hold ────────────────────────────── */
+
+export type PartyVotes = { electionId: string; jurisdictionId: string; party: PartyRef; votes: number | null };
+
+/**
+ * The votes each party polled, over EVERY candidate it ran, in each election and each jurisdiction the seats
+ * sit in. Null for a party none of whose rows carries a count: not published is not zero.
+ *
+ * Its own read because a `SeatResult` holds the winner and the runner-up, and a party's share of the vote is over
+ * everyone it ran — a party can poll a fifth of a state's votes and win nothing. In election, jurisdiction,
+ * party order.
+ */
+export function partyVotes(db: DatabaseSync, scope: SeatScope): PartyVotes[] {
+  if (scope.elections.length === 0) return [];
+  return read(() => {
+    const at = scoped(scope);
+    const rows = all<{
+      electionId: string;
+      jurisdictionId: string;
+      partyId: string | null;
+      shortName: string | null;
+      name: string | null;
+      raw: string | null;
+      votes: number | null;
+    }>(
+      db,
+      `SELECT c.election_id AS electionId, pv.jurisdiction_id AS jurisdictionId,
+              pt.id AS partyId, pt.short_name AS shortName, pt.name AS name, cd.party_raw AS raw,
+              SUM(r.votes) AS votes
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN result r         ON r.contest_id = c.id AND r.revision = ${CURRENT_REVISION}
+         JOIN candidacy cd     ON cd.id = r.candidacy_id
+         LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
+         LEFT JOIN party pt          ON pt.id = pvv.party_id
+        WHERE ${at.where}
+        GROUP BY c.election_id, pv.jurisdiction_id, pt.id, pt.short_name, pt.name, cd.party_raw`,
+      ...at.binds,
+    );
+    // Several rows can name one party: the same party id with different raw strings, or a blank raw and a missing one.
+    const by = new Map<string, PartyVotes>();
+    for (const r of rows) {
+      const party = partyRef({ id: r.partyId, shortName: r.shortName, name: r.name, raw: r.raw });
+      const id = `${r.electionId}\u0000${r.jurisdictionId}\u0000${party.key}`;
+      const hit = by.get(id);
+      if (hit === undefined) {
+        by.set(id, { electionId: r.electionId, jurisdictionId: r.jurisdictionId, party, votes: r.votes });
+      } else if (r.votes !== null) {
+        hit.votes = (hit.votes ?? 0) + r.votes;
+      }
+    }
+    return [...by.values()].sort(
+      (a, b) =>
+        compare(a.electionId, b.electionId) ||
+        compare(a.jurisdictionId, b.jurisdictionId) ||
+        compare(a.party.key, b.party.key),
+    );
+  });
+}
+
+export type ElectionPartyVotes = { electionId: string; party: PartyRef; votes: number | null };
+
+/** `partyVotes` across jurisdictions: each party's votes in each election, in election then party order. */
+export function votesByParty(votes: readonly PartyVotes[]): ElectionPartyVotes[] {
+  const by = new Map<string, ElectionPartyVotes>();
+  for (const v of votes) {
+    const id = `${v.electionId}\u0000${v.party.key}`;
+    const hit = by.get(id);
+    if (hit === undefined) by.set(id, { electionId: v.electionId, party: v.party, votes: v.votes });
+    else if (v.votes !== null) hit.votes = (hit.votes ?? 0) + v.votes;
+  }
+  return [...by.values()].sort((a, b) => compare(a.electionId, b.electionId) || compare(a.party.key, b.party.key));
+}
+
+/** Which kinds of fact besides the results a page cites. Its results are always cited. */
+export type Cited = { turnout?: boolean; geometry?: boolean };
+
+/**
+ * The sources behind a scope: the sources of the result rows it reads, and of the turnout rows and outlines a page
+ * says it also draws on. Results count at `CURRENT_REVISION` only, because a result nobody reads is not provenance.
+ *
+ * `limit` caps the list, smallest id first, for a panel that shows publishers rather than a bibliography: an import
+ * can cite one source per row.
+ */
+export function sourcesFor(db: DatabaseSync, scope: SeatScope, cited: Cited = {}, limit?: number): SourceRef[] {
+  return read(() => loadSources(db, sourceIdsFor(db, scope, cited, limit), []));
+}
+
+/** The ids `sourcesFor` resolves, for a caller that resolves them together with something else. */
+export function sourceIdsFor(db: DatabaseSync, scope: SeatScope, cited: Cited = {}, limit?: number): string[] {
+  if (scope.elections.length === 0) return [];
+  return read(() => {
+    const at = scoped(scope);
+    const from = `FROM contest c JOIN place_version pv ON pv.id = c.place_version_id`;
+    const parts = [
+      `SELECT r.source_id AS id ${from}
+         JOIN result r ON r.contest_id = c.id AND r.revision = ${CURRENT_REVISION} WHERE ${at.where}`,
+    ];
+    if (cited.turnout === true) {
+      parts.push(
+        `SELECT t.source_id AS id ${from}
+           JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest' WHERE ${at.where}`,
+      );
+    }
+    if (cited.geometry === true) {
+      parts.push(
+        `SELECT pg.source_id AS id ${from}
+           JOIN place_geometry pg ON pg.place_version_id = pv.id WHERE ${at.where}`,
+      );
+    }
+    const ids = all<{ id: string }>(
+      db,
+      `${parts.join("\n UNION\n ")}\n ORDER BY id${limit === undefined ? "" : " LIMIT ?"}`,
+      ...parts.flatMap(() => at.binds),
+      ...(limit === undefined ? [] : [limit]),
+    );
+    return ids.map((r) => r.id);
   });
 }

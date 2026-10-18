@@ -13,7 +13,9 @@ import {
   partyRef,
   seatsFromRecords,
   tally,
+  tallyByJurisdiction,
   turnoutOf,
+  votesByParty,
   type CandidateRecord,
   type SeatRecord,
   type SeatResult,
@@ -223,6 +225,54 @@ test("tally counts declared winners by party, biggest first, ties by key", () =>
     { key: "BJP", label: "BJP", seats: 1 },
     { key: "IND", label: "IND", seats: 1 },
   ]);
+});
+
+test("tallyByJurisdiction tallies each election inside each jurisdiction, in election, jurisdiction, party order", () => {
+  const out = seatsFromRecords(
+    [
+      seat({ electionId: "ls", contestId: "1", placeId: "wb.pc.1", jurisdictionId: "wb" }),
+      seat({ electionId: "ls", contestId: "2", placeId: "wb.pc.2", jurisdictionId: "wb", winner: cand("X", BJP, 600) }),
+      seat({ electionId: "ls", contestId: "3", placeId: "wb.pc.3", jurisdictionId: "wb", winner: cand("Y", BJP, 600) }),
+      seat({ electionId: "ls", contestId: "4", placeId: "ka.pc.1", jurisdictionId: "ka", winner: cand("Z", BJP, 600) }),
+      seat({ electionId: "ls", contestId: "5", placeId: "ka.pc.2", jurisdictionId: "ka", winner: null, runnerUp: null, declaredMargin: null }),
+      seat({ electionId: "ae", contestId: "6", placeId: "wb.ac.1", jurisdictionId: "wb" }),
+    ],
+    none,
+  );
+  // Ordered by key within a group, not by size: the order a GROUP BY gave the readers this replaces.
+  assert.deepEqual(tallyByJurisdiction(out), [
+    { electionId: "ae", jurisdictionId: "wb", key: "AITC", label: "TMC", seats: 1 },
+    { electionId: "ls", jurisdictionId: "ka", key: "BJP", label: "BJP", seats: 1 },
+    { electionId: "ls", jurisdictionId: "wb", key: "AITC", label: "TMC", seats: 1 },
+    { electionId: "ls", jurisdictionId: "wb", key: "BJP", label: "BJP", seats: 2 },
+  ]);
+  assert.deepEqual(tallyByJurisdiction([]), []);
+});
+
+test("votesByParty adds a party's votes across jurisdictions, and a party with no count has none, not zero", () => {
+  const by = (electionId: string, jurisdictionId: string, key: string, votes: number | null) => ({
+    electionId,
+    jurisdictionId,
+    party: { key, label: key.toUpperCase() },
+    votes,
+  });
+  assert.deepEqual(
+    votesByParty([
+      by("e2", "ka", "b", null),
+      by("e1", "wb", "b", 30),
+      by("e1", "ka", "b", 12),
+      by("e1", "ka", "a", null),
+      by("e1", "wb", "a", null),
+      by("e1", "kl", "c", null),
+      by("e1", "kl", "c", 5),
+    ]),
+    [
+      { electionId: "e1", party: { key: "a", label: "A" }, votes: null },
+      { electionId: "e1", party: { key: "b", label: "B" }, votes: 42 },
+      { electionId: "e1", party: { key: "c", label: "C" }, votes: 5 },
+      { electionId: "e2", party: { key: "b", label: "B" }, votes: null },
+    ],
+  );
 });
 
 test("closest ranks by margin share, skips seats without one, breaks ties by name, and takes n", () => {

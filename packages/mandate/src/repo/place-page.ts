@@ -29,10 +29,12 @@ import type { Body, Fill } from "../core/election-kind.ts";
 import { CHRONO_DESC } from "./elections.ts";
 import { constituencyHref, districtHref, slugOf, stateHref } from "./routes.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
-import { getPlaceBrief, loadSources, yearOf } from "./index.ts";
+import { getPlaceBrief, loadSources, marks, yearOf } from "./index.ts";
 import type { PartyPoint, PlaceAnalysis, PlaceAnalysisFilters } from "./place-analysis.ts";
 import { getPlaceAnalysis } from "./place-analysis.ts";
 import { readRegistry } from "./session.ts";
+import { readSeats, sourceIdsFor } from "./seat-results.ts";
+import type { SeatResult } from "./seat-results.ts";
 
 // ── the URL ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -887,8 +889,8 @@ function trailOf(db: DatabaseSync, segments: readonly string[], current: string)
 /**
  * Every election a jurisdiction has held, with who led it and by how many seats.
  *
- * Winners only. Reading every losing row to compute a share nothing displays is the difference between
- * 300,000 rows and a few hundred, and the same argument the deleted history grid made.
+ * Winners only, read as seat results: a row per contest, and never every losing row to compute a share nothing
+ * displays — the same argument the deleted history grid made.
  */
 function stateElections(db: DatabaseSync, jurisdiction: string): StateElection[] {
   const rows = all<{ id: string; year: number; house: string; kind: string; seats: number }>(
@@ -901,22 +903,19 @@ function stateElections(db: DatabaseSync, jurisdiction: string): StateElection[]
     jurisdiction,
   );
   if (rows.length === 0) return [];
-  const won = all<{ eid: string; party: string | null; n: number }>(
-    db,
-    `SELECT c.election_id AS eid, COALESCE(pt.short_name, ca.party_raw) AS party, COUNT(*) AS n
-       FROM contest c
-       JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
-       JOIN candidacy ca ON ca.id = r.candidacy_id
-       LEFT JOIN party_version pver ON pver.id = ca.party_version_id
-       LEFT JOIN party pt ON pt.id = pver.party_id
-      WHERE c.election_id IN (${rows.map(() => "?").join(",")})
-      GROUP BY eid, party`,
-    ...rows.map((r) => r.id),
-  );
+  const byParty = new Map<string, { eid: string; party: string; n: number }>();
+  for (const s of readSeats(db, { elections: rows.map((r) => r.id) })) {
+    if (s.winner === null) continue;
+    const id = `${s.electionId}\u0000${s.winner.party.label}`;
+    const at = byParty.get(id);
+    if (at === undefined) byParty.set(id, { eid: s.electionId, party: s.winner.party.label, n: 1 });
+    else at.n += 1;
+  }
+  const won = [...byParty.values()];
   return rows.map((r) => {
     const top = won
-      .filter((w) => w.eid === r.id && w.party !== null)
-      .sort((a, b) => b.n - a.n || (a.party ?? "").localeCompare(b.party ?? ""))
+      .filter((w) => w.eid === r.id)
+      .sort((a, b) => b.n - a.n || a.party.localeCompare(b.party))
       .at(0);
     const { body, fill } = facetOf(r.house, r.kind);
     return {
@@ -1169,33 +1168,45 @@ export async function placeView(
   return r.ok ? r.value : { kind: "unavailable", detail: r.detail };
 }
 
-type DistrictChildSql = {
-  id: string;
-  canonical_name: string;
-  number: number | null;
-  reservation: string | null;
-  voters: number | null;
-  electors: number | null;
-  margin: number | null;
-  person_name: string | null;
-  party: string | null;
-  source_ids: string | null;
-};
+/** SQL's SUM: null only when there is nothing to add. */
+function sum(xs: readonly (number | null)[]): number | null {
+  const given = xs.filter((x): x is number => x !== null);
+  return given.length === 0 ? null : given.reduce((t, x) => t + x, 0);
+}
 
-type StateChildSql = {
-  id: string;
-  canonical_name: string;
-  acs: number;
-  voters: number | null;
-  electors: number | null;
-  winners: string | null;
-  source_ids: string | null;
-};
+/**
+ * The turnout the registry holds for these seats, whether or not it is corroborated.
+ *
+ * Read here rather than taken from the seat results because those withhold an uncorroborated turnout and this
+ * table has always printed it: the Analysis floor does too, and a test holds the two equal. Whether a district
+ * should print West Bengal 2026's 93.0% is a separate decision from where its winners come from.
+ */
+function heldTurnout(
+  db: DatabaseSync,
+  election: string | null,
+  seats: readonly SeatResult[],
+): Map<number, { voters: number | null; electors: number | null }> {
+  if (election === null || seats.length === 0) return new Map();
+  return new Map(
+    all<{ versionId: number; voters: number | null; electors: number | null }>(
+      db,
+      `SELECT c.place_version_id AS versionId, t.voters AS voters, t.electors AS electors
+         FROM contest c
+         JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
+        WHERE c.election_id = ? AND c.place_version_id IN (${marks(seats.length)})`,
+      election,
+      ...seats.map((x) => x.versionId),
+    ).map((t) => [t.versionId, t]),
+  );
+}
 
-/** The ids behind the rows, so a parent level is cited from the same fact rows it renders — no place
- *  above an AC carries a claim, so `loadSources` on the subject ref alone comes back empty. */
-function ids(rows: readonly { source_ids: string | null }[]): string[] {
-  return [...new Set(rows.flatMap((r) => (r.source_ids ?? "").split(",")))].filter((s) => s !== "");
+/** Seats in the order a table lists them: by number, then name. A seat with no number goes first, as in SQL. */
+function bySeat(seats: readonly SeatResult[]): SeatResult[] {
+  return [...seats].sort(
+    (a, b) =>
+      (a.number === b.number ? 0 : a.number === null ? -1 : b.number === null ? 1 : a.number - b.number) ||
+      (a.name < b.name ? -1 : a.name > b.name ? 1 : 0),
+  );
 }
 
 /**
@@ -1227,30 +1238,17 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
   const year = election === null ? "" : yearOf(election);
 
 
+  // The seats of the latest election, as the seat results define them. A page that has no election has no seats.
+  const asked = election === null ? [] : [election];
+
   if (place.kind === "district") {
-    const rows = all<DistrictChildSql>(
-      db,
-      `SELECT pl.id, pv.canonical_name, pv.number, pv.reservation,
-              t.voters, t.electors, r.margin,
-              per.canonical_name AS person_name,
-              COALESCE(pt.short_name, ca.party_raw) AS party,
-              t.source_id || ',' || COALESCE(r.source_id, '') AS source_ids
-         FROM place pl
-         JOIN place_version pv ON pv.place_id = pl.id
-         JOIN contest c ON c.place_version_id = pv.id AND c.election_id = ?
-         LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-         LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
-         LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
-         LEFT JOIN person per ON per.id = ca.person_id
-         LEFT JOIN party_version pver ON pver.id = ca.party_version_id
-         LEFT JOIN party pt ON pt.id = pver.party_id
-        WHERE pl.parent_id = ? AND pl.kind = 'ac'
-        ORDER BY pv.number, pv.canonical_name`,
-      election ?? "",
-      place.id,
-    );
-    const sources = loadSources(db, ids(rows), [`place:${place.id}`]);
-    const counts = tally(rows.map((x) => x.party));
+    const scope = { elections: asked, district: place.id };
+    const rows = bySeat(readSeats(db, scope));
+    const held = heldTurnout(db, election, rows);
+    // No place above an AC carries a claim, so `loadSources` on the subject ref alone comes back empty: a parent
+    // level is cited from the same fact rows it renders.
+    const sources = loadSources(db, sourceIdsFor(db, scope, { turnout: true }), [`place:${place.id}`]);
+    const counts = tally(rows.map((x) => x.winner?.party.label ?? null));
     const lead = counts.at(0);
     return {
       kind: "parent",
@@ -1272,17 +1270,22 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
         rows: rows.map((x) => ({
           href: placeHref({
             kind: "ac",
-            id: x.id,
-            canonicalName: x.canonical_name,
+            id: x.placeId,
+            canonicalName: x.name,
             parentId: place.id,
           }),
           cols: [
             x.number === null ? "—" : String(x.number),
-            x.canonical_name + (x.reservation == null ? "" : ` · ${RESERVATION[x.reservation] ?? x.reservation}`),
-            x.party ?? "no result declared",
-            x.person_name ?? "—",
-            x.margin === null ? "—" : inr(Math.abs(x.margin)),
-            turnout_pct.format(turnout_pct.compute({ voters: x.voters, electors: x.electors })),
+            x.name + (x.reservation == null ? "" : ` · ${RESERVATION[x.reservation] ?? x.reservation}`),
+            x.winner?.party.label ?? "no result declared",
+            x.winner?.name ?? "—",
+            x.margin === null ? "—" : inr(Math.abs(x.margin.votes)),
+            turnout_pct.format(
+              turnout_pct.compute({
+                voters: held.get(x.versionId)?.voters ?? null,
+                electors: held.get(x.versionId)?.electors ?? null,
+              }),
+            ),
           ],
         })),
       },
@@ -1295,30 +1298,23 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
     };
   }
 
-  const rows = all<StateChildSql>(
-    db,
-    `SELECT d.id, d.canonical_name, COUNT(DISTINCT pl.id) AS acs,
-            SUM(t.voters) AS voters, SUM(t.electors) AS electors,
-            GROUP_CONCAT(CASE WHEN r.rank = 1 THEN COALESCE(pt.short_name, ca.party_raw) END) AS winners,
-            GROUP_CONCAT(DISTINCT t.source_id) AS source_ids
-       FROM place d
-       JOIN place pl ON pl.parent_id = d.id AND pl.kind = 'ac'
-       JOIN place_version pv ON pv.place_id = pl.id
-       JOIN contest c ON c.place_version_id = pv.id AND c.election_id = ?
-       LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-       LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank = 1
-       LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
-       LEFT JOIN party_version pver ON pver.id = ca.party_version_id
-       LEFT JOIN party pt ON pt.id = pver.party_id
-      WHERE d.parent_id = ? AND d.kind = 'district'
-      GROUP BY d.id
-      ORDER BY d.canonical_name`,
-    election ?? "",
-    place.id,
-  );
-  const sources = loadSources(db, ids(rows), [`place:${place.id}`]);
-  const seats = rows.reduce((a, x) => a + x.acs, 0);
-  const statewide = tally(rows.flatMap((x) => (x.winners ?? "").split(",")));
+  const scope = { elections: asked, within: place.id };
+  const inside = readSeats(db, scope);
+  const held = heldTurnout(db, election, inside);
+  // A district is the seats that sit in it. A seat with no district hangs off the state itself, and is on no row.
+  const byDistrict = new Map<string, SeatResult[]>();
+  for (const x of inside) {
+    if (x.districtId === null) continue;
+    const at = byDistrict.get(x.districtId);
+    if (at === undefined) byDistrict.set(x.districtId, [x]);
+    else at.push(x);
+  }
+  const rows = [...byDistrict.entries()]
+    .map(([id, seatsIn]) => ({ id, name: seatsIn[0]?.districtName ?? id, seats: seatsIn }))
+    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const sources = loadSources(db, sourceIdsFor(db, scope, { turnout: true }), [`place:${place.id}`]);
+  const seats = rows.reduce((a, x) => a + x.seats.length, 0);
+  const statewide = tally(rows.flatMap((x) => x.seats.map((y) => y.winner?.party.label ?? null)));
   const lead = statewide.at(0);
   return {
     kind: "parent",
@@ -1338,20 +1334,25 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
       headers: ["District", "Seats", "Won most", "Turnout"],
       numeric: [false, true, false, true],
       rows: rows.map((x) => {
-        const t = tally((x.winners ?? "").split(","));
+        const t = tally(x.seats.map((y) => y.winner?.party.label ?? null));
         const top = t.at(0);
         return {
           href: placeHref({
             kind: "district",
             id: x.id,
-            canonicalName: x.canonical_name,
+            canonicalName: x.name,
             parentId: place.id,
           }),
           cols: [
-            x.canonical_name,
-            inr(x.acs),
-            top === undefined ? "no result declared" : `${top[0]} ${inr(top[1])} of ${inr(x.acs)}`,
-            turnout_pct.format(turnout_pct.compute({ voters: x.voters, electors: x.electors })),
+            x.name,
+            inr(x.seats.length),
+            top === undefined ? "no result declared" : `${top[0]} ${inr(top[1])} of ${inr(x.seats.length)}`,
+            turnout_pct.format(
+              turnout_pct.compute({
+                voters: sum(x.seats.map((y) => held.get(y.versionId)?.voters ?? null)),
+                electors: sum(x.seats.map((y) => held.get(y.versionId)?.electors ?? null)),
+              }),
+            ),
           ],
         };
       }),

@@ -346,7 +346,13 @@ export function StateSurface({
                   key={s.versionId}
                   title={s.name}
                   href={s.href ?? undefined}
-                  aside={<b>{s.marginVotes === null ? '—' : `${IN.format(s.marginVotes)} votes`}</b>}
+                  aside={
+                    <b>
+                      {s.marginVotes === null
+                        ? '—'
+                        : `${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`}
+                    </b>
+                  }
                   detail={
                     <>
                       <span className="iei-mark">

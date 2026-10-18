@@ -18,7 +18,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import { constituencyHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
-import { read } from "./index.ts";
+import { marks, read } from "./index.ts";
+import { closest, partyVotes, readSeats, tallyByJurisdiction } from "./seat-results.ts";
+import type { PartyVotes, SeatResult } from "./seat-results.ts";
 import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
 import type { Turnout } from "./turnout-trust.ts";
 import { JURISDICTIONS } from "../ingest/india.ts";
@@ -69,24 +71,6 @@ export type CloseFight = {
 const nameOf = (id: string): string =>
   id === "in" ? "India" : (JURISDICTIONS.find((j) => j.id === id)?.name ?? id);
 
-/**
- * The party label a reader should see. `party.short_name` first because "TMC" is what a table column can
- * hold, then the full name, then the raw string the source printed — which is all there is for a party no
- * register lists, and is better than "unknown".
- */
-const LABEL_SQL = `COALESCE(NULLIF(pt.short_name, ''), NULLIF(pt.name, ''), NULLIF(cd.party_raw, ''), 'Unattached')`;
-const KEY_SQL = `COALESCE(pt.id, NULLIF(cd.party_raw, ''), 'unattached')`;
-
-/**
- * The jurisdiction a seat sits in, from the place tree rather than from the id string.
- *
- * Two depths, because two shapes of place hang off a jurisdiction: an assembly seat's parent is usually a
- * district whose parent is the state, but 535 of them hang off the state directly, and a parliamentary
- * seat's parent IS the state. The CASE reads the district only when `dis` really is a district; taking
- * `dis.parent_id` unconditionally would answer 'in' for every parliamentary seat.
- */
-const J_OF_SEAT = `CASE WHEN dis.kind = 'district' THEN dis.parent_id ELSE pl.parent_id END`;
-
 export type SeatsByParty = {
   electionId: string;
   /** The jurisdiction the seats are in — 'ka' for Karnataka's 28 seats of a general election. */
@@ -101,36 +85,34 @@ export type SeatsByParty = {
 /**
  * Seats and votes by party for MANY elections at once, split by the jurisdiction each seat sits in.
  *
- * One query where a per-election read would be one per election per jurisdiction. The national front page
- * needs the full party list for 31 jurisdictions' latest assemblies plus every state's slice of the latest
+ * Two reads where a per-election read would be one per election per jurisdiction: the seats, whose winners are
+ * counted by `tally`, and the votes, summed over every candidate a party ran (`partyVotes`). The national front
+ * page needs the full party list for 31 jurisdictions' latest assemblies plus every state's slice of the latest
  * Lok Sabha; read one election at a time that is 60-odd scans of `result`, and the page had four sections
- * each paying for it again. This is one GROUP BY with the election and the jurisdiction in the key.
+ * each paying for it again.
  *
- * `revision = 0` is not optional: revision is the supersession column, and without it a corrected result
- * would be counted alongside the row it replaced.
+ * Only the results at `CURRENT_REVISION` count: revision is the supersession column, and without it a corrected
+ * result would be counted alongside the row it replaced.
  */
 export function seatsByParty(db: DatabaseSync, electionIds: readonly string[]): SeatsByParty[] {
   if (electionIds.length === 0) return [];
-  return read(() =>
-    all<SeatsByParty>(
-      db,
-      `SELECT c.election_id AS electionId, ${J_OF_SEAT} AS jurisdictionId,
-              ${KEY_SQL} AS key, ${LABEL_SQL} AS label,
-              SUM(CASE WHEN r.is_winner = 1 THEN 1 ELSE 0 END) AS seats,
-              SUM(r.votes) AS votes
-         FROM result r
-         JOIN contest c        ON c.id = r.contest_id
-         JOIN candidacy cd     ON cd.id = r.candidacy_id
-         LEFT JOIN party_version pv ON pv.id = cd.party_version_id
-         LEFT JOIN party pt         ON pt.id = pv.party_id
-         JOIN place_version pvv ON pvv.id = c.place_version_id
-         JOIN place pl          ON pl.id = pvv.place_id
-         LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)
-        WHERE r.revision = 0 AND c.election_id IN (${electionIds.map(() => "?").join(",")})
-        GROUP BY 1, 2, 3, 4`,
-      ...electionIds,
-    ),
+  const scope = { elections: electionIds };
+  return partyRows(readSeats(db, scope), partyVotes(db, scope));
+}
+
+/** `seatsByParty` from seats and votes already in hand — the front page reads the seats of its elections once. */
+export function partyRows(seats: readonly SeatResult[], votes: readonly PartyVotes[]): SeatsByParty[] {
+  const won = new Map(
+    tallyByJurisdiction(seats).map((w) => [`${w.electionId}\u0000${w.jurisdictionId}\u0000${w.key}`, w.seats]),
   );
+  return votes.map((v) => ({
+    electionId: v.electionId,
+    jurisdictionId: v.jurisdictionId,
+    key: v.party.key,
+    label: v.party.label,
+    seats: won.get(`${v.electionId}\u0000${v.jurisdictionId}\u0000${v.party.key}`) ?? 0,
+    votes: v.votes,
+  }));
 }
 
 export type SeatsWon = {
@@ -146,32 +128,13 @@ export type SeatsWon = {
  *
  * The cheap sibling of `seatsByParty`. A grid of 36 jurisdictions × 5 elections needs the leader of 155
  * elections; through `seatsByParty` that reads every losing row of all of them (~300,000) to compute a
- * vote share nothing on that surface displays. This reads the ~31,000 winners.
+ * vote share nothing on that surface displays. This reads a row for each of the ~31,000 contests.
  *
  * No `votes` column, by design rather than by omission: the winners' votes are not a denominator for
  * anything, and a `votes` field here would eventually be divided by something and reported as a share.
  */
 export function seatsWonBy(db: DatabaseSync, electionIds: readonly string[]): SeatsWon[] {
-  if (electionIds.length === 0) return [];
-  return read(() =>
-    all<SeatsWon>(
-      db,
-      `SELECT c.election_id AS electionId, ${J_OF_SEAT} AS jurisdictionId,
-              ${KEY_SQL} AS key, ${LABEL_SQL} AS label, COUNT(*) AS seats
-         FROM result r
-         JOIN contest c        ON c.id = r.contest_id
-         JOIN candidacy cd     ON cd.id = r.candidacy_id
-         LEFT JOIN party_version pv ON pv.id = cd.party_version_id
-         LEFT JOIN party pt         ON pt.id = pv.party_id
-         JOIN place_version pvv ON pvv.id = c.place_version_id
-         JOIN place pl          ON pl.id = pvv.place_id
-         LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)
-        WHERE r.revision = 0 AND r.is_winner = 1
-          AND c.election_id IN (${electionIds.map(() => "?").join(",")})
-        GROUP BY 1, 2, 3, 4`,
-      ...electionIds,
-    ),
-  );
+  return tallyByJurisdiction(readSeats(db, { elections: electionIds }));
 }
 
 /**
@@ -402,61 +365,64 @@ export function currentStandings(db: DatabaseSync, kind = "assembly"): Standing[
   });
 }
 
-/** The tightest results in the country, from the most recent election of each jurisdiction. */
+/**
+ * SQLite's `ROUND(x, n)`, which these figures used to be rounded by. `toFixed` agrees with it where `Math.round`
+ * does not: 31.965 rounds to 31.96 in SQLite and in `toFixed`, and to 31.97 in `Math.round`.
+ */
+const round = (x: number, n: number): number => Number(x.toFixed(n));
+
+/**
+ * The tightest results in the country, from the most recent election of each jurisdiction.
+ *
+ * A margin is a share of votes polled, so a seat whose votes polled nothing corroborates — an unverified
+ * election — is not ranked at all: it is not close, it is unknown (`closest`).
+ */
 export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): CloseFight[] {
   return read(() => {
     const latest = latestPerJurisdiction(db, kind);
     if (latest.length === 0) return [];
     const ids = latest.map((l) => l.id);
-    const holes = ids.map(() => "?").join(",");
-    return all<CloseFight & { districtId: string | null; kind: string }>(
-      db,
-      // The runner-up joins on rank = 2 of the SAME contest. A LEFT JOIN, because an election the source
-      // published winners-only for has no second row — and "no runner-up recorded" is a different fact
-      // from "unopposed", which is why it is null here rather than blank.
-      // plv.kind carries the BODY, so the canonical link names it instead of assuming an assembly seat.
-      `SELECT plv.canonical_name AS placeName, pl.id AS placeId, plv.kind AS kind, ${J_OF_SEAT} AS jurisdictionId,
-              ${LABEL_SQL} AS winner,
-              -- The district the seat sat in UNDER THIS VERSION, which is what a place path addresses. NULL
-              -- for a parliamentary constituency, whose district join lands on the jurisdiction instead.
-              CASE WHEN dis.kind = 'district' THEN dis.id ELSE NULL END AS districtId,
-              CASE WHEN r2.candidacy_id IS NULL THEN NULL
-                   ELSE COALESCE(NULLIF(pt2.short_name, ''), NULLIF(pt2.name, ''), NULLIF(cd2.party_raw, ''), 'Unattached')
-              END AS runnerUp,
-              ROUND(100.0 * r2.votes / t.voters, 1) AS runnerUpPct,
-              ROUND(100.0 * r.votes / t.voters, 1) AS winnerPct,
-              -- Two decimals, because the closest seats in India are decided by tens of votes and one
-              -- decimal printed five different results as "0%".
-              ROUND(100.0 * r.margin / t.voters, 2) AS marginPct,
-              r.margin AS marginVotes,
-              c.election_id AS electionId, e.year AS year
-         FROM result r
-         JOIN contest c        ON c.id = r.contest_id
-         JOIN election e       ON e.id = c.election_id
-         JOIN candidacy cd     ON cd.id = r.candidacy_id
-         LEFT JOIN party_version pv ON pv.id = cd.party_version_id
-         LEFT JOIN party pt         ON pt.id = pv.party_id
-         LEFT JOIN result r2   ON r2.contest_id = c.id AND r2.revision = 0 AND r2.rank = 2
-         LEFT JOIN candidacy cd2    ON cd2.id = r2.candidacy_id
-         LEFT JOIN party_version pv2 ON pv2.id = cd2.party_version_id
-         LEFT JOIN party pt2         ON pt2.id = pv2.party_id
-         JOIN turnout t        ON t.contest_id = c.id AND t.scope = 'contest'
-         JOIN place_version plv ON plv.id = c.place_version_id
-         JOIN place pl          ON pl.id = plv.place_id
-         LEFT JOIN place dis    ON dis.id = COALESCE(plv.district_place_id, pl.parent_id)
-        WHERE r.revision = 0 AND r.is_winner = 1 AND r.margin IS NOT NULL AND t.voters > 0
-          AND c.election_id IN (${holes})
-        ORDER BY marginPct ASC, placeName
-        LIMIT ?`,
-      ...ids,
-      limit,
-    ).map(({ districtId, ...r }) => ({
-      ...r,
-      href:
-        districtId !== null && districtId.startsWith(`${r.jurisdictionId}.`)
-          ? constituencyHref({ jurisdictionId: r.jurisdictionId, kind: r.kind, canonicalName: r.placeName })
-          : stateHref(r.jurisdictionId),
-    }));
+    // The body of each election, so the canonical link names it instead of assuming an assembly seat.
+    const house = new Map(
+      all<{ id: string; house: string }>(db, `SELECT id, house FROM election WHERE id IN (${marks(ids.length)})`, ...ids).map(
+        (e) => [e.id, e.house],
+      ),
+    );
+    const year = new Map(latest.map((l) => [l.id, l.year]));
+    return closest(readSeats(db, { elections: ids }), limit).map((s): CloseFight => {
+      // `closest` keeps only seats with a margin share, which needs a winner, a margin and the counts of a
+      // corroborated turnout. A runner-up is optional: "no runner-up recorded" is a different fact from
+      // "unopposed", which is why it is null here rather than blank.
+      const winner = s.winner as NonNullable<SeatResult["winner"]>;
+      const voters = (s.counts as NonNullable<SeatResult["counts"]>).voters as number;
+      const pct = (votes: number | null, dp: number): number | null =>
+        votes === null ? null : round((100 * votes) / voters, dp);
+      return {
+        placeName: s.name,
+        placeId: s.placeId,
+        jurisdictionId: s.jurisdictionId,
+        // The seat's page needs the district it sat in UNDER THIS VERSION, which a parliamentary constituency
+        // does not have; it falls back up the tree to the state rather than to a broken URL.
+        href:
+          s.districtId !== null && s.districtId.startsWith(`${s.jurisdictionId}.`)
+            ? constituencyHref({
+                jurisdictionId: s.jurisdictionId,
+                kind: house.get(s.electionId) ?? "ac",
+                canonicalName: s.name,
+              })
+            : stateHref(s.jurisdictionId),
+        winner: winner.party.label,
+        runnerUp: s.runnerUp?.party.label ?? null,
+        runnerUpPct: pct(s.runnerUp?.votes ?? null, 1),
+        winnerPct: pct(winner.votes, 1),
+        // Two decimals, because the closest seats in India are decided by tens of votes and one
+        // decimal printed five different results as "0%".
+        marginPct: round(s.marginShare as number, 2),
+        marginVotes: s.margin?.votes ?? null,
+        electionId: s.electionId,
+        year: year.get(s.electionId) as number,
+      };
+    });
   });
 }
 

@@ -54,6 +54,7 @@ import {
   type Standing,
 } from "./elections.ts";
 import { seatsFromRecords, type SeatRecord } from "./seat-results.ts";
+import { unverifiedTurnout } from "./turnout-trust.ts";
 import { INDIA_TOTALS } from "../ingest/india.ts";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
@@ -896,7 +897,13 @@ test("close fights are the closest results held, with a runner-up where one was 
   const d = db();
   try {
     const rows = closeFights(d, "assembly", 10);
-    assert.ok(rows.length > 0, "no close fights");
+    // A seat of an election whose turnout is unverified has no margin share, so it is not close, it is unknown:
+    // on a registry whose only assembly is West Bengal 2026 there may be nothing to list at all.
+    const unverified = unverifiedTurnout(
+      d,
+      latestPerJurisdiction(d, "assembly").map((l) => l.id),
+    );
+    for (const r of rows) assert.ok(!unverified.has(r.electionId), `${r.placeName}: ranked by a share nothing corroborates`);
     for (let i = 1; i < rows.length; i += 1) {
       assert.ok((rows[i]?.marginPct ?? 0) >= (rows[i - 1]?.marginPct ?? 0), "not sorted by margin");
     }

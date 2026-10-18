@@ -326,7 +326,7 @@ export function jurisdictions(db: DatabaseSync): JurisdictionState[] {
       // state directly rather than off a district, and for those `d` IS the state — so its parent_id is
       // 'in', and COALESCE filed every one of them under the nation. Andhra Pradesh's 300 seats read as
       // "not loaded" in the state picker and as no-data ink on the map while its 2019 results sat in the
-      // registry. Same defect, same shape, as the one repo/elections.ts documents at J_OF_SEAT.
+      // registry. Seat results avoid it by reading `place_version.jurisdiction_id` (repo/seat-results.ts).
       `SELECT CASE WHEN d.kind = 'district' THEN d.parent_id ELSE p.parent_id END AS state_id,
               count(*) AS n
          FROM place p
