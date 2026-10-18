@@ -54,7 +54,7 @@ type Allowed = { file: string; includes: string; n?: number; why: string };
 const PLACE_VIEW = "PlaceView's discriminant: which level of the place hierarchy was resolved, not an election";
 const SEAT_KIND = "a place or place_version kind ('ac' | 'pc'), which names a seat's body, not an election's";
 const FILL = "ElectionContext.kind, which is already a Fill";
-const STATE_VIEW = "StateView's discriminant: whether the state has an election to open on, not an election's kind";
+const STATE_VIEW = "StateView's discriminant: whether the state exists and has an election to open on, not an election's kind";
 
 const ALLOWED: Allowed[] = [
   { file: "app/_place/analysis/floor.tsx", includes: `{ kind: "ac" }`, why: PLACE_VIEW },
@@ -64,7 +64,8 @@ const ALLOWED: Allowed[] = [
   { file: "app/_place/surface.tsx", includes: `view.kind === "unavailable"`, why: PLACE_VIEW },
   { file: "app/_place/surface.tsx", includes: `view.kind !== "ac"`, why: PLACE_VIEW },
   { file: "app/_place/surface.tsx", includes: `view.kind === "parent"`, why: PLACE_VIEW },
-  { file: "app/_place/surface.tsx", includes: `outcome.value.kind === "ready"`, why: STATE_VIEW },
+  { file: "app/_place/surface.tsx", includes: `s.kind === "not-found"`, why: STATE_VIEW },
+  { file: "app/_place/surface.tsx", includes: `s.kind === "ready"`, why: STATE_VIEW },
   { file: "app/_place/surface.tsx", includes: "bodyOfKind(p.kind)", why: SEAT_KIND },
   { file: "app/constituency/[state]/[body]/page.tsx", includes: "${c.kind}-${c.id}", why: SEAT_KIND },
   { file: "app/constituency/[state]/[body]/page.tsx", includes: "bodyOfKind(c.kind)", why: SEAT_KIND },
@@ -149,7 +150,6 @@ const VIEW_TYPES: { file: string; type: string }[] = [
   { file: "elections.ts", type: "Dated" },
   { file: "home.ts", type: "ElectionCoverage" },
   { file: "election-map.ts", type: "ElectionChoice" },
-  { file: "place-page.ts", type: "StateElection" },
 ];
 
 test("no election view type carries the registry's house or kind", () => {

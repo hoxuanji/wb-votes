@@ -1,8 +1,8 @@
 // Findings are data, and the sentence is derived from the data.
 //
-// WHAT THIS SUITE PROTECTS. `StateShifts.lines` used to BE the analysis — the flip count existed only
-// inside "115 of 223 seats changed hands." Anything that wanted to draw it had to parse it, which is why
-// the product could print findings and not visualise them. These tests bind the inverse property: every
+// WHAT THIS SUITE PROTECTS. The state page's old `lines: string[]` used to BE the analysis — the flip count
+// existed only inside "115 of 223 seats changed hands." Anything that wanted to draw it had to parse it, which
+// is why the product could print findings and not visualise them. These tests bind the inverse property: every
 // conclusion is reachable as a field, and `summarise` is a pure function of those fields.
 //
 // The one rule worth stating: there is NO `text` field on a finding. A stored sentence is a second source
@@ -14,8 +14,8 @@ import test from "node:test";
 import { existsSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { DEV_DB_PATH, get, openRead } from "../db/index.ts";
+import { electionMapView, headlineFindings } from "./election-map.ts";
 import { ofType, summarise, summariseAll, type Finding } from "./findings.ts";
-import { stateShifts } from "./state-map.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
@@ -136,7 +136,7 @@ test("ofType narrows without losing the type", () => {
 
 /* ────────────────────────── against the live registry ────────────────────────── */
 
-test("stateShifts returns findings, and its prose is exactly summariseAll of them", live, () => {
+test("an election's headline findings exist for the newest assembly election, and each reads as a sentence", live, () => {
   const d = db();
   try {
     const row = get<{ id: string; j: string }>(
@@ -145,10 +145,12 @@ test("stateShifts returns findings, and its prose is exactly summariseAll of the
         ORDER BY year DESC LIMIT 1`,
     );
     assert.notEqual(row, undefined);
-    const s = stateShifts(d, row!.j, row!.id);
-    assert.ok(s.findings.length > 0, "no findings for the newest assembly election");
-    // The invariant that keeps a caption honest: prose is derived, never authored beside the data.
-    assert.deepEqual(s.lines, summariseAll(s.findings));
+    const findings = headlineFindings(electionMapView(d, row!.id, row!.j));
+    assert.ok(findings.length > 0, "no findings for the newest assembly election");
+    // The view carries the findings and no prose beside them: the sentences are derived, never authored.
+    const lines = summariseAll(findings);
+    assert.equal(lines.length, findings.length);
+    assert.ok(lines.every((l) => l.length > 0), "a finding summarised to nothing");
   } finally {
     d.close();
   }
@@ -162,14 +164,15 @@ test("a same-epoch comparison produces flip pairs that reconcile with the flip c
       `SELECT id, jurisdiction_place_id AS j FROM election WHERE kind = 'assembly'
         ORDER BY year DESC LIMIT 1`,
     );
-    const s = stateShifts(d, row!.j, row!.id);
-    const flips = ofType(s.findings, "seat_flips");
+    const v = electionMapView(d, row!.id, row!.j);
+    const flips = ofType(headlineFindings(v), "seat_flips");
     if (flips.length === 0) return; // a first election of its house is a legitimate empty answer
     const f = flips[0]!;
     const summed = f.pairs.reduce((n, p) => n + p.count, 0);
     assert.equal(summed, f.flipped, "the matrix cells do not sum to the flip count");
     assert.equal(f.held + f.flipped, f.comparable);
-    assert.equal(f.comparable, s.comparableSeats);
+    // Compared and refused seats are disjoint, so together they cannot exceed the seats contested.
+    assert.ok(f.comparable + v.incomparableSeats <= v.seats.length, "a seat was both compared and refused");
   } finally {
     d.close();
   }
@@ -184,16 +187,13 @@ test("a cross-epoch comparison emits seats_incomparable and NO seat_flips", live
       `SELECT COUNT(*) AS n FROM election WHERE id IN ('ka-assembly-2008','ka-assembly-2004')`,
     );
     if ((exists?.n ?? 0) < 2) return;
-    const s = stateShifts(d, "ka", "ka-assembly-2008");
-    assert.equal(ofType(s.findings, "seat_flips").length, 0, "a flip finding survived the epoch gate");
-    const refused = ofType(s.findings, "seats_incomparable");
+    const findings = headlineFindings(electionMapView(d, "ka-assembly-2008", "ka"));
+    assert.equal(ofType(findings, "seat_flips").length, 0, "a flip finding survived the epoch gate");
+    const refused = ofType(findings, "seats_incomparable");
     assert.equal(refused.length, 1, "the refusal was not reported as a finding");
     assert.ok(refused[0]!.count > 0);
-    // State-level aggregates SURVIVE the redraw: a state's turnout is a real quantity across it.
-    assert.ok(
-      ofType(s.findings, "turnout_change").length > 0 || ofType(s.findings, "majority").length > 0,
-      "the gate suppressed state-level aggregates too",
-    );
+    // The house's own majority SURVIVES the redraw: it is a fact about this election's seats, not a comparison.
+    assert.ok(ofType(findings, "majority").length > 0, "the gate suppressed the election's own aggregates too");
   } finally {
     d.close();
   }

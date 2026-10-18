@@ -9,17 +9,14 @@ import {
   placeTiles,
   placeView,
 } from "../../../packages/mandate/src/repo/place-page.ts";
-import { stateMapView, stateShifts } from "../../../packages/mandate/src/repo/state-map.ts";
-import type { StateMapView, StateShifts } from "../../../packages/mandate/src/repo/state-map.ts";
 import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
 import { fillFor } from "../../../packages/mandate/src/viz/party-ink.ts";
-import { StateMap } from "../../components/iei/StateMap.tsx";
 import { bandOf, MARGIN_BANDS } from "../../../packages/mandate/src/repo/election-map.ts";
 import { stateView } from "../../../packages/mandate/src/repo/state-view.ts";
 import { isMode } from "../../components/iei/ElectionMap.tsx";
 import type { MapMode } from "../../components/iei/ElectionMap.tsx";
-import { bodyOfKind, districtHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
-import { bodyWord, chipOf } from "../../../packages/mandate/src/core/election-kind.ts";
+import { bodyOfKind, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import { StateSurface } from "./state.tsx";
 import { Foot, Shell } from "../../components/iei/Shell.tsx";
 import {
@@ -27,6 +24,7 @@ import {
   Crumbs,
   DataList,
   DataRow,
+  EmptyState,
   Metric,
   Metrics,
   Panel,
@@ -63,9 +61,9 @@ export const dynamic = "force-dynamic";
  *  · THE FOOTER, which explained why the Analysis floor is per-constituency. A reader who has not opened the
  *    Analysis floor does not need to be told what is not on this page.
  *
- * What was added, and it is one module: WHAT CHANGED. Three to five observations against the previous election
- * of the same house — seat movements, seats that changed hands, turnout, whether the leader holds the house.
- * `stateShifts()` composes it from one read; see repo/state-map.ts for what it refuses to say.
+ * What was added, and it is one module: WHAT CHANGED. Against the previous election of the same house: seats
+ * that changed hands, seats that held, and seats that could not be compared. It reads `ElectionMapView.flips`,
+ * which refuses to compare a seat across a redrawn boundary; see repo/election-map.ts.
  *
  * EVIDENCE IS ONE DRAWER PER MODULE. Every figure on the seat page used to carry its own inline `ⓘ`: all six
  * tiles carry a source, so six drawers were rendered over the same handful of sources, plus one for the panel
@@ -103,49 +101,6 @@ function link(base: string, params: Params, change: Record<string, string>): str
   const s = q.toString();
   return s === "" ? `${base}#map` : `${base}?${s}#map`;
 }
-
-/**
- * The state's map data and what moved since the last election of the same house, in one session.
- *
- * `placeView` runs its own session and this needs a second read; keeping the two apart means a jurisdiction
- * whose registry cannot be read renders the page without a map rather than failing the whole route. That is
- * for an OUTAGE only. A defect in a map query is thrown, where it used to be caught here and shown as a page
- * that simply had no map.
- */
-function readMap(
-  jurisdictionId: string,
-  params: NonNullable<Params>,
-): { map: StateMapView; shifts: StateShifts } | null {
-  const r = readRegistry((db) => {
-    const map = stateMapView(db, jurisdictionId, {
-      election: first(params["election"]),
-      house: first(params["house"]),
-    });
-    return {
-      map,
-      shifts:
-        map.election === null
-          ? {
-              previousYear: null,
-              previousId: null,
-              findings: [],
-              lines: [],
-              comparableSeats: 0,
-              incomparableSeats: 0,
-            }
-          : stateShifts(db, jurisdictionId, map.election.id),
-    };
-  });
-  return r.ok ? r.value : null;
-}
-
-/**
- * A district's own page, from the ids the map already holds.
- *
- * `DistrictTally.id` is a dotted place id — `ka.bangalore` — and a place path wants the segment under the
- * state. Built here rather than threaded through the view, because it is one `slice` and the alternative is a
- * field on a type whose whole point is that a district has no winner.
- */
 
 /**
  * THE ONE PLACE SURFACE, now reached by four routes instead of by one catch-all.
@@ -199,22 +154,30 @@ export async function PlaceSurface({
        flips and no trajectory. Its page is the list of seats it elects, which is what the code below does. */
     if (view.level === "state") {
       // READ WITH THE ID THE PATH RESOLVED TO, not the segment it was reached by: `/state/KA` and `/state/ka` are
-      // one state, and the registry spells it `ka`. Handing it the raw segment made `KA` find no elections and
-      // render the fallback below.
+      // one state, and the registry spells it `ka`. Handing it the raw segment made `KA` find no elections.
       const outcome = readRegistry((db) =>
         stateView(db, view.placeId, {
           house: first(searchParams?.["house"]),
           election: first(searchParams?.["election"]),
         }),
       );
-      // A registry that cannot be read, or a state with no election to open on, renders the page without the
-      // surface instead of failing the route; a defect in one of the queries is thrown, not shown as that page.
-      const s = outcome.ok && outcome.value.kind === "ready" ? outcome.value : null;
+      // A registry that became unreadable since `placeView` read it is the outage that read would have reported.
+      // A defect in one of the queries is thrown, not shown as that page.
+      if (!outcome.ok) {
+        return (
+          <Shell here="place" reading>
+            <RegistryMissing />
+          </Shell>
+        );
+      }
+      const s = outcome.value;
+      // `placeView` has just resolved this id, so only a registry that changed in between finds no such state.
+      if (s.kind === "not-found") notFound();
       // THE ENTITY'S OWN CANONICAL BASE, not the path this surface was reached by. It is rendered under
       // /state, /district and /constituency now, so joining the segments would have produced `/pl/...` from
       // every one of them — a query link that navigated back into the compatibility layer on each click.
       const base = stateHref(view.placeId);
-      if (s !== null) {
+      if (s.kind === "ready") {
         const params = searchParams ?? {};
         const askedParty = first(params["party"]);
         // VALIDATED BY MEMBERSHIP, never parsed: a party has to be one this election returned or ran.
@@ -262,375 +225,66 @@ export async function PlaceSurface({
           </Shell>
         );
       }
+
+      // The state exists and has no election to open on, for the house asked. A page of districts would answer
+      // another question, and with no election there is no map to draw.
+      return (
+        <Shell here="place" reading>
+          <Crumbs trail={view.trail} />
+          <EmptyState
+            title={`No election to show for ${view.name}.`}
+            detail={`The registry holds no election with a seat inside ${view.name} for this view, so there is nothing to map.`}
+          />
+          <Foot />
+        </Shell>
+      );
     }
 
-    // The electoral map, for a STATE. A district page is a list of its seats and has no map of its own: the
-    // district level of the map is reached by selecting a district on the state's map, which reframes it.
-    const read = view.level === "state" ? readMap(segments[0] as string, searchParams ?? {}) : null;
-    const map = read?.map ?? null;
-    const shifts = read?.shifts ?? null;
-    const party =
-      map !== null && map.legend.some((l) => l.key === first(searchParams?.["party"]))
-        ? (first(searchParams?.["party"]) as string)
-        : null;
-    const focus =
-      map !== null && map.districts.some((d) => d.id === first(searchParams?.["district"]))
-        ? (first(searchParams?.["district"]) as string)
-        : null;
-    // Same rule as the state branch above: the canonical base of the entity being rendered.
-    const base =
-      view.level === "district"
-        ? districtHref(`${segments[0] ?? ""}.${segments[1] ?? ""}`)
-        : stateHref(segments[0] ?? "");
-    const mapHref = (change: Record<string, string>): string => link(base, searchParams, change);
-    const lead = map?.legend[0] ?? null;
-    const seatsContested = map?.seats.length ?? 0;
-
+    // A DISTRICT has no map: its level of the state's map is reached by selecting it there, which reframes the map.
     return (
-      <Shell here="place" reading={map === null}>
+      <Shell here="place" reading>
         <Crumbs trail={view.trail} />
         <div className="iei-head">
-          <p className="iei-eyebrow">{view.level === "state" ? "State or union territory" : "District"}</p>
+          <p className="iei-eyebrow">District</p>
           <h1 className="iei-answer">{view.name}</h1>
-          {/* THE RESULT STRIP — the five-second answer, at the size a five-second answer needs to be.
-              Who leads, by how many of how many, and which election established it. It replaced a 13px
-              sentence that said the same thing in the tier the page uses for captions. A district has no
-              election of its own, so it keeps the computed sentence. */}
-          {map !== null && map.election !== null && lead !== null ? (
-            <div className="iei-result">
-              <span className="iei-result-p">
-                <span className="iei-sw" style={{ background: fillFor(lead.key) }} aria-hidden="true" />
-                {lead.label}
-              </span>
-              <span>
-                <b>{lead.n}</b> <span className="iei-of">of {seatsContested}</span>
-              </span>
-              <span className="iei-result-w">
-                {bodyWord(map.election.body)} {map.election.year}
-                {map.election.fill === "bypoll" ? " by-election" : ""}
-              </span>
-            </div>
-          ) : (
-            <p className="iei-sub">{view.headline}</p>
-          )}
+          {/* A district has no election of its own, so its sentence is the computed headline. */}
+          <p className="iei-sub">{view.headline}</p>
         </div>
 
-        {map === null || map.election === null ? null : (
-          <Panel
-            id="map"
-            /* WHAT, WHEN, AND AT WHICH LEVEL, in the heading, at a glance. "Assembly winners" is a claim about
-               each constituency — the opposite end of the product from the national map's "Government", which
-               is one figure for a whole state. A reader must never have to guess which they are looking at. */
-            title={`${map.jurisdictionName} · ${bodyWord(map.election.body)} winners · ${map.election.year}`}
-            question={
-              focus === null
-                ? "Which party won each constituency?"
-                : `Which party won each constituency in ${map.districts.find((d) => d.id === focus)?.name ?? focus}?`
-            }
-            /* The polygons' publisher, licence, retrieval date and hash, and the results' source, in the one
-               drawer this panel already had room for. A boundary set is a source like any other. */
-            sources={map.sources}
+        <Panel title="Seats" question="Which seats does this district elect?" sources={view.sources}>
+          <Table
+            label="Seats in this district"
+            caption={view.children.caption}
+            captionVisible
+            tight={view.children.rows.length > 20}
+            tall={view.children.rows.length > 24}
+            head={view.children.headers.map((h, i) => (
+              <th scope="col" className={view.children.numeric[i] === true ? "iei-n" : undefined} key={h}>
+                {h}
+              </th>
+            ))}
           >
-            {/* THE ELECTION SELECTOR. Plain links, so the election is URL state: the map, the legend, the
-                counts and the heading all change together and none of them can go stale.
-
-                FULL ELECTIONS FIRST, THEN BY-ELECTIONS, and the reason is what the strip looked like on a
-                phone. Karnataka has four assembly and general elections on record and thirteen by-elections;
-                in strict chronological order the twelve shown were four full elections scattered through
-                eight single-seat by-polls, and a reader looking for 2018 found it after "LS 2021 BY-POLL".
-                Same twelve, same links, ranked by what a reader came for. */}
-            <Tabs
-              label="Election"
-              current={map.election.id}
-              choices={[
-                ...map.elections.filter((e) => e.fill !== "bypoll"),
-                ...map.elections.filter((e) => e.fill === "bypoll"),
-              ]
-                .slice(0, 12)
-                .map((e) => ({
-                  key: e.id,
-                  label: chipOf(e.body, e.fill, e.year),
-                  href: link(base, searchParams, { election: e.id, district: "" }),
-                }))}
-            />
-
-            <div className="iei-map-split">
-              <StateMap view={map} highlight={party} district={focus} hrefFor={mapHref} />
-
-              <div>
-                {/* WINNERS — the map's key, its filter, and the module the brief asks for by name. Every party
-                    this election returned, biggest first, with its seat count. */}
-                <ul className="iei-legend">
-                  {map.legend.slice(0, 6).map((l) => (
-                    <li key={l.key}>
-                      <Link
-                        href={mapHref({ party: party === l.key ? "" : l.key })}
-                        className={party === null ? undefined : party === l.key ? "iei-legend-on" : "iei-legend-off"}
-                        aria-pressed={party === l.key}
-                      >
-                        <span className="iei-sw" style={{ background: fillFor(l.key) }} aria-hidden="true" />
-                        {l.label}
-                        <b>{l.n}</b>
-                      </Link>
-                    </li>
-                  ))}
-                  {map.legend.length <= 6 ? null : (
-                    <li className="iei-legend-off">
-                      + {map.legend.length - 6} more {map.legend.length - 6 === 1 ? "party" : "parties"}
-                    </li>
-                  )}
-                </ul>
-                {party === null && focus === null ? null : (
-                  <p className="iei-note">
-                    {party === null ? null : (
-                      <>
-                        Showing only <b>{map.legend.find((l) => l.key === party)?.label ?? party}</b>.{" "}
-                        <Link href={mapHref({ party: "" })}>Every party</Link>.{" "}
-                      </>
-                    )}
-                    {focus === null ? null : (
-                      <>
-                        Framed on <b>{map.districts.find((d) => d.id === focus)?.name}</b>.{" "}
-                        <Link href={mapHref({ district: "" })}>Whole state</Link>.
-                      </>
-                    )}
-                  </p>
+            {view.children.rows.map((r) => (
+              <tr key={r.href}>
+                {r.cols.map((c, i) =>
+                  i === 0 ? (
+                    <th scope="row" key={i}>
+                      {view.children.headers[0] === "No." ? c : <Link href={r.href}>{c}</Link>}
+                    </th>
+                  ) : i === 1 && view.children.headers[0] === "No." ? (
+                    <td key={i}>
+                      <Link href={r.href}>{c}</Link>
+                    </td>
+                  ) : (
+                    <td className={view.children.numeric[i] === true ? "iei-n" : undefined} key={i}>
+                      {c}
+                    </td>
+                  ),
                 )}
-
-                {/* WHAT SITS BESIDE THE MAP DEPENDS ON WHAT THE ELECTION HAS.
-                    An assembly constituency belongs to a district, so the companion is the district tally —
-                    and it is the ONLY district table on this page now; a second one below said the same thing.
-                    A PARLIAMENTARY constituency does not belong to a district — `district_place_id` is null
-                    for every one of them — so for a Lok Sabha election the tally was a caption promising
-                    districts over a table with no rows. The seats themselves are the answer there. */}
-                {map.districts.length === 0 ? (
-                  <Table
-                    label="Constituencies and who won them"
-                    caption={`${map.jurisdictionName}'s ${map.seats.length} parliamentary constituencies in ${map.election.year}, in seat order.`}
-                    captionVisible
-                    tight={map.seats.length > 20}
-                    tall={map.seats.length > 18}
-                    head={
-                      <>
-                        <th scope="col">Constituency</th>
-                        <th scope="col">Won by</th>
-                        <th scope="col" className="iei-n">
-                          Margin
-                        </th>
-                      </>
-                    }
-                  >
-                    {map.seats.map((sm) => (
-                      <tr key={sm.versionId}>
-                        <th scope="row">{sm.name}</th>
-                        <td>
-                          {sm.partyKey === null ? (
-                            <Value value={null} absent="no winner recorded" />
-                          ) : (
-                            <span className="iei-mark">
-                              <span className="iei-sw" style={{ background: fillFor(sm.partyKey) }} aria-hidden="true" />
-                              {sm.partyLabel}
-                            </span>
-                          )}
-                          {sm.winnerPersonId === null ? null : (
-                            <>
-                              {" "}
-                              <Link href={`/p/${sm.winnerPersonId}`}>{sm.winnerName}</Link>
-                            </>
-                          )}
-                        </td>
-                        <td className="iei-n">
-                          {sm.marginVotes === null ? (
-                            <Value value={null} absent="not reported" />
-                          ) : (
-                            inr(Math.abs(sm.marginVotes))
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </Table>
-                ) : (
-                  <Table
-                    label="Districts and what their constituencies came to"
-                    /* TWO AFFORDANCES PER ROW, AND THE CAPTION NAMES BOTH — because deleting the page's second
-                       district table took the only link to a district PAGE with it, and broke the navigation
-                       graph INDIA → STATE → DISTRICT → SEAT. The name is the destination; the seat count is
-                       the lens. A district page holds every seat with its member, margin and turnout; framing
-                       redraws this map on that district. Different questions, so different targets. */
-                    caption={`Districts in ${map.election.year} — a district does not elect anybody, so each row counts the seats inside it. Open a district for its seats, or its seat count to frame the map on it.`}
-                    captionVisible
-                    tight={map.districts.length > 20}
-                    tall={map.districts.length > 18}
-                    head={
-                      <>
-                        <th scope="col">District</th>
-                        <th scope="col" className="iei-n">
-                          Seats
-                        </th>
-                        <th scope="col">Went to</th>
-                      </>
-                    }
-                  >
-                    {map.districts.map((d) => (
-                      <tr key={d.id} className={focus !== null && focus !== d.id ? "iei-legend-off" : undefined}>
-                        <th scope="row">
-                          <Link href={districtHref(d.id)}>{d.name}</Link>
-                        </th>
-                        <td className="iei-n">
-                          <Link
-                            href={mapHref({ district: focus === d.id ? "" : d.id })}
-                            title={focus === d.id ? `Show the whole state` : `Frame the map on ${d.name}`}
-                          >
-                            {d.seats}
-                          </Link>
-                        </td>
-                        <td>
-                          {d.parties.length === 0 ? (
-                            <Value value={null} absent="no winner recorded" />
-                          ) : (
-                            d.parties.slice(0, 3).map((q) => (
-                              <span key={q.key} className="iei-rule">
-                                <span className="iei-sw" style={{ background: fillFor(q.key) }} aria-hidden="true" />
-                                {q.n} of {d.seats} won by {q.label}
-                              </span>
-                            ))
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </Table>
-                )}
-              </div>
-            </div>
-          </Panel>
-        )}
-
-        {/* ── what changed ──
-            The third of the three things a state page owes a reader in five seconds, and the one it did not
-            have. Every line is a count or a difference over rows the registry holds; nothing is a cause and
-            nothing is a prediction. See repo/state-map.ts. */}
-        {shifts === null || shifts.lines.length === 0 ? null : (
-          <Panel
-            title="What changed"
-            question={
-              shifts.previousYear === null
-                ? "How does this compare with the last election?"
-                : `How does this compare with ${shifts.previousYear}?`
-            }
-          >
-            <DataList label="What changed since the previous election" tight>
-              {shifts.lines.map((l) => (
-                <DataRow key={l} title={l} />
-              ))}
-            </DataList>
-          </Panel>
-        )}
-
-        {/* A DISTRICT gets its seats. A STATE does not get a second district table — the map's tally above is
-            the same 30 districts with the same links, and printing them twice is what made this page read as a
-            dump of rows. */}
-        {view.level === "state" && map !== null && map.election !== null ? null : (
-          <Panel
-            title={view.level === "state" ? "Districts" : "Seats"}
-            question={view.level === "state" ? "How is this state made up?" : "Which seats does this district elect?"}
-            sources={view.sources}
-          >
-            <Table
-              label={view.level === "state" ? "Districts in this state" : "Seats in this district"}
-              caption={view.children.caption}
-              captionVisible
-              tight={view.children.rows.length > 20}
-              tall={view.children.rows.length > 24}
-              head={view.children.headers.map((h, i) => (
-                <th scope="col" className={view.children.numeric[i] === true ? "iei-n" : undefined} key={h}>
-                  {h}
-                </th>
-              ))}
-            >
-              {view.children.rows.map((r) => (
-                <tr key={r.href}>
-                  {r.cols.map((c, i) =>
-                    i === 0 ? (
-                      <th scope="row" key={i}>
-                        {view.children.headers[0] === "No." ? c : <Link href={r.href}>{c}</Link>}
-                      </th>
-                    ) : i === 1 && view.children.headers[0] === "No." ? (
-                      <td key={i}>
-                        <Link href={r.href}>{c}</Link>
-                      </td>
-                    ) : (
-                      <td className={view.children.numeric[i] === true ? "iei-n" : undefined} key={i}>
-                        {c}
-                      </td>
-                    ),
-                  )}
-                </tr>
-              ))}
-            </Table>
-          </Panel>
-        )}
-
-        {view.elections.length === 0 ? null : (
-          <Panel
-            id="elections"
-            title="Elections on record"
-            question="What has this jurisdiction voted in, and who led it?"
-          >
-            {/* A COMPACT TIMELINE, and the note above it is gone. It explained that a jurisdiction with two
-                elections gets two rows and that ordering is by the calendar rather than by election id — both
-                true, both about how the software works. A reader looking at seventeen dated rows can see that
-                nothing is padded. */}
-            <Table
-              label="Every election this jurisdiction has held"
-              caption={`${inr(view.elections.length)} election${view.elections.length === 1 ? "" : "s"} on record, newest first. The year opens that election's coverage.`}
-              tight={view.elections.length > 12}
-              tall={view.elections.length > 20}
-              head={
-                <>
-                  <th scope="col" className="iei-n">
-                    Year
-                  </th>
-                  <th scope="col">House</th>
-                  <th scope="col">Led by</th>
-                  <th scope="col" className="iei-n">
-                    Seats
-                  </th>
-                  <th scope="col" className="iei-den">
-                    <span className="iei-sr">of seats contested</span>
-                  </th>
-                </>
-              }
-            >
-              {view.elections.map((e) => (
-                <tr key={e.id}>
-                  {/* The year is the link, and it is a LABEL: left-aligned like every other row header, so
-                      this table's first column starts where the districts table's does. Four digits align
-                      with each other whichever edge they are set against.
-                      A "Coverage" column of seventeen identical "how much is loaded" links is a column that
-                      says one thing seventeen times, so the year carries that too. */}
-                  <th scope="row">
-                    <Link href={`/coverage?election=${e.id}#election`}>{e.year}</Link>
-                  </th>
-                  {/* Inline, not a sub-line: a conditional second line made every by-election row taller
-                      than the rows around it, and a table of 17 elections rippled. */}
-                  <td>{bodyWord(e.body)}{e.fill === "bypoll" ? " by-election" : ""}</td>
-                  <td>
-                    {e.leaderLabel === null ? (
-                      <span className="iei-absent">no winner recorded</span>
-                    ) : (
-                      <span className="iei-mark">
-                        <span className="iei-sw" style={{ background: fillFor(e.leaderLabel) }} aria-hidden="true" />
-                        <span className="iei-chip">{e.leaderLabel}</span>
-                      </span>
-                    )}
-                  </td>
-                  <td className="iei-n">{e.leaderSeats === 0 ? <Value value={null} absent="—" /> : e.leaderSeats}</td>
-                  <td className="iei-den">of {e.seats}</td>
-                </tr>
-              ))}
-            </Table>
-          </Panel>
-        )}
+              </tr>
+            ))}
+          </Table>
+        </Panel>
 
         <Foot />
       </Shell>

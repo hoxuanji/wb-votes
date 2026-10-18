@@ -49,7 +49,7 @@ export type CloseFight = {
    * The seat's own page, or the jurisdiction's when it has none.
    *
    * Built HERE rather than in a component, because the rule — state / district / slugged name — is the same
-   * one `state-map.ts` and `place-page.ts` apply, and a fourth copy of it in JSX is a link that silently goes
+   * one `election-map.ts` and `place-page.ts` apply, and a fourth copy of it in JSX is a link that silently goes
    * nowhere. A parliamentary constituency hangs off the state rather than a district, so it has no
    * four-segment path; that is a fallback up the tree, not a broken URL.
    */
@@ -219,7 +219,7 @@ export function previousElection(db: DatabaseSync, electionId: string): string |
  * 324 consecutive assembly pairs cross a delimitation this way.
  *
  * Why a composite KEY and not an `if`: a check has to be remembered at every call site, and there are two
- * (`stateShifts`, `watchSignals`) with more to come. Keying the comparison on (epoch, place) makes the
+ * (`electionMapView`, `watchSignals`) with more to come. Keying the comparison on (epoch, place) makes the
  * wrong match UNREPRESENTABLE — a cross-epoch pair simply finds nothing, because the keys cannot collide.
  * Callers cannot opt out of it, which is the difference between a gate and a convention.
  *

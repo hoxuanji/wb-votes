@@ -736,8 +736,8 @@ export function seatsInBand(seats: readonly ElectionSeat[], band: string | null)
 /**
  * A district, as the set of seats inside it.
  *
- * Note what is absent, and it is the same absence `DistrictTally` has carried since the state map was
- * built: there is no `winner` field. A district elects nobody. `parties` is plural because the honest
+ * Note what is absent, and it is the same absence the state map's district tally carried before this replaced it:
+ * there is no `winner` field. A district elects nobody. `parties` is plural because the honest
  * sentence is "12 of 18 constituencies went to INC".
  */
 export type DistrictGroup = {

@@ -19,8 +19,8 @@ import type { Cell, Layer } from '../../../packages/mandate/src/repo/home.ts';
  * country. Its intent was administrative texture and its effect was interference across every polygon, at the
  * one zoom level where a district is not the unit of anything a reader can select, compare or navigate to.
  * PROGRESSIVE GEOGRAPHIC DISCLOSURE is the rule now — states here, districts when a state is open,
- * constituencies where the registry holds them — and the geometry did not go anywhere: `districtsOf()` still
- * serves the state map's district level, which is where a district frames, links and carries a tally.
+ * constituencies where the registry holds them. The district rings stay in the geometry asset, and nothing reads
+ * them (see india-geo.ts).
  *
  * The disclaimer went with the lines, and that is not a loss of honesty. It read "district outlines are
  * neutral: the fill is a state's government, which is not a claim about any district in it" — a sentence
@@ -43,7 +43,7 @@ import type { Cell, Layer } from '../../../packages/mandate/src/repo/home.ts';
  */
 
 /**
- * The label's size, as a fraction of the frame — the same rule `StateMap` applies, and for the same reason.
+ * The label's size, as a fraction of the frame.
  *
  * A font size inside an SVG is in USER units, so it means a different number of PIXELS at every frame. The
  * national frame is 597 units wide and renders at about 550px, so the old constant of 7.5 units drew at

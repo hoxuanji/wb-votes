@@ -407,29 +407,20 @@ test("placeView: a district's turnout column IS turnout_pct, the same measure th
   const seat = await placeView(["wb", "cooch-behar", "mekliganj"], {});
   assert.equal(d.kind, "parent");
   assert.equal(seat.kind, "ac");
-  if (d.kind !== "parent" || seat.kind !== "ac") return;
+  if (d.kind !== "parent" || d.level !== "district" || seat.kind !== "ac") return;
   const turnout = d.children.headers.indexOf("Turnout");
   const latest = seat.analysis.turnoutSeries.at(0);
   assert.equal(d.children.rows[0]?.cols[turnout], turnout_pct.format(latest?.turnoutPct ?? null));
 });
 
-test("placeView: a district lists its seats, a state its districts", { skip }, async () => {
+test("placeView: a district lists its seats", { skip }, async () => {
   const d = await placeView(["wb", "cooch-behar"], {});
   assert.equal(d.kind, "parent");
-  if (d.kind !== "parent") return;
-  assert.equal(d.level, "district");
+  if (d.kind !== "parent" || d.level !== "district") return assert.fail("not a district view");
   assert.equal(d.children.rows.length, 9);
   assert.match(d.headline, /9 assembly seats/);
   assert.equal(d.children.rows[0]?.href, "/constituency/wb/assembly/mekliganj");
   assert.ok(d.sources.length > 0, "a parent level is cited too");
-
-  const s = await placeView(["wb"], {});
-  assert.equal(s.kind, "parent");
-  if (s.kind !== "parent") return;
-  assert.equal(s.level, "state");
-  assert.equal(s.children.rows.length, 23);
-  assert.match(s.headline, /294 assembly seats across 23 districts/);
-  assert.equal(s.children.rows[0]?.href, "/district/wb/alipurduar");
 });
 
 test("placeView: the path's ancestry must be true, and an unknown place is not-found", { skip }, async () => {
@@ -522,7 +513,7 @@ function defectiveRegistry(): string {
   return path;
 }
 
-test("placeView on a fixture registry: a state lists its districts and a district its seats", async () => {
+test("placeView on a fixture registry: a state is its name and trail, and a district its seats", async () => {
   const read = at(bareRegistry());
   const s = await placeView(["wb"], {}, undefined, undefined, read);
   assert.equal(s.kind, "parent");
@@ -530,6 +521,8 @@ test("placeView on a fixture registry: a state lists its districts and a distric
     assert.equal(s.level, "state");
     assert.equal(s.name, "West Bengal");
     assert.deepEqual(s.trail, [{ label: "India", href: "/" }, { label: "West Bengal" }]);
+    // Nothing else: a state does not read its districts, because no state page renders them.
+    assert.deepEqual(Object.keys(s).sort(), ["kind", "level", "name", "placeId", "trail"]);
   }
   const d = await placeView(["wb", "coochbehar"], {}, undefined, undefined, read);
   assert.equal(d.kind, "parent");

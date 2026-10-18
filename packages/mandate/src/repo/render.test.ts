@@ -18,7 +18,6 @@ import test from "node:test";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
-import * as stateMap from "./state-map.ts";
 import * as electionMap from "./election-map.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
@@ -586,19 +585,30 @@ test("a map draws polygons from one coordinate space, and says how many it withh
   // invariant that survives either way: every path the map receives is in the frame it declares, and anything
   // in another frame is counted rather than drawn.
   for (const j of ["wb", "ka", "up"]) {
-    const v = stateMap.stateMapView(db, j);
-    assert.ok(v.geometry.viewBox !== null, `${j} declares no frame`);
-    assert.equal(v.seats.filter((x) => x.path !== null).length, v.geometry.drawable);
-    assert.equal(v.geometry.drawable + v.geometry.otherFrames <= v.geometry.total, true);
+    const v = stateView(db, j);
+    assert.ok(v.kind === "ready", `${j} has nothing to open on`);
+    const { geometry, seats } = v.map;
+    assert.ok(geometry.viewBox !== "", `${j} declares no frame`);
+    assert.equal(seats.filter((x) => x.path !== null).length, geometry.drawable);
+    assert.equal(geometry.drawable + geometry.otherFrames <= geometry.total, true);
   }
-  // And the count is real rather than hardcoded to zero: it is the number of held polygons the map refused.
-  const frames = all<{ n: number }>(db, `SELECT COUNT(DISTINCT view_box) AS n FROM place_geometry`)[0]?.n ?? 0;
-  const wb = stateMap.stateMapView(db, "wb");
-  if (frames > 1) {
-    assert.ok(wb.geometry.otherFrames >= 0, "the guard reports nothing while two frames exist");
-  } else {
-    assert.equal(wb.geometry.otherFrames, 0, "one frame in the table, so nothing may be withheld");
-  }
+  // And the count is real rather than hardcoded to zero: it is the number of held polygons the map refused, which
+  // is every one of this election's that is not in the shared frame.
+  const wb = stateView(db, "wb");
+  assert.ok(wb.kind === "ready", "wb has nothing to open on");
+  const refused =
+    all<{ n: number }>(
+      db,
+      `SELECT COUNT(*) AS n
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN place_geometry g ON g.place_version_id = pv.id
+        WHERE c.election_id = ? AND pv.jurisdiction_id = 'wb' AND g.path IS NOT NULL
+          AND COALESCE(g.view_box, '') <> ?`,
+      wb.map.election?.id ?? "",
+      electionMap.SHARED_FRAME,
+    )[0]?.n ?? 0;
+  assert.equal(wb.map.geometry.otherFrames, refused, "the guard does not count what it withheld");
 });
 
 

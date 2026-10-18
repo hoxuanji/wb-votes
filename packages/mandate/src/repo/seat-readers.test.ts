@@ -626,37 +626,10 @@ const at =
   (fn) =>
     readRegistry(fn, { path });
 
-test("placeView: a state lists its districts with the winners the seat results define, and the seats off any district are on no row", async () => {
-  const read = at(onFile());
-  const s = await placeView(["ka"], {}, undefined, undefined, read);
-  assert.equal(s.kind, "parent");
-  if (s.kind !== "parent") return;
-  assert.equal(s.electionId, "ka-assembly-2023");
-  // Seat D hangs off the state: three of the four seats are in a district.
-  assert.match(s.headline, /3 assembly seats across 2 districts; AAA won 2 of them in 2023\./);
-  assert.deepEqual(
-    s.children.rows.map((r) => r.cols),
-    [
-      // a tie of one each is broken by the label, the way it always was
-      ["North", "2", "AAA 1 of 2", "50.0%"],
-      ["South", "1", "AAA 1 of 1", "50.0%"],
-    ],
-  );
-  assert.deepEqual(s.children.rows.map((r) => r.href), ["/district/ka/d1", "/district/ka/d2"]);
-  // Leaders per election, from the same winners; the independent and the party with a blank short name are named.
-  assert.deepEqual(
-    s.elections.map((e) => [e.id, e.leaderLabel, e.leaderSeats]),
-    [["ka-assembly-2023", "AAA", 2], ["ka-assembly-2018", "AAA", 2]],
-  );
-  // The results and the turnout of the election on the page: s1 and s5 for the first, s2 and s6 for the second.
-  assert.deepEqual(s.sources.map((x) => x.id), ["s1", "s2", "s5", "s6"]);
-});
-
 test("placeView: a district lists its seats, winner, member, margin and turnout", async () => {
   const read = at(onFile());
   const d = await placeView(["ka", "d1"], {}, undefined, undefined, read);
-  assert.equal(d.kind, "parent");
-  if (d.kind !== "parent") return;
+  if (d.kind !== "parent" || d.level !== "district") return assert.fail("not a district view");
   assert.match(d.headline, /North has 2 assembly seats; AAA won 1 of them in 2023\./);
   assert.deepEqual(
     d.children.rows.map((r) => r.cols),
@@ -673,8 +646,7 @@ test("placeView: a district lists its seats, winner, member, margin and turnout"
 test("placeView: an unverified election's seats are listed with the turnout the registry holds, as the Analysis floor prints it", async () => {
   const read = at(onFile());
   const d = await placeView(["wb", "d1"], {}, undefined, undefined, read);
-  assert.equal(d.kind, "parent");
-  if (d.kind !== "parent") return;
+  if (d.kind !== "parent" || d.level !== "district") return assert.fail("not a district view");
   // Whether a district page should print West Bengal 2026's turnout is its own decision, not this one: the winners come
   // from the seat results, and the turnout is still the held figure. The third seat has no declared winner.
   assert.deepEqual(
@@ -685,9 +657,6 @@ test("placeView: an unverified election's seats are listed with the turnout the 
       ["3", "Seat W3 · General", "no result declared", "—", "—", "75.0%"],
     ],
   );
-  const s = await placeView(["wb"], {}, undefined, undefined, read);
-  if (s.kind !== "parent") return assert.fail("not a parent view");
-  assert.deepEqual(s.children.rows.map((r) => r.cols), [["Cooch Behar", "3", "AAA 1 of 3", "70.0%"]]);
 });
 
 test("placeView: a registry with no election lists nothing and cites nothing, rather than reading the election ''", async () => {
@@ -699,11 +668,8 @@ test("placeView: a registry with no election lists nothing and cites nothing, ra
     INSERT INTO place (id, kind, parent_id, canonical_name) VALUES ('wb.d1', 'district', 'wb', 'Cooch Behar');
   `);
   d.close();
-  const s = await placeView(["wb"], {}, undefined, undefined, at(path));
-  if (s.kind !== "parent") return assert.fail("not a parent view");
-  assert.deepEqual([s.children.rows, s.sources, s.elections, s.electionId], [[], [], [], null]);
   const dd = await placeView(["wb", "d1"], {}, undefined, undefined, at(path));
-  if (dd.kind !== "parent") return assert.fail("not a parent view");
+  if (dd.kind !== "parent" || dd.level !== "district") return assert.fail("not a district view");
   assert.deepEqual([dd.children.rows, dd.sources, dd.electionId], [[], [], null]);
 });
 

@@ -41,7 +41,7 @@ than returning a 500.
 ```text
 src/app/                     one route per surface, and one stylesheet
   iei.css                    the design system: tokens, primitives, grid, breakpoints
-src/components/iei/          Shell, IndiaMap, StateMap, and the primitives every page is built from
+src/components/iei/          Shell, IndiaMap, ElectionMap, and the primitives every page is built from
 data/party-ink.json          party visual identity: curated hues as OKLCH, with their provenance
 data/geo/india-states.json   state outlines and named district rings, with their hash and epoch
 packages/mandate/            the registry: schema, migrations, ingestion, entity resolution, read layer

@@ -101,9 +101,11 @@ test("the merge decision with no registry records nothing and says so", { skip }
 // ── a defect is not an outage ────────────────────────────────────────────────────────────────────
 
 /**
- * A migrated registry holding West Bengal and one assembly election, with the named tables replaced by views over
- * a function SQLite does not have. That is a bug in a query, not a state of the deployment: a table or column
- * that is merely missing would read as an outage, by design, and so would not tell the two apart.
+ * A migrated registry holding West Bengal and one assembly election with one contest, with the named tables
+ * replaced by views over a function SQLite does not have. That is a bug in a query, not a state of the
+ * deployment: a table or column that is merely missing would read as an outage, by design, and so would not tell
+ * the two apart. The contest is what gives the state page an election to open on; without one it says there is
+ * nothing to map and never reads the geometry.
  */
 function registry(...broken: string[]): string {
   const path = nowhere();
@@ -118,9 +120,15 @@ function registry(...broken: string[]): string {
     INSERT INTO place (id, kind, canonical_name) VALUES ('wb', 'state', 'West Bengal');
     INSERT INTO place (id, kind, parent_id, canonical_name) VALUES ('wb.coochbehar', 'district', 'wb', 'Cooch Behar');
     INSERT INTO place (id, kind, parent_id, canonical_name) VALUES ('wb.ac.001', 'ac', 'wb.coochbehar', 'Mekliganj');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+      VALUES (1, 'wb.ac.001', 'wb', 'ac', 'delim-2008', 1, 'Mekliganj', 'general');
     INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, polling_month)
       VALUES ('wb-assembly-2021', 'assembly', 'state', 'wb', 'delim-2008', 'WB 2021', 'declared', 'ac', 2021, 4);
+    INSERT INTO contest (id, election_id, place_version_id, lifecycle)
+      VALUES ('c1', 'wb-assembly-2021', 1, 'declared');
   `);
+  // A table other rows point at cannot be dropped while foreign keys are enforced, and the contest points at the election.
+  d.exec("PRAGMA foreign_keys = OFF");
   for (const table of broken) {
     d.exec(`DROP TABLE ${table}; CREATE VIEW ${table} AS SELECT no_such_function() AS id`);
   }
@@ -129,9 +137,8 @@ function registry(...broken: string[]): string {
 }
 
 /**
- * Each page, the table whose query is broken, and why that route. The state page reads twice after `placeView`
- * has resolved the place: `stateView` for the surface, and `readMap` when there is no surface to draw (a house
- * with no election). Both used to catch anything and render the page without a map.
+ * Each page, the table whose query is broken, and why that route. The state page reads once after `placeView`
+ * has resolved the place, through `stateView`, which used to catch anything and render the page without a map.
  */
 const DEFECTS: [route: string, query: string, segments: string, broken: string][] = [
   ["/search", "q=wb", "", "election"],
@@ -140,7 +147,6 @@ const DEFECTS: [route: string, query: string, segments: string, broken: string][
   ["/election", "", "wb-assembly-2021", "election"],
   ["/review/merges", "", "", "person_merge_candidate"],
   ["/state", "", "wb", "place_geometry"],
-  ["/state", "house=pc", "wb", "place_geometry"],
 ];
 
 for (const [route, query, segments, broken] of DEFECTS) {

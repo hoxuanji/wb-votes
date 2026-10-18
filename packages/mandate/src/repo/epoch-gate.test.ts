@@ -4,8 +4,8 @@
 //
 //   `place.id` is a seat NUMBER slot, not a territory. Every delimitation order renumbers constituencies
 //   from scratch, so Karnataka's `ka.ac.001` is AURAD under the 1976 order and NIPPANI under the 2008 one —
-//   different places, hundreds of kilometres apart. `stateShifts` and `watchSignals` matched two elections'
-//   winners on `place_id` alone. Pairing Karnataka 2004 with Karnataka 2008 therefore matched 223 seats,
+//   different places, hundreds of kilometres apart. The state page's seat comparison and `watchSignals` matched
+//   two elections' winners on `place_id` alone. Pairing Karnataka 2004 with Karnataka 2008 therefore matched 223 seats,
 //   ALL 223 of which name a different constituency, and reported 170 of them as having "changed hands".
 //
 //   The state page's election selector makes that pair reachable in two clicks, and 65 of 324 consecutive
@@ -29,7 +29,8 @@ import { existsSync } from "node:fs";
 import type { DatabaseSync } from "node:sqlite";
 import { DEV_DB_PATH, all, get, openRead } from "../db/index.ts";
 import { partitionByEpoch, previousElection, seatKey } from "./elections.ts";
-import { stateShifts } from "./state-map.ts";
+import { electionMapView, headlineFindings } from "./election-map.ts";
+import { summariseAll } from "./findings.ts";
 import { spine, watchSignals } from "./home.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
@@ -125,28 +126,30 @@ test("a cross-epoch pair exists in the registry, so this gate is not theoretical
   }
 });
 
-test("stateShifts NEVER reports a flip count across a delimitation", live, () => {
+test("the state page's election view NEVER reports a flip count across a delimitation", live, () => {
   const d = db();
   try {
     const pair = crossEpochPair(d);
     if (pair === null) return;
-    const shifts = stateShifts(d, pair.jurisdiction, pair.now);
+    const view = electionMapView(d, pair.now, pair.jurisdiction);
 
     // The whole defect, as one assertion: not one seat may be compared across the boundary change.
+    const compared = view.flips?.comparable ?? 0;
     assert.equal(
-      shifts.comparableSeats,
+      compared,
       0,
       `${pair.now} vs ${pair.then} crosses ${pair.thenEpoch} → ${pair.nowEpoch} and still compared ` +
-        `${shifts.comparableSeats} seats`,
+        `${compared} seats`,
     );
     // And the refusal is REPORTED, not swallowed. A hidden zero would read as "nothing changed".
-    assert.ok(shifts.incomparableSeats > 0, "seats were refused without being counted");
+    assert.ok(view.incomparableSeats > 0, "seats were refused without being counted");
     // No sentence may claim seats changed hands.
-    const claims = shifts.lines.filter((l) => /changed hands/.test(l));
+    const lines = summariseAll(headlineFindings(view));
+    const claims = lines.filter((l) => /changed hands/.test(l));
     assert.equal(claims.length, 0, `a flip claim survived the gate: ${JSON.stringify(claims)}`);
     // Something must SAY why, or the section is silently short.
     assert.ok(
-      shifts.lines.some((l) => /cannot be compared/.test(l)),
+      lines.some((l) => /cannot be compared/.test(l)),
       "the refusal was not explained to the reader",
     );
   } finally {
@@ -154,7 +157,7 @@ test("stateShifts NEVER reports a flip count across a delimitation", live, () =>
   }
 });
 
-test("stateShifts still compares seats WITHIN one delimitation", live, () => {
+test("the election view still compares seats WITHIN one delimitation", live, () => {
   const d = db();
   try {
     // Every jurisdiction's newest assembly pair is same-epoch in the current registry, so this asserts the
@@ -171,8 +174,7 @@ test("stateShifts still compares seats WITHIN one delimitation", live, () => {
       const a = get<{ e: string }>(d, `SELECT epoch_id AS e FROM election WHERE id = ?`, r.id)?.e;
       const b = get<{ e: string }>(d, `SELECT epoch_id AS e FROM election WHERE id = ?`, prior)?.e;
       if (a !== b) continue;
-      const shifts = stateShifts(d, r.j, r.id);
-      if (shifts.comparableSeats > 0) compared += 1;
+      if ((electionMapView(d, r.id, r.j).flips?.comparable ?? 0) > 0) compared += 1;
     }
     assert.ok(compared > 0, "the gate blocked every same-epoch comparison too");
   } finally {
@@ -271,7 +273,7 @@ test("the OLD matching rule really did produce a false flip count — the defect
     const gated = partitionByEpoch(now, then);
     assert.equal(gated.comparable.length, 0);
     assert.equal(
-      stateShifts(d, pair.jurisdiction, pair.now).comparableSeats,
+      electionMapView(d, pair.now, pair.jurisdiction).flips?.comparable ?? 0,
       0,
       "the shipped path still compares what the old rule compared",
     );

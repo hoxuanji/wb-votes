@@ -22,8 +22,6 @@ import { bars, lines, slope } from "../viz/charts.ts";
 import type { Tile } from "./brief.ts";
 import { fromRepo } from "./brief.ts";
 import { all, get } from "../db/index.ts";
-import { facetOf } from "../core/election-kind.ts";
-import type { Body, Fill } from "../core/election-kind.ts";
 // A const string, not a query: importing it here opens no database and keeps one definition of what
 // "newest first" means across every module that orders elections.
 import { CHRONO_DESC } from "./elections.ts";
@@ -786,18 +784,6 @@ export type ChildTable = {
 /** One step of the place path, walkable. The last has no href, because it is the page you are on. */
 export type Crumb = { label: string; href?: string };
 
-/** An election this jurisdiction held, as the state page lists them. */
-export type StateElection = {
-  id: string;
-  year: number;
-  /** The registry's `house` and `kind`, decoded once in `stateElections`. The codes themselves do not leave it. */
-  body: Body;
-  fill: Fill;
-  seats: number;
-  leaderLabel: string | null;
-  leaderSeats: number;
-};
-
 export type PlaceView =
   | { kind: "unavailable"; detail: string }
   | { kind: "not-found" }
@@ -812,12 +798,25 @@ export type PlaceView =
       trail: Crumb[];
     }
   | {
+      /**
+       * A state or union territory: a name, a trail, and the id to read its page with.
+       *
+       * Nothing else, on purpose. What a state page shows is `stateView`'s to read (repo/state-view.ts), so this
+       * does not pay for a district table that no state page renders.
+       */
       kind: "parent";
-      level: "state" | "district";
+      level: "state";
       /**
        * The place this path resolved to, as the registry spells it: `ka` for `/state/KA`. What a caller reads the
        * registry with, rather than the segment it was reached by, which is any case and may be a name.
        */
+      placeId: string;
+      name: string;
+      trail: Crumb[];
+    }
+  | {
+      kind: "parent";
+      level: "district";
       placeId: string;
       name: string;
       headline: string;
@@ -825,15 +824,6 @@ export type PlaceView =
       sources: SourceRef[];
       electionId: string | null;
       trail: Crumb[];
-      /**
-       * Every election this jurisdiction has held, newest first. State level only.
-       *
-       * THIS IS WHERE THE FRONT PAGE'S HISTORY GRID WENT. That grid was 36 rows by 5 columns of
-       * `/pl/<state>?election=<id>` links — a table of contents for these pages, on the landing surface,
-       * 180 cells deep. A state's own run of elections is a real thing to want and the state page did not
-       * have it; the level that owns the question is the level that answers it now.
-       */
-      elections: StateElection[];
     };
 
 type PlaceRow = { id: string; kind: string; canonical_name: string; parent_id: string | null };
@@ -889,50 +879,6 @@ function trailOf(db: DatabaseSync, segments: readonly string[], current: string)
     );
   });
   return trail;
-}
-
-/**
- * Every election a jurisdiction has held, with who led it and by how many seats.
- *
- * Winners only, read as seat results: a row per contest, and never every losing row to compute a share nothing
- * displays — the same argument the deleted history grid made.
- */
-function stateElections(db: DatabaseSync, jurisdiction: string): StateElection[] {
-  const rows = all<{ id: string; year: number; house: string; kind: string; seats: number }>(
-    db,
-    `SELECT e.id AS id, e.year AS year, e.house AS house, e.kind AS kind,
-            (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats
-       FROM election e
-      WHERE e.jurisdiction_place_id = ?
-      ORDER BY ${CHRONO_DESC}`,
-    jurisdiction,
-  );
-  if (rows.length === 0) return [];
-  const byParty = new Map<string, { eid: string; party: string; n: number }>();
-  for (const s of readSeats(db, { elections: rows.map((r) => r.id) })) {
-    if (s.winner === null) continue;
-    const id = `${s.electionId}\u0000${s.winner.party.label}`;
-    const at = byParty.get(id);
-    if (at === undefined) byParty.set(id, { eid: s.electionId, party: s.winner.party.label, n: 1 });
-    else at.n += 1;
-  }
-  const won = [...byParty.values()];
-  return rows.map((r) => {
-    const top = won
-      .filter((w) => w.eid === r.id)
-      .sort((a, b) => b.n - a.n || a.party.localeCompare(b.party))
-      .at(0);
-    const { body, fill } = facetOf(r.house, r.kind);
-    return {
-      id: r.id,
-      year: r.year,
-      body,
-      fill,
-      seats: r.seats,
-      leaderLabel: top?.party ?? null,
-      leaderSeats: top?.n ?? 0,
-    };
-  });
 }
 
 /**
@@ -1173,12 +1119,6 @@ export async function placeView(
   return r.ok ? r.value : { kind: "unavailable", detail: r.detail };
 }
 
-/** SQL's SUM: null only when there is nothing to add. */
-function sum(xs: readonly (number | null)[]): number | null {
-  const given = xs.filter((x): x is number => x !== null);
-  return given.length === 0 ? null : given.reduce((t, x) => t + x, 0);
-}
-
 /**
  * The turnout the registry holds for these seats, whether or not it is corroborated.
  *
@@ -1215,19 +1155,31 @@ function bySeat(seats: readonly SeatResult[]): SeatResult[] {
 }
 
 /**
- * A state and a district get what the registry genuinely holds for them: their children, each with
- * its latest declared result. getPlaceAnalysis is an AC measure, so there are no charts here and no
- * placeholder saying there will be.
+ * A district gets what the registry genuinely holds for it: its seats, each with its latest declared result.
+ * getPlaceAnalysis is an AC measure, so there are no charts here and no placeholder saying there will be.
+ *
+ * A state gets its name and its trail and nothing else. What its page shows is `stateView`'s to read, and a
+ * state that read the district table too would pay for a table no state page renders.
  */
 function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string[]): PlaceView {
-  // The latest assembly election IN THIS JURISDICTION, by year.
+  if (place.kind !== "district") {
+    return {
+      kind: "parent",
+      level: "state",
+      placeId: place.id,
+      name: place.canonical_name,
+      trail: trailOf(db, segments, place.canonical_name),
+    };
+  }
+
+  // The latest assembly election IN THIS DISTRICT'S STATE, by year.
   //
   // This was `SELECT MAX(election_id) FROM contest`, which was survivable while the registry held one
   // state and became wrong the moment it held thirty-one: ids sort lexically, so the maximum is whichever
   // state's name happens to sort last, and a West Bengal district asked for its seats' results in an
   // election held somewhere else — returning nothing at all. The year is the last four characters of every
   // election id (see repo/index.ts yearOf) and `place_version.jurisdiction_id` is what scopes it.
-  const jurisdiction = place.kind === "district" ? (place.parent_id ?? place.id) : place.id;
+  const jurisdiction = place.parent_id ?? place.id;
   const election =
     get<{ id: string | null }>(
       db,
@@ -1246,128 +1198,57 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
   // The seats of the latest election, as the seat results define them. A page that has no election has no seats.
   const asked = election === null ? [] : [election];
 
-  if (place.kind === "district") {
-    const scope = { elections: asked, district: place.id };
-    const rows = bySeat(readSeats(db, scope));
-    const held = heldTurnout(db, election, rows);
-    // No place above an AC carries a claim, so `loadSources` on the subject ref alone comes back empty: a parent
-    // level is cited from the same fact rows it renders.
-    const sources = loadSources(db, sourceIdsFor(db, scope, { turnout: true }), [`place:${place.id}`]);
-    const counts = tally(rows.map((x) => x.winner?.party.label ?? null));
-    const lead = counts.at(0);
-    return {
-      kind: "parent",
-      level: "district",
-      placeId: place.id,
-      name: place.canonical_name,
-      headline:
-        rows.length === 0
-          ? `No assembly seat in ${place.canonical_name} has a contest on record.`
-          : `${place.canonical_name} has ${inr(rows.length)} assembly seats` +
-            (lead === undefined
-              ? `, and no declared winner in ${year}.`
-              : `; ${lead[0]} won ${inr(lead[1])} of them in ${year}.`),
-      children: {
-        caption:
-          `Every assembly seat in ${place.canonical_name} with its ${year} result — ` +
-          `${inr(rows.length)} seat${rows.length === 1 ? "" : "s"}. Open one for its brief.`,
-        headers: ["No.", "Seat", "Won by", "Member", "Margin", "Turnout"],
-        numeric: [true, false, false, false, true, true],
-        rows: rows.map((x) => ({
-          href: placeHref({
-            kind: "ac",
-            id: x.placeId,
-            canonicalName: x.name,
-            parentId: place.id,
-          }),
-          cols: [
-            x.number === null ? "—" : String(x.number),
-            x.name + (x.reservation == null ? "" : ` · ${RESERVATION[x.reservation] ?? x.reservation}`),
-            x.winner?.party.label ?? "no result declared",
-            x.winner?.name ?? "—",
-            x.margin === null ? "—" : inr(Math.abs(x.margin.votes)),
-            turnout_pct.format(
-              turnout_pct.compute({
-                voters: held.get(x.versionId)?.voters ?? null,
-                electors: held.get(x.versionId)?.electors ?? null,
-              }),
-            ),
-          ],
-        })),
-      },
-      sources,
-      electionId: election,
-      trail: trailOf(db, segments, place.canonical_name),
-      // A district holds no elections of its own: an election is called for a jurisdiction, and the
-      // district is a grouping inside one.
-      elections: [],
-    };
-  }
-
-  const scope = { elections: asked, within: place.id };
-  const inside = readSeats(db, scope);
-  const held = heldTurnout(db, election, inside);
-  // A district is the seats that sit in it. A seat with no district hangs off the state itself, and is on no row.
-  const byDistrict = new Map<string, SeatResult[]>();
-  for (const x of inside) {
-    if (x.districtId === null) continue;
-    const at = byDistrict.get(x.districtId);
-    if (at === undefined) byDistrict.set(x.districtId, [x]);
-    else at.push(x);
-  }
-  const rows = [...byDistrict.entries()]
-    .map(([id, seatsIn]) => ({ id, name: seatsIn[0]?.districtName ?? id, seats: seatsIn }))
-    .sort((a, b) => (a.name < b.name ? -1 : a.name > b.name ? 1 : 0));
+  const scope = { elections: asked, district: place.id };
+  const rows = bySeat(readSeats(db, scope));
+  const held = heldTurnout(db, election, rows);
+  // No place above an AC carries a claim, so `loadSources` on the subject ref alone comes back empty: a parent
+  // level is cited from the same fact rows it renders.
   const sources = loadSources(db, sourceIdsFor(db, scope, { turnout: true }), [`place:${place.id}`]);
-  const seats = rows.reduce((a, x) => a + x.seats.length, 0);
-  const statewide = tally(rows.flatMap((x) => x.seats.map((y) => y.winner?.party.label ?? null)));
-  const lead = statewide.at(0);
+  const counts = tally(rows.map((x) => x.winner?.party.label ?? null));
+  const lead = counts.at(0);
   return {
     kind: "parent",
-    level: "state",
+    level: "district",
     placeId: place.id,
     name: place.canonical_name,
     headline:
       rows.length === 0
-        ? `No district in ${place.canonical_name} has a contest on record.`
-        : `${place.canonical_name} has ${inr(seats)} assembly seats across ${inr(rows.length)} districts` +
+        ? `No assembly seat in ${place.canonical_name} has a contest on record.`
+        : `${place.canonical_name} has ${inr(rows.length)} assembly seats` +
           (lead === undefined
             ? `, and no declared winner in ${year}.`
             : `; ${lead[0]} won ${inr(lead[1])} of them in ${year}.`),
     children: {
       caption:
-        `Every district with its ${year} seat count and turnout — ${inr(rows.length)} districts, ` +
-        `${inr(seats)} seats. Open one for its seats.`,
-      headers: ["District", "Seats", "Won most", "Turnout"],
-      numeric: [false, true, false, true],
-      rows: rows.map((x) => {
-        const t = tally(x.seats.map((y) => y.winner?.party.label ?? null));
-        const top = t.at(0);
-        return {
-          href: placeHref({
-            kind: "district",
-            id: x.id,
-            canonicalName: x.name,
-            parentId: place.id,
-          }),
-          cols: [
-            x.name,
-            inr(x.seats.length),
-            top === undefined ? "no result declared" : `${top[0]} ${inr(top[1])} of ${inr(x.seats.length)}`,
-            turnout_pct.format(
-              turnout_pct.compute({
-                voters: sum(x.seats.map((y) => held.get(y.versionId)?.voters ?? null)),
-                electors: sum(x.seats.map((y) => held.get(y.versionId)?.electors ?? null)),
-              }),
-            ),
-          ],
-        };
-      }),
+        `Every assembly seat in ${place.canonical_name} with its ${year} result — ` +
+        `${inr(rows.length)} seat${rows.length === 1 ? "" : "s"}. Open one for its brief.`,
+      headers: ["No.", "Seat", "Won by", "Member", "Margin", "Turnout"],
+      numeric: [true, false, false, false, true, true],
+      rows: rows.map((x) => ({
+        href: placeHref({
+          kind: "ac",
+          id: x.placeId,
+          canonicalName: x.name,
+          parentId: place.id,
+        }),
+        cols: [
+          x.number === null ? "—" : String(x.number),
+          x.name + (x.reservation == null ? "" : ` · ${RESERVATION[x.reservation] ?? x.reservation}`),
+          x.winner?.party.label ?? "no result declared",
+          x.winner?.name ?? "—",
+          x.margin === null ? "—" : inr(Math.abs(x.margin.votes)),
+          turnout_pct.format(
+            turnout_pct.compute({
+              voters: held.get(x.versionId)?.voters ?? null,
+              electors: held.get(x.versionId)?.electors ?? null,
+            }),
+          ),
+        ],
+      })),
     },
     sources,
     electionId: election,
     trail: trailOf(db, segments, place.canonical_name),
-    elections: stateElections(db, place.id),
   };
 }
 

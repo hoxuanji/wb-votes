@@ -37,6 +37,10 @@ _Avoid_: Latest election, newest election
 
 ### What a state page opens on
 
+**State view**:
+What a state page shows, decided in one step: the house and election it opens on, the offers it switches between, the election's seats and the state's run of elections. A state with no election to open on has a state view that says so, and its page says so, instead of showing something else.
+_Avoid_: State map
+
 **Offer**:
 An election a jurisdiction can show, with the number of its seats that lie inside that jurisdiction. West Bengal's offer of the 2024 Lok Sabha election is its 42 seats, not the nation's 543.
 _Avoid_: Option
