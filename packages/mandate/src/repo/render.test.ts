@@ -296,7 +296,10 @@ test("URL state survives, so a view can be sent to someone", live, () => {
   const html = render("/", "layer=turnout");
   assert.match(text(html), /Turnout/, "the layer parameter was ignored");
   const links = [...html.matchAll(/href="\/\?([^"]*)#map"/g)].map((m) => m[1] as string);
-  assert.ok(links.length >= 5, "the layer strip did not render links");
+  // Three, not five: a layer with nothing to shade is offered as unavailable rather than as a link. Vote share
+  // already was on a registry whose only latest assembly is West Bengal 2026, which published no counts, and
+  // turnout and margin now are too, because nothing corroborates its turnout (turnout-trust.ts).
+  assert.ok(links.length >= 3, "the layer strip did not render links");
   for (const q of links) {
     assert.match(q, /^layer=[a-z]+$/, `a layer link carries state the page no longer has: ${q}`);
   }

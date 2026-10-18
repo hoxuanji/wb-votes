@@ -45,6 +45,8 @@ import {
   type Standing,
 } from "./elections.ts";
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
+import { medianMarginShare, readSeats, turnoutOf, type SeatResult } from "./seat-results.ts";
+import { turnoutHeadline } from "./turnout-trust.ts";
 import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
 import { FULL_HOUSE, bodyIs, bodyWord, currentIds, facetOf, majorityOf } from "../core/election-kind.ts";
@@ -217,57 +219,7 @@ export function isLayer(v: string | undefined): v is LayerKey {
   return LAYERS.some((l) => l.key === v);
 }
 
-/** Per-seat facts for a set of elections: the winner, the margin and the turnout of every contest. */
-type SeatFact = {
-  electionId: string;
-  jurisdictionId: string;
-  placeId: string;
-  /** The boundary the contest was fought under — half of the seat's comparison identity. See `seatKey`. */
-  epochId: string;
-  placeName: string;
-  winnerKey: string | null;
-  winnerLabel: string | null;
-  marginVotes: number | null;
-  voters: number | null;
-  electors: number | null;
-};
-
-function seatFacts(db: DatabaseSync, electionIds: readonly string[]): SeatFact[] {
-  if (electionIds.length === 0) return [];
-  return read(() =>
-    all<SeatFact>(
-      db,
-      `SELECT c.election_id AS electionId,
-              CASE WHEN dis.kind = 'district' THEN dis.parent_id ELSE pl.parent_id END AS jurisdictionId,
-              pl.id AS placeId, pvv.epoch_id AS epochId, pvv.canonical_name AS placeName,
-              pt.id AS winnerKey,
-              COALESCE(NULLIF(pt.short_name, ''), NULLIF(pt.name, ''), NULLIF(cd.party_raw, '')) AS winnerLabel,
-              r.margin AS marginVotes, t.voters AS voters, t.electors AS electors
-         FROM contest c
-         JOIN place_version pvv ON pvv.id = c.place_version_id
-         JOIN place pl          ON pl.id = pvv.place_id
-         LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)
-         LEFT JOIN result r     ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1
-         LEFT JOIN candidacy cd ON cd.id = r.candidacy_id
-         LEFT JOIN party_version pv ON pv.id = cd.party_version_id
-         LEFT JOIN party pt         ON pt.id = pv.party_id
-         LEFT JOIN turnout t    ON t.contest_id = c.id AND t.scope = 'contest'
-        WHERE c.election_id IN (${electionIds.map(() => "?").join(",")})`,
-      ...electionIds,
-    ),
-  );
-}
-
 const IN_NUM = new Intl.NumberFormat("en-IN");
-
-/** Median, or null for an empty set. The median rather than the mean: one uncontested landslide moves a
- *  mean by several points and says nothing about the typical seat. */
-function median(xs: readonly number[]): number | null {
-  if (xs.length === 0) return null;
-  const s = [...xs].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 === 1 ? (s[mid] as number) : ((s[mid - 1] as number) + (s[mid] as number)) / 2;
-}
 
 /** Ramp a value onto SEQUENTIAL. `invert` puts the darkest step at the LOW end, which is right for a
  *  margin — a knife-edge seat is the signal, so it must be the loud one. */
@@ -389,26 +341,34 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     }
     legend = spine.standings.length === 0 ? [] : bandLegend(lo, hi + 1, "");
   } else {
-    // The three magnitude layers, all read off the same per-seat facts. The shares are pulled ONLY for the
+    // The three magnitude layers, all read off the same per-seat results. The shares are pulled ONLY for the
     // layer that shows them: `leaderShare()` is the 62-election party read, and turnout and margin have no
     // use for it.
     const shareOf = key === "voteshare" ? spine.leaderShare() : null;
-    const perElection = new Map<string, SeatFact[]>();
+    const perElection = new Map<string, SeatResult[]>();
     for (const x of spine.seats) {
       perElection.set(x.electionId, [...(perElection.get(x.electionId) ?? []), x]);
     }
-    const per = new Map<string, { turnout: number | null; margin: number | null; share: number | null; s: Standing }>();
+    const per = new Map<
+      string,
+      { turnout: number | null; margin: number | null; share: number | null; withheld: string | null; s: Standing }
+    >();
     for (const s of spine.standings) {
       const seats = perElection.get(s.electionId) ?? [];
-      const voters = seats.reduce((n, x) => n + (x.voters ?? 0), 0);
-      const electors = seats.reduce((n, x) => n + (x.electors ?? 0), 0);
-      const margins = seats.flatMap((x) =>
-        x.marginVotes === null || x.voters === null || x.voters <= 0 ? [] : [(100 * Math.abs(x.marginVotes)) / x.voters],
-      );
+      const turnout = turnoutOf(seats);
       per.set(s.jurisdictionId, {
-        turnout: electors > 0 && voters > 0 ? (100 * voters) / electors : null,
-        margin: median(margins),
+        // Only a REPORTED turnout is a figure here. An unverified one is withheld, and so is every margin
+        // share of the same election (seat-results.ts): both divide by votes polled, which nothing corroborates.
+        turnout: turnout.state === "reported" ? turnout.pct : null,
+        margin: medianMarginShare(seats),
         share: key === "voteshare" ? (shareOf?.get(s.electionId) ?? null) : null,
+        // Withheld is a different fact from never published, and the card says which, in the words a dense list
+        // may print for it. A margin is withheld only if there was one to divide.
+        withheld:
+          turnout.state === "unverified" &&
+          (key === "turnout" || (key === "margin" && seats.some((x) => x.margin !== null)))
+            ? turnoutHeadline(turnout)
+            : null,
         s,
       });
     }
@@ -431,7 +391,11 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
           detail:
             v === undefined
               ? []
-              : [`Assembly ${v.s.year}`, key === "voteshare" ? "no vote counts published" : "not reported by the source"],
+              : [
+                  `Assembly ${v.s.year}`,
+                  v.withheld ??
+                    (key === "voteshare" ? "no vote counts published" : "not reported by the source"),
+                ],
           electionId: v?.s.electionId ?? null,
           year: v?.s.year ?? null,
         });
@@ -457,7 +421,9 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     unknownWhy =
       key === "voteshare"
         ? "their source published a winner and no vote counts, which is not a share of zero"
-        : "their source reports no figure, which is not a figure of zero";
+        : [...per.values()].some((v) => v.withheld !== null)
+          ? "their source reports no figure, or none that can be verified, which is not a figure of zero"
+          : "their source reports no figure, which is not a figure of zero";
   }
 
   const unknown = cells.filter((c) => c.label === null).length;
@@ -488,8 +454,11 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
  * `false` here and is offered as unavailable rather than shading a country in a colour that means nothing.
  */
 export function availability(spine: Spine): Map<LayerKey, boolean> {
-  const anyTurnout = spine.seats.some((x) => x.voters !== null && x.voters > 0 && x.electors !== null && x.electors > 0);
-  const anyMargin = spine.seats.some((x) => x.marginVotes !== null && x.voters !== null && x.voters > 0);
+  // Of the elections the layers colour: the spine also holds each one's predecessor, whose figures colour nothing.
+  const shown = new Set(spine.standings.map((s) => s.electionId));
+  const seats = spine.seats.filter((x) => shown.has(x.electionId));
+  const anyTurnout = seats.some((x) => x.turnout.state === "reported");
+  const anyMargin = seats.some((x) => x.marginShare !== null);
   return new Map<LayerKey, boolean>([
     ["government", spine.standings.some((s) => s.leaderKey !== null)],
     ["loksabha", spine.houseStandings.some((s) => s.leaderKey !== null)],
@@ -707,9 +676,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
       // derived in both places. One fact, one home: Upcoming owns it, and what is left here is measured.
 
       // 1. Knife-edge seats in the most recent election.
-      const knife = seats.filter(
-        (x) => x.marginVotes !== null && x.voters !== null && x.voters > 0 && (100 * Math.abs(x.marginVotes)) / x.voters < KNIFE_PP,
-      );
+      const knife = seats.filter((x) => x.marginShare !== null && x.marginShare < KNIFE_PP);
       if (knife.length > 0) {
         out.push({
           rule: "seats decided by a margin under the threshold",
@@ -718,7 +685,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
           href,
           detail: `${knife.length} of ${s.seatsContested} seats in ${s.year} were decided by under ${KNIFE_PP}% of the votes polled — ${knife
             .slice(0, 3)
-            .map((x) => x.placeName)
+            .map((x) => x.name)
             .join(", ")}${knife.length > 3 ? " and others" : ""}.`,
           basis: "measured",
           weight: knife.length,
@@ -732,12 +699,12 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
       const thenId = spine.previousOf(s.electionId);
       if (thenId !== null) {
         const thenSeats = spine.seats.filter((x) => x.electionId === thenId);
-        const before = new Map(thenSeats.map((x) => [seatKey(x.placeId, x.epochId), x.winnerKey]));
+        const before = new Map(thenSeats.map((x) => [seatKey(x.placeId, x.epochId), x.winner?.party.key]));
         const split = partitionByEpoch(seats, thenSeats);
         const flipped = split.comparable.filter((x) => {
           const was = before.get(seatKey(x.placeId, x.epochId));
-          // An unknown party on either side is neither a flip nor a hold. It is unknown.
-          return was != null && x.winnerKey != null && was !== x.winnerKey;
+          // An undeclared seat on either side is neither a flip nor a hold. It is unknown.
+          return was != null && x.winner !== null && was !== x.winner.party.key;
         });
         if (flipped.length > 0) {
           out.push({
@@ -1153,7 +1120,7 @@ export type Spine = {
   /** Each jurisdiction's slice of the latest Lok Sabha, in the same shape as an assembly standing. */
   houseStandings: readonly Standing[];
   house: LatestElection | null;
-  seats: readonly SeatFact[];
+  seats: readonly SeatResult[];
   latestAssemblySeats: readonly SeatsWon[];
   /** Seats by party per jurisdiction in the latest Lok Sabha — the breakdown that layer's cards show. */
   houseSeatRows: readonly SeatsWon[];
@@ -1191,10 +1158,9 @@ export function spine(db: DatabaseSync): Spine {
     years.set(r.id, r.year);
   }
 
-  const facts = seatFacts(db, [
-    ...latest.map((l) => l.id),
-    ...[...previous.values()].filter((v): v is string => v !== null),
-  ]);
+  const facts = readSeats(db, {
+    elections: [...latest.map((l) => l.id), ...[...previous.values()].filter((v): v is string => v !== null)],
+  });
 
   const latestAssemblySeats = seatsWonBy(db, latest.map((l) => l.id));
 

@@ -1,6 +1,6 @@
 # wb-votes
 
-A registry of Indian elections in which every figure carries its source. This glossary holds the words the product uses for what an election is and how elections are ordered.
+A registry of Indian elections in which every figure carries its source. This glossary holds the words the product uses for what an election is, how elections are ordered, and what a seat's result is.
 
 ## Language
 
@@ -70,3 +70,44 @@ _Avoid_: current epoch, active epoch, latest epoch
 **Voting epoch**:
 The epoch a jurisdiction's house is actually elected under: the epoch of the seats in its newest full-house election. A by-election never decides it, because a by-election fills a few vacancies of a house elected earlier and cannot introduce a delimitation. It differs from the epoch in force whenever an order has taken effect that no election has yet been held under.
 _Avoid_: current epoch, epoch of the latest election
+
+### What a seat's result is
+
+**Seat result**:
+What one constituency's contest came to in one election: who won, who came second, by how much, and on what turnout.
+_Avoid_: Seat fact, contest row
+
+**Declared winner**:
+The candidate the source names as having won a seat. A seat with none is undeclared, and an undeclared seat belongs to no party at all, not to "Unattached".
+_Avoid_: Elected candidate
+
+**Runner-up**:
+The candidate ranked second in a seat. A source that published only its winners has none for any seat.
+_Avoid_: Second place, opponent
+
+**Margin basis**:
+Whether a seat's margin was counted from its winner's and runner-up's votes, or declared by the source with no counts behind it. A counted margin can be checked against the votes; a declared one cannot.
+_Avoid_: Margin source
+
+**Margin share**:
+A seat's margin as a percentage of its votes polled. It is only as trustworthy as the votes polled, so it is withheld wherever those are unverified.
+_Avoid_: Margin percentage
+
+**Votes polled**:
+The number of votes cast in a seat, as its turnout row reports it. It is not the sum of the candidates' votes, which for an election that published only its leading contestants is smaller.
+_Avoid_: Valid votes, total votes
+
+**Reading**:
+A figure together with whether it has earned the right to be printed. A turnout is always a reading, never a bare number.
+_Avoid_: Value, metric
+
+**Unverified election**:
+An election whose turnout has nothing to reconcile it against, because its source published no candidate vote counts. Its turnout, and every share of it, is withheld; the margins its source declared, in votes, are kept.
+_Avoid_: Suspect election, bad data
+
+**Scope**:
+The elections a read covers, optionally narrowed to the seats inside one jurisdiction. A general election narrowed to one state is that state's share of it.
+_Avoid_: Filter
+
+**Current revision**:
+The revision of a result that is read as the result. Seat results are read at revision 0, the original, today; whether a later revision supersedes it is not yet decided.

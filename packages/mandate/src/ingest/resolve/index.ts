@@ -627,6 +627,17 @@ export const INVARIANTS: ReadonlyArray<{ name: string; sql: string }> = [
                 WHERE r2.contest_id = r.contest_id AND r2.revision = r.revision AND r2.rank = 2)`,
   },
   {
+    // `is_winner` is NOT NULL and `rank` is nullable, and nothing in the schema ties them together. Seat
+    // results (repo/seat-results.ts) read the winner by `is_winner = 1` and the runner-up by `rank = 2`, which
+    // names the contest's second candidate only if the winner is its rank 1; the rank-1 reads in place-page
+    // are the same question asked of the other column. Both directions are counted, and a winner with no
+    // rank is a violation: it is a winner nothing can be second to.
+    name: "winner_is_rank1",
+    sql: `SELECT COUNT(*) AS n FROM result r
+           WHERE (r.is_winner = 1 AND (r."rank" IS NULL OR r."rank" <> 1))
+              OR (r.is_winner = 0 AND r."rank" = 1)`,
+  },
+  {
     name: "contest_epoch_matches_election_epoch",
     sql: `SELECT COUNT(*) AS n FROM contest c
             JOIN election e       ON e.id = c.election_id

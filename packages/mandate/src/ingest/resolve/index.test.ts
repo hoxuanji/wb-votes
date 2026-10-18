@@ -508,6 +508,7 @@ test("the ADR-0001 cross-table invariants hold on the fixture, and the detectors
     "convicted_requires_court_order",
     "vote_share_never_exceeds_100",
     "margin_is_rank1_minus_rank2",
+    "winner_is_rank1",
     "contest_epoch_matches_election_epoch",
     "contested_place_version_has_crosswalk_to_current_epoch",
     "booth_votes_not_more_than_result_votes",
@@ -555,6 +556,18 @@ test("the ADR-0001 cross-table invariants hold on the fixture, and the detectors
   );
   db.prepare("UPDATE result SET margin = 3000 WHERE candidacy_id = ?").run(c1.id);
 
+  // A winner and rank 1 are one fact written twice. Each way of breaking that must fail on its own name.
+  const brokenBy = (sql: string): boolean => {
+    db.prepare(sql).run(c1.id);
+    return checkInvariants(db).filter((i) => !i.pass).map((i) => i.name).includes("winner_is_rank1");
+  };
+  assert.ok(brokenBy(`UPDATE result SET "rank" = 2 WHERE candidacy_id = ?`), "a winner who is not rank 1");
+  db.prepare(`UPDATE result SET "rank" = 1 WHERE candidacy_id = ?`).run(c1.id);
+  assert.ok(brokenBy(`UPDATE result SET "rank" = NULL WHERE candidacy_id = ?`), "a winner with no rank at all");
+  db.prepare(`UPDATE result SET "rank" = 1 WHERE candidacy_id = ?`).run(c1.id);
+  assert.ok(brokenBy(`UPDATE result SET is_winner = 0 WHERE candidacy_id = ?`), "a rank 1 who did not win");
+  db.prepare(`UPDATE result SET is_winner = 1 WHERE candidacy_id = ?`).run(c1.id);
+  assert.deepEqual(checkInvariants(db).filter((i) => !i.pass), [], "and restored, every invariant holds again");
   // Each detector must actually fire, or "0 rows" means nothing.
   db.prepare("INSERT INTO legal_case (id, person_id, stage, source_id) VALUES ('lc9', 'md-salim', 'convicted', 's1')").run();
   db.prepare("INSERT INTO party_version (id, party_id, valid_from, name) VALUES (99, 'AITC', '2015-01-01', 'AITC')").run();

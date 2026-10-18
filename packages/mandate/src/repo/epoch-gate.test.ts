@@ -280,15 +280,27 @@ test("the OLD matching rule really did produce a false flip count — the defect
   }
 });
 
-test("the seat facts a comparison reads carry their own boundary", live, () => {
+test("the seat results a comparison reads carry their own boundary", live, () => {
   const d = db();
   try {
     const s = spine(d);
-    assert.ok(s.seats.length > 0, "no seat facts loaded");
-    // Without epochId on the row there is nothing to key on, so this is the gate's precondition.
-    for (const seat of s.seats.slice(0, 200)) {
-      assert.equal(typeof seat.epochId, "string");
+    assert.ok(s.seats.length > 0, "no seat results loaded");
+    // Without the epoch on the result there is nothing to key on, so this is the gate's precondition: the
+    // (placeId, epochId) a seat result carries is its place version's own, and it names one seat per election.
+    const version = new Map(
+      all<{ id: number; place_id: string; epoch_id: string }>(d, "SELECT id, place_id, epoch_id FROM place_version").map(
+        (v) => [v.id, v],
+      ),
+    );
+    const seen = new Set<string>();
+    for (const seat of s.seats) {
+      const v = version.get(seat.versionId);
+      assert.equal(v?.place_id, seat.placeId, `${seat.placeId}: not the place of its version`);
+      assert.equal(v?.epoch_id, seat.epochId, `${seat.placeId} carries ${seat.epochId}, its version is ${v?.epoch_id}`);
       assert.ok(seat.epochId.length > 0, `${seat.placeId} carries no epoch`);
+      const key = `${seat.electionId}\u0000${seatKey(seat.placeId, seat.epochId)}`;
+      assert.ok(!seen.has(key), `${seat.electionId} holds ${seat.placeId} under ${seat.epochId} twice`);
+      seen.add(key);
     }
   } finally {
     d.close();
