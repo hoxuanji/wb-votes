@@ -19,6 +19,7 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import * as electionMap from "./election-map.ts";
+import { tally } from "./map-selection.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
@@ -942,6 +943,48 @@ test("a selection actually dims the map rather than only changing the list", liv
   const dimmedAfter = (isolated.match(/opacity="0\.18"/g) ?? []).length;
   assert.equal(dimmedBefore, 0, "the map dims something before anything is selected");
   assert.ok(dimmedAfter > 50, `isolating a party dimmed only ${dimmedAfter} polygons`);
+});
+
+test("the election page reads a margin bin only if it is one", live, () => {
+  // `Number("")` is 0, so a hand-edited `?bin=` used to isolate the 0 to 2 bin, as did `?bin=%20`, and `4.0` or `0x4`
+  // were read as the bin 4. A bin is a whole number the distribution holds, and nothing else selects one.
+  const found = electionMap
+    .electionChoices(db)
+    .map((c) => ({ id: c.id, bin: electionMap.electionMapView(db, c.id).marginBins.find((b) => b.n > 0) }))
+    .find((c) => c.bin !== undefined);
+  assert.ok(found !== undefined, "no election in the registry has a margin distribution");
+  const lo = (found.bin as { lo: number }).lo;
+  assert.match(
+    render("/election", `bin=${lo}`, found.id),
+    new RegExp(`aria-label="Seats decided by ${lo} to ${lo + 2} percent"`),
+    "a real bin did not isolate its seats",
+  );
+  for (const odd of ["", "%20", "4.0", "0x4", "1e1"]) {
+    const html = render("/election", `bin=${odd}`, found.id);
+    assert.ok(!html.includes("Seats decided by"), `?bin=${odd} isolated a bin`);
+    assert.ok(html.includes('aria-label="The closest contests of this election"'), `?bin=${odd} changed the list`);
+  }
+});
+
+test("every party the runner-up legend lists can be isolated from it", live, (t) => {
+  // That legend counts the parties that came second, and the page validated a party against the ones that won or
+  // have a row in the vote-to-seat plot, so a party that only ever came second was offered a link that led nowhere.
+  const found = electionMap
+    .electionChoices(db)
+    .map((c) => {
+      const v = electionMap.electionMapView(db, c.id);
+      const offered = new Set([...v.legend.map((l) => l.key), ...v.voteSeat.map((r) => r.party.key)]);
+      const dead = tally(v.seats, "runnerUp")
+        .slice(0, 10)
+        .find((l) => !offered.has(l.key));
+      return { id: c.id, dead };
+    })
+    .find((c) => c.dead !== undefined);
+  if (found === undefined) return t.skip("no election has a party in its runner-up legend that only came second");
+  const key = (found.dead as { key: string }).key;
+  const html = render("/election", new URLSearchParams({ mode: "runnerup", party: key }).toString(), found.id);
+  assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.id}: the link for ${key} did not isolate it`);
+  assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.id}: ${key} listed no seats`);
 });
 
 test("a comparison across a redrawn map is refused on the page, not just in the data", live, () => {

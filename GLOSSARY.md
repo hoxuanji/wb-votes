@@ -234,7 +234,7 @@ What a loaded map makes selectable: its parties, margin bins or bands, districts
 _Avoid_: Options
 
 **Move**:
-A change of selection that a link offers, such as isolating a party or focusing a district. Everything the move does not change, including any part of the link the page does not recognise, stays as the reader had it.
+A change of selection that a link offers, such as isolating a party or focusing a district. Everything the move does not change stays as the reader had it, including any part of the link the page does not recognise. The one exception is that isolating something releases whatever else was isolated, even by a parameter the page does not recognise, because there is only one isolation.
 _Avoid_: Action
 
 **Ask**:

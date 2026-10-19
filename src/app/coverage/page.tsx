@@ -4,6 +4,7 @@ import type { Coverage, VerticalState } from '../../../packages/mandate/src/repo
 import { electionCoverageView } from '../../../packages/mandate/src/repo/home.ts';
 import type { ElectionChoice, ElectionCoverage } from '../../../packages/mandate/src/repo/home.ts';
 import { coverageHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { readAsk } from '../../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
 import { Shell } from '../../components/iei/Shell.tsx';
 import {
@@ -58,10 +59,6 @@ const STATUS: Record<VerticalState['status'], { word: string; state: 'complete' 
   empty: { word: 'Table, no rows', state: 'partial' },
   'no-model': { word: 'Not modelled', state: 'unavailable' },
 };
-
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
-}
 
 /**
  * How completely one election is represented.
@@ -370,7 +367,7 @@ export default function CoveragePage({
   // An outage reads as "registry not built"; a defect in a coverage query is thrown rather than shown as one.
   const read = readRegistry((db) => {
     const c = getCoverage(db);
-    const view = electionCoverageView(db, first(searchParams?.['election']));
+    const view = electionCoverageView(db, readAsk(searchParams).get('election'));
     return { c, election: view.chosen, choices: view.choices };
   });
 

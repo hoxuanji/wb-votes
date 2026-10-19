@@ -13,6 +13,7 @@ import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
 import { fillFor } from "../../../packages/mandate/src/viz/party-ink.ts";
 import { bandOf, MARGIN_BANDS } from "../../../packages/mandate/src/repo/election-map.ts";
 import { stateView } from "../../../packages/mandate/src/repo/state-view.ts";
+import { queryHref, readAsk } from "../../../packages/mandate/src/repo/map-selection.ts";
 import { isMode } from "../../components/iei/ElectionMap.tsx";
 import type { MapMode } from "../../components/iei/ElectionMap.tsx";
 import { bodyOfKind, personHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
@@ -76,32 +77,6 @@ export const dynamic = "force-dynamic";
 
 const RESERVATION: Record<string, string> = { general: "General", sc: "Reserved SC", st: "Reserved ST" };
 
-type Params = Record<string, string | string[] | undefined> | undefined;
-
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
-}
-
-/**
- * A link to this page with parameters changed and the rest kept, anchored at the map.
- *
- * An empty value DROPS the parameter, so "show every party" and "show the whole state" produce the URL a
- * reader would have arrived at rather than a longer one meaning the same thing.
- */
-function link(base: string, params: Params, change: Record<string, string>): string {
-  const q = new URLSearchParams();
-  for (const [k, val] of Object.entries(params ?? {})) {
-    const one = first(val);
-    if (one !== undefined && one !== "") q.set(k, one);
-  }
-  for (const [k, val] of Object.entries(change)) {
-    if (val === "") q.delete(k);
-    else q.set(k, val);
-  }
-  const s = q.toString();
-  return s === "" ? `${base}#map` : `${base}?${s}#map`;
-}
-
 /**
  * THE ONE PLACE SURFACE, now reached by four routes instead of by one catch-all.
  *
@@ -155,11 +130,9 @@ export async function PlaceSurface({
     if (view.level === "state") {
       // READ WITH THE ID THE PATH RESOLVED TO, not the segment it was reached by: `/state/KA` and `/state/ka` are
       // one state, and the registry spells it `ka`. Handing it the raw segment made `KA` find no elections.
+      const ask = readAsk(searchParams);
       const outcome = readRegistry((db) =>
-        stateView(db, view.placeId, {
-          house: first(searchParams?.["house"]),
-          election: first(searchParams?.["election"]),
-        }),
+        stateView(db, view.placeId, { house: ask.get("house"), election: ask.get("election") }),
       );
       // A registry that became unreadable since `placeView` read it is the outage that read would have reported.
       // A defect in one of the queries is thrown, not shown as that page.
@@ -178,8 +151,7 @@ export async function PlaceSurface({
       // every one of them — a query link that navigated back into the compatibility layer on each click.
       const base = stateHref(view.placeId);
       if (s.kind === "ready") {
-        const params = searchParams ?? {};
-        const askedParty = first(params["party"]);
+        const askedParty = ask.get("party");
         // VALIDATED BY MEMBERSHIP, never parsed: a party has to be one this election returned or ran.
         const party =
           askedParty !== undefined &&
@@ -187,21 +159,21 @@ export async function PlaceSurface({
             s.map.voteSeat.some((r) => r.party.key === askedParty))
             ? askedParty
             : null;
-        const askedBand = first(params["band"]);
+        const askedBand = ask.get("band");
         // Party and band are mutually exclusive — two isolations on one map is two answers to one question.
         const band =
           party === null && askedBand !== undefined && MARGIN_BANDS.some((b) => b.key === askedBand)
             ? askedBand
             : null;
-        const askedDistrict = first(params["district"]);
+        const askedDistrict = ask.get("district");
         const district =
           askedDistrict !== undefined && s.map.seats.some((x) => x.districtId === askedDistrict)
             ? askedDistrict
             : null;
-        const askedSeat = first(params["seat"]);
+        const askedSeat = ask.get("seat");
         const seat =
           askedSeat !== undefined && s.map.seats.some((x) => x.placeId === askedSeat) ? askedSeat : null;
-        const askedMode = first(params["mode"]);
+        const askedMode = ask.get("mode");
         const mode: MapMode =
           askedMode === "flips" && s.map.flips === null
             ? "winners"
@@ -219,7 +191,7 @@ export async function PlaceSurface({
               asked={s.asked}
               trajectory={s.trajectory}
               selection={{ mode, party, band, district, seat }}
-              hrefFor={(change) => link(base, searchParams, change)}
+              hrefFor={(change) => queryHref(base, ask, change, "map")}
             />
             <Foot />
           </Shell>

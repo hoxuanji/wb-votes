@@ -3,11 +3,14 @@
 // Every rule is checked on literal seats with no database. The one claim that spans the module is the round trip at
 // the bottom: every link it emits is read back by the same module as the selection the link meant, with nothing in
 // `ignored`. A link no page can honour (the runner-up legend naming a party the view does not offer) fails it, which is
-// how that defect is to be found, and a test below shows it doing so.
+// how that defect is to be found, and a test below shows it doing so. The election page's own choices are tested the
+// same way, on literals and on every election the registry holds.
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { MARGIN_BANDS, bandOf, binOf } from "./election-map.ts";
+import { existsSync } from "node:fs";
+import { DEV_DB_PATH, openRead } from "../db/open.ts";
+import { MARGIN_BANDS, bandOf, binOf, choicesOf, electionChoices, electionMapView } from "./election-map.ts";
 import { MODES, isMode, queryHref, readAsk, readSelection, tally } from "./map-selection.ts";
 import type { Choices, Isolation, MapMode, MapSelection, Move, TalliedSeat, SeatFacts } from "./map-selection.ts";
 
@@ -58,6 +61,9 @@ const ELECTION: Choices = { parties: FULL.parties, bins: BINS, flips: true };
 const STATE: Choices = { ...FULL, bins: undefined };
 
 const AT = { base: "/state/ka", anchor: "map" };
+
+const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
+const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
 
 const read = (query: string, choices: Choices = FULL): MapSelection =>
   readSelection(new URLSearchParams(query), choices, AT);
@@ -516,6 +522,119 @@ test("the round trip finds a legend link that no selection can honour", () => {
   // Offer every party the legend can print, and every one of its links lands.
   const right: Choices = { ...ELECTION, parties: new Set([...wrong.parties, ...legend.map((l) => l.key)]) };
   assert.deepEqual(dead(readSelection(new URLSearchParams("mode=runnerup"), right, AT), moves, right), []);
+});
+
+/* ───────────────────────────── the election page's choices ───────────────────────────── */
+
+/** An election as the page holds it, to the extent the page's choices and links read it. */
+type PageView = {
+  legend: readonly { key: string }[];
+  voteSeat: readonly { party: { key: string } }[];
+  seats: readonly Seat[];
+  marginBins: readonly { lo: number }[];
+  flips: unknown;
+};
+
+/** The seats above, their winners' legend, and a plot of the same two. */
+const view = (over: Partial<PageView> = {}): PageView => ({
+  legend: tally(SEATS, "winner"),
+  voteSeat: tally(SEATS, "winner").map((l) => ({ party: { key: l.key } })),
+  seats: SEATS,
+  marginBins: BINS.map((lo) => ({ lo })),
+  flips: { held: 2 },
+  ...over,
+});
+
+test("an election offers the parties that won, that are in its vote-to-seat plot, and that came second", () => {
+  const choices = choicesOf(
+    view({
+      legend: [{ key: "BJP" }],
+      voteSeat: [{ party: { key: "BJP" } }, { party: { key: "INC" } }],
+      seats: [seat("a", "BJP", "TMC", 3, null), seat("b", "BJP", null, 3, null)],
+    }),
+  );
+  assert.deepEqual([...choices.parties].sort(), ["BJP", "INC", "TMC"]);
+});
+
+test("an election offers every margin bin the distribution holds, flips only with a comparison, and no state-page dimension", () => {
+  const choices = choicesOf(view());
+  assert.deepEqual(choices.bins, BINS);
+  assert.equal(choices.flips, true);
+  assert.equal(choicesOf(view({ flips: null })).flips, false);
+  assert.equal(choices.bands, undefined);
+  assert.equal(choices.districts, undefined);
+  assert.equal(choices.seats, undefined);
+  // A bin the distribution does not hold is not one, whatever the number.
+  const short = choicesOf(view({ marginBins: [{ lo: 0 }, { lo: 2 }] }));
+  assert.deepEqual(short.bins, [0, 2]);
+  assert.equal(read("bin=4", short).isolation, null);
+});
+
+/** Every move the election page writes a link for, restated from the page rather than taken from the module. */
+function electionPageMoves(v: PageView): Move[][] {
+  return [
+    ...MODES.filter((m) => m.key !== "flips" || v.flips !== null).map((m): Move[] => [{ mode: m.key }]),
+    ...v.legend.map((l): Move[] => [{ party: l.key }]),
+    ...tally(v.seats, "runnerUp").map((l): Move[] => [{ party: l.key }]),
+    ...v.voteSeat.map((r): Move[] => [{ party: r.party.key }]),
+    ...v.marginBins.map((b): Move[] => [{ bin: b.lo }]),
+    ["release"],
+    ...(v.flips === null ? [] : [...choicesOf(v).parties].map((party): Move[] => [{ party }, { mode: "flips" }])),
+  ];
+}
+
+test("every link the election page writes lands on a selection that honours it", () => {
+  for (const flips of [{ held: 2 }, null]) {
+    const v = view({ flips });
+    const choices = choicesOf(v);
+    let links = 0;
+    for (const query of ["", "mode=margin", "mode=runnerup", "party=BJP", "party=TMC&mode=runnerup", "bin=4", "bin=4&mode=margin"]) {
+      const here = read(query, choices);
+      assert.deepEqual(here.ignored, [], query);
+      for (const moves of electionPageMoves(v)) {
+        const there = follow(here.href(...moves), choices);
+        assert.deepEqual(there.ignored, [], `${query} + ${JSON.stringify(moves)} -> ${here.href(...moves)}`);
+        links += 1;
+      }
+    }
+    assert.ok(links > 100, `only ${links} links were checked`);
+  }
+});
+
+test("the runner-up legend link of a party that only came second is dead without the runner-up parties, and lives with them", () => {
+  const v = view();
+  const winnersOnly: Choices = { ...choicesOf(v), parties: new Set(tally(SEATS, "winner").map((l) => l.key)) };
+  const sel = read("mode=runnerup", winnersOnly);
+  assert.match(sel.href({ party: "TMC" }), /party=TMC/);
+  assert.deepEqual(follow(sel.href({ party: "TMC" }), winnersOnly).ignored, ["party"], "TMC is only a runner-up");
+  const right = choicesOf(v);
+  assert.deepEqual(follow(read("mode=runnerup", right).href({ party: "TMC" }), right).ignored, []);
+  assert.deepEqual(follow(sel.href({ party: "TMC" }), right).isolation, { by: "party", key: "TMC" });
+});
+
+test("every link the election page writes, for every election in the registry, lands on a selection that honours it", live, () => {
+  const d = openRead();
+  try {
+    const elections = electionChoices(d, 1000);
+    assert.ok(elections.length > 0, "the registry holds no election");
+    let links = 0;
+    for (const e of elections) {
+      const v = electionMapView(d, e.id);
+      const choices = choicesOf(v);
+      // A reader may be standing on either reading, and the runner-up legend is where a dead link was found.
+      for (const query of ["", "mode=runnerup"]) {
+        const here = readSelection(new URLSearchParams(query), choices, { base: `/election/${e.id}`, anchor: "map" });
+        for (const moves of electionPageMoves(v)) {
+          const there = readSelection(new URLSearchParams(queryOf(here.href(...moves))), choices, AT);
+          assert.deepEqual(there.ignored, [], `${e.id}: ${query} + ${JSON.stringify(moves)}`);
+          links += 1;
+        }
+      }
+    }
+    assert.ok(links > elections.length * 10, `only ${links} links were checked over ${elections.length} elections`);
+  } finally {
+    d.close();
+  }
 });
 
 /* ───────────────────────────── whatever the URL says ───────────────────────────── */

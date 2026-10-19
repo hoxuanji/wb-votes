@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { PER_GROUP, searchAll } from '../../../packages/mandate/src/repo/search.ts';
 import type { Hit, Results } from '../../../packages/mandate/src/repo/search.ts';
 import { personHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { readAsk } from '../../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
 import type { PersonRow } from '../../../packages/mandate/src/repo/person.ts';
 import { Foot, Shell } from '../../components/iei/Shell.tsx';
@@ -31,10 +32,6 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export const metadata = { title: 'Search' };
-
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
-}
 
 /** A group of hits, or nothing at all. An empty group is not rendered: a heading over no rows is noise. */
 function Group({
@@ -106,7 +103,7 @@ export default function SearchPage({
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  const q = (first(searchParams?.['q']) ?? '').trim();
+  const q = (readAsk(searchParams).get('q') ?? '').trim();
 
   // An outage reads as "registry not built". A defect in the search is thrown: it used to be caught here and
   // shown as the same page, so a broken query looked like a fresh clone.

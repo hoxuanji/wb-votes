@@ -2,10 +2,10 @@ import Link from 'next/link';
 import { INDIA_SHAPES } from '../../lib/india-geo.ts';
 import { fillFor, NOT_HELD } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { NATIONAL, simplified } from '../../../packages/mandate/src/viz/simplify.ts';
-import { bandOf, frameOf } from '../../../packages/mandate/src/repo/election-map.ts';
+import { frameOf } from '../../../packages/mandate/src/repo/election-map.ts';
 import { SEQUENTIAL } from '../../../packages/mandate/src/repo/home.ts';
 import { MODES, isMode } from '../../../packages/mandate/src/repo/map-selection.ts';
-import type { MapMode } from '../../../packages/mandate/src/repo/map-selection.ts';
+import type { MapMode, MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
 
 /**
@@ -141,30 +141,19 @@ const BASEMAP: readonly { name: string; path: string }[] = INDIA_SHAPES.map((s) 
 
 export function ElectionMap({
   view,
-  mode,
-  /** A party key whose seats stay saturated while the rest mute. Null highlights nothing. */
-  highlight = null,
-  /** A margin bin whose seats stay saturated. Set from the histogram, so a bar selects on the map. */
-  bin = null,
-  /** A named competitiveness band whose seats stay saturated. The state page's coarser equivalent of `bin`. */
-  band = null,
-  /**
-   * A district to REFRAME on. Never drawn: a district elects nobody, and the registry holds outlines for one
-   * state only, in another projection. The frame comes from the district's OWN SEATS, which needs no district
-   * geometry at all and cannot be out of date with the constituencies.
-   */
-  district = null,
-  /** One seat outlined, set from the list so a row can point at the map. */
-  focusSeat = null,
+  selection,
 }: {
   view: ElectionMapView;
-  mode: MapMode;
-  highlight?: string | null;
-  bin?: number | null;
-  band?: string | null;
-  district?: string | null;
-  focusSeat?: string | null;
+  /** What the reader has narrowed the map to: the mode, the seats to mute, the district to reframe on, the seat to outline. */
+  selection: MapSelection;
 }) {
+  /**
+   * The selection's district REFRAMES the map. Never drawn: a district elects nobody, and the registry holds outlines
+   * for one state only, in another projection. The frame comes from the district's OWN SEATS, which needs no district
+   * geometry at all and cannot be out of date with the constituencies. The seat is the one outlined, set from the list
+   * so a row can point at the map.
+   */
+  const { mode, district, seat: focusSeat } = selection;
   const drawable = view.seats.filter((s) => s.path !== null);
   // The country is drawn under the seats only for an UNSCOPED national view. A state-scoped Lok Sabha
   // map is framed to that state, so 35 other states' outlines would be clipped away or, worse, visible.
@@ -190,18 +179,12 @@ export function ElectionMap({
   if (drawable.length === 0) return null;
 
   /**
-   * Whether a seat is dimmed by the active selection.
+   * Whether a seat is dimmed by the active selection: the seats it does not cover.
    *
-   * ONE PRECEDENCE ORDER, shared with the page's derived subset so the map and the list can never disagree
-   * about what is selected: a district narrows first (geographic), then a band or a party filters within it.
+   * ONE PRECEDENCE ORDER, the selection's, shared with the page's derived subset so the map and the list can never
+   * disagree about what is selected: a district narrows first (geographic), then an isolation filters within it.
    */
-  const muted = (s: ElectionSeat): boolean => {
-    if (district !== null && s.districtId !== district) return true;
-    if (band !== null) return bandOf(s.marginPct) !== band;
-    if (bin !== null) return s.marginBin !== bin;
-    if (highlight === null) return false;
-    return mode === 'runnerup' ? s.runnerUpKey !== highlight : s.partyKey !== highlight;
-  };
+  const muted = (s: ElectionSeat): boolean => !selection.covers(s);
 
   return (
     <div className="iei-map-col" style={{ ['--iei-map-w' as string]: `calc(var(--iei-map-h) * ${aspect.toFixed(3)})` }}>

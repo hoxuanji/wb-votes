@@ -37,6 +37,7 @@ import { compareSeats } from "./seat-comparison.ts";
 import { partyVotes, readSeats, sourcesFor, tally, turnoutOf, votesByParty } from "./seat-results.ts";
 import { electionContext } from "./election-context.ts";
 import type { ElectionContext, SeatStanding } from "./election-context.ts";
+import type { Choices } from "./map-selection.ts";
 import type { Turnout } from "./turnout-trust.ts";
 
 /** The frame the state outlines and every constituency outline share. Anything else cannot be overlaid. */
@@ -793,10 +794,25 @@ export function peakBin(bins: readonly MarginBin[]): number {
   return bins.reduce((m, b) => (b.n > m ? b.n : m), 0);
 }
 
-/** Seats in one margin bin, for the map's highlight and the strip's list. */
-export function seatsInBin(v: ElectionMapView, lo: number | null): ElectionSeat[] {
-  if (lo === null) return [];
-  return v.seats.filter((s) => s.marginBin === lo);
+/**
+ * What an election's map can be narrowed to: the `Choices` its page hands `readSelection`.
+ *
+ * A party is selectable if it won a seat, has a row in the vote-to-seat plot, or came second in a seat. The runner-up
+ * parties are here because the runner-up legend lists every one of them, and one that only ever came second is in
+ * neither of the other two (the plot leaves out a party with no seat and under 1% of the vote), so its link led nowhere.
+ * The margin is judged in two-point bins, every bin the distribution holds, and flips is a mode only where a previous
+ * election can be compared. Bands, districts and seats are the state page's, and are not offered.
+ */
+export function choicesOf(v: {
+  legend: readonly { key: string }[];
+  voteSeat: readonly { party: { key: string } }[];
+  seats: readonly { runnerUpKey: string | null }[];
+  marginBins: readonly { lo: number }[];
+  flips: unknown;
+}): Choices {
+  const parties = new Set([...v.legend.map((l) => l.key), ...v.voteSeat.map((r) => r.party.key)]);
+  for (const s of v.seats) if (s.runnerUpKey !== null) parties.add(s.runnerUpKey);
+  return { parties, bins: v.marginBins.map((b) => b.lo), flips: v.flips !== null };
 }
 
 /** The closest contests, by margin over votes polled. */

@@ -11,6 +11,8 @@ import {
 } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';
 import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
+import { readSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
+import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
@@ -88,6 +90,32 @@ export type StateSelection = {
   district: string | null;
   seat: string | null;
 };
+
+/**
+ * The selection this page parsed by hand, in the form the map takes it.
+ *
+ * Each value was validated against the view already, so each is offered back as the only choice, and the selection
+ * decides what the map mutes. This goes when the page reads its own selection with `readSelection`.
+ */
+function mapSelectionOf(s: StateSelection): MapSelection {
+  return readSelection(
+    {
+      mode: s.mode,
+      party: s.party ?? undefined,
+      band: s.band ?? undefined,
+      district: s.district ?? undefined,
+      seat: s.seat ?? undefined,
+    },
+    {
+      parties: new Set(s.party === null ? [] : [s.party]),
+      bands: MARGIN_BANDS,
+      districts: new Set(s.district === null ? [] : [s.district]),
+      seats: new Set(s.seat === null ? [] : [s.seat]),
+      flips: true,
+    },
+    { base: '' },
+  );
+}
 
 export function StateSurface({
   name,
@@ -260,11 +288,7 @@ export function StateSurface({
         <div className="iei-linked iei-map-split">
           <ElectionMap
             view={view}
-            mode={mode}
-            highlight={party}
-            band={band}
-            district={focused?.id ?? null}
-            focusSeat={seat}
+            selection={mapSelectionOf({ mode, party, band, district: focused?.id ?? null, seat })}
           />
 
           <div>
