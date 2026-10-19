@@ -89,6 +89,35 @@ _Avoid_: current epoch, active epoch, latest epoch
 The epoch a jurisdiction's house is actually elected under: the epoch of the seats in its newest full-house election. A by-election never decides it, because a by-election fills a few vacancies of a house elected earlier and cannot introduce a delimitation. It differs from the epoch in force whenever an order has taken effect that no election has yet been held under.
 _Avoid_: current epoch, epoch of the latest election
 
+### Finding a place
+
+**Place index**:
+Every state, union territory, district and seat version in the registry, held as plain rows that a place query is answered from. Seat versions of earlier epochs are in it, marked as not current.
+_Avoid_: Place table, place cache
+
+**Place query**:
+What a URL's segments or a reader's words ask for: a state by its id, a district by its state and slug, or a seat by its state and its name or number, optionally narrowed to a body or a district. The narrowing is applied before any name is compared.
+_Avoid_: Place lookup, slug
+
+**Found**:
+The answer to a place query: one place, many places that answer equally well and so are left for the reader to choose between, or none. None is never answered with a different kind of place.
+_Avoid_: Match, hit
+
+**Canonical href**:
+The one address a place is served at, built from the place itself and never from the path that asked for it.
+_Avoid_: Permalink, canonical URL
+
+**Current seat**:
+A seat version of the epoch its house votes under in its state. The same seat number under an earlier epoch is a different constituency, and the place resolver answers only with current seats.
+_Avoid_: Active seat, latest seat
+
+**Retired name**:
+A name a seat number carried under an earlier epoch, or the name of a seat the current epoch no longer has. The place resolver does not answer to it.
+_Avoid_: Old name, former name, historical name
+
+**Reservation marker**:
+The "(SC)" or "(ST)" the source appends to a seat's name, as in "BISHNUPUR(SC)". A seat answers to its name with the marker first, and without it only when no seat answers to the name as written.
+
 ### What a seat's result is
 
 **Seat result**:
