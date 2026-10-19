@@ -4,6 +4,8 @@ import { fillFor, NOT_HELD } from '../../../packages/mandate/src/viz/party-ink.t
 import { NATIONAL, simplified } from '../../../packages/mandate/src/viz/simplify.ts';
 import { bandOf, frameOf } from '../../../packages/mandate/src/repo/election-map.ts';
 import { SEQUENTIAL } from '../../../packages/mandate/src/repo/home.ts';
+import { MODES, isMode } from '../../../packages/mandate/src/repo/map-selection.ts';
+import type { MapMode } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
 
 /**
@@ -43,18 +45,9 @@ import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/sr
  * every seat carries its result in a hover card and in the list beside the map.
  */
 
-export type MapMode = 'winners' | 'flips' | 'margin' | 'runnerup';
-
-export const MODES: readonly { key: MapMode; label: string; question: string }[] = [
-  { key: 'winners', label: 'Winners', question: 'Which party won each seat?' },
-  { key: 'flips', label: 'Flips', question: 'Where did power change hands?' },
-  { key: 'margin', label: 'Margin', question: 'How close was each seat?' },
-  { key: 'runnerup', label: 'Runner-up', question: 'Who came second, and where?' },
-];
-
-export function isMode(v: string | undefined): v is MapMode {
-  return MODES.some((m) => m.key === v);
-}
+// The modes are the selection's: it reads one out of the URL. Re-exported so a page imports the map and its modes together.
+export { MODES, isMode };
+export type { MapMode };
 
 const IN = new Intl.NumberFormat('en-IN');
 

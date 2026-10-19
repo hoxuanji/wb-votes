@@ -159,3 +159,49 @@ _Avoid_: Paired seats (an unknown seat is paired and not comparable)
 **Flip matrix**:
 The flipped seats counted by the party that lost them and the party that won them, the biggest count first.
 _Avoid_: Transition matrix
+
+### Reading a map
+
+**Selection**:
+What the reader has narrowed a loaded map to: its mode, an isolation, a district focus and a seat focus. It is carried in the link, so a reading can be shared and survives the back button.
+_Avoid_: Map state
+
+**Mode**:
+How the map colours its seats: by winner, by flip, by margin or by runner-up. A map has no flip mode when there is no previous election of the same house to compare against.
+_Avoid_: Layer (the front page's layer chooses the data, not how it is coloured)
+
+**Isolation**:
+Showing only one party's seats, or only the seats whose margin lies in one range, and muting the rest. At most one at a time, and the margin range is a two-point bin on the election page and one of five named bands on the state page. In the runner-up mode a party's seats are those it came second in.
+_Avoid_: Highlight
+
+**Focus**:
+Pointing at part of the map without isolating anything: a district, which reframes the map and narrows what it describes to the district's seats, or a seat, which is only outlined.
+_Avoid_: Zoom
+
+**Mute**:
+To dim a seat because the selection does not include it. A muted seat keeps its colour and loses its strength.
+_Avoid_: Hide, grey out
+
+**Narrow**:
+To reduce the seats a map and its figures describe to those the selection includes: the district first, then the isolation inside it.
+_Avoid_: Filter
+
+**Subject params**:
+The parts of a link that choose which data a page shows, such as the front page's layer, an election or a house, as against the selection, which narrows data already chosen.
+_Avoid_: Scope, which already names the elections a read covers
+
+**Choices**:
+What a loaded map makes selectable: its parties, margin bins or bands, districts and seats, and whether flips is a mode. A request for anything outside them is set aside, and the page shows its default instead.
+_Avoid_: Options
+
+**Move**:
+A change of selection that a link offers, such as isolating a party or focusing a district. Everything the move does not change, including any part of the link the page does not recognise, stays as the reader had it.
+_Avoid_: Action
+
+**Ask**:
+What the reader's link asks for, before the page has decided what it can honour. A parameter the page does not recognise is part of it and is carried into the links the page offers.
+_Avoid_: Request, query
+
+**Tally**:
+Seats counted by the party that won them, or by the party that came second, the biggest count first. A seat with nobody on that side counts for no one.
+_Avoid_: Count
