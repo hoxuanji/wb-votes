@@ -19,7 +19,9 @@ import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import * as electionMap from "./election-map.ts";
-import { tally } from "./map-selection.ts";
+import { readSelection, tally } from "./map-selection.ts";
+import type { ElectionSeat } from "./election-map.ts";
+import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
@@ -902,19 +904,60 @@ test("a district both navigates and focuses, and is never given a winner", live,
   }
 });
 
-test("focusing a district scopes the seats every figure describes", live, () => {
-  const v = electionMap.electionMapView(db, "ka-assembly-2023", "ka");
-  const group = electionMap.districtGroups(v.seats)[0];
-  assert.ok(group !== undefined);
-  const inside = electionMap.seatsInDistrict(v.seats, group.id);
-  assert.equal(inside.length, group.seats, "the focused set is not the district's seats");
-  assert.ok(inside.length < v.seats.length, "focusing a district selected the whole state");
-  // The competitiveness bands are computed over the SAME subset, which is what makes the page one instrument.
-  const bands = electionMap.marginBandCounts(inside);
-  assert.ok(
-    bands.reduce((n, b) => n + b.n, 0) <= inside.length,
-    "the bands count more seats than the district holds",
+test("focusing a district scopes the seats every figure describes", () => {
+  // Literal seats, so this needs no registry: two districts, a seat outside both, one with no margin, and a seat in each
+  // of the five bands. What it pins is that the figures of the page and the seats of its links are one subset.
+  const at = (placeId: string, districtId: string | null, winner: string | null, marginPct: number | null): ElectionSeat =>
+    ({
+      placeId,
+      districtId,
+      districtName: districtId === null ? null : districtId.toUpperCase(),
+      partyKey: winner,
+      partyLabel: winner,
+      runnerUpKey: null,
+      runnerUpLabel: null,
+      marginPct,
+      marginBin: electionMap.binOf(marginPct),
+    }) as ElectionSeat;
+  const seats = [
+    at("s1", "x.a", "P", 0.5),
+    at("s2", "x.a", "Q", 1.5),
+    at("s3", "x.a", "P", 3),
+    at("s4", "x.b", "P", 7),
+    at("s5", "x.b", "Q", 15),
+    at("s6", "x.b", null, null),
+    at("s7", null, "Q", 0.2),
+  ];
+  const choices = electionMap.stateChoicesOf({ legend: [{ key: "P" }, { key: "Q" }], voteSeat: [], seats, flips: null });
+  const read = (query: string) => readSelection(new URLSearchParams(query), choices, { base: "/state/x" });
+  const ids = (xs: readonly ElectionSeat[]): string[] => xs.map((x) => x.placeId);
+
+  const groups = electionMap.districtGroups(seats);
+  assert.deepEqual(
+    groups.map((g) => [g.id, g.seats]),
+    [["x.a", 3], ["x.b", 3]],
+    "a seat in no district is in no group",
   );
+  const group = groups[0] as (typeof groups)[number];
+  const inside = read(`district=${group.id}`).inDistrict(seats);
+  assert.deepEqual(ids(inside), ["s1", "s2", "s3"], "the focused set is not the district's seats");
+  assert.equal(inside.length, group.seats);
+  assert.ok(inside.length < seats.length, "focusing a district selected the whole state");
+
+  // The competitiveness bands are computed over the SAME subset, which is what makes the page one instrument.
+  const counts = (xs: readonly ElectionSeat[]): number[] => electionMap.marginBandCounts(xs).map((b) => b.n);
+  assert.deepEqual(counts(inside), [1, 1, 1, 0, 0]);
+  assert.deepEqual(counts(seats), [2, 1, 1, 1, 1], "a seat with no margin is in no band");
+  // And a band's link selects exactly the seats its segment counts, in the district and out of it.
+  for (const query of ["", `district=${group.id}`, "district=x.b"]) {
+    const subset = read(query).inDistrict(seats);
+    electionMap.marginBandCounts(subset).forEach((b) => {
+      assert.equal(read(`${query}&band=${b.key}`).narrow(seats).length, b.n, `${query} ${b.key}`);
+    });
+  }
+  // The legend of a focused district tallies the district's winners only.
+  assert.deepEqual(groups[0]?.parties, [{ key: "P", label: "P", n: 2 }, { key: "Q", label: "Q", n: 1 }]);
+  assert.deepEqual(tally(inside, "winner"), groups[0]?.parties);
 });
 
 test("every selection the state page offers is in the URL and moves the map", live, () => {
@@ -985,6 +1028,35 @@ test("every party the runner-up legend lists can be isolated from it", live, (t)
   const html = render("/election", new URLSearchParams({ mode: "runnerup", party: key }).toString(), found.id);
   assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.id}: the link for ${key} did not isolate it`);
   assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.id}: ${key} listed no seats`);
+});
+
+test("every party the state page's runner-up legend lists can be isolated from it", live, (t) => {
+  // The same defect as the election page's: the legend counts the parties that came second, and the page validated a
+  // party against the winners' legend and the vote-to-seat plot, so a party that only ever came second was offered a link
+  // that led nowhere.
+  let found: { state: string; election: string; house: string; key: string } | undefined;
+  for (const j of all<{ id: string }>(db, `SELECT id FROM place WHERE kind IN ('state', 'ut') ORDER BY id`)) {
+    const first = stateView(db, j.id);
+    if (first.kind !== "ready") continue;
+    for (const house of first.houses) {
+      const opened = stateView(db, j.id, { house: kindOfBody(house) });
+      if (opened.kind !== "ready") continue;
+      for (const c of opened.choices) {
+        const s = stateView(db, j.id, { house: kindOfBody(house), election: c.id });
+        if (s.kind !== "ready" || found !== undefined) continue;
+        const offered = new Set([...s.map.legend.map((l) => l.key), ...s.map.voteSeat.map((r) => r.party.key)]);
+        const dead = tally(s.map.seats, "runnerUp")
+          .slice(0, 10)
+          .find((l) => !offered.has(l.key));
+        if (dead !== undefined) found = { state: j.id, election: c.id, house: kindOfBody(house), key: dead.key };
+      }
+    }
+  }
+  if (found === undefined) return t.skip("no state's election has a party in its runner-up legend that only came second");
+  const query = new URLSearchParams({ house: found.house, election: found.election, mode: "runnerup", party: found.key });
+  const html = render("/state", query.toString(), found.state);
+  assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.state} ${found.election}: the link for ${found.key} did not isolate it`);
+  assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.state} ${found.election}: ${found.key} listed no seats`);
 });
 
 test("a comparison across a redrawn map is refused on the page, not just in the data", live, () => {

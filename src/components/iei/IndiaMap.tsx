@@ -1,7 +1,9 @@
 import Link from 'next/link';
 import { INDIA_SHAPES, INDIA_SOURCE, INDIA_VIEWBOX } from '../../lib/india-geo.ts';
 import { labelFits } from '../../../packages/mandate/src/viz/anchors.ts';
+import { leaderOf } from '../../../packages/mandate/src/repo/home.ts';
 import type { Cell, Layer } from '../../../packages/mandate/src/repo/home.ts';
+import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 
 /**
  * The map of India — the product's primary analytical instrument, and its primary navigation.
@@ -39,7 +41,8 @@ import type { Cell, Layer } from '../../../packages/mandate/src/repo/home.ts';
  *  · A BIDIRECTIONAL HIGHLIGHT, in CSS. Hovering a polygon lights its row in the table beside it, and hovering
  *    a row outlines the polygon. `:has()` and one generated rule per jurisdiction.
  *  · PARTY HIGHLIGHT, from the URL. `?party=BJP` keeps that party's polygons at full strength and mutes the
- *    rest. URL state rather than a click handler, so a highlighted map is shareable and costs no JavaScript.
+ *    rest, as the selection says. URL state rather than a click handler, so a highlighted map is shareable and
+ *    costs no JavaScript.
  */
 
 /**
@@ -72,14 +75,14 @@ const ASPECT = FRAME_H > 0 ? FRAME_W / FRAME_H : 1;
 export function IndiaMap({
   layer,
   nameOf,
-  highlight = null,
+  selection,
   labels = true,
 }: {
   layer: Layer;
   /** Registry name for a jurisdiction id, so this component never holds a list of state names. */
   nameOf: (id: string) => string;
-  /** A party key whose polygons stay saturated while the others mute. Null highlights nothing. */
-  highlight?: string | null;
+  /** What the reader has narrowed the map to: the jurisdictions it does not cover are muted. */
+  selection: MapSelection;
   labels?: boolean;
 }) {
   // Keyed by the geometry's own state name, which is the only join between the two datasets.
@@ -99,7 +102,7 @@ export function IndiaMap({
         </path>
       );
     }
-    const muted = highlight !== null && cell.partyKey !== highlight;
+    const muted = !selection.covers(leaderOf(cell));
     const fits = a !== null && cell.label !== null && labelFits(a, cell.label.length, LABEL_PX);
     if (labels && fits && a !== null && cell.label !== null && !muted) {
       marks.push({ x: a.x, y: a.y, text: cell.label });

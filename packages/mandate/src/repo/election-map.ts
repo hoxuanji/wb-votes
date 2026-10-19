@@ -37,6 +37,7 @@ import { compareSeats } from "./seat-comparison.ts";
 import { partyVotes, readSeats, sourcesFor, tally, turnoutOf, votesByParty } from "./seat-results.ts";
 import { electionContext } from "./election-context.ts";
 import type { ElectionContext, SeatStanding } from "./election-context.ts";
+import { tally as tallySeats } from "./map-selection.ts";
 import type { Choices } from "./map-selection.ts";
 import type { Turnout } from "./turnout-trust.ts";
 
@@ -687,10 +688,6 @@ export function bandOf(marginPct: number | null): string | null {
   return null;
 }
 
-export function isBand(v: string | undefined): boolean {
-  return MARGIN_BANDS.some((b) => b.key === v);
-}
-
 export type BandCount = { key: string; label: string; n: number };
 
 export function marginBandCounts(seats: readonly ElectionSeat[]): BandCount[] {
@@ -700,11 +697,6 @@ export function marginBandCounts(seats: readonly ElectionSeat[]): BandCount[] {
     if (k !== null) counts.set(k, (counts.get(k) ?? 0) + 1);
   }
   return MARGIN_BANDS.map((b) => ({ key: b.key, label: b.label, n: counts.get(b.key) ?? 0 }));
-}
-
-export function seatsInBand(seats: readonly ElectionSeat[], band: string | null): ElectionSeat[] {
-  if (band === null) return [];
-  return seats.filter((s) => bandOf(s.marginPct) === band);
 }
 
 /**
@@ -734,28 +726,8 @@ export function districtGroups(seats: readonly ElectionSeat[]): DistrictGroup[] 
     byId.set(s.districtId, at);
   }
   return [...byId.values()]
-    .map((d) => {
-      const counts = new Map<string, { key: string; label: string; n: number }>();
-      for (const r of d.rows) {
-        if (r.partyKey === null) continue;
-        const at = counts.get(r.partyKey) ?? { key: r.partyKey, label: r.partyLabel ?? r.partyKey, n: 0 };
-        at.n += 1;
-        counts.set(r.partyKey, at);
-      }
-      return {
-        id: d.id,
-        name: d.name,
-        seats: d.rows.length,
-        parties: [...counts.values()].sort((a, b) => b.n - a.n || a.key.localeCompare(b.key)),
-      };
-    })
+    .map((d) => ({ id: d.id, name: d.name, seats: d.rows.length, parties: tallySeats(d.rows, "winner") }))
     .sort((a, b) => a.name.localeCompare(b.name));
-}
-
-/** The seats of one district, or every seat when nothing is focused. */
-export function seatsInDistrict(seats: readonly ElectionSeat[], districtId: string | null): ElectionSeat[] {
-  if (districtId === null) return [...seats];
-  return seats.filter((s) => s.districtId === districtId);
 }
 
 /** The findings a header can state without re-deriving anything. */
@@ -801,7 +773,7 @@ export function peakBin(bins: readonly MarginBin[]): number {
  * parties are here because the runner-up legend lists every one of them, and one that only ever came second is in
  * neither of the other two (the plot leaves out a party with no seat and under 1% of the vote), so its link led nowhere.
  * The margin is judged in two-point bins, every bin the distribution holds, and flips is a mode only where a previous
- * election can be compared. Bands, districts and seats are the state page's, and are not offered.
+ * election can be compared. Bands, districts and seats are the state page's (`stateChoicesOf`), and are not offered.
  */
 export function choicesOf(v: {
   legend: readonly { key: string }[];
@@ -810,9 +782,39 @@ export function choicesOf(v: {
   marginBins: readonly { lo: number }[];
   flips: unknown;
 }): Choices {
+  return { parties: partiesOf(v), bins: v.marginBins.map((b) => b.lo), flips: v.flips !== null };
+}
+
+function partiesOf(v: {
+  legend: readonly { key: string }[];
+  voteSeat: readonly { party: { key: string } }[];
+  seats: readonly { runnerUpKey: string | null }[];
+}): Set<string> {
   const parties = new Set([...v.legend.map((l) => l.key), ...v.voteSeat.map((r) => r.party.key)]);
   for (const s of v.seats) if (s.runnerUpKey !== null) parties.add(s.runnerUpKey);
-  return { parties, bins: v.marginBins.map((b) => b.lo), flips: v.flips !== null };
+  return parties;
+}
+
+/**
+ * What a state's map can be narrowed to: the same parties and the same rule for flips, but the margin is judged in the
+ * five named bands (D19: the two vocabularies stay), and a district or a seat of the election can be focused. A district
+ * is offered only if a seat lies in it, which is the districts the map's own list of them holds.
+ */
+export function stateChoicesOf(v: {
+  legend: readonly { key: string }[];
+  voteSeat: readonly { party: { key: string } }[];
+  seats: readonly { runnerUpKey: string | null; districtId: string | null; placeId: string }[];
+  flips: unknown;
+}): Choices {
+  const districts = new Set<string>();
+  for (const s of v.seats) if (s.districtId !== null) districts.add(s.districtId);
+  return {
+    parties: partiesOf(v),
+    bands: MARGIN_BANDS,
+    districts,
+    seats: new Set(v.seats.map((s) => s.placeId)),
+    flips: v.flips !== null,
+  };
 }
 
 /** The closest contests, by margin over votes polled. */

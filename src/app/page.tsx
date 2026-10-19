@@ -1,11 +1,11 @@
 import Link from 'next/link';
 import { constituencyHref, districtHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
-import { homeView } from '../../packages/mandate/src/repo/home.ts';
+import { homeView, layerChoices, leaderOf } from '../../packages/mandate/src/repo/home.ts';
 import { bodyWord } from '../../packages/mandate/src/core/election-kind.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
-import { readAsk, queryHref } from '../../packages/mandate/src/repo/map-selection.ts';
+import { readAsk, readSelection, queryHref } from '../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../packages/mandate/src/repo/session.ts';
 import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
@@ -97,7 +97,8 @@ export default function Home({
   const ask = readAsk(searchParams);
   /**
    * A link to this page with one parameter changed and the rest kept, anchored at the map: every parameter this page
-   * takes changes the map, and a reader who clicks a legend entry should not be returned to the top of the document.
+   * takes changes the map, and a reader who clicks a layer should not be returned to the top of the document. The layer
+   * is a subject param, which chooses the data, so it is not a move of the selection and is written here.
    */
   const href = (change: Record<string, string>): string => queryHref('/', ask, change, 'map');
 
@@ -116,9 +117,10 @@ export default function Home({
   const next = [...v.announced, ...v.upcoming];
   // VALIDATED BY MEMBERSHIP, never parsed: `?party=` has to name a party the CURRENT layer actually shows, so
   // a hand-edited value cannot isolate nothing, cannot reach the SQL, and cannot survive a layer switch that
-  // makes it meaningless. Switching to the turnout layer drops it, because a turnout band is not a party.
-  const asked = ask.get('party');
-  const party = v.layer.legend.some((l) => l.key === asked) ? (asked as string) : null;
+  // makes it meaningless. Switching to the turnout layer drops it, because a turnout band is not a party. The layer
+  // is read first, and what it shows is what the selection may be narrowed to: its party links are moves of `sel`.
+  const sel = readSelection(searchParams, layerChoices(v.layer), { base: '/', anchor: 'map' });
+  const party = sel.isolation?.by === 'party' ? sel.isolation.key : null;
   // The legend names the parties leading more than one state, and always the one being isolated. Everything
   // else is one state each and folds into a disclosure below.
   const many = v.layer.legend.filter((l) => l.key === null || l.key === party || !/^1 state$/.test(l.note ?? ''));
@@ -169,7 +171,7 @@ export default function Home({
         />
 
         <div className="iei-linked iei-map-split">
-          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} highlight={party} />
+          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} />
 
           <div>
             {/* A CONTEXTUAL LEGEND, and an interactive one. It names the parties this layer actually shows —
@@ -187,7 +189,7 @@ export default function Home({
                     </>
                   ) : (
                     <Link
-                      href={href(party === l.key ? { party: '' } : { party: l.key })}
+                      href={sel.href({ party: l.key })}
                       className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
                       aria-pressed={party === l.key}
                       title={party === l.key ? `Stop isolating ${l.label}` : `Show only where ${l.label} leads`}
@@ -219,7 +221,7 @@ export default function Home({
                   {rest.map((l) => (
                     <li key={l.label}>
                       <Link
-                        href={href(party === l.key ? { party: '' } : { party: l.key as string })}
+                        href={sel.href({ party: l.key as string })}
                         className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
                       >
                         <span className="iei-sw" style={{ background: l.fill }} aria-hidden="true" />
@@ -233,7 +235,7 @@ export default function Home({
             {party === null ? null : (
               <p className="iei-note">
                 Showing only where <b>{v.layer.legend.find((l) => l.key === party)?.label ?? party}</b> leads.{' '}
-                <Link href={href({ party: '' })}>Show every party</Link>
+                <Link href={sel.href('release')}>Show every party</Link>
               </p>
             )}
 
@@ -272,9 +274,9 @@ export default function Home({
             >
               {v.layer.cells.map((c) => {
                 const st = standingOf(c.jurisdictionId);
-                // The table mutes with the map. A highlight that dimmed the polygons and left the rows at full
-                // strength would be two answers to one question on one screen.
-                const muted = party !== null && c.partyKey !== party;
+                // The table mutes with the map, by the same selection. A highlight that dimmed the polygons and left
+                // the rows at full strength would be two answers to one question on one screen.
+                const muted = !sel.covers(leaderOf(c));
                 return (
                   <tr key={c.jurisdictionId} data-j={c.jurisdictionId} className={muted ? 'iei-legend-off' : undefined}>
                     <th scope="row">

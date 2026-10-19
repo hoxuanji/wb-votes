@@ -11,11 +11,9 @@ import {
 } from "../../../packages/mandate/src/repo/place-page.ts";
 import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
 import { fillFor } from "../../../packages/mandate/src/viz/party-ink.ts";
-import { bandOf, MARGIN_BANDS } from "../../../packages/mandate/src/repo/election-map.ts";
+import { stateChoicesOf } from "../../../packages/mandate/src/repo/election-map.ts";
 import { stateView } from "../../../packages/mandate/src/repo/state-view.ts";
-import { queryHref, readAsk } from "../../../packages/mandate/src/repo/map-selection.ts";
-import { isMode } from "../../components/iei/ElectionMap.tsx";
-import type { MapMode } from "../../components/iei/ElectionMap.tsx";
+import { readAsk, readSelection } from "../../../packages/mandate/src/repo/map-selection.ts";
 import { bodyOfKind, personHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import { StateSurface } from "./state.tsx";
@@ -151,35 +149,11 @@ export async function PlaceSurface({
       // every one of them — a query link that navigated back into the compatibility layer on each click.
       const base = stateHref(view.placeId);
       if (s.kind === "ready") {
-        const askedParty = ask.get("party");
-        // VALIDATED BY MEMBERSHIP, never parsed: a party has to be one this election returned or ran.
-        const party =
-          askedParty !== undefined &&
-          (s.map.legend.some((l) => l.key === askedParty) ||
-            s.map.voteSeat.some((r) => r.party.key === askedParty))
-            ? askedParty
-            : null;
-        const askedBand = ask.get("band");
-        // Party and band are mutually exclusive — two isolations on one map is two answers to one question.
-        const band =
-          party === null && askedBand !== undefined && MARGIN_BANDS.some((b) => b.key === askedBand)
-            ? askedBand
-            : null;
-        const askedDistrict = ask.get("district");
-        const district =
-          askedDistrict !== undefined && s.map.seats.some((x) => x.districtId === askedDistrict)
-            ? askedDistrict
-            : null;
-        const askedSeat = ask.get("seat");
-        const seat =
-          askedSeat !== undefined && s.map.seats.some((x) => x.placeId === askedSeat) ? askedSeat : null;
-        const askedMode = ask.get("mode");
-        const mode: MapMode =
-          askedMode === "flips" && s.map.flips === null
-            ? "winners"
-            : isMode(askedMode)
-              ? askedMode
-              : "winners";
+        // WHAT THE READER ASKED FOR, validated by membership against what this election offers, never parsed: a party
+        // has to be one this election returned, ran or came second for, a band one of the five, a district or a seat
+        // one of its own. The selection holds one isolation, since two on one map are two answers to one question, and
+        // every link on the page is a move of it, anchored at the map.
+        const selection = readSelection(searchParams, stateChoicesOf(s.map), { base, anchor: "map" });
 
         return (
           <Shell here="place">
@@ -190,8 +164,7 @@ export async function PlaceSurface({
               choices={s.choices}
               asked={s.asked}
               trajectory={s.trajectory}
-              selection={{ mode, party, band, district, seat }}
-              hrefFor={(change) => queryHref(base, ask, change, "map")}
+              selection={selection}
             />
             <Foot />
           </Shell>

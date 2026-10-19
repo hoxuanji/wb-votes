@@ -45,6 +45,7 @@ import {
 } from "./elections.ts";
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
 import { compareSeats } from "./seat-comparison.ts";
+import type { Choices, SeatFacts } from "./map-selection.ts";
 import {
   medianMarginShare,
   partyVotes,
@@ -201,6 +202,22 @@ export type Layer = {
   /** False when NOTHING in the registry can feed this layer. Computed from the cells, never declared. */
   available: boolean;
 };
+
+/**
+ * What a layer's map can be narrowed to: a party its legend names, and nothing else. A magnitude layer has no party to
+ * name, so on it a `?party=` is set aside, and the layer itself is not the selection's business (it chose the data).
+ */
+export function layerChoices(layer: { legend: readonly { key: string | null }[] }): Choices {
+  return { parties: new Set(layer.legend.flatMap((l) => (l.key === null ? [] : [l.key]))) };
+}
+
+/**
+ * A jurisdiction as a selection reads a seat: only the party leading it is known. The leader answers on both sides of
+ * the runner-up switch, so a `?mode=` this page does not use cannot change which jurisdictions it mutes.
+ */
+export function leaderOf(cell: Pick<Cell, "partyKey">): SeatFacts {
+  return { partyKey: cell.partyKey, runnerUpKey: cell.partyKey, marginPct: null, marginBin: null, districtId: null };
+}
 
 /**
  * The layers, and their names are the product's most load-bearing words.

@@ -210,7 +210,7 @@ How the map colours its seats: by winner, by flip, by margin or by runner-up. A 
 _Avoid_: Layer (the front page's layer chooses the data, not how it is coloured)
 
 **Isolation**:
-Showing only one party's seats, or only the seats whose margin lies in one range, and muting the rest. At most one at a time, and the margin range is a two-point bin on the election page and one of five named bands on the state page. In the runner-up mode a party's seats are those it came second in.
+Showing only one party's seats, or only the seats whose margin lies in one range, and muting the rest. At most one at a time, and the margin range is a two-point bin on the election page and one of five named bands on the state page. In the runner-up mode a party's seats are those it came second in. On the front page only a party can be isolated, and a state belongs to the party leading it.
 _Avoid_: Highlight
 
 **Focus**:
@@ -218,7 +218,7 @@ Pointing at part of the map without isolating anything: a district, which refram
 _Avoid_: Zoom
 
 **Mute**:
-To dim a seat because the selection does not include it. A muted seat keeps its colour and loses its strength.
+To dim a seat, or on the front page a state, because the selection does not include it. A muted seat keeps its colour and loses its strength.
 _Avoid_: Hide, grey out
 
 **Narrow**:
@@ -234,7 +234,7 @@ What a loaded map makes selectable: its parties, margin bins or bands, districts
 _Avoid_: Options
 
 **Move**:
-A change of selection that a link offers, such as isolating a party or focusing a district. Everything the move does not change stays as the reader had it, including any part of the link the page does not recognise. The one exception is that isolating something releases whatever else was isolated, even by a parameter the page does not recognise, because there is only one isolation.
+A change of selection that a link offers, such as isolating a party or focusing a district. Everything the move does not change stays as the reader had it, including any part of the link the page does not recognise. The one exception is the isolation: a move that isolates something, or releases it, clears every isolation parameter in the link, even one the page does not recognise, because there is only one isolation.
 _Avoid_: Action
 
 **Ask**:

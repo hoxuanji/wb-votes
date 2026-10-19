@@ -4,13 +4,17 @@
 // the bottom: every link it emits is read back by the same module as the selection the link meant, with nothing in
 // `ignored`. A link no page can honour (the runner-up legend naming a party the view does not offer) fails it, which is
 // how that defect is to be found, and a test below shows it doing so. The election page's own choices are tested the
-// same way, on literals and on every election the registry holds.
+// same way, on literals and on every election the registry holds, and so are the state page's and the front page's.
 
 import assert from "node:assert/strict";
 import test from "node:test";
 import { existsSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
-import { MARGIN_BANDS, bandOf, binOf, choicesOf, electionChoices, electionMapView } from "./election-map.ts";
+import { all } from "../db/index.ts";
+import { MARGIN_BANDS, bandOf, binOf, choicesOf, electionChoices, electionMapView, stateChoicesOf } from "./election-map.ts";
+import { layerChoices, leaderOf } from "./home.ts";
+import { kindOfBody } from "./routes.ts";
+import { stateView } from "./state-view.ts";
 import { MODES, isMode, queryHref, readAsk, readSelection, tally } from "./map-selection.ts";
 import type { Choices, Isolation, MapMode, MapSelection, Move, TalliedSeat, SeatFacts } from "./map-selection.ts";
 
@@ -635,6 +639,221 @@ test("every link the election page writes, for every election in the registry, l
   } finally {
     d.close();
   }
+});
+
+/* ───────────────────────────── the state page's choices ───────────────────────────── */
+
+type StateLit = Parameters<typeof stateChoicesOf>[0];
+
+/** A state's election as the page holds it: the seats above, their winners' legend, and a plot of the same two. */
+const stateLit = (over: Partial<StateLit> = {}): StateLit => ({
+  legend: tally(SEATS, "winner"),
+  voteSeat: tally(SEATS, "winner").map((l) => ({ party: { key: l.key } })),
+  seats: SEATS,
+  flips: { held: 2 },
+  ...over,
+});
+
+test("a state offers the parties an election does, the five named bands, its districts and its seats, and no bins", () => {
+  const choices = stateChoicesOf(stateLit());
+  assert.deepEqual([...choices.parties].sort(), ["BJP", "INC", "TMC"], "TMC only ever came second");
+  assert.deepEqual([...choices.parties].sort(), [...choicesOf(view()).parties].sort(), "the same parties as the election page");
+  assert.equal(choices.bands, MARGIN_BANDS);
+  assert.equal(choices.bins, undefined);
+  assert.deepEqual([...(choices.districts ?? [])].sort(), ["d1", "d2", "d3"]);
+  assert.deepEqual([...(choices.seats ?? [])].sort(), SEATS.map((s) => s.placeId));
+  assert.equal(choices.flips, true);
+  assert.equal(stateChoicesOf(stateLit({ flips: null })).flips, false);
+  // A seat in no district does not make one.
+  const loose = stateChoicesOf(stateLit({ seats: [seat("a", "BJP", null, 3, null)] }));
+  assert.deepEqual([...(loose.districts ?? [])], []);
+  // And each page keeps its own margin vocabulary: a bin is not a band, and a band is not a bin.
+  assert.deepEqual(read("band=under1&bin=4", choices).isolation, { by: "band", key: "under1" });
+  assert.deepEqual(read("band=under1&bin=4", choices).ignored, ["bin"]);
+  assert.deepEqual(read("bin=4", choices).ignored, ["bin"]);
+});
+
+/** Every move the state page writes a link for, restated from the page rather than taken from the module. */
+function statePageMoves(v: StateLit): Move[][] {
+  const seats = v.seats as readonly Seat[];
+  const districts = [...new Set(seats.map((s) => s.districtId).filter((d): d is string => d !== null))];
+  return [
+    ...MODES.filter((m) => m.key !== "flips" || v.flips !== null).map((m): Move[] => [{ mode: m.key }]),
+    ...tally(seats, "winner").map((l): Move[] => [{ party: l.key }]),
+    ...tally(seats, "runnerUp").map((l): Move[] => [{ party: l.key }]),
+    ...v.voteSeat.map((r): Move[] => [{ party: r.party.key }]),
+    ...MARGIN_BANDS.map((b): Move[] => [{ band: b.key }]),
+    ...MARGIN_BANDS.map((b): Move[] => [{ band: b.key }, { mode: "margin" }]),
+    ["release"],
+    ["release", { mode: "margin" }],
+    ["clear"],
+    ...districts.map((district): Move[] => [{ district }]),
+    ...seats.map((s): Move[] => [{ seat: s.placeId }]),
+    ...(v.flips === null ? [] : [...stateChoicesOf(v).parties].map((party): Move[] => [{ party }, { mode: "flips" }])),
+    [{ election: "ka-assembly-2018" }],
+  ];
+}
+
+const STATE_STARTS = [
+  "",
+  "mode=margin",
+  "mode=runnerup",
+  "party=BJP",
+  "party=TMC&mode=runnerup",
+  "band=under1&mode=margin",
+  "district=d1",
+  "district=d2&band=over10",
+  "district=d1&seat=p2&party=INC",
+  "mode=flips&party=BJP&district=d3",
+];
+
+test("every link the state page writes lands on a selection that honours it", () => {
+  for (const flips of [{ held: 2 }, null]) {
+    const v = stateLit({ flips });
+    const choices = stateChoicesOf(v);
+    let links = 0;
+    for (const query of STATE_STARTS.filter((q) => flips !== null || !q.includes("flips"))) {
+      const here = read(query, choices);
+      assert.deepEqual(here.ignored, [], query);
+      for (const moves of statePageMoves(v)) {
+        const href = here.href(...moves);
+        const there = follow(href, choices);
+        assert.deepEqual(there.ignored, [], `${query} + ${JSON.stringify(moves)} -> ${href}`);
+        assert.deepEqual(stateOf(there), meant(stateOf(here), moves), `${query} + ${JSON.stringify(moves)} -> ${href}`);
+        links += 1;
+      }
+    }
+    assert.ok(links > 200, `only ${links} links were checked`);
+  }
+});
+
+test("the runner-up legend link of a party that only came second is dead on the state page without the runner-up parties", () => {
+  // What the state page validated a party against before it read a selection: the winners' legend and the plot.
+  const v = stateLit();
+  const before: Choices = {
+    ...stateChoicesOf(v),
+    parties: new Set([...v.legend.map((l) => l.key), ...v.voteSeat.map((r) => r.party.key)]),
+  };
+  const sel = read("mode=runnerup", before);
+  const moves = tally(SEATS, "runnerUp").map((l): Move => ({ party: l.key }));
+  assert.equal(dead(sel, moves, before).length, 1);
+  assert.match(dead(sel, moves, before)[0] as string, /party=TMC/);
+  const now = stateChoicesOf(v);
+  assert.deepEqual(dead(read("mode=runnerup", now), moves, now), []);
+});
+
+test("the seats a band link promises are the seats the competitiveness bar counts, inside any district", () => {
+  // The bar counts the district's seats by band, and each of its links selects those same seats on the map.
+  const choices = stateChoicesOf(stateLit());
+  for (const district of ["", "d1", "d2", "d3"]) {
+    const sel = read(district === "" ? "" : `district=${district}`, choices);
+    let selected = 0;
+    for (const b of MARGIN_BANDS) {
+      const inBand = follow(sel.href({ band: b.key }), choices).narrow(SEATS);
+      assert.deepEqual(
+        ids(inBand),
+        ids(sel.inDistrict(SEATS).filter((s) => bandOf(s.marginPct) === b.key)),
+        `${district || "the state"}: ${b.key}`,
+      );
+      selected += inBand.length;
+    }
+    const withMargin = sel.inDistrict(SEATS).filter((s) => s.marginPct !== null).length;
+    assert.equal(selected, withMargin, `${district || "the state"}: every seat with a margin is in exactly one band`);
+  }
+});
+
+test("every link the state page writes, for every state's every election in the registry, lands on a selection that honours it", live, () => {
+  const d = openRead();
+  try {
+    const states = all<{ id: string }>(d, `SELECT id FROM place WHERE kind IN ('state', 'ut') ORDER BY id`);
+    let pages = 0;
+    let links = 0;
+    for (const j of states) {
+      const first = stateView(d, j.id);
+      if (first.kind !== "ready") continue;
+      for (const house of first.houses) {
+        const opened = stateView(d, j.id, { house: kindOfBody(house) });
+        if (opened.kind !== "ready") continue;
+        for (const c of opened.choices) {
+          const s = stateView(d, j.id, { house: kindOfBody(house), election: c.id });
+          if (s.kind !== "ready") continue;
+          const choices = stateChoicesOf(s.map);
+          // A reader may be standing on either reading, and the runner-up legend is where a dead link was found.
+          for (const query of ["", "mode=runnerup"]) {
+            const here = readSelection(new URLSearchParams(query), choices, { base: `/state/${j.id}`, anchor: "map" });
+            for (const moves of statePageMoves(s.map)) {
+              const there = readSelection(new URLSearchParams(queryOf(here.href(...moves))), choices, AT);
+              assert.deepEqual(there.ignored, [], `${j.id} ${c.id}: ${query} + ${JSON.stringify(moves)}`);
+              links += 1;
+            }
+          }
+          pages += 1;
+        }
+      }
+    }
+    assert.ok(pages > 0, "no state page was checked");
+    assert.ok(links > pages * 10, `only ${links} links were checked over ${pages} state pages`);
+  } finally {
+    d.close();
+  }
+});
+
+/* ───────────────────────────── the front page's choices ───────────────────────────── */
+
+/** A layer as the front page holds it: a legend, and a leader for each state. */
+const layer = (leaders: (string | null)[], legend: (string | null)[] = [...new Set(leaders)]) => ({
+  cells: leaders.map((partyKey, i) => ({ partyKey, jurisdictionId: `j${i}` })),
+  legend: legend.map((key) => ({ key })),
+});
+
+test("a layer offers the parties its legend names, and a magnitude layer none", () => {
+  assert.deepEqual([...layerChoices(layer(["BJP", "INC", "BJP", null])).parties].sort(), ["BJP", "INC"]);
+  // A turnout band is not a party: nothing on a sequential layer can be isolated.
+  assert.deepEqual([...layerChoices(layer([null, null], [null])).parties], []);
+  assert.deepEqual([...layerChoices(layer([])).parties], []);
+  // And a party is all it offers: every other dimension of the selection is set aside.
+  const sel = read("party=BJP&band=under1&bin=4&district=d1&seat=p1", layerChoices(layer(["BJP"])));
+  assert.deepEqual(sel.isolation, { by: "party", key: "BJP" });
+  assert.deepEqual(sel.ignored, ["band", "bin", "district", "seat"]);
+});
+
+test("the front page mutes the states the selection does not cover, whatever mode the link names", () => {
+  const l = layer(["BJP", "INC", null, "BJP", "TMC"]);
+  const choices = layerChoices(l);
+  for (const mode of ["", "mode=winners", "mode=runnerup", "mode=margin", "mode=flips", "mode=bogus"]) {
+    for (const party of ["", "BJP", "INC", "TMC", "NOPE"]) {
+      const sel = read([party === "" ? "" : `party=${party}`, mode].filter((q) => q !== "").join("&"), choices);
+      const isolated = choices.parties.has(party) ? party : null;
+      // The page's old rule, restated: a state is muted when a party is isolated and the state is not that party's.
+      const expected = l.cells.filter((c) => isolated !== null && c.partyKey !== isolated).map((c) => c.jurisdictionId);
+      assert.deepEqual(
+        l.cells.filter((c) => !sel.covers(leaderOf(c))).map((c) => c.jurisdictionId),
+        expected,
+        `${party} ${mode}`,
+      );
+    }
+  }
+});
+
+test("every link the front page writes for a party lands on a selection that honours it", () => {
+  const choices = layerChoices(layer(["BJP", "INC", null, "BJP", "TMC"]));
+  const at = { base: "/", anchor: "map" };
+  for (const query of ["", "party=BJP", "party=TMC&mode=runnerup", "layer=loksabha&party=INC&utm=1"]) {
+    const here = readSelection(new URLSearchParams(query), choices, at);
+    assert.deepEqual(here.ignored, [], query);
+    for (const move of [...choices.parties].map((party): Move => ({ party })).concat(["release"])) {
+      const href = here.href(move);
+      const there = readSelection(new URLSearchParams(queryOf(href)), choices, at);
+      assert.deepEqual(there.ignored, [], `${query} + ${JSON.stringify(move)} -> ${href}`);
+      // The subject params and strangers come along: a link to another layer needs the reader's raw party.
+      for (const k of ["layer", "utm"]) {
+        assert.equal(new URLSearchParams(queryOf(href)).get(k), new URLSearchParams(query).get(k), `${k}: ${href}`);
+      }
+    }
+  }
+  // The legend toggles: choosing the isolated party again is the way back to every party.
+  assert.equal(readSelection(new URLSearchParams("party=BJP"), choices, at).href({ party: "BJP" }), "/#map");
+  assert.equal(readSelection(new URLSearchParams("party=BJP"), choices, at).href("release"), "/#map");
 });
 
 /* ───────────────────────────── whatever the URL says ───────────────────────────── */
