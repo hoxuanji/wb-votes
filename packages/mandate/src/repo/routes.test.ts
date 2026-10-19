@@ -3,7 +3,7 @@
 //
 // The builders are pure, so their shapes are pinned literally. The round trips are the point, though: a link
 // that is well-formed and resolves to nothing, or to a neighbour, passes any test that only looks at the string.
-// So each href is read back the way a request reads it, through `parsePath` and `placeView`, over a registry
+// So each href is read back the way a request reads it, through `resolvePlace` and `placeView`, over a registry
 // built here. That keeps them out of the registry-gated tests: they run on a bare checkout.
 
 import assert from "node:assert/strict";
@@ -11,11 +11,13 @@ import test from "node:test";
 import type { DatabaseSync } from "node:sqlite";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { parsePath, placeView } from "./place-page.ts";
+import { placeView, resolvePlace } from "./place-page.ts";
+import type { PlaceQuery } from "./place-resolve.ts";
 import {
   asBody,
   bodyOfKind,
   constituencyHref,
+  constituencyIdHref,
   coverageHref,
   districtHref,
   electionHref,
@@ -66,6 +68,17 @@ test("constituencyHref: the body in the path is the seat's kind, and a seat it c
   assert.equal(constituencyHref({ ...seat, canonicalName: "", kind: "ac" }), "/");
 });
 
+test("constituencyIdHref: the same route with the registry id where the name goes, and the body still in the path", () => {
+  assert.equal(
+    constituencyIdHref({ jurisdictionId: "wb", kind: "ac", placeId: "wb.ac.266" }),
+    "/constituency/wb/assembly/wb.ac.266",
+  );
+  assert.equal(
+    constituencyIdHref({ jurisdictionId: "wb", kind: "pc", placeId: "wb.pc.37" }),
+    "/constituency/wb/lok-sabha/wb.pc.37",
+  );
+});
+
 test("a body is spelt `assembly` or `lok-sabha` in a URL and `ac` or `pc` in the registry, and nothing between", () => {
   for (const [body, kind] of [["assembly", "ac"], ["lok-sabha", "pc"]] as const) {
     assert.equal(kindOfBody(body), kind);
@@ -78,7 +91,7 @@ test("a body is spelt `assembly` or `lok-sabha` in a URL and `ac` or `pc` in the
   }
 });
 
-test("a reservation marker stays in the slug as the source wrote it, and both spellings of it read back", () => {
+test("a reservation marker stays in the slug as the source wrote it, and both spellings of it read back", async () => {
   // The source appends the marker to the name with no space: 'BISHNUPUR(SC)'. The slug keeps it, lower-cased,
   // with the parentheses as they are; the matching that strips the marker is the resolver's, not the link's.
   assert.equal(
@@ -91,8 +104,14 @@ test("a reservation marker stays in the slug as the source wrote it, and both sp
     "/constituency/wb/assembly/bishnupur-(sc)",
   );
   // A browser may send the parentheses raw or escaped, and Next hands the route either; both are one name.
-  for (const segment of ["bishnupur(sc)", "bishnupur%28sc%29"]) {
-    assert.equal(parsePath(["wb", segment], "constituency", "ac")?.name, "bishnupur(sc)", segment);
+  const d = fixture();
+  try {
+    for (const segment of ["bishnupur(sc)", "bishnupur%28sc%29"]) {
+      const found = await resolvePlace({ level: "seat", state: "wb", body: "assembly", name: segment }, over(d));
+      assert.equal(found.found === "one" ? found.place.href : found.found, "/constituency/wb/assembly/bishnupur(sc)", segment);
+    }
+  } finally {
+    d.close();
   }
 });
 
@@ -108,12 +127,13 @@ test("coverageHref: the election is the query's `election`, and the panel is the
 type Seat = { place: string; state: string; kind: "ac" | "pc"; name: string; district: string | null };
 
 // Two bodies sharing a name (Bankura), a pc sharing a district's name (Cooch Behar), a two-word name, a marked
-// name, a name in a script with no case, and a second state. The one thing left out is a plain "Bishnupur" in the
-// marked seat's jurisdiction and body: which of the two that name means is not a question a link can settle.
+// name beside the plain name it differs from by the marker alone (Bishnupur, which the exact name settles: each
+// answers to its own), a name in a script with no case, and a second state.
 const SEATS: Seat[] = [
   { place: "wb.ac.001", state: "wb", kind: "ac", name: "Mekliganj", district: "wb.cooch-behar" },
   { place: "wb.ac.002", state: "wb", kind: "ac", name: "Cooch Behar Uttar", district: "wb.cooch-behar" },
   { place: "wb.ac.146", state: "wb", kind: "ac", name: "BISHNUPUR(SC)", district: "wb.south-24-parganas" },
+  { place: "wb.ac.267", state: "wb", kind: "ac", name: "Bishnupur", district: "wb.bankura" },
   { place: "wb.ac.050", state: "wb", kind: "ac", name: "মেখলিগঞ্জ", district: "wb.cooch-behar" },
   { place: "wb.ac.266", state: "wb", kind: "ac", name: "Bankura", district: "wb.bankura" },
   { place: "wb.pc.08", state: "wb", kind: "pc", name: "Bankura", district: null },
@@ -146,6 +166,20 @@ function fixture(): DatabaseSync {
     place.run(s.place, s.kind, s.name, s.district ?? s.state);
     version.run(i + 1, s.place, s.state, s.district, s.kind, i + 1, s.name);
   });
+  // A house with no election has no epoch it votes under, and a seat of no epoch is not current and does not
+  // resolve. One contest per seat is all it takes to be a seat a link can reach.
+  const election = d.prepare(
+    `INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, polling_month, occurrence)
+     VALUES (?, ?, ?, ?, 'e1', ?, 'declared', ?, ?, 4, 1)`,
+  );
+  election.run("wb-assembly-2021", "assembly", "state", "wb", "WB 2021", "ac", 2021);
+  election.run("ka-assembly-2018", "assembly", "state", "ka", "KA 2018", "ac", 2018);
+  election.run("ls-2024", "general", "union", "in", "LS 2024", "pc", 2024);
+  const contest = d.prepare("INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES (?, ?, ?, 'declared')");
+  SEATS.forEach((s, i) => {
+    const e = s.kind === "pc" ? "ls-2024" : s.state === "wb" ? "wb-assembly-2021" : "ka-assembly-2018";
+    contest.run(`${e}:${i + 1}`, e, i + 1);
+  });
   return d;
 }
 
@@ -165,17 +199,14 @@ function constituencyPath(href: string): [string, string, string] {
 const escaped = (segment: string): string =>
   encodeURIComponent(segment).replace(/[()]/g, (c) => `%${c.charCodeAt(0).toString(16).toUpperCase()}`);
 
-test("a seat's href parses back to its state, its body and its name", () => {
+test("a seat's href carries its state, its body and its name's slug", () => {
   for (const s of SEATS) {
     const [state, body, name] = constituencyPath(
       constituencyHref({ jurisdictionId: s.state, kind: s.kind, canonicalName: s.name }),
     );
+    assert.equal(state, s.state, s.place);
     assert.equal(asBody(body) === null ? null : kindOfBody(asBody(body) as "assembly"), s.kind, s.place);
-    const target = parsePath([state, name], "constituency", s.kind);
-    assert.equal(target?.jurisdictionId, s.state, s.place);
-    assert.equal(target?.kind, s.kind, s.place);
-    // The resolver matches the slug against the name with its spaces hyphenated, so the two must meet there.
-    assert.equal(target?.name.replace(/\s+/g, "-"), slugOf(s.name), s.place);
+    assert.equal(name, slugOf(s.name), s.place);
   }
 });
 
@@ -186,7 +217,7 @@ test("a seat's href resolves to that seat, spelt or escaped, and its analysis ba
       const href = constituencyHref({ jurisdictionId: s.state, kind: s.kind, canonicalName: s.name });
       const [state, body, name] = constituencyPath(href);
       for (const segment of [name, escaped(name)]) {
-        const v = await placeView([state, segment], {}, "constituency", kindOfBody(asBody(body) as "assembly"), over(d));
+        const v = await placeView({ level: "seat", state, body: asBody(body) ?? "assembly", name: segment }, {}, over(d));
         if (v.kind !== "ac") return assert.fail(`${href} (${segment}) resolved to a ${v.kind} view`);
         assert.equal(v.brief.place.id, s.place, `${href} (${segment})`);
         assert.equal(v.base, `${href}/analysis`, `${href} (${segment})`);
@@ -210,7 +241,10 @@ test("a state's and a district's href resolve to the place it was built from", a
       [districtHref("ka.bangalore"), "ka.bangalore", "district"],
     ];
     for (const [href, id, level] of built) {
-      const v = await placeView(href.split("/").slice(2), {}, undefined, undefined, over(d));
+      const [state, district] = href.split("/").slice(2) as [string, string | undefined];
+      const query: PlaceQuery =
+        district === undefined ? { level: "state", id: state } : { level: "district", state, district };
+      const v = await placeView(query, {}, over(d));
       if (v.kind !== "parent") return assert.fail(`${href} resolved to a ${v.kind} view`);
       assert.deepEqual([v.level, v.placeId], [level, id], href);
     }

@@ -200,15 +200,15 @@ type Contest = {
 };
 
 /**
- * Place Analysis. `slug` is the place id ('wb.ac.001') or the constituency name ('Mekliganj'),
- * case-insensitive — the same two-candidate match getPlaceBrief uses.
+ * Place Analysis. `versionId` is the seat version place-resolve.ts resolved, the one getPlaceBrief is
+ * given too, so the Brief and the Analysis of one page are about one delimitation.
  *
  * Series are computed over the FULL history and then narrowed by `filters`, so a swing at the edge
  * of the window still knows the election it is measured from (it carries `previousYear`).
  */
 export function getPlaceAnalysis(
   db: DatabaseSync,
-  slug: string,
+  versionId: number,
   filters: PlaceAnalysisFilters = {},
 ): PlaceAnalysis | null {
   return read(() => {
@@ -228,11 +228,8 @@ export function getPlaceAnalysis(
          LEFT JOIN boundary_epoch be ON be.id = pv.epoch_id
         -- Either body. A pc has no district, so the district baseline below returns nothing for one and the
         -- surface already renders that as absent rather than as a comparison against zero.
-        WHERE pv.kind IN ('ac', 'pc') AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
-        ORDER BY be.effective_from DESC, pv.id DESC
-        LIMIT 1`,
-      slug,
-      slug,
+        WHERE pv.id = ? AND pv.kind IN ('ac', 'pc')`,
+      versionId,
     );
     if (p === undefined) return null;
 

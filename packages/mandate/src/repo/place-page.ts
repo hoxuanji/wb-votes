@@ -25,42 +25,18 @@ import { all, get } from "../db/index.ts";
 // A const string, not a query: importing it here opens no database and keeps one definition of what
 // "newest first" means across every module that orders elections.
 import { CHRONO_DESC } from "./elections.ts";
-import { constituencyHref, districtHref, stateHref } from "./routes.ts";
+import { kindOfBody, stateHref } from "./routes.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
 import { getPlaceBrief, loadSources, marks, yearOf } from "./index.ts";
 import type { PartyPoint, PlaceAnalysis, PlaceAnalysisFilters } from "./place-analysis.ts";
 import { getPlaceAnalysis } from "./place-analysis.ts";
+import type { Found, Place, PlaceIndex, PlaceQuery, SeatPlace } from "./place-resolve.ts";
+import { placeIndex, resolve, seatHref, seatTies } from "./place-resolve.ts";
 import { readRegistry } from "./session.ts";
 import { readSeats, sourceIdsFor } from "./seat-results.ts";
 import type { SeatResult } from "./seat-results.ts";
 
 // ── the URL ──────────────────────────────────────────────────────────────────────────────────────
-
-/** §7's grammar: /pl/:state · /pl/:state/:district · /pl/:state/:district/:ac. */
-export type PathTarget = {
-  level: "state" | "district" | "ac";
-  /** Place ids to try, in order, before falling back to a name match. */
-  ids: string[];
-  /** The last segment as a name would be written: "north-24-parganas" → "north 24 parganas". */
-  name: string;
-  /** The district id an AC path asserts, so /pl/wb/nadia/mekliganj cannot resolve. */
-  parentId: string | null;
-  /**
-   * The jurisdiction a CONSTITUENCY path asserts, when it asserts no district.
-   *
-   * A parliamentary constituency has no district — `district_place_id` is NULL on all 2,065 pc versions,
-   * because a Lok Sabha seat spans districts by design. So the canonical two-segment constituency form
-   * narrows on the state instead, which is the ancestor a pc actually has.
-   */
-  jurisdictionId: string | null;
-  /**
-   * The one body to match, or null for either.
-   *
-   * Null is how the ambiguous pre-body URL asks the question, and it is the ONLY caller that may: a canonical
-   * route always knows the body, because the body is in its path.
-   */
-  kind?: "ac" | "pc" | null;
-};
 
 /** A stray percent in the path is a name no place has, not a crashed page: /pl/wb/50%25 must 404 the
  *  way every other unresolvable path does, so a malformed escape keeps its raw text and fails to
@@ -73,53 +49,49 @@ function decode(s: string): string {
   }
 }
 
-export function parsePath(
-  segments: readonly string[],
-  /**
-   * The entity kind, when the CALLER already knows it.
-   *
-   * The canonical routes do: `/constituency/<state>/<name>` is two segments and a constituency, which the
-   * segment-counting below would read as a district. Passing the kind is the whole point of Phase C's route
-   * architecture — the URL identifies the thing, the domain says what kind of thing it is.
-   */
-  level?: "constituency",
-  /** The registry kind, when the route carried a body. Narrows to ONE body instead of matching either. */
-  kind?: "ac" | "pc",
-): PathTarget | null {
-  const clean = segments
-    .map((s) => decode(s).trim().toLowerCase())
-    .filter((s) => s !== "");
-  const last = clean.at(-1);
-  const state = clean.at(0);
-  if (last === undefined || state === undefined || clean.length > 3) return null;
-  const name = last.replace(/-/g, " ");
-  /**
-   * A CONSTITUENCY OF EITHER BODY, told rather than counted.
-   *
-   * Two segments and no district assertion: the match narrows on the jurisdiction, which is the ancestor an
-   * assembly seat and a parliamentary seat both have. A pc has no district at all, so a district assertion
-   * would have excluded every one of them.
-   */
-  if (level === "constituency") {
-    return {
-      level: "ac",
-      ids: [last, `${state}.${kind ?? "ac"}.${last.padStart(3, "0")}`],
-      name,
-      parentId: null,
-      jurisdictionId: state,
-      // Null means "either body", which is what the ambiguous legacy URL has to ask for.
-      kind: kind ?? null,
-    };
-  }
-  if (clean.length === 1) {
-    return { level: "state", ids: [state], name, parentId: null, jurisdictionId: null, kind: null };
-  }
-  if (clean.length === 2) {
-    return { level: "district", ids: [clean.join("."), last], name, parentId: state, jurisdictionId: null, kind: null };
-  }
-  // An AC is addressable by name ("mekliganj"), by its full id, or by its number ("1", "001").
-  const ids = [last, `${state}.ac.${last.padStart(3, "0")}`];
-  return { level: "ac", ids, name, parentId: `${state}.${clean[1] ?? ""}`, jurisdictionId: null, kind: null };
+/**
+ * The query a request makes, as the resolver reads it: every string decoded, and a seat written as its registry id —
+ * whole (`wb.ac.001`) or as its number (`1`, `001`) — asked by that id.
+ *
+ * Next hands a route its segments once decoded, and place-resolve.ts takes strings as it finds them, so the
+ * decoding that must not throw is done here, where a request enters.
+ *
+ * A name asked `exact` is a name and nothing else, so it is never read as an id or a number.
+ *
+ * THE ID KEEPS ITS STATE AND ITS BODY. The resolver narrows by what the path names before it compares an id, so
+ * `wb.ac.001` under /lok-sabha and `wb.pc.01` under /assembly are no seat. A bare number is the id in that state,
+ * of the body's kind (an assembly seat's when the path names none), padded to three digits as an assembly id is.
+ * A Lok Sabha id is two digits in the seed (`wb.pc.01`), so a bare number has never found one there.
+ */
+function asked(query: PlaceQuery): PlaceQuery {
+  const q = Object.fromEntries(
+    Object.entries(query).map(([k, v]) => [k, typeof v === "string" && k !== "level" ? decode(v) : v]),
+  ) as PlaceQuery;
+  if (q.level !== "seat" || !("name" in q) || q.exact) return q;
+  const written = q.name.trim().toLowerCase();
+  const placeId = /^[^.\s]+\.(?:ac|pc)\.\d+$/.test(written)
+    ? written
+    : /^\d+$/.test(written) && q.state !== undefined
+      ? `${q.state.trim().toLowerCase()}.${q.body === undefined ? "ac" : kindOfBody(q.body)}.${written.padStart(3, "0")}`
+      : null;
+  if (placeId === null) return q;
+  const { name: _name, ...scope } = q;
+  return { ...scope, placeId };
+}
+
+/**
+ * The query a `/pl` path makes: §7's grammar, /pl/:state · /pl/:state/:district · /pl/:state/:district/:seat.
+ *
+ * Only the compatibility route still reads what a place is from how many segments it has. A canonical route
+ * knows, because the kind of place is in its prefix, and says so by building its own query.
+ */
+export function pathQuery(segments: readonly string[]): PlaceQuery | null {
+  const clean = segments.map((s) => decode(s).trim()).filter((s) => s !== "");
+  const [state, district, seat] = clean;
+  if (state === undefined || clean.length > 3) return null;
+  if (district === undefined) return { level: "state", id: state };
+  if (seat === undefined) return { level: "district", state, district };
+  return { level: "seat", state, district, name: seat };
 }
 
 // ── the filter grammar: ?from=2011&to=2026&party=AITC ────────────────────────────────────────────
@@ -761,6 +733,11 @@ export type PlaceView =
   | { kind: "unavailable"; detail: string }
   | { kind: "not-found" }
   | {
+      /** The query names more than one seat equally well, so the reader is asked which. See `Found`. */
+      kind: "many";
+      places: readonly Place[];
+    }
+  | {
       kind: "ac";
       brief: PlaceBrief;
       analysis: PlaceAnalysis;
@@ -799,257 +776,79 @@ export type PlaceView =
       trail: Crumb[];
     };
 
-type PlaceRow = { id: string; kind: string; canonical_name: string; parent_id: string | null };
-
 /**
- * The place path as a walkable trail, with the registry's names rather than the URL's slugs.
+ * The place as a walkable trail, with the registry's names rather than the URL's slugs.
  *
  * `/pl/ka/bagalkot/badami` used to render its breadcrumb as "Mandate · ka / bagalkot / badami" — a
  * technical id, a slug, and no way at all back to the country. India is the first crumb and it is a real
  * link, which is the fix for the defect the audit found: a reader who arrived at a seat could reach that
  * seat's ancestors and nothing else.
  *
- * The hrefs come from the segments, because those are what resolved; the labels come from `place`, because
- * a slug is not a name. A label that cannot be found falls back to the slug with its hyphens opened out,
- * so a crumb is never blank.
+ * The state's href comes from the segment, because that is what the request spelled; its label comes from the
+ * registry, because a slug is not a name. A label that cannot be found falls back to the segment with its hyphens
+ * opened out, so a crumb is never blank: `/constituency/WB/assembly/mekliganj` has always labelled its state "WB",
+ * because "WB" is no state's id.
+ *
+ * Every ancestor is a link; the place itself is the page you are on and carries no href. A district's trail and a
+ * seat's both name the state and nothing between: a constituency's canonical address carries no district.
  */
-function trailOf(db: DatabaseSync, segments: readonly string[], current: string): Crumb[] {
-  const state = segments.at(0);
-  const district = segments.at(1);
-  const ids = [state, district === undefined || state === undefined ? undefined : `${state}.${district}`].filter(
-    (x): x is string => x !== undefined,
-  );
-  const names = new Map<string, string>();
-  if (ids.length > 0) {
-    for (const row of all<{ id: string; canonical_name: string }>(
-      db,
-      `SELECT id, canonical_name FROM place WHERE id IN (${ids.map(() => "?").join(",")})`,
-      ...ids,
-    )) {
-      names.set(row.id, row.canonical_name);
-    }
-  }
-  const open = (slug: string): string => slug.replace(/-/g, " ");
+function trailOf(index: PlaceIndex, place: Place, spelled?: string): Crumb[] {
   const trail: Crumb[] = [{ label: "India", href: "/" }];
-  // Every ancestor is a link; the last segment is the page itself and carries no href.
-  segments.forEach((seg, i) => {
-    const last = i === segments.length - 1;
-    const id = i === 0 ? seg : i === 1 ? `${state}.${seg}` : null;
-    const label = last ? current : (id === null ? null : names.get(id)) ?? open(seg);
-    // CANONICAL CRUMBS. This built `/pl/<prefix>` from the path, so every breadcrumb above a page pointed
-    // into the compatibility layer and cost the reader a redirect. A crumb's depth tells us its kind here
-    // because the trail is walked in order, which is the one place counting is not a guess.
-    trail.push(
-      last
-        ? { label }
-        : {
-            label,
-            href:
-              i === 0
-                ? stateHref(segments[0] as string)
-                : districtHref(`${segments[0] ?? ""}.${segments[1] ?? ""}`),
-          },
-    );
-  });
-  return trail;
+  if (place.level === "state") return [...trail, { label: place.name }];
+  const state = spelled ?? place.stateId;
+  const label = index.states.find((s) => s.id === state)?.name ?? state.replace(/-/g, " ");
+  return [...trail, { label, href: stateHref(state) }, { label: place.name }];
 }
 
 /**
- * Resolve a URL path to a place and read everything its level actually has. One DB open, closed in
- * `finally`; a missing or unmigrated registry comes back as `unavailable` with the command that
- * fixes it, never a thrown build error (constraint 7).
+ * Resolve a place query to the place or places it names, for a route that only redirects or asks.
+ *
+ * Thrown, not answered, when the registry cannot be read: the routes that call this are legacy redirects, where
+ * "none" is a 404 and a crawler keeps a 404 for good. An outage is a state of the deployment, not "no such place",
+ * so it fails like a bug does.
  */
-/**
- * A constituency's place path, from its JURISDICTION and its name.
- *
- * The canonical URL is `/constituency/<state>/<name>` — no district, because a delimitation can move a seat
- * between districts while the name survives, so a shared link with the district baked in rots at the next
- * redraw. `placeView` still resolves a seat through a three-segment path, which is tested and narrows
- * correctly on ancestry (two constituencies are named Bishnupur and the lower id is in the other district).
- * So rather than add a jurisdiction predicate to that query — whose binds are positional and whose own
- * comment records what happens when the two branches stop agreeing — this looks the district up and hands
- * the existing resolver the path it already understands.
- *
- * `kind IN ('ac','pc')` so a parliamentary constituency resolves here too. Rendering one is Phase D; this is
- * only routing, and routing must not be the thing that blocks it.
- *
- * Returns null when the name is not a constituency of that jurisdiction — never a fallback to the state,
- * because answering a constituency request with a different entity is the silent substitution this phase
- * exists to remove.
- */
-/**
- * Every constituency of a given name in a jurisdiction, ONE PER BODY, newest delimitation first.
- *
- * The compatibility route for the pre-body URL needs to know whether an old link is ambiguous, and the only
- * honest way to find out is to ask for all of them. Returns at most two rows — a name can collide across
- * bodies but not within one, since a jurisdiction does not hold two current seats of one body with one name.
- */
-export async function constituenciesNamed(
-  jurisdictionId: string,
-  nameSlug: string,
-  read = readRegistry,
-): Promise<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }[]> {
-  const want = decode(nameSlug).trim().toLowerCase();
-  const r = read((db) =>
-    all<{ id: string; kind: string; canonicalName: string; jurisdictionId: string }>(
-      db,
-      `SELECT pl.id AS id, pv.kind AS kind, pv.canonical_name AS canonicalName,
-              pv.jurisdiction_id AS jurisdictionId
-         FROM place_version pv
-         JOIN place pl ON pl.id = pv.place_id
-         JOIN boundary_epoch be ON be.id = pv.epoch_id
-        WHERE pv.jurisdiction_id = ? AND pv.kind IN ('ac', 'pc')
-          AND (LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ? OR LOWER(pv.canonical_name) = ?)
-        GROUP BY pv.kind
-        ORDER BY MAX(be.effective_from) DESC, pv.kind`,
-      jurisdictionId,
-      want,
-      want.replace(/-/g, " "),
-    ),
-  );
-  // THROWN, not []: this answers a legacy redirect route, where [] is a 404 and a crawler keeps a 404 for good.
-  // An outage is a state of the deployment, not "no such constituency", so it fails like a bug does.
+export async function resolvePlace(query: PlaceQuery, read = readRegistry): Promise<Found> {
+  const r = read((db) => resolve(placeIndex(db), asked(query)));
   if (!r.ok) throw r.cause;
   return r.value;
 }
 
-export async function constituencyPath(
-  jurisdictionId: string,
-  nameSlug: string,
-  read = readRegistry,
-): Promise<readonly string[] | null> {
-  const want = decode(nameSlug).trim().toLowerCase();
-  const r = read((db) =>
-    get<{ kind: string; name: string }>(
-      db,
-      `SELECT pv.kind AS kind, pv.canonical_name AS name
-         FROM place_version pv
-         JOIN place pl ON pl.id = pv.place_id
-         JOIN boundary_epoch be ON be.id = pv.epoch_id
-        WHERE pv.jurisdiction_id = ? AND pv.kind IN ('ac', 'pc')
-          AND (LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ? OR LOWER(pv.canonical_name) = ?)
-        ORDER BY be.effective_from DESC, pl.id
-        LIMIT 1`,
-      jurisdictionId,
-      want,
-      want.replace(/-/g, " "),
-    ),
-  );
-  // Thrown for the reason constituenciesNamed gives: null is "no such constituency", and an outage is not.
-  if (!r.ok) throw r.cause;
-  if (r.value === undefined) return null;
-  // TWO SEGMENTS FOR EITHER BODY. The district used to be threaded back in here so the old
-  // segment-counting resolver would read three segments as a constituency; `placeView` is told the kind
-  // now, so a parliamentary seat — which has no district at all — needs no invented ancestor.
-  return [jurisdictionId, nameSlug];
-}
-
+/**
+ * Resolve a place query and read everything its level actually has. One DB open, closed in
+ * `finally`; a missing or unmigrated registry comes back as `unavailable` with the command that
+ * fixes it, never a thrown build error (constraint 7).
+ *
+ * A query that names more than one seat equally well is `many` and is not read: the reader is asked which.
+ *
+ * A seat is read as the version the query resolved to and no other. Its Brief and Analysis are handed that
+ * version's id rather than a place id or a name, because a place id is a seat NUMBER and a name may have belonged
+ * to an earlier constituency: resolving either again could render a different seat than the one the reader was
+ * sent to.
+ */
 export async function placeView(
-  segments: readonly string[],
+  place: PlaceQuery,
   search: Search,
-  /** Passed by the canonical constituency route, which knows what it resolved. */
-  level?: "constituency",
-  kind?: "ac" | "pc",
   read = readRegistry,
 ): Promise<PlaceView> {
-  const target = parsePath(segments, level, kind);
-  if (target === null) return { kind: "not-found" };
   // An unreadable registry comes back as `unavailable`; a bug in this process is thrown.
   const r = read((db): PlaceView => {
-    const idA = target.ids.at(0) ?? "";
-    const idB = target.ids.at(1) ?? idA;
-    // A CONSTITUENCY IS RESOLVED THROUGH ITS VERSION, not through `place`.
-    //
-    // `place.canonical_name` is a legacy seat-number grouping and its name is whichever delimitation
-    // created the row (migrations 011/012). Arunachal's ar.ac.001 is LUMLA on both of its versions and
-    // TAWANG-I on the place row, so matching `place` made /pl/ar/tawang/lumla a 404 while
-    // /pl/ar/tawang/tawang-i resolved to a page the rest of the code correctly titles LUMLA. Found by
-    // repo/smoke.test.ts, which is the whole reason that suite exists.
-    //
-    // Newest epoch first, so a name means the seat that carries it NOW. Ancestry narrows on the version's
-    // district, because district membership changes with delimitation too.
-    const place = get<PlaceRow>(
-      db,
-      target.level === "ac"
-        ? `SELECT pl.id, pv.kind, pv.canonical_name, COALESCE(pv.district_place_id, pl.parent_id) AS parent_id
-             FROM place_version pv
-             JOIN place pl ON pl.id = pv.place_id
-             JOIN boundary_epoch be ON be.id = pv.epoch_id
-            -- Two placeholders here as well, so both branches of this ternary take the SAME bind list.
-            -- Adding one to the jurisdiction branch alone made every AC path raise "column index out of
-            -- range" — the binds are positional and shared, and node:sqlite counts them.
-            WHERE pv.kind IN (?, ?)
-              AND (pl.id = ? OR pl.id = ? OR LOWER(pv.canonical_name) = ?
-                   OR LOWER(REPLACE(pv.canonical_name, ' ', '-')) = ?
-                   -- The source appends the reservation to the name — 'BISHNUPUR(SC)', 'KHANAPUR(ST)',
-                   -- 102 of 16,785 versions — so a name-based URL for one of those never resolved. The
-                   -- marker is stripped for MATCHING only; canonical_name keeps whatever the source
-                   -- wrote, and pv.reservation is where the reservation is actually read from. (For 25 of
-                   -- them the name carries a marker the column does not: a data-quality note, recorded
-                   -- rather than reconciled here.)
-                   OR REPLACE(REPLACE(REPLACE(REPLACE(UPPER(pv.canonical_name),
-                      '(SC)', ''), '(ST)', ''), ' ', ''), '-', '') = ?)
-              -- The path asserts an ancestry, and it must narrow the match BEFORE the LIMIT: two ACs
-              -- are named Bishnupur, and the lower id is in the other district.
-              AND (? IS NULL OR COALESCE(pv.district_place_id, pl.parent_id) = ?)
-              -- And the jurisdiction, for a canonical constituency path that asserts no district.
-              AND (? IS NULL OR pv.jurisdiction_id = ?)
-            ORDER BY CASE WHEN pl.id = ? THEN 0 WHEN pl.id = ? THEN 1 ELSE 2 END,
-                     be.effective_from DESC, pl.id
-            LIMIT 1`
-        // `kind IN (?, ?)`, not `kind = ?`. A one-segment path is a JURISDICTION, and eight of India's
-        // thirty-six are union territories with `kind = 'ut'` — so matching 'state' alone 404'd Jammu &
-        // Kashmir, Delhi, Puducherry, Ladakh, Chandigarh, Andaman & Nicobar, Lakshadweep and Dadra &
-        // Nagar Haveli. Survivable while nothing linked to them; a dead end on the primary navigation
-        // surface the moment the national map did, which is how it was found.
-        : `SELECT id, kind, canonical_name, parent_id
-             FROM place
-            WHERE kind IN (?, ?)
-              AND (id = ? OR id = ? OR LOWER(canonical_name) = ? OR LOWER(REPLACE(canonical_name, ' ', '-')) = ?
-                   OR REPLACE(REPLACE(UPPER(canonical_name), ' ', ''), '-', '') = ?)
-              AND (? IS NULL OR parent_id = ?)
-              -- Never narrows here; present so both branches take the SAME positional bind list.
-              AND (? IS NULL OR ? IS NULL)
-            ORDER BY CASE WHEN id = ? THEN 0 WHEN id = ? THEN 1 ELSE 2 END, id
-            LIMIT 1`,
-      target.kind ?? target.level,
-      /**
-       * The SECOND kind, and the two-placeholder shape now earns its keep twice.
-       *
-       *   state  -> 'ut', because eight of India's thirty-six jurisdictions are union territories
-       *   ac     -> 'pc', because a constituency is either body and the caller does not know which
-       *
-       * `IN (x, x)` is `= x`, so a district still matches only districts.
-       */
-      target.level === "state"
-        ? "ut"
-        : target.level === "ac"
-          ? // ONE BODY when the route carried one, so a canonical URL can never answer with the other.
-            (target.kind ?? "pc")
-          : target.level,
-      idA,
-      idB,
-      target.name,
-      target.name.replace(/\s+/g, "-"),
-      target.name.toUpperCase().replace(/[^A-Z0-9]/g, ""),
-      target.parentId,
-      target.parentId,
-      target.jurisdictionId,
-      target.jurisdictionId,
-      idA,
-      idB,
-    );
-    if (place === undefined) return { kind: "not-found" };
-
+    const index = placeIndex(db);
+    const q = asked(place);
+    // The state as the request spelled it, which is what the trail's state link is made from.
+    const spelled = "state" in q ? q.state : undefined;
+    const found = resolve(index, q);
+    if (found.found === "none") return { kind: "not-found" };
+    if (found.found === "many") return { kind: "many", places: found.places };
+    const hit = found.place;
     /**
      * EITHER BODY IS A CONSTITUENCY. This read `place.kind !== "ac"`, so a parliamentary seat resolved
      * correctly and was then handed to `parentView` — the state/district renderer — and 606 Lok Sabha seats
      * rendered as their own state's assembly page. A pc is a constituency; what differs is its body, and the
      * body is data the surface reads rather than a branch in the router.
      */
-    if (place.kind !== "ac" && place.kind !== "pc") return parentView(db, place, segments);
+    if (hit.level !== "seat") return parentView(db, index, hit, spelled);
 
-    const brief = getPlaceBrief(db, place.id);
+    const brief = getPlaceBrief(db, hit.versionId);
     if (brief === null) return { kind: "not-found" };
     const parties = all<{ name: string | null }>(
       db,
@@ -1062,20 +861,16 @@ export async function placeView(
          LEFT JOIN party pt ON pt.id = pver.party_id
         WHERE pv.place_id = ?
         ORDER BY name`,
-      place.id,
+      hit.placeId,
     )
       .map((row) => row.name)
       .filter((n): n is string => n !== null);
     const years = brief.contests.map((c) => c.year);
-    const base = `${constituencyHref({
-      // THE SEAT'S OWN BODY. Hardcoding "ac" here made a parliamentary page link to an ASSEMBLY seat of the
-      // same name — its own base URL pointing at a different office, or at nothing.
-      kind: place.kind,
-      jurisdictionId: brief.place.jurisdictionId,
-      canonicalName: place.canonical_name,
-    })}/analysis`;
+    // THE SEAT'S OWN ADDRESS, body included. Hardcoding "ac" here made a parliamentary page link to an ASSEMBLY
+    // seat of the same name — its own base URL pointing at a different office, or at nothing.
+    const base = `${hit.href}/analysis`;
     const filters = parseFilters(search, { base, years, parties });
-    const analysis = getPlaceAnalysis(db, place.id, filters.filters);
+    const analysis = getPlaceAnalysis(db, hit.versionId, filters.filters);
     if (analysis === null) return { kind: "not-found" };
     return {
       kind: "ac",
@@ -1085,7 +880,7 @@ export async function placeView(
       years,
       parties,
       filters,
-      trail: trailOf(db, segments, brief.place.canonicalName),
+      trail: trailOf(index, hit, spelled),
     };
   });
   return r.ok ? r.value : { kind: "unavailable", detail: r.detail };
@@ -1133,14 +928,19 @@ function bySeat(seats: readonly SeatResult[]): SeatResult[] {
  * A state gets its name and its trail and nothing else. What its page shows is `stateView`'s to read, and a
  * state that read the district table too would pay for a table no state page renders.
  */
-function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string[]): PlaceView {
-  if (place.kind !== "district") {
+function parentView(
+  db: DatabaseSync,
+  index: PlaceIndex,
+  place: Exclude<Place, SeatPlace>,
+  spelled: string | undefined,
+): PlaceView {
+  if (place.level === "state") {
     return {
       kind: "parent",
       level: "state",
       placeId: place.id,
-      name: place.canonical_name,
-      trail: trailOf(db, segments, place.canonical_name),
+      name: place.name,
+      trail: trailOf(index, place),
     };
   }
 
@@ -1151,7 +951,7 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
   // state's name happens to sort last, and a West Bengal district asked for its seats' results in an
   // election held somewhere else — returning nothing at all. The year is the last four characters of every
   // election id (see repo/index.ts yearOf) and `place_version.jurisdiction_id` is what scopes it.
-  const jurisdiction = place.parent_id ?? place.id;
+  const jurisdiction = place.stateId;
   const election =
     get<{ id: string | null }>(
       db,
@@ -1173,6 +973,7 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
   const scope = { elections: asked, district: place.id };
   const rows = bySeat(readSeats(db, scope));
   const held = heldTurnout(db, election, rows);
+  const tied = seatTies(db);
   // No place above an AC carries a claim, so `loadSources` on the subject ref alone comes back empty: a parent
   // level is cited from the same fact rows it renders.
   const sources = loadSources(db, sourceIdsFor(db, scope, { turnout: true }), [`place:${place.id}`]);
@@ -1182,22 +983,29 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
     kind: "parent",
     level: "district",
     placeId: place.id,
-    name: place.canonical_name,
+    name: place.name,
     headline:
       rows.length === 0
-        ? `No assembly seat in ${place.canonical_name} has a contest on record.`
-        : `${place.canonical_name} has ${inr(rows.length)} assembly seats` +
+        ? `No assembly seat in ${place.name} has a contest on record.`
+        : `${place.name} has ${inr(rows.length)} assembly seats` +
           (lead === undefined
             ? `, and no declared winner in ${year}.`
             : `; ${lead[0]} won ${inr(lead[1])} of them in ${year}.`),
     children: {
       caption:
-        `Every assembly seat in ${place.canonical_name} with its ${year} result — ` +
+        `Every assembly seat in ${place.name} with its ${year} result — ` +
         `${inr(rows.length)} seat${rows.length === 1 ? "" : "s"}. Open one for its brief.`,
       headers: ["No.", "Seat", "Won by", "Member", "Margin", "Turnout"],
       numeric: [true, false, false, false, true, true],
       rows: rows.map((x) => ({
-        href: constituencyHref({ jurisdictionId: x.jurisdictionId, kind: "ac", canonicalName: x.name }),
+        // By registry id where another seat of the state's assembly has this name, so the row opens its own seat.
+        href: seatHref(tied, {
+          versionId: x.versionId,
+          placeId: x.placeId,
+          stateId: x.jurisdictionId,
+          kind: "ac",
+          name: x.name,
+        }),
         cols: [
           x.number === null ? "—" : String(x.number),
           x.name + (x.reservation == null ? "" : ` · ${RESERVATION[x.reservation] ?? x.reservation}`),
@@ -1215,7 +1023,7 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
     },
     sources,
     electionId: election,
-    trail: trailOf(db, segments, place.canonical_name),
+    trail: trailOf(index, place, spelled),
   };
 }
 

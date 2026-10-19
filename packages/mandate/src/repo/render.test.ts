@@ -25,12 +25,15 @@ import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
+import { skipUnlessVotingEpoch } from "./testkit.ts";
 import { all } from "../db/index.ts";
 import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey } from "../viz/party-ink.ts";
 import { deltaE } from "../viz/colour.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
+/** The tests that render a state, a district or a seat resolve a place, which needs migration 017's `voting_epoch` view. */
+const liveIndex = { skip: live.skip || skipUnlessVotingEpoch() };
 
 const ROOT = new URL("../../../../", import.meta.url).pathname;
 
@@ -394,7 +397,7 @@ test("the geometry's provenance is in the drawer, not in the caption", live, () 
   assert.match(t, /had their bytes retrieved and hashed/, "the drawer does not say how the source was obtained");
 });
 
-test("provenance is not repeated once a page has already offered it", live, () => {
+test("provenance is not repeated once a page has already offered it", liveIndex, () => {
   // The footers of /pl and /p each carried a second copy of the whole source list plus a paragraph explaining
   // what the ⓘ does. One affordance per fact; the drawer teaches itself.
   for (const [route, segments] of [["/constituency", "wb/assembly/mekliganj"], ["/p", "mamata-banerjee-4a681f"]] as const) {
@@ -657,7 +660,7 @@ test("a state map's polygons name their publisher and their licence, in the draw
 
 /* ────────────────────────────── navigation ────────────────────────────── */
 
-test("every place the front page links to actually resolves", live, () => {
+test("every place the front page links to actually resolves", liveIndex, () => {
   const html = render("/");
   // EVERY /pl link, with or without a query string. The earlier version of this test matched only
   // `href="/constituency/xx"` with nothing after it, and the general election's row linked to `/pl/in?election=…` —
@@ -728,7 +731,7 @@ test("the navigation graph walks all the way down, in five jurisdictions", live,
   }
 });
 
-test("the five jurisdictions the brief names each render their own name and result", live, () => {
+test("the five jurisdictions the brief names each render their own name and result", liveIndex, () => {
   // Karnataka, West Bengal, Uttar Pradesh, Assam, Jammu & Kashmir — one of them a union territory, which is
   // how the 404 that hit all eight UTs was found.
   const expected = [
@@ -1030,7 +1033,7 @@ test("every party the runner-up legend lists can be isolated from it", live, (t)
   assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.id}: ${key} listed no seats`);
 });
 
-test("every party the state page's runner-up legend lists can be isolated from it", live, (t) => {
+test("every party the state page's runner-up legend lists can be isolated from it", liveIndex, (t) => {
   // The same defect as the election page's: the legend counts the parties that came second, and the page validated a
   // party against the winners' legend and the vote-to-seat plot, so a party that only ever came second was offered a link
   // that led nowhere.
@@ -1315,7 +1318,7 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
 
 /* ─────────────────── canonical routes and the compatibility layer ─────────────────── */
 
-test("every /pl URL redirects to its canonical route, resolved and not guessed", live, () => {
+test("every /pl URL redirects to its canonical route, resolved and not guessed", liveIndex, () => {
   /**
    * `/pl/[...path]` served three entity types and decided which by COUNTING SEGMENTS. So the type of a thing
    * was a property of how long its URL happened to be, and a malformed path resolved to a different KIND of
@@ -1387,6 +1390,85 @@ test("every /pl URL redirects to its canonical route, resolved and not guessed",
   for (const bad of ["zz", `${state}/no-such-district`, `${state}/${districtSeg}/no-such-seat`]) {
     const r = redirectOf(bad);
     assert.ok(r.notFound || r.to === null, `/pl/${bad} redirected to ${r.to} instead of 404ing`);
+  }
+});
+
+test("the pre-body URL answers to a name and matches its state exactly", liveIndex, () => {
+  // Every route that names a body ignores the state's case and reads a registry id or a number, and this one never has: the
+  // name must still answer (a redirect, or a page that asks which) while `WB`, a number and an id must not.
+  const seat = all<{ state: string; name: string; id: string }>(
+    db,
+    `SELECT pv.jurisdiction_id AS state, pv.canonical_name AS name, pv.place_id AS id
+       FROM place_version pv
+       JOIN voting_epoch ve ON ve.jurisdiction_id = pv.jurisdiction_id AND ve.house = pv.kind AND ve.epoch_id = pv.epoch_id
+      WHERE pv.kind = 'ac' AND pv.canonical_name NOT GLOB '*[^A-Za-z ]*'
+      ORDER BY pv.id LIMIT 1`,
+  )[0];
+  assert.ok(seat, "no current assembly seat with a plain name in the registry");
+  const slug = seat.name.trim().toLowerCase().replace(/\s+/g, "-");
+  const notFound = (state: string, name: string): boolean => {
+    const r = spawnSync(
+      process.execPath,
+      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/constituency/legacy", "", `${state}/${name}`],
+      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+    return /NEXT_NOT_FOUND|NEXT_HTTP_ERROR_FALLBACK/.test(`${r.stderr ?? ""}${r.stdout ?? ""}`);
+  };
+  assert.equal(notFound(seat.state, slug), false, `/constituency/${seat.state}/${slug} is a 404`);
+  assert.equal(notFound(seat.state.toUpperCase(), slug), true, `/constituency/${seat.state.toUpperCase()}/${slug} is not a 404`);
+  for (const written of [seat.id, String(Number(seat.id.split(".").at(-1)))]) {
+    assert.equal(notFound(seat.state, written), true, `/constituency/${seat.state}/${written} is read as more than a name`);
+  }
+});
+
+test("two seats that share a name are each reached by their registry id, from the page that asks and from their district", liveIndex, (t) => {
+  // Found in the registry, not named: the seed's Bishnupur in Bankura and in South 24 Parganas is the case that made the
+  // choose page link twice to itself, and any registry that holds such a pair is held to it.
+  const current = all<{ state: string; id: string; name: string; number: number; district: string }>(
+    db,
+    `SELECT pv.jurisdiction_id AS state, pv.place_id AS id, pv.canonical_name AS name, pv.number AS number,
+            pv.district_place_id AS district
+       FROM place_version pv
+       JOIN voting_epoch ve ON ve.jurisdiction_id = pv.jurisdiction_id AND ve.house = pv.kind AND ve.epoch_id = pv.epoch_id
+      WHERE pv.kind = 'ac' AND pv.district_place_id IS NOT NULL AND pv.number IS NOT NULL
+      ORDER BY pv.id`,
+  );
+  const words = (name: string): string => name.toLowerCase().split(/[^\p{L}\p{M}\p{N}]+/u).filter(Boolean).join(" ");
+  const groups = new Map<string, typeof current>();
+  for (const s of current) {
+    const key = `${s.state} ${words(s.name)}`;
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
+  const pair = [...groups.values()].find((g) => g.length > 1);
+  const first = pair?.[0];
+  if (pair === undefined || first === undefined) return t.skip("no two current assembly seats of a state share a name here");
+  const nameHref = `/constituency/${first.state}/assembly/${first.name.trim().toLowerCase().replace(/\s+/g, "-")}`;
+  const idHref = (id: string): string => `/constituency/${first.state}/assembly/${id}`;
+
+  // The page that asks: a link to each seat by its id, and none back to itself.
+  const asks = render("/constituency", "", `${first.state}/assembly/${nameHref.split("/").at(-1)}`);
+  const seatLinks = [...asks.matchAll(/href="(\/constituency\/[^"]*)"/g)].map((m) => m[1]);
+  assert.deepEqual(seatLinks.sort(), pair.map((s) => idHref(s.id)).sort());
+  assert.ok(!asks.includes(`href="${nameHref}"`), "the page that asks which links back to itself");
+
+  for (const seat of pair) {
+    // each address opens its own seat, and not the page that asks
+    const opened = text(render("/constituency", "", `${seat.state}/assembly/${seat.id}`));
+    assert.doesNotMatch(opened, /Which did you mean/, idHref(seat.id));
+    assert.ok(opened.includes(`No. ${seat.number}`), `${idHref(seat.id)} did not open seat no. ${seat.number}`);
+    // and its district's page links its row there
+    const listing = render("/district", "", `${seat.state}/${seat.district.split(".").slice(1).join(".")}`);
+    assert.ok(listing.includes(`href="${idHref(seat.id)}"`), `${seat.district} does not link ${seat.id} by its id`);
+    assert.ok(!listing.includes(`href="${nameHref}"`), `${seat.district} links a name that asks which`);
+    // and the old /pl path, which names the district, is sent to the same address
+    const slug = seat.name.trim().toLowerCase().replace(/\s+/g, "-");
+    const old = spawnSync(
+      process.execPath,
+      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/pl", "", `${seat.state}/${seat.district.split(".").slice(1).join(".")}/${slug}`],
+      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+    const redirect = `${old.stderr ?? ""}${old.stdout ?? ""}`;
+    assert.ok(redirect.includes(idHref(seat.id)), `/pl/${seat.state}/${seat.district}/${slug} is not sent to ${idHref(seat.id)}`);
   }
 });
 

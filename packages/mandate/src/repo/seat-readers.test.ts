@@ -19,6 +19,7 @@ import { electionMapView, SHARED_FRAME } from "./election-map.ts";
 import { electionCoverage } from "./home.ts";
 import { placeView } from "./place-page.ts";
 import { partyVotes, readSeats, sourcesFor } from "./seat-results.ts";
+import { searchAll } from "./search.ts";
 import { readRegistry } from "./session.ts";
 import { stateTrajectory } from "./trajectory.ts";
 
@@ -330,6 +331,74 @@ test("closeFights: each row names its runner-up, both shares, the year, and a li
   }
 });
 
+test("a seat whose name another seat of its state and body shares is linked by its registry id, wherever seats are linked", () => {
+  const d = memory();
+  try {
+    // Seat B takes Seat A's name: ka.ac.001 and ka.ac.002 are now two assembly seats of Karnataka, in one epoch, called the
+    // same, which no name can tell apart. The 2023 election is made to vote wholly under e1, so the epoch the seats sit in is
+    // the one Karnataka's assembly votes under: the fixture's Seat C contest sits in e2, and a house is current in the newer
+    // epoch of an election that straddles two, which would retire both.
+    d.exec(`UPDATE place_version SET canonical_name = 'Seat A' WHERE id = 2`);
+    d.exec(`UPDATE contest SET place_version_id = 3 WHERE id = 'c7'`);
+    const own = (id: string): string => `/constituency/ka/assembly/${id}`;
+
+    const fights = closeFights(d, "assembly", 12).filter((f) => f.electionId === "ka-assembly-2023");
+    assert.deepEqual(
+      plain(fights.map((f) => [f.placeId, f.href])),
+      [
+        ["ka.ac.003", "/constituency/ka/assembly/seat-c"],
+        ["ka.ac.002", own("ka.ac.002")],
+        ["ka.ac.001", own("ka.ac.001")],
+        // no district, so it is the state's link as it always was
+        ["ka.ac.004", "/state/ka"],
+      ],
+    );
+
+    const map = electionMapView(d, "ka-assembly-2023");
+    const hrefs = new Map(map.seats.map((x) => [x.placeId, x.href]));
+    assert.equal(hrefs.get("ka.ac.001"), own("ka.ac.001"));
+    assert.equal(hrefs.get("ka.ac.002"), own("ka.ac.002"));
+    assert.equal(hrefs.get("ka.ac.003"), "/constituency/ka/assembly/seat-c", "a seat nobody shares a name with keeps its name");
+
+    const found = searchAll(d, "Seat A").constituencies.filter((h) => h.label === "Seat A");
+    assert.deepEqual(found.map((h) => h.href).sort(), [own("ka.ac.001"), own("ka.ac.002")]);
+  } finally {
+    d.close();
+  }
+});
+
+test("two retired seats that share a name are linked by that name wherever seats are linked, never by an id that opens another seat", () => {
+  const d = memory();
+  try {
+    // The same pair, but now Karnataka's assembly votes under e2 (the fixture's 2023 election straddles e1 and e2, and the newer
+    // epoch is the answer), so Seat A and Seat B are versions of a delimitation that no longer answers. A registry id answers
+    // with the CURRENT seat of its number, so a link by id would open whatever e2 holds at ka.ac.001; their name is theirs.
+    d.exec(`UPDATE place_version SET canonical_name = 'Seat A' WHERE id = 2`);
+    const named = "/constituency/ka/assembly/seat-a";
+
+    const fights = closeFights(d, "assembly", 12).filter((f) => f.electionId === "ka-assembly-2023");
+    assert.deepEqual(
+      plain(fights.map((f) => [f.placeId, f.href])),
+      [
+        ["ka.ac.003", "/constituency/ka/assembly/seat-c"],
+        ["ka.ac.002", named],
+        ["ka.ac.001", named],
+        ["ka.ac.004", "/state/ka"],
+      ],
+    );
+
+    const map = electionMapView(d, "ka-assembly-2023");
+    const hrefs = new Map(map.seats.map((x) => [x.placeId, x.href]));
+    assert.equal(hrefs.get("ka.ac.001"), named);
+    assert.equal(hrefs.get("ka.ac.002"), named);
+
+    const found = searchAll(d, "Seat A").constituencies.filter((h) => h.label === "Seat A");
+    assert.deepEqual(found.map((h) => h.href), [named, named]);
+  } finally {
+    d.close();
+  }
+});
+
 test("closeFights: a general election's fights are its seats, and a kind with no election has none", () => {
   const d = memory();
   try {
@@ -630,7 +699,7 @@ const at =
 
 test("placeView: a district lists its seats, winner, member, margin and turnout", async () => {
   const read = at(onFile());
-  const d = await placeView(["ka", "d1"], {}, undefined, undefined, read);
+  const d = await placeView({ level: "district", state: "ka", district: "d1" }, {}, read);
   if (d.kind !== "parent" || d.level !== "district") return assert.fail("not a district view");
   assert.match(d.headline, /North has 2 assembly seats; AAA won 1 of them in 2023\./);
   assert.deepEqual(
@@ -647,7 +716,7 @@ test("placeView: a district lists its seats, winner, member, margin and turnout"
 
 test("placeView: an unverified election's seats are listed with the turnout the registry holds, as the Analysis floor prints it", async () => {
   const read = at(onFile());
-  const d = await placeView(["wb", "d1"], {}, undefined, undefined, read);
+  const d = await placeView({ level: "district", state: "wb", district: "d1" }, {}, read);
   if (d.kind !== "parent" || d.level !== "district") return assert.fail("not a district view");
   // Whether a district page should print West Bengal 2026's turnout is its own decision, not this one: the winners come
   // from the seat results, and the turnout is still the held figure. The third seat has no declared winner.
@@ -670,7 +739,7 @@ test("placeView: a registry with no election lists nothing and cites nothing, ra
     INSERT INTO place (id, kind, parent_id, canonical_name) VALUES ('wb.d1', 'district', 'wb', 'Cooch Behar');
   `);
   d.close();
-  const dd = await placeView(["wb", "d1"], {}, undefined, undefined, at(path));
+  const dd = await placeView({ level: "district", state: "wb", district: "d1" }, {}, at(path));
   if (dd.kind !== "parent" || dd.level !== "district") return assert.fail("not a district view");
   assert.deepEqual([dd.children.rows, dd.sources, dd.electionId], [[], [], null]);
 });

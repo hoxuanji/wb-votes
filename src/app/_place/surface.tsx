@@ -10,6 +10,7 @@ import {
   placeView,
 } from "../../../packages/mandate/src/repo/place-page.ts";
 import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
+import type { PlaceQuery } from "../../../packages/mandate/src/repo/place-resolve.ts";
 import { fillFor } from "../../../packages/mandate/src/viz/party-ink.ts";
 import { stateChoicesOf } from "../../../packages/mandate/src/repo/election-map.ts";
 import { stateView } from "../../../packages/mandate/src/repo/state-view.ts";
@@ -17,6 +18,7 @@ import { readAsk, readSelection } from "../../../packages/mandate/src/repo/map-s
 import { bodyOfKind, personHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import { StateSurface } from "./state.tsx";
+import { Choose } from "./choose.tsx";
 import { Foot, Shell } from "../../components/iei/Shell.tsx";
 import {
   BasisChip,
@@ -78,29 +80,22 @@ const RESERVATION: Record<string, string> = { general: "General", sc: "Reserved 
 /**
  * THE ONE PLACE SURFACE, now reached by four routes instead of by one catch-all.
  *
- * Extracted rather than copied: `/state`, `/district` and `/constituency` each resolve their own entity and
+ * Extracted rather than copied: `/state`, `/district` and `/constituency` each name their own entity and
  * then render THIS, so the three entity types cannot drift into three renderers. Which is the whole reason
  * the catch-all existed — it just paid for the sharing by making the URL ambiguous.
  */
 export async function PlaceSurface({
-  segments: all,
+  place,
+  lens = "brief",
   searchParams,
-  level,
-  kind,
 }: {
-  segments: readonly string[];
+  /** The place the route names. A route knows what kind of place it is, so none of this is counted from segments. */
+  place: PlaceQuery;
   searchParams?: Record<string, string | string[] | undefined>;
-  /** Passed by the constituency route, which knows what kind of entity it resolved. */
-  level?: "constituency";
-  /** The registry kind the route's body maps to. */
-  kind?: "ac" | "pc";
+  /** Which floor of a constituency. A state and a district have only the brief. */
+  lens?: "brief" | "analysis";
 }) {
-  // Next 14 refuses a static segment AFTER a catch-all ("Catch-all must be the last part of the URL"), so
-  // /pl/:state/:district/:ac/analysis is served from this same route: the lens is the trailing segment, and
-  // §7's place path is what is left. Both lenses stay plain links.
-  const lens = all.at(-1) === "analysis" ? "analysis" : "brief";
-  const segments = lens === "analysis" ? all.slice(0, -1) : all;
-  const view = await placeView(segments, searchParams ?? {}, level, kind);
+  const view = await placeView(place, searchParams ?? {});
   if (view.kind === "not-found") notFound();
   if (view.kind === "unavailable") {
     return (
@@ -109,6 +104,8 @@ export async function PlaceSurface({
       </Shell>
     );
   }
+  // More than one seat answers to the name: ask which, because choosing for the reader is a different seat's page.
+  if (view.kind === "many") return <Choose places={view.places} />;
   // A state and a district have no Analysis floor: every measure behind it is defined per constituency.
   // The URL is not a view, so it is a 404 rather than an empty frame.
   if (lens === "analysis") {

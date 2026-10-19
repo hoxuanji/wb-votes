@@ -17,7 +17,8 @@
 // module must not flatten — a phonetic hit is a suggestion to check, not a person found.
 
 import type { DatabaseSync } from "node:sqlite";
-import { constituencyHref, districtHref, electionHref, stateHref } from "./routes.ts";
+import { seatHref, seatTies } from "./place-resolve.ts";
+import { districtHref, electionHref, stateHref } from "./routes.ts";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
 import { searchPersons, type PersonRow } from "./person.ts";
@@ -131,7 +132,7 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
  * IT DELIBERATELY DOES NOT MATCH HISTORICAL NAMES, and that is the interesting decision here. The first
  * version of this did: it matched any version and displayed the current one, with "· was BADAMI" where they
  * differed. Against the real registry that produced "NANJANGUD · no. 214 · MYSORE · was BADAMI" — and
- * Badami is a seat in Bagalkot, five hundred kilometres away. The reason is in place-page.ts's own comment:
+ * Badami is a seat in Bagalkot, five hundred kilometres away. The reason is in place-resolve.ts's `loadPlaceIndex`:
  * a `place` row is a legacy seat-NUMBER grouping, so `ka.ac.214` accumulated versions from delimitations in
  * which the number 214 belonged to different constituencies. "Was BADAMI" asserted a renaming that never
  * happened.
@@ -140,12 +141,14 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
  * is not make the claim: a search for a historical name finds nothing here, which is a miss, and a miss is
  * survivable in a way that a confident wrong answer is not.
  *
- * The path is built by `constituencyHref`, because that is the construction the render tests already prove
- * resolves: state, then the body, then the name slug.
+ * The path is built by `seatHref`, because that is the construction the render tests already prove
+ * resolves: state, then the body, then the name slug, or the registry id where two seats share the name.
  */
 function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
+  const tied = seatTies(db);
   return all<{
     place: string;
+    version: number;
     name: string;
     kind: string;
     number: number | null;
@@ -156,14 +159,14 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
     contests: number;
   }>(
     db,
-    `SELECT v.place AS place, v.name AS name, v.kind AS kind, v.number AS number,
+    `SELECT v.place AS place, v.version AS version, v.name AS name, v.kind AS kind, v.number AS number,
             v.district AS district, d.canonical_name AS dname,
             v.jur AS state, s.canonical_name AS sname,
             (SELECT COUNT(*) FROM contest c
                JOIN place_version v2 ON v2.id = c.place_version_id
               WHERE v2.place_id = v.place) AS contests
        FROM (
-         SELECT pl.id AS place, pv.canonical_name AS name, pv.kind AS kind, pv.number AS number,
+         SELECT pl.id AS place, pv.id AS version, pv.canonical_name AS name, pv.kind AS kind, pv.number AS number,
                 -- THE JURISDICTION, which is the ancestor BOTH bodies have. The state used to be derived from
                 -- the district parent, and a parliamentary seat has no district, so its parent resolved to the
                 -- nation and search offered a constituency URL whose state segment was the country.
@@ -201,7 +204,7 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
           (r.number === null ? "" : ` no. ${r.number}`) +
           (where === "" ? "" : ` · ${where}`) +
           ` · ${r.contests} election${r.contests === 1 ? "" : "s"}`,
-        href: constituencyHref({ jurisdictionId: r.state, kind: r.kind, canonicalName: r.name }),
+        href: seatHref(tied, { versionId: r.version, placeId: r.place, stateId: r.state, kind: r.kind, name: r.name }),
       };
     })
     .filter((h): h is Hit => h !== null);
@@ -219,11 +222,6 @@ export function partyAnchor(key: string): string {
   // A key with nothing addressable in it — "Unattached" is a real bucket and a blank raw string is a real
   // row — gets the bare prefix rather than a trailing hyphen, which is not a legal fragment either.
   return slug === "" ? "party" : `party-${slug}`;
-}
-
-/** The name slug a place path uses. Same rule as place-page.ts's, and it has to stay the same rule. */
-function slug(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, "-");
 }
 
 /**

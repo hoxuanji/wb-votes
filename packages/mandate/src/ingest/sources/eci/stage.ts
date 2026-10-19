@@ -54,7 +54,7 @@ const RESERVATION_MARKER = /\s*\((SC|ST|GEN|GENERAL)\)\s*$/i;
  *
  * Strips the reservation marker and every non-alphanumeric, and uppercases — so 'Araku (ST)',
  * 'ARAKU' and 'Araku' all match, while 'Araku' and 'Arakku' still do not. This is the same
- * normalisation the registry already needed for its own seat names; see place-page.ts.
+ * normalisation the registry already needed for its own seat names; see `MARKER` in repo/place-resolve.ts.
  */
 export function normName(s: string): string {
   return s.replace(RESERVATION_MARKER, "").toUpperCase().replace(/[^A-Z0-9]/g, "");

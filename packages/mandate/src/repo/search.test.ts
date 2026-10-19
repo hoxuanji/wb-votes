@@ -15,10 +15,14 @@ import { existsSync } from "node:fs";
 import { DEV_DB_PATH, open, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { PER_GROUP, partyAnchor, searchAll } from "./search.ts";
-import { constituencyPath, placeView } from "./place-page.ts";
+import { placeView } from "./place-page.ts";
+import type { PlaceQuery } from "./place-resolve.ts";
 import { electionMapView } from "./election-map.ts";
+import { skipUnlessVotingEpoch } from "./testkit.ts";
 
 const live = { skip: existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH) ? false : "no .data/registry.db" };
+/** A place is resolved against migration 017's `voting_epoch` view, which a registry built before it lacks. */
+const liveIndex = { skip: live.skip || skipUnlessVotingEpoch() };
 const db = () => openRead(DEV_DB_PATH);
 
 test("an election hit is named in the type label, whichever of the four kinds it is", () => {
@@ -124,7 +128,7 @@ test("every group caps at PER_GROUP, so no one query can flood the page", live, 
   }
 });
 
-test("every hit points at a URL that resolves", live, async () => {
+test("every hit points at a URL that resolves", liveIndex, async () => {
   const d = db();
   let states: string[] = [];
   let seats: string[] = [];
@@ -153,27 +157,23 @@ test("every hit points at a URL that resolves", live, async () => {
     /**
      * RESOLVED THE WAY THE ROUTE RESOLVES IT.
      *
-     * A canonical constituency URL is `/constituency/<state>/<name>` and carries no district, so its two
-     * segments are NOT a place path — handing them straight to `placeView` reads them as a district and
-     * 404s. `constituencyPath` is what the route uses to find the seat's district, and a search hit resolving
-     * means it resolves through the same function the reader's click will.
+     * A canonical route names what it asks for, so the hit is read back into the query the reader's click will
+     * make: a state by its id, a seat by its state, its body and its name. A name two seats answer to is a page
+     * that asks, which is not a 404.
      */
     // /constituency/<state>/<body>/<name> — the BODY is part of the identity now, so a hit is resolved with
     // the body it advertises rather than with a name alone.
     const parts = href.split("/").filter(Boolean);
-    const isSeat = parts[0] === "constituency";
-    const segments = isSeat
-      ? ((await constituencyPath(parts[1] as string, parts[3] as string)) ?? [])
-      : parts.slice(1);
-    assert.ok(segments.length > 0, `${href} does not resolve to a place at all`);
-    // The KIND is passed exactly as the canonical route passes it. Without it a two-segment constituency
-    // path is counted as a district, which is the inference Phase C removed from production code.
-    const view = await placeView(
-      segments,
-      {},
-      isSeat ? "constituency" : undefined,
-      isSeat ? (parts[2] === "lok-sabha" ? "pc" : "ac") : undefined,
-    );
+    const query: PlaceQuery =
+      parts[0] === "constituency"
+        ? {
+            level: "seat",
+            state: parts[1] as string,
+            body: parts[2] === "lok-sabha" ? "lok-sabha" : "assembly",
+            name: parts[3] as string,
+          }
+        : { level: "state", id: parts[1] as string };
+    const view = await placeView(query, {});
     assert.notEqual(view.kind, "not-found", `${href} is offered by search and 404s`);
     assert.notEqual(view.kind, "unavailable", `${href} could not be read`);
   }

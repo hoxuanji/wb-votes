@@ -14,7 +14,7 @@
 //
 // ── THE ROUTE ARCHITECTURE, AND WHY DEPTH NO LONGER DECIDES ANYTHING ──
 //
-// Before, one catch-all served three entity types and `parsePath` decided which by COUNTING SEGMENTS:
+// Before, one catch-all served three entity types and its path parser decided which by COUNTING SEGMENTS:
 // one meant a state, two a district, three a constituency. So the type of a thing was a property of how
 // long its URL happened to be, and a malformed path resolved to a different entity rather than to nothing.
 //
@@ -28,7 +28,7 @@
 //
 // A NOTE ON THE TWO-SEGMENT FORMS, since the brief asked for single slugs. A district id (`ka.bangalore`) is
 // globally unique and would fit one segment; a constituency NAME is not — "Jayanagar" may exist in more than
-// one state, and `getPlaceBrief` resolves a bare name by taking whichever version sorts first, which is
+// one state, and `getPlaceBrief` resolved a bare name by taking whichever version sorted first, which is
 // precisely the silent resolution to a different entity this phase forbids. The alternative single slug is
 // the place id (`wb.ac.001`), which is unique but is a seat NUMBER, unreadable, and demoted by
 // docs/model/electoral-geography.md as an identity. So both district and constituency carry their state:
@@ -104,6 +104,19 @@ export function constituencyHref(place: {
 }): string {
   if (place.jurisdictionId === null || place.jurisdictionId === "" || place.canonicalName === "") return "/";
   return `/constituency/${place.jurisdictionId}/${bodyOfKind(place.kind)}/${slugOf(place.canonicalName)}`;
+}
+
+/**
+ * A constituency by its registry id: `/constituency/wb/assembly/wb.ac.266`.
+ *
+ * For two seats of one state and body that carry one name (West Bengal's Bishnupur in Bankura and in South 24
+ * Parganas). Their name's address is a page asking which was meant, so each is addressed by the id that tells them
+ * apart: the same three-segment route with the id where the name goes, which place-resolve.ts reads as a seat asked by
+ * its `placeId`. `seatHref` there chooses between this and `constituencyHref`; nothing else should, because a name is
+ * what a reader can read in a URL and this is the exception.
+ */
+export function constituencyIdHref(place: { jurisdictionId: string; kind: string; placeId: string }): string {
+  return `/constituency/${place.jurisdictionId}/${bodyOfKind(place.kind)}/${place.placeId}`;
 }
 
 /** An election of any body or kind: `/election/ka-assembly-2023`. */

@@ -26,6 +26,8 @@ import {
 } from "./index.ts";
 import { inForce } from "../core/epochs.ts";
 import type { PersonBrief, PersonRow, PlaceBrief, SourceRef } from "./index.ts";
+import type { Found, Place, PlaceIndex } from "./place-resolve.ts";
+import { placeIndex, resolve } from "./place-resolve.ts";
 import { readRegistry } from "./session.ts";
 
 export type Meta = {
@@ -105,6 +107,21 @@ function notFound(kind: string, slug: string): Problem {
 }
 
 type MetaBase = { dataVersion: string };
+
+/**
+ * More than one seat answers to the name, and a response about one place cannot be about all of them. 300, because
+ * the answer is a list the caller picks from, and each seat is named by the id that does select it.
+ */
+function ambiguous(slug: string, places: readonly Place[]): Problem {
+  const ids = places.flatMap((p) => (p.level === "seat" ? [p.placeId] : []));
+  return problem(
+    300,
+    "ambiguous-place",
+    `More than one place for “${slug}”`,
+    `“${slug}” names ${ids.length} seats: ${ids.join(", ")}. Ask for one by its place id, for example ` +
+      `/v1/entity/place/${ids[0] ?? ""}.`,
+  );
+}
 
 /**
  * dataVersion is the finished_at of the newest run that finished.
@@ -278,9 +295,33 @@ export function personReply(slug: string, read = readRegistry): Promise<Reply<Pe
   }, read);
 }
 
+/**
+ * The seat a slug names: the registry's own place id, else a bare name, and neither says which state. A name that more
+ * than one seat answers to is a question for the caller, not a choice for this to make.
+ *
+ * A name is the registry's own spelling, case apart, because that is all this API has ever matched (the SQL this
+ * replaced was `LOWER(canonical_name) = LOWER(slug)`). The resolver reads a name by its words, so `Coochbehar-Uttar`
+ * and `Coochbehar Uttar ` are `Coochbehar Uttar`, and falls back to the name without its marker and to the words
+ * joined, which is how a page's old links are read. `exact` stops at the first reading; the spelling check holds
+ * what that found to the registry's own.
+ */
+function seatNamed(index: PlaceIndex, slug: string): Found {
+  const byId = resolve(index, { level: "seat", placeId: slug });
+  if (byId.found !== "none") return byId;
+  const named = resolve(index, { level: "seat", name: slug, exact: true });
+  const spelt = (named.found === "one" ? [named.place] : named.found === "many" ? named.places : []).filter(
+    (p) => p.level === "seat" && p.name.toLowerCase() === slug.toLowerCase(),
+  );
+  if (spelt.length === 0) return { found: "none" };
+  return spelt.length === 1 ? { found: "one", place: spelt[0]! } : { found: "many", places: spelt };
+}
+
 export function placeReply(slug: string, read = readRegistry): Promise<Reply<PlaceBrief>> {
   return run(`place/${slug}`, (db) => {
-    const b = getPlaceBrief(db, slug);
+    const found = seatNamed(placeIndex(db), slug);
+    if (found.found === "none") return notFound("place", slug);
+    if (found.found === "many") return ambiguous(slug, found.places);
+    const b = found.place.level === "seat" ? getPlaceBrief(db, found.place.versionId) : null;
     if (b === null) return notFound("place", slug);
     return {
       data: b,

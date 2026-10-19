@@ -1098,7 +1098,7 @@ export function electionCoverageView(
  *
  * It is not simply deleted. A state's own run of elections is a real thing to want and the state page did
  * not have it; that is where the question belongs, one level down, beside the districts. See
- * `place-page.ts`, where a state view now carries its elections.
+ * `state-view.ts`, where a state view carries its elections.
  */
 
 /* ────────────────────────────── the spine ────────────────────────────── */

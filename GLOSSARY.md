@@ -93,19 +93,27 @@ _Avoid_: current epoch, epoch of the latest election
 
 **Place index**:
 Every state, union territory, district and seat version in the registry, held as plain rows that a place query is answered from. Seat versions of earlier epochs are in it, marked as not current.
-_Avoid_: Place table, place cache
+_Avoid_: Place table
 
 **Place query**:
-What a URL's segments or a reader's words ask for: a state by its id, a district by its state and slug, or a seat by its state and its name or number, optionally narrowed to a body or a district. The narrowing is applied before any name is compared.
+What a URL's segments or a reader's words ask for: a state by its id, a district by its state and its id or its name, or a seat by its state and its name, its registry id or the number in that id, optionally narrowed to a body or a district. The narrowing is applied before any name or id is compared, so an id answers only in the state and body it belongs to. The API also asks for a seat by its registry id with no state, or by a bare name that names none and so can tie across states.
 _Avoid_: Place lookup, slug
 
 **Found**:
-The answer to a place query: one place, many places that answer equally well and so are left for the reader to choose between, or none. None is never answered with a different kind of place.
+The answer to a place query: one place, many places that answer equally well and so are left for the reader to choose between, or none. None is never answered with a different kind of place. A page asks the reader which seat they meant; the API answers with a 300 `ambiguous-place` problem that lists the seats' registry ids.
 _Avoid_: Match, hit
 
 **Canonical href**:
 The one address a place is served at, built from the place itself and never from the path that asked for it.
 _Avoid_: Permalink, canonical URL
+
+**Registry id**:
+The id the registry gives a place, such as `wb.ac.266` for an assembly seat of West Bengal. A place query reads it as a seat's address, and only in the state and body it belongs to.
+_Avoid_: Slug
+
+**Tie**:
+Two or more current seats of one state and body whose names, read as words, are the same, such as West Bengal's two assembly seats named Bishnupur. A name cannot choose between them, so a query for it is answered with all of them and each is addressed by its registry id.
+_Avoid_: Duplicate seats, namesakes
 
 **Current seat**:
 A seat version of the epoch its house votes under in its state. The same seat number under an earlier epoch is a different constituency, and the place resolver answers only with current seats.
@@ -162,7 +170,7 @@ The revision of a result that is read as the result. Seat results are read at re
 ### Addressing a place
 
 **Canonical href**:
-The one address the product gives a state, a district, a constituency, an election, a person or an election's coverage panel, written in a single place so that no link spells it a second time. A constituency's address names its state, its body and its name, and no district, because a delimitation can move a seat between districts.
+The one address the product gives a state, a district, a constituency, an election, a person or an election's coverage panel, written in a single place so that no link spells it a second time. A constituency's address names its state, its body and its name, and no district, because a delimitation can move a seat between districts. Seats in a tie are addressed by their registry id in place of the name.
 _Avoid_: Permalink, place path
 
 **Reservation marker**:

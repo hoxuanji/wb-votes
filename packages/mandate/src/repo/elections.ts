@@ -16,7 +16,8 @@
 //    a margin and no tallies; a 0 there would be a fabrication.
 
 import type { DatabaseSync } from "node:sqlite";
-import { constituencyHref, stateHref } from "./routes.ts";
+import { seatHref, seatTies } from "./place-resolve.ts";
+import { stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { marks, read } from "./index.ts";
 import { closest, partyVotes, readSeats, tallyByJurisdiction } from "./seat-results.ts";
@@ -48,10 +49,10 @@ export type CloseFight = {
   /**
    * The seat's own page, or the jurisdiction's when it has none.
    *
-   * Built HERE rather than in a component, because the rule — state / district / slugged name — is the same
-   * one `election-map.ts` and `place-page.ts` apply, and a fourth copy of it in JSX is a link that silently goes
-   * nowhere. A parliamentary constituency hangs off the state rather than a district, so it has no
-   * four-segment path; that is a fallback up the tree, not a broken URL.
+   * Built HERE rather than in a component, because the rule — state / body / slugged name, or the registry id
+   * where two seats share the name (`seatHref`) — is the same one `election-map.ts` and `place-page.ts` apply, and
+   * a fourth copy of it in JSX is a link that silently goes nowhere. A parliamentary constituency hangs off the
+   * state rather than a district, so it has no four-segment path; that is a fallback up the tree, not a broken URL.
    */
   href: string;
   winner: string;
@@ -360,6 +361,7 @@ export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): Cl
       ),
     );
     const year = new Map(latest.map((l) => [l.id, l.year]));
+    const tied = seatTies(db);
     return closest(readSeats(db, { elections: ids }), limit).map((s): CloseFight => {
       // `closest` keeps only seats with a margin share, which needs a winner, a margin and the counts of a
       // corroborated turnout. A runner-up is optional: "no runner-up recorded" is a different fact from
@@ -376,10 +378,12 @@ export function closeFights(db: DatabaseSync, kind = "assembly", limit = 12): Cl
         // does not have; it falls back up the tree to the state rather than to a broken URL.
         href:
           s.districtId !== null && s.districtId.startsWith(`${s.jurisdictionId}.`)
-            ? constituencyHref({
-                jurisdictionId: s.jurisdictionId,
+            ? seatHref(tied, {
+                versionId: s.versionId,
+                placeId: s.placeId,
+                stateId: s.jurisdictionId,
                 kind: house.get(s.electionId) ?? "ac",
-                canonicalName: s.name,
+                name: s.name,
               })
             : stateHref(s.jurisdictionId),
         winner: winner.party.label,

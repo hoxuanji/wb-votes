@@ -29,7 +29,9 @@ import * as home from "./home.ts";
 import * as review from "./review.ts";
 import * as coverage from "./coverage.ts";
 import * as legacy from "./legacy.ts";
-import { placeView } from "./place-page.ts";
+import { pathQuery, placeView } from "./place-page.ts";
+import type { PlaceQuery } from "./place-resolve.ts";
+import { skipUnlessVotingEpoch } from "./testkit.ts";
 import { personReply, placeReply, searchReply } from "./envelope.ts";
 
 function haveRegistry(): boolean {
@@ -46,6 +48,8 @@ function haveRegistry(): boolean {
   }
 }
 const skip = haveRegistry() ? false : `no registry at ${DEV_DB_PATH}`;
+/** The place pages and the place endpoint need migration 017's `voting_epoch` view, which an older registry lacks. */
+const skipIndex = skipUnlessVotingEpoch();
 const db = (): DatabaseSync => openRead(DEV_DB_PATH);
 
 /** Everything the suite needs to call a read function, read out of the registry itself. */
@@ -60,6 +64,8 @@ type Fixtures = {
   bypoll: string | null;
   /** A constituency place id and the seat number behind it. */
   placeId: string | null;
+  /** The version of that seat which has a contest: what the Brief and the Analysis are read by. */
+  versionId: number | null;
   personSlug: string | null;
   personName: string | null;
 };
@@ -104,6 +110,11 @@ function fixtures(d: DatabaseSync): Fixtures {
       `SELECT v.place_id AS id FROM place_version v
         JOIN contest c ON c.place_version_id = v.id WHERE v.kind = 'ac' LIMIT 1`,
     )?.id ?? null,
+    versionId: get<{ id: number }>(
+      d,
+      `SELECT v.id FROM place_version v
+        JOIN contest c ON c.place_version_id = v.id WHERE v.kind = 'ac' LIMIT 1`,
+    )?.id ?? null,
     personSlug: get<{ id: string }>(
       d,
       `SELECT p.id FROM person p JOIN candidacy ca ON ca.person_id = p.id LIMIT 1`,
@@ -130,7 +141,7 @@ test("fixtures: the registry offers everything the read layer needs", { skip }, 
   assert.ok(f.jurisdictions.length >= 3, `expected several jurisdictions, got ${f.jurisdictions.length}`);
   assert.equal(f.latest.size, f.jurisdictions.length, "each sampled jurisdiction has a latest election");
   assert.ok(f.withPrevious !== null, "at least one election has a predecessor");
-  assert.ok(f.placeId !== null && f.personSlug !== null);
+  assert.ok(f.placeId !== null && f.versionId !== null && f.personSlug !== null);
   d.close();
 });
 
@@ -180,20 +191,18 @@ test("places: brief, analysis and demographics run for a real seat", { skip }, (
   const d = db();
   const f = fixtures(d);
   const id = f.placeId ?? "";
-  const brief = ran("getPlaceBrief", () => place.getPlaceBrief(d, id));
-  assert.ok(brief !== null, `getPlaceBrief(${id}) is not null`);
+  const versionId = f.versionId ?? 0;
+  const brief = ran("getPlaceBrief", () => place.getPlaceBrief(d, versionId));
+  assert.ok(brief !== null, `getPlaceBrief(${versionId}) is not null`);
   assert.ok(brief.place.canonicalName !== "", "the seat is named");
   assert.ok(brief.contests.length > 0, "the seat has contests");
   // Scoped to one delimitation: a seat cannot have held more elections than its epoch has.
   assert.ok(brief.contests.length < 30, `${brief.contests.length} contests is too many for one epoch`);
 
-  // By name as well as by id — a different code path in the same function.
-  ran("getPlaceBrief(by name)", () => place.getPlaceBrief(d, brief.place.canonicalName));
-
   ran("demographicClaims", () => place.demographicClaims(d, id));
-  ran("getPlaceAnalysis", () => placeAnalysis.getPlaceAnalysis(d, id));
+  ran("getPlaceAnalysis", () => placeAnalysis.getPlaceAnalysis(d, versionId));
   ran("getPlaceAnalysis(filtered)", () =>
-    placeAnalysis.getPlaceAnalysis(d, id, { fromYear: 2000, toYear: 2030 }),
+    placeAnalysis.getPlaceAnalysis(d, versionId, { fromYear: 2000, toYear: 2030 }),
   );
   d.close();
 });
@@ -304,17 +313,28 @@ test("the API envelope answers 200 for real ids", { skip }, async () => {
   d.close();
   const person = await personReply(f.personSlug ?? "");
   assert.equal(person.status, 200, `personReply: ${JSON.stringify(person.body).slice(0, 160)}`);
-  const pl = await placeReply(f.placeId ?? "");
-  assert.equal(pl.status, 200, `placeReply: ${JSON.stringify(pl.body).slice(0, 160)}`);
   const search = await searchReply(f.personName ?? "", 5);
   assert.equal(search.status, 200, `searchReply: ${JSON.stringify(search.body).slice(0, 160)}`);
 });
 
-test("placeView renders every level of the path grammar", { skip }, async () => {
+test("the API envelope answers a seat by its place id", { skip: skipIndex }, async () => {
+  const d = db();
+  const f = fixtures(d);
+  d.close();
+  const pl = await placeReply(f.placeId ?? "");
+  assert.equal(pl.status, 200, `placeReply: ${JSON.stringify(pl.body).slice(0, 160)}`);
+});
+
+test("placeView renders every level of the path grammar", { skip: skipIndex }, async () => {
   const d = db();
   const f = fixtures(d);
   // The path grammar is /pl/:state · /pl/:state/:district · /pl/:state/:district/:ac, so build a real
   // three-segment path out of the registry rather than assuming one.
+  const path = (...segments: string[]): PlaceQuery => {
+    const q = pathQuery(segments);
+    assert.ok(q !== null, `/pl/${segments.join("/")} is not a path`);
+    return q;
+  };
   const row = get<{ state: string; district: string; seat: string }>(
     d,
     `SELECT j.id AS state,
@@ -329,13 +349,13 @@ test("placeView renders every level of the path grammar", { skip }, async () => 
   d.close();
   assert.ok(row !== undefined, "the registry has a seat inside a district");
 
-  const state = await placeView([row.state], {});
+  const state = await placeView(path(row.state), {});
   assert.notEqual(state.kind, "not-found", `/pl/${row.state}`);
-  const district = await placeView([row.state, row.district], {});
+  const district = await placeView(path(row.state, row.district), {});
   assert.notEqual(district.kind, "not-found", `/pl/${row.state}/${row.district}`);
-  const seat = await placeView([row.state, row.district, row.seat], {});
+  const seat = await placeView(path(row.state, row.district, row.seat), {});
   assert.notEqual(seat.kind, "not-found", `/pl/${row.state}/${row.district}/${row.seat}`);
   // A path that asserts a false ancestry must 404 rather than resolve.
-  const wrong = await placeView([row.state, "no-such-district-zzz", row.seat], {});
+  const wrong = await placeView(path(row.state, "no-such-district-zzz", row.seat), {});
   assert.equal(wrong.kind, "not-found", "a false district in the path is not-found");
 });

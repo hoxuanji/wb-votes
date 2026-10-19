@@ -2,7 +2,7 @@
 // loader needs a registry and is built through the real migrations in memory, because the live one cannot show a
 // retired name, a house that never voted, or a state whose two houses vote under different epochs.
 //
-// The cases come from the two suites the SQL resolvers answer to: place-page.test.ts (a duplicated name resolved by
+// The cases come from the two suites the SQL resolvers were held to: place-page.test.ts (a duplicated name resolved by
 // the district in the path, the path's ancestry must be true, the number form) and constituency.test.ts (one name in
 // two bodies is two seats; the pre-body URL asks rather than choosing). What they could not say, because the SQL
 // resolvers could not do it, is D25 (the exact name wins, the marker-stripped name applies only when it is empty, a
@@ -10,11 +10,14 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureEpochs } from "../db/epochs.ts";
-import { open } from "../db/index.ts";
+import { open, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { loadPlaceIndex, resolve } from "./place-resolve.ts";
+import { loadPlaceIndex, placeIndex, resolve, seatHref, seatTies, tiedVersions } from "./place-resolve.ts";
 import type { DistrictRow, Found, Place, PlaceIndex, PlaceQuery, SeatRow, StateRow } from "./place-resolve.ts";
 import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 
@@ -84,6 +87,8 @@ const seats: SeatRow[] = [
   seat({ versionId: 441, placeId: "up.pc.001", stateId: "up", name: "Saharanpur", kind: "pc", number: 1, reservation: null }),
   seat({ versionId: 442, placeId: "up.pc.002", stateId: "up", name: "Kairana", kind: "pc", number: 2, reservation: null }),
   seat({ versionId: 42, placeId: "up.ac.005", stateId: "up", name: "Nakur", number: 5, districtId: "up.saharanpur" }),
+  // A name two states share: a bare name, which asks every state at once, ties across them.
+  seat({ versionId: 43, placeId: "up.ac.006", stateId: "up", name: "Jayanagar", number: 6, districtId: "up.saharanpur" }),
 ];
 
 /** Deep-frozen, so a resolver that sorts or edits what it was given throws instead of passing. */
@@ -152,6 +157,38 @@ test("a district resolves by its state and its slug, and only under the state th
   assert.deepEqual(resolve(index, { level: "district", state: "ka", district: "cooch-behar" }), { found: "none" });
   assert.deepEqual(resolve(index, { level: "district", state: "wb", district: "bangalore" }), { found: "none" });
   assert.deepEqual(resolve(index, { level: "district", state: "wb", district: "nowhere" }), { found: "none" });
+});
+
+test("a district answers to its id's tail, its whole id and its name, as it always did: D27 is about states", () => {
+  for (const written of ["cooch-behar", "Cooch-Behar", "wb.cooch-behar", "Cooch Behar", "cooch behar", "coochbehar", "  COOCH BEHAR  "]) {
+    const p = one(resolve(index, { level: "district", state: "wb", district: written }));
+    assert.equal(p.level === "district" ? p.id : null, "wb.cooch-behar", written);
+    assert.equal(p.href, "/district/wb/cooch-behar");
+  }
+  // still under the state that has it, and a whole id of another state's district is no district of this one
+  assert.deepEqual(resolve(index, { level: "district", state: "ka", district: "cooch behar" }), { found: "none" });
+  assert.deepEqual(resolve(index, { level: "district", state: "wb", district: "ka.bangalore" }), { found: "none" });
+  assert.deepEqual(resolve(index, { level: "district", state: "wb", district: "" }), { found: "none" });
+});
+
+test("a district's id comes before its name, and a name two districts share goes to the lower id", () => {
+  const twins: PlaceIndex = {
+    ...index,
+    districts: [
+      { id: "wb.aaa", stateId: "wb", name: "Kolkata" },
+      { id: "wb.kolkata", stateId: "wb", name: "Kolkata" },
+      { id: "wb.x1", stateId: "wb", name: "Twin District" },
+      { id: "wb.x2", stateId: "wb", name: "Twin District" },
+    ],
+  };
+  const id = (district: string): string | null => {
+    const p = one(resolve(twins, { level: "district", state: "wb", district }));
+    return p.level === "district" ? p.id : null;
+  };
+  assert.equal(id("kolkata"), "wb.kolkata", "the id's tail is read before any name");
+  assert.equal(id("twin district"), "wb.x1");
+  assert.equal(id("twin-district"), "wb.x1");
+  assert.equal(id("twindistrict"), "wb.x1");
 });
 
 test("a district is not matched by a seat's name, and a seat is not matched by a district's", () => {
@@ -263,12 +300,57 @@ test("D25: the name with its marker is the exact name, however a reader writes t
   assert.equal(sc.href, "/constituency/wb/assembly/bishnupur(sc)");
 });
 
+test("D25: the name's words joined are the last tier, as old links wrote them, and only when nothing is called that", () => {
+  // The SQL squashed both sides of the comparison, so `coochbeharuttar` found "Coochbehar Uttar" and `jaynagarmajilpur`
+  // found "Jaynagar-Majilpur"; the words compared one by one do not.
+  for (const written of ["jaynagarmajilpur", "JaynagarMajilpur", "jaynagar-majilpur"]) {
+    assert.equal(versionOf(one(resolve(index, wb(written)))), 3, written);
+  }
+  assert.equal(versionOf(one(resolve(index, wb("কুচবিহারউত্তর")))), 6);
+  const more: PlaceIndex = {
+    ...index,
+    seats: [
+      ...index.seats,
+      seat({ versionId: 900, placeId: "wb.ac.900", stateId: "wb", name: "Jaynagarmajilpur", number: 900, districtId: "wb.kolkata" }),
+      seat({ versionId: 901, placeId: "wb.ac.901", stateId: "wb", name: "Dakshin Dinajpur(SC)", number: 901, districtId: "wb.bankura", reservation: "sc" }),
+    ],
+  };
+  // A seat with exactly that name takes it, and the spaced name still finds the one it always found.
+  assert.equal(versionOf(one(resolve(more, wb("jaynagarmajilpur")))), 900);
+  assert.equal(versionOf(one(resolve(more, wb("jaynagar-majilpur")))), 3);
+  // The marker is stripped before the words are joined, and a joined name is no wider than that.
+  assert.equal(versionOf(one(resolve(more, wb("dakshindinajpur")))), 901);
+  assert.deepEqual(resolve(more, wb("dakshindinajpursc")), { found: "none" });
+  assert.deepEqual(resolve(more, wb("jaynagarmaji")), { found: "none" });
+  // Joined names can tie like any others, and then the reader is asked.
+  const tied: PlaceIndex = {
+    ...more,
+    seats: [...more.seats, seat({ versionId: 902, placeId: "wb.ac.902", stateId: "wb", name: "Dakshin-Dinajpur", number: 902, districtId: "wb.kolkata" })],
+  };
+  assert.deepEqual(many(resolve(tied, wb("dakshindinajpur"))).map(versionOf), [901, 902]);
+});
+
+test("an exact name is the first tier alone: no marker stripped, no words joined", () => {
+  const exact = (name: string, more: { body?: "assembly" | "lok-sabha" } = {}): Found =>
+    resolve(index, { level: "seat", state: "wb", name, exact: true, ...more });
+  // what the first tier reads is unchanged, spaces, hyphens and case included
+  assert.equal(versionOf(one(exact("Jaynagar-Majilpur"))), 3);
+  assert.equal(versionOf(one(exact("jaynagar majilpur"))), 3);
+  assert.equal(versionOf(one(exact("bishnupur(sc)", { body: "assembly" }))), 146);
+  assert.equal(versionOf(one(exact("bishnupur", { body: "lok-sabha" }))), 337);
+  // and the fallbacks are not tried: a marker-stripped name, a joined one
+  assert.equal(versionOf(one(resolve(index, { level: "seat", state: "ka", name: "khanapur" }))), 22);
+  assert.deepEqual(resolve(index, { level: "seat", state: "ka", name: "khanapur", exact: true }), { found: "none" });
+  assert.deepEqual(exact("jaynagarmajilpur"), { found: "none" });
+  assert.deepEqual(exact("কুচবিহারউত্তর"), { found: "none" });
+});
+
 test("D25: a tie is many, in a stable order, and is never cut to the first row", () => {
   const twins = many(resolve(index, wb("twin")));
   assert.deepEqual(twins.map(versionOf), [7, 8]);
-  // RECORDED, NOT SETTLED: two seats of one body that tie on name have one canonical href, because the URL carries
-  // the state, the body and the name and nothing that tells them apart. A page that lists them has no distinct link.
-  assert.equal(twins[0]?.href, twins[1]?.href);
+  // Two seats of one body that tie on name are addressed by their registry id, which tells them apart: a page that
+  // lists them has two links, to two seats, and neither is the page asking which.
+  assert.deepEqual(twins.map((p) => p.href), ["/constituency/wb/assembly/wb.ac.007", "/constituency/wb/assembly/wb.ac.008"]);
   // Two seats that tie only after their markers are stripped.
   assert.deepEqual(many(resolve(index, wb("foo"))).map(versionOf), [9, 10]);
   // The same query asked of a reordered index gives the same answer.
@@ -284,6 +366,137 @@ test("D25: seats of different bodies are ordered assembly first, then by number"
   const f = many(resolve(index, { level: "seat", state: "wb", name: "bishnupur" }));
   // Exact tier, no body asked: Bankura's BISHNUPUR and the Lok Sabha Bishnupur. The SC seat waits in the second tier.
   assert.deepEqual(f.map(versionOf), [266, 337]);
+});
+
+// ── seats that share a name are addressed by their registry id ───────────────────────────────────
+
+const tie = (versionId: number, placeId: string, name: string, over: Partial<SeatRow> = {}) => ({
+  versionId,
+  placeId,
+  stateId: "wb",
+  kind: "ac" as const,
+  name,
+  current: true,
+  ...over,
+});
+
+test("tiedVersions: the current seats of a state and a body whose name, read as words, is shared by two places", () => {
+  const tied = (...rows: ReturnType<typeof tie>[]): number[] => [...tiedVersions(rows)].sort((a, b) => a - b);
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "Twin"), tie(2, "wb.ac.002", "TWIN"), tie(3, "wb.ac.003", "Other")), [1, 2]);
+  // a name is its words: punctuation and case are not part of a spelling, as they are not for the resolver
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "St. Thomas Mount"), tie(2, "wb.ac.002", "St Thomas Mount")), [1, 2]);
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "A"), tie(2, "wb.ac.002", "A"), tie(3, "wb.ac.003", "a")), [1, 2, 3]);
+  // the marker is part of the name a canonical href carries, so two seats that differ by it are not tied
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "FOO(SC)"), tie(2, "wb.ac.002", "FOO(ST)")), []);
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "BISHNUPUR"), tie(2, "wb.ac.002", "BISHNUPUR(SC)")), []);
+  // another body and another state are other names for the same words
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "Twin"), tie(2, "wb.pc.02", "Twin", { kind: "pc" })), []);
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "Twin"), tie(2, "ka.ac.002", "Twin", { stateId: "ka" })), []);
+  // A retired version is never tied, with another retired version or with a current one: no address is built for it
+  // from a tie, because the registry id of a retired version opens the CURRENT seat of that number.
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "Twin", { current: false }), tie(2, "wb.ac.002", "Twin", { current: false })), []);
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "Twin"), tie(2, "wb.ac.002", "Twin", { current: false })), []);
+  assert.deepEqual(
+    tied(tie(1, "wb.ac.001", "Twin"), tie(2, "wb.ac.002", "Twin"), tie(3, "wb.ac.003", "Twin", { current: false })),
+    [1, 2],
+  );
+  // one place twice in an epoch is not two seats, and a blank name is no name to share
+  assert.deepEqual(tied(tie(1, "wb.ac.001", "Twin"), tie(2, "wb.ac.001", "Twin")), []);
+  assert.deepEqual(tied(tie(1, "wb.ac.001", ""), tie(2, "wb.ac.002", " ")), []);
+});
+
+test("seatHref: the name's address, or the registry id's for a seat whose name is shared", () => {
+  const tied = new Set([7, 50]);
+  const twin = { versionId: 7, placeId: "wb.ac.007", stateId: "wb", kind: "ac", name: "Twin" };
+  assert.equal(seatHref(tied, twin), "/constituency/wb/assembly/wb.ac.007");
+  assert.equal(seatHref(tied, { versionId: 50, placeId: "wb.pc.50", stateId: "wb", kind: "pc", name: "Dual" }), "/constituency/wb/lok-sabha/wb.pc.50");
+  // a seat that is not tied is addressed exactly as constituencyHref addresses it, whatever else is
+  const plain = { versionId: 1, placeId: "wb.ac.001", stateId: "wb", kind: "ac", name: "Mekliganj" };
+  assert.equal(seatHref(tied, plain), constituencyHref({ jurisdictionId: "wb", kind: "ac", canonicalName: "Mekliganj" }));
+  assert.equal(seatHref(new Set(), twin), constituencyHref({ jurisdictionId: "wb", kind: "ac", canonicalName: "Twin" }));
+});
+
+test("D25: two seats of one body that tie have two addresses, and each opens its own seat", () => {
+  const twins = many(resolve(index, wb("twin")));
+  assert.equal(new Set(twins.map((p) => p.href)).size, 2, "the entries of a tie are distinct links");
+  for (const p of twins) {
+    assert.deepEqual(resolve(index, askedBy(p.href)), { found: "one", place: p }, `${p.href} is not its own seat's address`);
+  }
+  // the district breaks the tie and the seat it finds is addressed as it is when it is asked among its twin
+  assert.equal(one(resolve(index, wb("twin", { district: "bankura" }))).href, twins[0]?.href);
+  assert.equal(one(resolve(index, wb("twin", { district: "kolkata" }))).href, twins[1]?.href);
+  // a body in the id is part of what the path asserted, so the address does not open under the other body
+  assert.deepEqual(resolve(index, { level: "seat", state: "wb", body: "lok-sabha", placeId: "wb.ac.007" }), { found: "none" });
+});
+
+test("D25: a tie is a tie within a body, and a Lok Sabha pair is addressed by id as an assembly pair is", () => {
+  const more: PlaceIndex = {
+    ...index,
+    seats: [
+      ...index.seats,
+      seat({ versionId: 950, placeId: "wb.pc.50", stateId: "wb", kind: "pc", name: "Dual", number: 50, reservation: null }),
+      seat({ versionId: 951, placeId: "wb.pc.51", stateId: "wb", kind: "pc", name: "Dual", number: 51, reservation: null }),
+      seat({ versionId: 952, placeId: "wb.ac.952", stateId: "wb", name: "Dual", number: 952, districtId: "wb.kolkata" }),
+    ],
+  };
+  const pair = many(resolve(more, wb("dual", { body: "lok-sabha" })));
+  assert.deepEqual(pair.map((p) => p.href), ["/constituency/wb/lok-sabha/wb.pc.50", "/constituency/wb/lok-sabha/wb.pc.51"]);
+  // the assembly seat of the same name is alone in its body: its address is its name's
+  assert.equal(one(resolve(more, wb("dual", { body: "assembly" }))).href, "/constituency/wb/assembly/dual");
+  // asked in both bodies, the three are many, each with an address that opens it
+  const all3 = many(resolve(more, wb("dual")));
+  assert.deepEqual(all3.map(versionOf), [952, 950, 951]);
+  for (const p of all3) assert.deepEqual(resolve(more, askedBy(p.href)), { found: "one", place: p });
+  // a retired pair does not tie anything: only the seats that answer are compared
+  const retired: PlaceIndex = {
+    ...index,
+    seats: [
+      ...index.seats,
+      seat({ versionId: 960, placeId: "wb.ac.960", stateId: "wb", name: "Gone Twin", number: 960, epochId: "delim-1976", current: false }),
+      seat({ versionId: 961, placeId: "wb.ac.961", stateId: "wb", name: "Gone Twin", number: 961, epochId: "delim-1976", current: false }),
+    ],
+  };
+  assert.deepEqual(resolve(retired, wb("gone twin")), { found: "none" });
+});
+
+test("D26: a retired pair that shares a name is addressed by its name and not its registry id, which opens another seat", () => {
+  // Under delim-2002 Karnataka's seats 214 and 215 were both Foo. The house votes under delim-2008, where 214 is
+  // Nanjangud and 215 is Bar, and a registry id answers with the CURRENT seat of that number: linking the retired
+  // pair by id would send a reader looking for Foo to Nanjangud.
+  const more: PlaceIndex = {
+    ...index,
+    seats: [
+      ...index.seats,
+      seat({ versionId: 2214, placeId: "ka.ac.214", stateId: "ka", name: "Foo", number: 214, epochId: "delim-2002", current: false }),
+      seat({ versionId: 2215, placeId: "ka.ac.215", stateId: "ka", name: "Foo", number: 215, epochId: "delim-2002", current: false }),
+      seat({ versionId: 215, placeId: "ka.ac.215", stateId: "ka", name: "Bar", number: 215, districtId: "ka.bangalore" }),
+    ],
+  };
+  const tied = tiedVersions(more.seats);
+  assert.ok(!tied.has(2214) && !tied.has(2215), "a retired pair is not tied");
+  for (const v of [2214, 2215]) {
+    const href = seatHref(tied, more.seats.find((s) => s.versionId === v) as SeatRow);
+    assert.equal(href, constituencyHref({ jurisdictionId: "ka", kind: "ac", canonicalName: "Foo" }));
+    assert.deepEqual(resolve(more, askedBy(href)), { found: "none" }, "a retired name is declined, not answered with another seat");
+  }
+  // And the rule that holds for every version in the index, current or retired, tied or not: its address opens
+  // that place's seat or nothing, never a seat of another place.
+  for (const s of more.seats) {
+    const f = resolve(more, askedBy(seatHref(tied, s)));
+    const opened = f.found === "one" ? [f.place] : f.found === "many" ? f.places : [];
+    for (const p of opened) assert.equal(p.level === "seat" ? p.placeId : null, s.placeId, `version ${s.versionId} opens ${p.href}`);
+  }
+  // The pair that does answer is tied as before, and the retired one beside it does not join it.
+  const withLive: PlaceIndex = {
+    ...more,
+    seats: [
+      ...more.seats,
+      seat({ versionId: 216, placeId: "ka.ac.216", stateId: "ka", name: "Foo", number: 216, districtId: "ka.bangalore" }),
+      seat({ versionId: 217, placeId: "ka.ac.217", stateId: "ka", name: "Foo", number: 217, districtId: "ka.bangalore" }),
+    ],
+  };
+  assert.deepEqual([...tiedVersions(withLive.seats)].filter((v) => v > 200).sort(), [216, 217]);
+  assert.deepEqual(many(resolve(withLive, { level: "seat", state: "ka", name: "foo" })).map(versionOf), [216, 217]);
 });
 
 // ── D26: a retired name does not resolve ─────────────────────────────────────────────────────────
@@ -327,25 +540,27 @@ test("a name in Bengali is not split at its vowel signs, and matches itself", ()
   assert.equal(versionOf(one(resolve(index, wb("কূল")))), 12);
 });
 
-test("every current seat's own canonical href resolves back to it", () => {
-  // The round trip a link relies on: build the href from the seat, read the name segment as a route would, ask again.
+const bodyOf = (s: SeatRow): "assembly" | "lok-sabha" => (s.kind === "pc" ? "lok-sabha" : "assembly");
+
+/** What a route does with the last segment of a seat's address: a registry id is asked as one, anything else as a name. */
+function askedBy(href: string): PlaceQuery {
+  const [, , state, body, segment] = href.split("/") as string[];
+  const written = decodeURIComponent(segment as string);
+  const scope = { level: "seat", state: state as string, body: body === "lok-sabha" ? "lok-sabha" : "assembly" } as const;
+  return /^[^.\s]+\.(?:ac|pc)\.\d+$/.test(written) ? { ...scope, placeId: written } : { ...scope, name: written };
+}
+
+test("every current seat's own canonical href resolves back to that seat and to no other", () => {
+  // The round trip a link relies on: take the href the resolver gave the seat, read its last segment as a route would,
+  // ask again. An address names one seat, which for two seats that share a name is why it is not their name.
   for (const s of seats.filter((x) => x.current)) {
-    const href = constituencyHref({ jurisdictionId: s.stateId, kind: s.kind, canonicalName: s.name });
-    const [, , state, body, name] = href.split("/") as string[];
-    const f = resolve(index, {
-      level: "seat",
-      state: state as string,
-      body: body === "lok-sabha" ? "lok-sabha" : "assembly",
-      name: decodeURIComponent(name as string),
-    });
-    const hits = f.found === "one" ? [f.place] : f.found === "many" ? f.places : [];
-    assert.ok(
-      hits.some((p) => versionOf(p) === s.versionId),
-      `${href} did not resolve back to version ${s.versionId}: ${JSON.stringify(f)}`,
-    );
-    assert.ok(hits.every((p) => p.href === href), `${href} resolved to a different address`);
+    const first = resolve(index, { level: "seat", placeId: s.placeId, state: s.stateId, body: bodyOf(s) });
+    const href = one(first).href;
+    const hits = resolve(index, askedBy(href));
+    assert.deepEqual(hits, { found: "one", place: one(first) }, `${href} did not resolve back to version ${s.versionId}`);
   }
 });
+
 
 test("resolve does not edit the index it was given, and the same question gets the same answer", () => {
   const q = wb("twin");
@@ -522,6 +737,252 @@ test("the resolver over a loaded index answers the questions the fixtures above 
     assert.equal(versionOf(one(resolve(ix, { level: "seat", state: "as", body: "lok-sabha", name: "dibrugarh" }))), 22);
     assert.equal(one(resolve(ix, { level: "state", id: "dl" })).href, "/state/dl");
     assert.equal(one(resolve(ix, { level: "district", state: "wb", district: "bankura" })).href, "/district/wb/bankura");
+  } finally {
+    d.close();
+  }
+});
+
+test("seatTies: the ties the index finds, read from the seat versions alone", () => {
+  const d = fixture();
+  try {
+    // a second Bishnupur in the assembly, beside Bankura's, under another district
+    d.exec(`
+      INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.268', 'ac', 'Bishnupur', 'wb.cooch-behar');
+      INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
+        VALUES (5, 'wb.ac.268', 'wb', 'ac', 'delim-2008', 268, 'Bishnupur', 'wb.cooch-behar', 'general');
+      INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('wb-assembly-2021:5', 'wb-assembly-2021', 5, 'declared');
+    `);
+    const ix = loadPlaceIndex(d);
+    assert.deepEqual([...seatTies(d)], [2, 5]);
+    assert.deepEqual([...tiedVersions(ix.seats)], [2, 5], "the index and the registry agree on which seats are tied");
+    assert.deepEqual(
+      many(resolve(ix, { level: "seat", state: "wb", body: "assembly", name: "bishnupur" })).map((p) => p.href),
+      ["/constituency/wb/assembly/wb.ac.266", "/constituency/wb/assembly/wb.ac.268"],
+    );
+    // and for every current seat, the address a page builds from the registry is the address the resolver gives it
+    const ties = seatTies(d);
+    for (const s of ix.seats.filter((x) => x.current)) {
+      const f = resolve(ix, { level: "seat", placeId: s.placeId, state: s.stateId, body: bodyOf(s) });
+      assert.equal(seatHref(ties, s), one(f).href, s.placeId);
+    }
+  } finally {
+    d.close();
+  }
+});
+
+test("seatTies: a retired pair that shares a name is not tied, a current pair is", () => {
+  const d = fixture();
+  try {
+    d.exec(`
+      INSERT INTO place (id, kind, canonical_name, parent_id) VALUES
+        ('ka.ac.301', 'ac', 'Old Twin', 'ka'), ('ka.ac.302', 'ac', 'Old Twin', 'ka'),
+        ('ka.ac.303', 'ac', 'Twin', 'ka'), ('ka.ac.304', 'ac', 'Twin', 'ka');
+      INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
+        VALUES (50, 'ka.ac.301', 'ka', 'ac', 'delim-1976', 301, 'Old Twin', 'ka.bangalore', 'general'),
+               (51, 'ka.ac.302', 'ka', 'ac', 'delim-1976', 302, 'Old Twin', 'ka.bangalore', 'general'),
+               (52, 'ka.ac.303', 'ka', 'ac', 'delim-2008', 303, 'Twin', 'ka.bangalore', 'general'),
+               (53, 'ka.ac.304', 'ka', 'ac', 'delim-2008', 304, 'Twin', 'ka.bangalore', 'general');
+    `);
+    const ix = loadPlaceIndex(d);
+    const ties = seatTies(d);
+    assert.deepEqual([...ties], [52, 53], "the retired pair is left out");
+    assert.deepEqual([...tiedVersions(ix.seats)], [52, 53], "the index and the registry agree");
+    // the retired pair is linked by its name, which a retired name does not answer, and not by an id that would
+    // open the current seat of that number
+    const old = ix.seats.find((s) => s.versionId === 50) as SeatRow;
+    assert.equal(seatHref(ties, old), constituencyHref({ jurisdictionId: "ka", kind: "ac", canonicalName: "Old Twin" }));
+    assert.deepEqual(resolve(ix, askedBy(seatHref(ties, old))), { found: "none" });
+  } finally {
+    d.close();
+  }
+});
+
+test("seatTies on a registry without voting_epoch: no seat is current, so none is tied and nothing throws", () => {
+  // A registry that predates migration 017 cannot say which seats answer, and the resolver cannot be built on it. A
+  // page that only links seats still renders there, with every link a seat's name, as it was before any seat was
+  // addressed by id.
+  const d = fixture();
+  try {
+    d.exec(`
+      INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.268', 'ac', 'Bishnupur', 'wb.cooch-behar');
+      INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
+        VALUES (5, 'wb.ac.268', 'wb', 'ac', 'delim-2008', 268, 'Bishnupur', 'wb.cooch-behar', 'general');
+    `);
+    assert.deepEqual([...seatTies(d)], [2, 5], "with the view, the two Bishnupurs are tied");
+  } finally {
+    d.close();
+  }
+  const bare = fixture();
+  try {
+    bare.exec(`
+      INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.268', 'ac', 'Bishnupur', 'wb.cooch-behar');
+      INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
+        VALUES (5, 'wb.ac.268', 'wb', 'ac', 'delim-2008', 268, 'Bishnupur', 'wb.cooch-behar', 'general');
+      DROP VIEW voting_epoch;
+    `);
+    assert.deepEqual([...seatTies(bare)], []);
+    assert.throws(() => loadPlaceIndex(bare), { name: "RegistryUnavailableError" });
+  } finally {
+    bare.close();
+  }
+});
+
+test("seatTies is kept while the registry file stands and read again when it is written to", () => {
+  const path = registryFile("Mekliganj");
+  const tiesAt = (): ReadonlySet<number> => {
+    const d = openRead(path);
+    try {
+      return seatTies(d);
+    } finally {
+      d.close();
+    }
+  };
+  const first = tiesAt();
+  assert.equal(tiesAt(), first);
+  assert.deepEqual([...first], []);
+  const w = open(path);
+  w.exec(`
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.002','ac','Mekliganj','wb');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name)
+      VALUES (2,'wb.ac.002','wb','ac','delim-2008',2,'Mekliganj');
+  `);
+  w.close();
+  assert.deepEqual([...tiesAt()], [1, 2], "a write is seen by the next request, not answered from the old copy");
+});
+
+// ── a seat with no state: the v1 API's two forms ─────────────────────────────────────────────────
+
+test("a seat by its registry id keeps what the path asserted: its state, its body and its district", () => {
+  const byId = (placeId: string, more: { state?: string; body?: "assembly" | "lok-sabha"; district?: string } = {}): Found =>
+    resolve(index, { level: "seat", placeId, ...more } as PlaceQuery);
+  assert.equal(versionOf(one(byId("wb.ac.001", { state: "wb", body: "assembly" }))), 1);
+  assert.equal(versionOf(one(byId("wb.ac.001", { state: "wb" }))), 1);
+  assert.equal(versionOf(one(byId("wb.ac.001", { state: "wb", district: "cooch-behar" }))), 1);
+  assert.equal(versionOf(one(byId("wb.pc.37", { state: "wb", body: "lok-sabha" }))), 337);
+  // the other body, the other state, the other district: none, and never the seat the id would otherwise name
+  assert.deepEqual(byId("wb.ac.001", { state: "wb", body: "lok-sabha" }), { found: "none" });
+  assert.deepEqual(byId("wb.pc.37", { state: "wb", body: "assembly" }), { found: "none" });
+  assert.deepEqual(byId("wb.ac.001", { state: "ka" }), { found: "none" });
+  assert.deepEqual(byId("wb.ac.001", { state: "wb", district: "nadia" }), { found: "none" });
+  // a Lok Sabha seat has no district, so one asked under a district is none
+  assert.deepEqual(byId("wb.pc.37", { state: "wb", district: "bankura" }), { found: "none" });
+  // and a retired version is no more answerable by its id when the path asserts a state
+  assert.deepEqual(byId("ka.ac.300", { state: "ka" }), { found: "none" });
+});
+
+test("a seat by the registry's own id is its current version, and a retired or unknown id is none", () => {
+  const p = one(resolve(index, { level: "seat", placeId: "ka.ac.214" }));
+  assert.equal(versionOf(p), 214, "the current version, not the retired one that shares its place id");
+  assert.equal(p.href, "/constituency/ka/assembly/nanjangud");
+  assert.equal(versionOf(one(resolve(index, { level: "seat", placeId: "wb.pc.37" }))), 337);
+  // A seat that only exists as retired versions, a place that is not a seat, and an id as the registry does not spell it.
+  assert.deepEqual(resolve(index, { level: "seat", placeId: "ka.ac.300" }), { found: "none" });
+  assert.deepEqual(resolve(index, { level: "seat", placeId: "wb.cooch-behar" }), { found: "none" });
+  assert.deepEqual(resolve(index, { level: "seat", placeId: "KA.AC.214" }), { found: "none" });
+  assert.deepEqual(resolve(index, { level: "seat", placeId: "" }), { found: "none" });
+});
+
+test("a bare name asks every state: one seat is one, a name two states share is many, and a body narrows it", () => {
+  assert.equal(versionOf(one(resolve(index, { level: "seat", name: "mekliganj" }))), 1);
+  assert.deepEqual(many(resolve(index, { level: "seat", name: "jayanagar" })).map(versionOf), [43, 21]);
+  assert.deepEqual(many(resolve(index, { level: "seat", name: "saharanpur" })).map(versionOf), [41, 441]);
+  assert.equal(versionOf(one(resolve(index, { level: "seat", name: "saharanpur", body: "lok-sabha" }))), 441);
+  assert.deepEqual(resolve(index, { level: "seat", name: "jayanagar", body: "lok-sabha" }), { found: "none" });
+  // D25 holds across states as it does inside one: the exact name first, the marker-stripped name only when empty.
+  assert.equal(versionOf(one(resolve(index, { level: "seat", name: "khanapur" }))), 22);
+  // and a retired name is none in every state
+  assert.deepEqual(resolve(index, { level: "seat", name: "badami" }), { found: "none" });
+});
+
+// ── the index, kept ──────────────────────────────────────────────────────────────────────────────
+
+/** A registry file of one state and one seat, with the contest that makes the seat current. */
+function registryFile(seatName: string): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-placeindex-")), "registry.db");
+  const d = open(path);
+  migrate(d, NOW);
+  d.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('delim-2008','Delimitation 2008','2008-02-19');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('wb','state','West Bengal');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.001','ac','${seatName}','wb');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name)
+      VALUES (1,'wb.ac.001','wb','ac','delim-2008',1,'${seatName}');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('wb-assembly-2021','assembly','state','wb','delim-2008','WB 2021','declared','ac',2021,1);
+    INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('wb-assembly-2021:1','wb-assembly-2021',1,'declared');
+  `);
+  d.close();
+  return path;
+}
+
+/** The versions a name resolves to in the registry at `path`, read through a connection of its own, as a request does. */
+function versionsNamed(path: string, name: string): number[] {
+  const d = openRead(path);
+  try {
+    const f = resolve(placeIndex(d), { level: "seat", name });
+    const versions = f.found === "one" ? [f.place] : f.found === "many" ? f.places : [];
+    return versions.flatMap((p) => (p.level === "seat" ? [p.versionId] : []));
+  } finally {
+    d.close();
+  }
+}
+
+test("placeIndex reads a registry once and answers every later request from what it read", () => {
+  const path = registryFile("Mekliganj");
+  const request = (): PlaceIndex => {
+    const d = openRead(path);
+    try {
+      return placeIndex(d);
+    } finally {
+      d.close();
+    }
+  };
+  // Requests one after another, each opening and closing its own connection, as a server's do.
+  const first = request();
+  assert.equal(request(), first);
+  assert.equal(request(), first);
+  // And two in flight at once. The first to read leaves an empty WAL behind while the other is still open, and that
+  // is not a write: the second must be answered from what the first read.
+  const other = registryFile("Barasat");
+  const a = openRead(other);
+  const b = openRead(other);
+  try {
+    const ia = placeIndex(a);
+    assert.notEqual(ia, first, "a different registry is a different index");
+    assert.equal(placeIndex(b), ia);
+  } finally {
+    a.close();
+    b.close();
+  }
+});
+
+test("placeIndex reads the registry again when it has been written to, and never answers from a stale copy", () => {
+  const path = registryFile("Mekliganj");
+  assert.deepEqual(versionsNamed(path, "mekliganj"), [1]);
+  assert.deepEqual(versionsNamed(path, "jadavpur"), []);
+
+  // A seat is added while the process runs, as an ingest does to a registry a server is reading.
+  const w = open(path);
+  w.exec(`
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.002','ac','Jadavpur','wb');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name)
+      VALUES (2,'wb.ac.002','wb','ac','delim-2008',2,'Jadavpur');
+  `);
+  w.close();
+  assert.deepEqual(versionsNamed(path, "jadavpur"), [2]);
+
+  // And a registry file replaced by another is read afresh, not answered with the first one's seats.
+  const other = registryFile("Barasat");
+  assert.deepEqual(versionsNamed(other, "barasat"), [1]);
+  assert.deepEqual(versionsNamed(other, "mekliganj"), []);
+  assert.deepEqual(versionsNamed(path, "mekliganj"), [1]);
+});
+
+test("placeIndex keeps nothing for a registry that has no file, because nothing says when it changes", () => {
+  const d = fixture();
+  try {
+    assert.notEqual(placeIndex(d), placeIndex(d));
+    assert.deepEqual(placeIndex(d), placeIndex(d));
   } finally {
     d.close();
   }

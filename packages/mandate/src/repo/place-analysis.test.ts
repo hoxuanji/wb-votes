@@ -24,6 +24,13 @@ function haveRegistry(): boolean {
 }
 const skip = haveRegistry() ? false : `no registry at ${DEV_DB_PATH} — run npm run registry:migrate`;
 
+/** The seat version a place id names. The live registry holds one delimitation, so it holds one version of each. */
+function versionOf(d: DatabaseSync, placeId: string): number {
+  const row = d.prepare("SELECT id FROM place_version WHERE place_id = ?").get(placeId) as { id: number } | undefined;
+  assert.ok(row !== undefined, `${placeId} has no version`);
+  return row.id;
+}
+
 function counting(real: DatabaseSync): { db: DatabaseSync; count: () => number } {
   let n = 0;
   const proxy = new Proxy(real, {
@@ -43,7 +50,7 @@ function counting(real: DatabaseSync): { db: DatabaseSync; count: () => number }
 test("getPlaceAnalysis: five fixed queries, four elections newest-first, cited", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
   const { db, count } = counting(d);
-  const a = getPlaceAnalysis(db, "wb.ac.001");
+  const a = getPlaceAnalysis(db, versionOf(d, "wb.ac.001"));
   assert.ok(a);
   assert.equal(count(), 5, "place · contests · baselines · demographics · sources");
 
@@ -68,7 +75,7 @@ test("getPlaceAnalysis: five fixed queries, four elections newest-first, cited",
 
 test("getPlaceAnalysis: turnout reads against the district and state baseline", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
-  const a = getPlaceAnalysis(d, "Mekliganj");
+  const a = getPlaceAnalysis(d, versionOf(d, "wb.ac.001"));
   assert.ok(a);
   const t2026 = a.turnoutSeries.find((x) => x.year === 2026);
   assert.ok(t2026);
@@ -88,7 +95,7 @@ test("getPlaceAnalysis: turnout reads against the district and state baseline", 
 
 test("getPlaceAnalysis: party fold caps at three and its count reconciles", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
-  const a = getPlaceAnalysis(d, "wb.ac.001");
+  const a = getPlaceAnalysis(d, versionOf(d, "wb.ac.001"));
   assert.ok(a);
   const p2021 = a.partyShareSeries.find((x) => x.year === 2021);
   assert.ok(p2021);
@@ -115,7 +122,7 @@ test("getPlaceAnalysis: party fold caps at three and its count reconciles", { sk
 
 test("getPlaceAnalysis: swing is null for a first-time contestant, not −100", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
-  const a = getPlaceAnalysis(d, "wb.ac.001");
+  const a = getPlaceAnalysis(d, versionOf(d, "wb.ac.001"));
   assert.ok(a);
   const s2016 = a.swingSeries.filter((s) => s.year === 2016);
   const tmc = s2016.find((s) => s.shortName === "TMC");
@@ -135,7 +142,7 @@ test("getPlaceAnalysis: a party label that repeats inside an election has no swi
   // Kalimpong 2016 ran four independents — 40.8%, 4.1%, 2.3% and 1.3%. Matching 2021's independents
   // on the party id alone kept whichever row the map wrote last, so every IND swing was measured from
   // the 1.3% one and the card promoted "IND swung +36.3 pp" to its headline.
-  const a = getPlaceAnalysis(d, "wb.ac.022");
+  const a = getPlaceAnalysis(d, versionOf(d, "wb.ac.022"));
   assert.ok(a);
   const ind = a.swingSeries.filter((s) => s.year === 2021 && s.shortName === "IND");
   assert.ok(ind.length > 1, `Kalimpong 2021 has ${ind.length} independents`);
@@ -151,7 +158,7 @@ test("getPlaceAnalysis: a party label that repeats inside an election has no swi
 
 test("getPlaceAnalysis: margin, enp and retention per election", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
-  const a = getPlaceAnalysis(d, "wb.ac.001");
+  const a = getPlaceAnalysis(d, versionOf(d, "wb.ac.001"));
   assert.ok(a);
   const m2011 = a.marginSeries.find((x) => x.year === 2011);
   assert.equal(m2011?.marginVotes, 32632);
@@ -177,7 +184,7 @@ test("getPlaceAnalysis: margin, enp and retention per election", { skip }, () =>
 
 test("getPlaceAnalysis: demographics carry their vintage and provenance", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
-  const a = getPlaceAnalysis(d, "wb.ac.001");
+  const a = getPlaceAnalysis(d, versionOf(d, "wb.ac.001"));
   assert.ok(a);
   assert.ok(a.demographics.length >= 6);
   for (const f of a.demographics) {
@@ -190,7 +197,7 @@ test("getPlaceAnalysis: demographics carry their vintage and provenance", { skip
 test("getPlaceAnalysis: filters narrow the result", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
   const { db, count } = counting(openRead(DEV_DB_PATH));
-  const narrow = getPlaceAnalysis(db, "wb.ac.001", { fromYear: 2016, toYear: 2021 });
+  const narrow = getPlaceAnalysis(db, versionOf(d, "wb.ac.001"), { fromYear: 2016, toYear: 2021 });
   assert.ok(narrow);
   assert.equal(count(), 5, "filters do not cost a query");
   assert.deepEqual(
@@ -203,7 +210,7 @@ test("getPlaceAnalysis: filters narrow the result", { skip }, () => {
     "only the pair whose newer election is in range",
   );
 
-  const bjp = getPlaceAnalysis(d, "wb.ac.001", { party: "BJP" });
+  const bjp = getPlaceAnalysis(d, versionOf(d, "wb.ac.001"), { party: "BJP" });
   assert.ok(bjp);
   for (const p of bjp.partyShareSeries) {
     assert.ok(p.parties.every((x) => x.shortName === "BJP"));
@@ -217,15 +224,16 @@ test("getPlaceAnalysis: filters narrow the result", { skip }, () => {
   d.close();
 });
 
-test("getPlaceAnalysis: unknown slug is null, unmigrated database throws", { skip }, () => {
+test("getPlaceAnalysis: a version nobody holds, or one that is not a seat, is null", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
-  assert.equal(getPlaceAnalysis(d, "wb.ac.999-nope"), null);
+  assert.equal(getPlaceAnalysis(d, -1), null);
+  assert.equal(getPlaceAnalysis(d, versionOf(d, "wb.cooch-behar")), null);
   d.close();
 });
 
 test("getPlaceAnalysis on an unmigrated database throws RegistryUnavailableError", () => {
   const empty = new DatabaseSync(":memory:");
-  assert.throws(() => getPlaceAnalysis(empty, "wb.ac.001"), RegistryUnavailableError);
+  assert.throws(() => getPlaceAnalysis(empty, 1), RegistryUnavailableError);
   empty.close();
 });
 
@@ -234,8 +242,8 @@ test("getPlaceAnalysis reads only: the database file is byte-identical after", {
   // does write — so read-only-ness is a property of THIS function's SQL, and hashing is the check.
   const before = createHash("sha256").update(readFileSync(DEV_DB_PATH)).digest("hex");
   const d = openRead(DEV_DB_PATH);
-  assert.ok(getPlaceAnalysis(d, "wb.ac.001"));
-  assert.ok(getPlaceAnalysis(d, "wb.ac.150", { fromYear: 2016, party: "BJP" }));
+  assert.ok(getPlaceAnalysis(d, versionOf(d, "wb.ac.001")));
+  assert.ok(getPlaceAnalysis(d, versionOf(d, "wb.ac.150"), { fromYear: 2016, party: "BJP" }));
   d.close();
   assert.equal(createHash("sha256").update(readFileSync(DEV_DB_PATH)).digest("hex"), before);
 });

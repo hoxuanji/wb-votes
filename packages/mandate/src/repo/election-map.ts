@@ -24,7 +24,8 @@
 // is not decided here: this module adds geometry, the flip and the standing to a seat result.
 
 import type { DatabaseSync } from "node:sqlite";
-import { constituencyHref, districtHref, stateHref } from "./routes.ts";
+import { seatHref, seatTies } from "./place-resolve.ts";
+import { districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { read } from "./index.ts";
 import type { SourceRef } from "./index.ts";
@@ -402,6 +403,7 @@ export function electionMapView(
       previousId === null ? [] : readSeats(db, { elections: [previousId], ...within }),
     );
 
+    const tied = seatTies(db);
     let otherFrames = 0;
     let pathBytes = 0;
     const undrawable = new Set<string>();
@@ -488,17 +490,24 @@ export function electionMapView(
          * a focus: the page compares `?seat=` against a `placeId`, never against a name slug, so clicking a
          * seat on the map or in the list set a value that matched nothing and highlighted nothing.
          *
-         * Through `constituencyHref`, so this is the SAME url the district page and the breadcrumb build.
+         * Through `seatHref`, so this is the SAME url the district page and the breadcrumb build.
          * Inventing a second convention for the same destination is how a link 404s while its own test passes.
          *
          * A PARLIAMENTARY SEAT HAS A PAGE NOW, so this no longer branches on whether a district exists.
          * It did: place pages were `pv.kind = 'ac'` and a pc carries no district, so every one of Lok Sabha
          * 2024's 543 seats linked to its state instead of to itself. The canonical constituency URL takes the
-         * JURISDICTION and the name, which is what both bodies have.
+         * JURISDICTION and the name, which is what both bodies have, and the registry id where two seats of one
+         * state and body share the name.
          */
         // THE ELECTION'S BODY DECIDES, never the seat's name. A Lok Sabha election contests pc seats
         // and an assembly election contests ac seats, so the link builder is told rather than guessing.
-        href: constituencyHref({ jurisdictionId: r.jurisdictionId, kind: e.house, canonicalName: r.name }),
+        href: seatHref(tied, {
+          versionId: r.versionId,
+          placeId: r.placeId,
+          stateId: r.jurisdictionId,
+          kind: e.house,
+          name: r.name,
+        }),
       };
     });
 

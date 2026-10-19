@@ -166,6 +166,7 @@ function buildTwoStateFixture(): string {
 
 const FIXTURE = buildFixture();
 const TWO_STATES = buildTwoStateFixture();
+const NAMESAKES = buildNamesakeFixture();
 /** True when this machine also has the real registry — then the contract is asserted twice. */
 const live = await withDb(undefined, async () => {
   try {
@@ -363,6 +364,113 @@ test("a bug in a query is thrown, not answered as 'registry not built'", async (
 
 test("§20 contract holds on a fixture registry (the CI case)", async () => {
   await withDb(FIXTURE, () => assertContract("fixture", "AA TEST WINNER"));
+});
+
+/**
+ * A name two states share (Aurangabad is a Bihar seat and a Maharashtra seat), a seat number that was Badami
+ * under one order and is Nanjangud under the next, and a name of several words with its reservation marker. Each
+ * current seat is cited once, which is all a 200 asks of it.
+ */
+function buildNamesakeFixture(): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-fixture-")), "registry.db");
+  const d = open(path);
+  migrate(d, NOW);
+  d.exec(`
+    INSERT INTO source (id,kind,publisher,title,url,retrieved_at,doc_hash,hash_kind,retrieval_kind)
+      VALUES ('src-census','census','Census of India','Census 2011','repo:x','2026-07-03T00:00:00.000Z','h3','document_bytes','fetched');
+    INSERT INTO ingest_run (pipeline,parser_version,started_at,finished_at,status)
+      VALUES ('static:fixture','v1','${NOW}','${NOW}','ok');
+    INSERT INTO place (id,kind,canonical_name) VALUES ('in','nation','India');
+    INSERT INTO place (id,kind,parent_id,canonical_name) VALUES
+      ('br','state','in','Bihar'), ('mh','state','in','Maharashtra'), ('ka','state','in','Karnataka');
+    INSERT INTO place (id,kind,parent_id,canonical_name) VALUES
+      ('br.ac.001','ac','br','Aurangabad'), ('mh.ac.001','ac','mh','Aurangabad'), ('ka.ac.214','ac','ka','NANJANGUD'),
+      ('ka.ac.001','ac','ka','Kolar Gold Field(SC)');
+  `);
+  ensureEpochs(d, ["delim-1976", "delim-2008"]);
+  d.exec(`
+    INSERT INTO place_version (id,place_id,jurisdiction_id,kind,epoch_id,number,canonical_name) VALUES
+      (1,'br.ac.001','br','ac','delim-2008',1,'Aurangabad'),
+      (2,'mh.ac.001','mh','ac','delim-2008',1,'Aurangabad'),
+      (3,'ka.ac.214','ka','ac','delim-2008',214,'NANJANGUD'),
+      (4,'ka.ac.214','ka','ac','delim-1976',214,'BADAMI'),
+      (5,'ka.ac.001','ka','ac','delim-2008',1,'Kolar Gold Field(SC)');
+    INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle,house,year,occurrence) VALUES
+      ('br-assembly-2020','assembly','state','br','delim-2008','Bihar 2020','declared','ac',2020,1),
+      ('mh-assembly-2019','assembly','state','mh','delim-2008','Maharashtra 2019','declared','ac',2019,1),
+      ('ka-assembly-2018','assembly','state','ka','delim-2008','Karnataka 2018','declared','ac',2018,1);
+    INSERT INTO contest (id,election_id,place_version_id,lifecycle) VALUES
+      ('br-assembly-2020:1','br-assembly-2020',1,'declared'),
+      ('mh-assembly-2019:1','mh-assembly-2019',2,'declared'),
+      ('ka-assembly-2018:214','ka-assembly-2018',3,'declared'),
+      ('ka-assembly-2018:1','ka-assembly-2018',5,'declared');
+    INSERT INTO claim (subject_ref,predicate,object_value,unit,as_of,confidence) VALUES
+      ('place:br.ac.001','demographics.population','100','persons','2011-01-01','provisional'),
+      ('place:mh.ac.001','demographics.population','100','persons','2011-01-01','provisional'),
+      ('place:ka.ac.214','demographics.population','100','persons','2011-01-01','provisional'),
+      ('place:ka.ac.001','demographics.population','100','persons','2011-01-01','provisional');
+    INSERT INTO citation (claim_id,source_id,page_no,parser_version,extracted_at)
+      SELECT id, 'src-census', 0, 'v1', '${NOW}' FROM claim;
+  `);
+  d.close();
+  return path;
+}
+
+test("a place is its registry id or a bare name, the same seat either way and whatever the case", async () => {
+  const read = at(FIXTURE);
+  const byId = ok200(await placeReply(AC, read));
+  assert.equal(byId.data.place.id, AC);
+  for (const name of ["Mekliganj", "mekliganj", "MEKLIGANJ"]) {
+    const byName = ok200(await placeReply(name, read));
+    assert.equal(byName.data.place.id, AC, name);
+  }
+});
+
+test("a name two seats answer to is a 300 that names each by the id that selects it, never a pick", async () => {
+  const read = at(NAMESAKES);
+  const r = await placeReply("aurangabad", read);
+  assert.equal(r.status, 300, JSON.stringify(r.body));
+  if ("data" in r.body) return assert.fail("a tie must not carry data");
+  assert.equal(r.body.code, "ambiguous-place");
+  assert.match(r.body.detail, /br\.ac\.001, mh\.ac\.001/);
+  assert.match(r.body.detail, /\/v1\/entity\/place\/br\.ac\.001/);
+  assert.equal(r.headers["Cache-Control"], "no-store");
+  // The id is not a name, so it is not ambiguous: it selects its seat.
+  for (const id of ["br.ac.001", "mh.ac.001"]) assert.equal(ok200(await placeReply(id, read)).data.place.id, id);
+});
+
+test("a bare name is the registry's own spelling, case apart, and no other reading of it", async () => {
+  const read = at(NAMESAKES);
+  for (const name of ["Kolar Gold Field(SC)", "kolar gold field(sc)", "KOLAR GOLD FIELD(SC)"]) {
+    assert.equal(ok200(await placeReply(name, read)).data.place.id, "ka.ac.001", name);
+  }
+  // A page reads these as the seat (without its marker, joined, hyphenated, padded) and this API never has.
+  for (const name of [
+    "kolar gold field",
+    "kolargoldfield(sc)",
+    "kolar-gold-field(sc)",
+    "kolar-gold-field-sc",
+    "kolar gold field (sc)",
+    "kolar  gold field(sc)",
+    "kolar_gold_field(sc)",
+    " kolar gold field(sc)",
+    "kolar gold field(sc) ",
+  ]) {
+    const r = await placeReply(name, read);
+    assert.equal(r.status, 404, `${JSON.stringify(name)}: ${JSON.stringify(r.body).slice(0, 120)}`);
+  }
+});
+
+test("a retired name is a 404 and the current name is not", async () => {
+  const read = at(NAMESAKES);
+  // ka.ac.214 was Badami under delim-1976 and is Nanjangud under delim-2008.
+  const retired = await placeReply("badami", read);
+  assert.equal(retired.status, 404);
+  if ("data" in retired.body) return assert.fail("a 404 must not carry data");
+  assert.equal(retired.body.code, "unknown-place");
+  const current = ok200(await placeReply("nanjangud", read));
+  assert.equal(current.data.place.id, "ka.ac.214");
+  assert.equal(current.data.place.canonicalName, "NANJANGUD");
 });
 
 test("meta.epoch is the epoch in force for the response's jurisdiction, and absent when there is none", async () => {
