@@ -31,7 +31,6 @@ import type { SourceRef } from "./index.ts";
 import { facetOf } from "../core/election-kind.ts";
 import type { Body, Fill } from "../core/election-kind.ts";
 import { CHRONO_DESC, previousElection } from "./elections.ts";
-import { placeHref } from "./place-page.ts";
 import type { Finding, PartyRef, SeatFlips, VoteSeatEfficiency } from "./findings.ts";
 import { NATIONAL, parse, simplified } from "../viz/simplify.ts";
 import { compareSeats } from "./seat-comparison.ts";
@@ -487,8 +486,8 @@ export function electionMapView(
          * a focus: the page compares `?seat=` against a `placeId`, never against a name slug, so clicking a
          * seat on the map or in the list set a value that matched nothing and highlighted nothing.
          *
-         * Through `placeHref`, so this is the SAME url the district page and the breadcrumb build. Inventing
-         * a second convention for the same destination is how a link 404s while its own test passes.
+         * Through `constituencyHref`, so this is the SAME url the district page and the breadcrumb build.
+         * Inventing a second convention for the same destination is how a link 404s while its own test passes.
          *
          * A PARLIAMENTARY SEAT HAS A PAGE NOW, so this no longer branches on whether a district exists.
          * It did: place pages were `pv.kind = 'ac'` and a pc carries no district, so every one of Lok Sabha

@@ -1,5 +1,6 @@
 import { permanentRedirect, redirect } from 'next/navigation';
 import { personForMynetaId } from '../../../../packages/mandate/src/repo/legacy.ts';
+import { personHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 
 /**
@@ -22,5 +23,5 @@ export default function LegacyCandidate({ params }: { params: { id: string } }) 
   const read = readRegistry((db) => personForMynetaId(db, params.id));
   if (!read.ok) throw read.cause;
   if (read.value === null) redirect('/search');
-  permanentRedirect(`/p/${read.value}`);
+  permanentRedirect(personHref(read.value));
 }

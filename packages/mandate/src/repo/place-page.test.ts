@@ -16,7 +16,6 @@ import {
   parseFilters,
   parsePath,
   placeHeadline,
-  placeHref,
   placeTiles,
   placeView,
   provenance,
@@ -85,20 +84,6 @@ test("parsePath: the three levels of §7's grammar, and nothing else", () => {
 test("placeView: a malformed percent-escape is not-found, not a server error", { skip }, async () => {
   assert.equal((await placeView(["wb", "50%"], {})).kind, "not-found");
   assert.equal((await placeView(["wb", "cooch-behar", "%zz"], {})).kind, "not-found");
-});
-
-test("placeHref: one canonical path per level, from ids alone", () => {
-  assert.equal(placeHref({ kind: "state", id: "wb", canonicalName: "West Bengal", parentId: null }), "/state/wb");
-  assert.equal(
-    placeHref({ kind: "district", id: "wb.cooch-behar", canonicalName: "Cooch Behar", parentId: "wb" }),
-    "/district/wb/cooch-behar",
-  );
-  assert.equal(
-    placeHref({ kind: "ac", id: "wb.ac.001", canonicalName: "Mekliganj", parentId: "wb.cooch-behar" }),
-    "/constituency/wb/assembly/mekliganj",
-  );
-  // and the path it produces parses back to the place it came from
-  assert.deepEqual(parsePath(["wb", "cooch-behar", "mekliganj"])?.level, "ac");
 });
 
 // ── filters ──────────────────────────────────────────────────────────────────────────────────────

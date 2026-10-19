@@ -9,7 +9,7 @@ import type { ElectionMapView, ElectionSeat } from '../../../../packages/mandate
 import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
-import { stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
+import { electionHref, stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
@@ -124,7 +124,7 @@ export default function ElectionPage({
       else q.set(k, val);
     }
     const s = q.toString();
-    return `/election/${e.id}${s === '' ? '' : `?${s}`}#map`;
+    return `${electionHref(e.id)}${s === '' ? '' : `?${s}`}#map`;
   };
 
   // BOTH SELECTIONS VALIDATED BY MEMBERSHIP, never parsed. A party has to be one this election returned or
@@ -203,7 +203,7 @@ export default function ElectionPage({
             <>
               {' '}
               ·{' '}
-              <Link className="iei-body-link" href={`/election/${v.previous.id}`}>
+              <Link className="iei-body-link" href={electionHref(v.previous.id)}>
                 compare {v.previous.year}
               </Link>
             </>
@@ -436,7 +436,7 @@ export default function ElectionPage({
             {v.siblings.slice(0, 12).map((s) => (
               <Link
                 key={s.id}
-                href={`/election/${s.id}`}
+                href={electionHref(s.id)}
                 aria-current={s.id === e.id ? 'page' : undefined}
                 className={s.id === e.id ? 'iei-legend-on' : undefined}
               >

@@ -159,6 +159,16 @@ _Avoid_: Filter
 **Current revision**:
 The revision of a result that is read as the result. Seat results are read at revision 0, the original, today; whether a later revision supersedes it is not yet decided.
 
+### Addressing a place
+
+**Canonical href**:
+The one address the product gives a state, a district, a constituency, an election, a person or an election's coverage panel, written in a single place so that no link spells it a second time. A constituency's address names its state, its body and its name, and no district, because a delimitation can move a seat between districts.
+_Avoid_: Permalink, place path
+
+**Reservation marker**:
+The "(SC)" or "(ST)" a source appends to a seat's name, as in "BISHNUPUR(SC)". The registry keeps the name as the source wrote it, so the marker stays in the seat's canonical href; the seat's reservation is recorded separately and is not read from the name.
+_Avoid_: Reservation suffix
+
 ### Comparing two elections
 
 **Seat identity**:

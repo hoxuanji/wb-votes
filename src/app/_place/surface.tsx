@@ -15,7 +15,7 @@ import { bandOf, MARGIN_BANDS } from "../../../packages/mandate/src/repo/electio
 import { stateView } from "../../../packages/mandate/src/repo/state-view.ts";
 import { isMode } from "../../components/iei/ElectionMap.tsx";
 import type { MapMode } from "../../components/iei/ElectionMap.tsx";
-import { bodyOfKind, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { bodyOfKind, personHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import { StateSurface } from "./state.tsx";
 import { Foot, Shell } from "../../components/iei/Shell.tsx";
@@ -393,7 +393,7 @@ export async function PlaceSurface({
                 {c.winner === null ? (
                   <Value value={null} absent="not reported" />
                 ) : (
-                  <Link href={`/p/${c.winner.personId}`}>{c.winner.personName}</Link>
+                  <Link href={personHref(c.winner.personId)}>{c.winner.personName}</Link>
                 )}
               </td>
               <td className="iei-n">

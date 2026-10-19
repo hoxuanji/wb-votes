@@ -140,8 +140,8 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
  * is not make the claim: a search for a historical name finds nothing here, which is a miss, and a miss is
  * survivable in a way that a confident wrong answer is not.
  *
- * The path is built exactly as `placeHref` builds it, because that is the construction the render tests
- * already prove resolves: state, then the district segment, then the name slug.
+ * The path is built by `constituencyHref`, because that is the construction the render tests already prove
+ * resolves: state, then the body, then the name slug.
  */
 function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
   return all<{

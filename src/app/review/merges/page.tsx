@@ -6,6 +6,7 @@ import {
   recallEstimate,
 } from '../../../../packages/mandate/src/repo/review.ts';
 import type { Candidate, Pair } from '../../../../packages/mandate/src/repo/review.ts';
+import { personHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { Shell } from '../../../components/iei/Shell.tsx';
 import { RegistryMissing, Table } from '../../../components/iei/parts.tsx';
@@ -46,7 +47,7 @@ function Side({ c, other }: { c: Candidate; other: Candidate }) {
   return (
     <div className="rv-side">
       <p className="rv-name">{c.canonicalName}</p>
-      <Link className="rv-id" href={`/p/${c.id}`}>
+      <Link className="rv-id" href={personHref(c.id)}>
         {c.id}
       </Link>
       <dl className="rv-facts">

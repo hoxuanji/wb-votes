@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { PER_GROUP, searchAll } from '../../../packages/mandate/src/repo/search.ts';
 import type { Hit, Results } from '../../../packages/mandate/src/repo/search.ts';
+import { personHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
 import type { PersonRow } from '../../../packages/mandate/src/repo/person.ts';
 import { Foot, Shell } from '../../components/iei/Shell.tsx';
@@ -75,7 +76,7 @@ function Person({ p }: { p: PersonRow }) {
   return (
     <DataRow
       title={p.canonicalName}
-      href={`/p/${p.id}`}
+      href={personHref(p.id)}
       detail={`${where} · ${p.latestPartyShortName ?? 'party not recorded'} · ${outcome} · ${p.candidacyCount} contest${p.candidacyCount === 1 ? '' : 's'}`}
     />
   );

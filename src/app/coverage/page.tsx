@@ -3,6 +3,7 @@ import { getCoverage, INDIA } from '../../../packages/mandate/src/repo/coverage.
 import type { Coverage, VerticalState } from '../../../packages/mandate/src/repo/coverage.ts';
 import { electionCoverageView } from '../../../packages/mandate/src/repo/home.ts';
 import type { ElectionChoice, ElectionCoverage } from '../../../packages/mandate/src/repo/home.ts';
+import { coverageHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
 import { Shell } from '../../components/iei/Shell.tsx';
 import {
@@ -88,7 +89,7 @@ function Election({
         choices={choices.map((e) => ({
           key: e.id,
           label: e.short,
-          href: `/coverage?election=${e.id}#election`,
+          href: coverageHref(e.id),
         }))}
       />
 

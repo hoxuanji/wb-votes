@@ -1173,9 +1173,9 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
 
   /**
    * AND A PARLIAMENTARY SEAT MUST NOT PRETEND TO HAVE A PAGE. Place pages are `pv.kind = 'ac'`; a pc
-   * version has no district parent, so routing one through `placeHref` returns "/pl" — the India page. That
-   * regression was live for the length of one command: all 543 of Lok Sabha 2024's seats linked to the front
-   * page. A pc seat goes to the state whose page holds its result.
+   * version has no district parent, so a link builder that took the state from the district returned "/pl" —
+   * the India page. That regression was live for the length of one command: all 543 of Lok Sabha 2024's seats
+   * linked to the front page. A pc seat goes to the state whose page holds its result.
    */
   const ls = render("/election", "", "ls-2024");
   const lsLinks = [...ls.matchAll(/href="(\/(?:state|district|constituency)[^"?#]*)"/g)].map((m) => m[1] as string);

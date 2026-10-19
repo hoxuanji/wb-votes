@@ -25,7 +25,7 @@ import { all, get } from "../db/index.ts";
 // A const string, not a query: importing it here opens no database and keeps one definition of what
 // "newest first" means across every module that orders elections.
 import { CHRONO_DESC } from "./elections.ts";
-import { constituencyHref, districtHref, slugOf, stateHref } from "./routes.ts";
+import { constituencyHref, districtHref, stateHref } from "./routes.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
 import { getPlaceBrief, loadSources, marks, yearOf } from "./index.ts";
 import type { PartyPoint, PlaceAnalysis, PlaceAnalysisFilters } from "./place-analysis.ts";
@@ -121,33 +121,6 @@ export function parsePath(
   const ids = [last, `${state}.ac.${last.padStart(3, "0")}`];
   return { level: "ac", ids, name, parentId: `${state}.${clean[1] ?? ""}`, jurisdictionId: null, kind: null };
 }
-
-/**
- * The canonical path for a place. THIN, because the rule lives in `routes.ts` now.
- *
- * This function used to build `/pl/...` itself and keep its own copy of the name-slug rule beside the one in
- * `election-map.ts`. Two definitions of one URL is how a link points at a page that does not exist, which is
- * what happened. It delegates now, so every caller emits canonical routes without knowing they changed.
- */
-export function placeHref(p: {
-  kind: "state" | "district" | "ac" | "pc";
-  id: string;
-  canonicalName: string;
-  parentId: string | null;
-}): string {
-  if (p.kind === "state") return stateHref(p.id);
-  if (p.kind === "district") {
-    // A district row carries its state in `parentId` and its own id may or may not be prefixed with it.
-    const full = p.id.includes(".") ? p.id : `${p.parentId ?? ""}.${p.id}`;
-    return districtHref(full);
-  }
-  // A seat's jurisdiction is the first component of its district id, or of its own. The BODY comes from the
-  // caller, because a parliamentary seat has no district to infer one from and assuming "ac" pointed a pc's
-  // own links at an assembly seat.
-  const state = (p.parentId ?? p.id).split(".")[0] ?? "";
-  return state === "" ? "/" : constituencyHref({ jurisdictionId: state, kind: p.kind, canonicalName: p.canonicalName });
-}
-
 
 // ── the filter grammar: ?from=2011&to=2026&party=AITC ────────────────────────────────────────────
 
@@ -1094,13 +1067,12 @@ export async function placeView(
       .map((row) => row.name)
       .filter((n): n is string => n !== null);
     const years = brief.contests.map((c) => c.year);
-    const base = `${placeHref({
+    const base = `${constituencyHref({
       // THE SEAT'S OWN BODY. Hardcoding "ac" here made a parliamentary page link to an ASSEMBLY seat of the
       // same name — its own base URL pointing at a different office, or at nothing.
-      kind: place.kind === "pc" ? "pc" : "ac",
-      id: place.id,
+      kind: place.kind,
+      jurisdictionId: brief.place.jurisdictionId,
       canonicalName: place.canonical_name,
-      parentId: place.parent_id,
     })}/analysis`;
     const filters = parseFilters(search, { base, years, parties });
     const analysis = getPlaceAnalysis(db, place.id, filters.filters);
@@ -1225,12 +1197,7 @@ function parentView(db: DatabaseSync, place: PlaceRow, segments: readonly string
       headers: ["No.", "Seat", "Won by", "Member", "Margin", "Turnout"],
       numeric: [true, false, false, false, true, true],
       rows: rows.map((x) => ({
-        href: placeHref({
-          kind: "ac",
-          id: x.placeId,
-          canonicalName: x.name,
-          parentId: place.id,
-        }),
+        href: constituencyHref({ jurisdictionId: x.jurisdictionId, kind: "ac", canonicalName: x.name }),
         cols: [
           x.number === null ? "—" : String(x.number),
           x.name + (x.reservation == null ? "" : ` · ${RESERVATION[x.reservation] ?? x.reservation}`),
