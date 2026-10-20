@@ -1,25 +1,20 @@
-// What a test that reads the dev registry asks of it beyond its being there. Imported by tests and by nothing that
-// ships.
+// What a test that reads the dev registry asks of it. Imported by tests and by nothing that ships.
 //
-// A page, the place endpoint and the place resolver tell the seats of a house that votes under one delimitation from
-// the seats of another through the `voting_epoch` view (migration 017). A registry built before that migration reads
-// fine for everything else, so a test that resolves a place skips on it, naming the command that fixes it, instead of
-// failing on an outage that is a state of the machine and not a defect in the code.
+// The place resolver tells a seat's current version from its earlier ones one of two ways (`currentSeats`,
+// place-resolve.ts): by migration 017's `voting_epoch` view when the registry has it, and by the newest version of each
+// place when it does not. A test that picks its subject with SQL must pick by the same rule on whichever registry it
+// meets, and a test in place-resolve.test.ts holds this to the loader.
 
-import { openRead } from "../db/index.ts";
+import type { DatabaseSync } from "node:sqlite";
+import { get } from "../db/index.ts";
 
-/** Why a test that resolves a place cannot run against the registry the app would read, or false when it can. */
-export function skipUnlessVotingEpoch(): string | false {
-  try {
-    // No path: the same registry a page reads, which is MANDATE_DB_PATH or .data/registry.db.
-    const d = openRead();
-    try {
-      d.prepare("SELECT 1 FROM voting_epoch LIMIT 1").get();
-      return false;
-    } finally {
-      d.close();
-    }
-  } catch {
-    return "no registry, or one built before migration 017 — run npm run registry:migrate";
+/** SQL that is true of a `place_version` row, aliased `a`, when the resolver calls that seat version current in `db`. */
+export function currentSeat(db: DatabaseSync, a: string): string {
+  if (get(db, `SELECT 1 FROM sqlite_master WHERE type = 'view' AND name = 'voting_epoch'`) !== undefined) {
+    return `EXISTS (SELECT 1 FROM voting_epoch ve
+                     WHERE ve.jurisdiction_id = ${a}.jurisdiction_id AND ve.house = ${a}.kind AND ve.epoch_id = ${a}.epoch_id)`;
   }
+  return `${a}.id = (SELECT n.id FROM place_version n JOIN boundary_epoch ne ON ne.id = n.epoch_id
+                      WHERE n.place_id = ${a}.place_id AND n.kind IN ('ac', 'pc')
+                      ORDER BY ne.effective_from DESC, n.id DESC LIMIT 1)`;
 }

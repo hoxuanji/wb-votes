@@ -25,15 +25,13 @@ import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
-import { skipUnlessVotingEpoch } from "./testkit.ts";
+import { currentSeat } from "./testkit.ts";
 import { all } from "../db/index.ts";
 import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey } from "../viz/party-ink.ts";
 import { deltaE } from "../viz/colour.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
-/** The tests that render a state, a district or a seat resolve a place, which needs migration 017's `voting_epoch` view. */
-const liveIndex = { skip: live.skip || skipUnlessVotingEpoch() };
 
 const ROOT = new URL("../../../../", import.meta.url).pathname;
 
@@ -397,7 +395,7 @@ test("the geometry's provenance is in the drawer, not in the caption", live, () 
   assert.match(t, /had their bytes retrieved and hashed/, "the drawer does not say how the source was obtained");
 });
 
-test("provenance is not repeated once a page has already offered it", liveIndex, () => {
+test("provenance is not repeated once a page has already offered it", live, () => {
   // The footers of /pl and /p each carried a second copy of the whole source list plus a paragraph explaining
   // what the ⓘ does. One affordance per fact; the drawer teaches itself.
   for (const [route, segments] of [["/constituency", "wb/assembly/mekliganj"], ["/p", "mamata-banerjee-4a681f"]] as const) {
@@ -660,7 +658,7 @@ test("a state map's polygons name their publisher and their licence, in the draw
 
 /* ────────────────────────────── navigation ────────────────────────────── */
 
-test("every place the front page links to actually resolves", liveIndex, () => {
+test("every place the front page links to actually resolves", live, () => {
   const html = render("/");
   // EVERY /pl link, with or without a query string. The earlier version of this test matched only
   // `href="/constituency/xx"` with nothing after it, and the general election's row linked to `/pl/in?election=…` —
@@ -731,7 +729,7 @@ test("the navigation graph walks all the way down, in five jurisdictions", live,
   }
 });
 
-test("the five jurisdictions the brief names each render their own name and result", liveIndex, () => {
+test("the five jurisdictions the brief names each render their own name and result", live, () => {
   // Karnataka, West Bengal, Uttar Pradesh, Assam, Jammu & Kashmir — one of them a union territory, which is
   // how the 404 that hit all eight UTs was found.
   const expected = [
@@ -1033,7 +1031,7 @@ test("every party the runner-up legend lists can be isolated from it", live, (t)
   assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.id}: ${key} listed no seats`);
 });
 
-test("every party the state page's runner-up legend lists can be isolated from it", liveIndex, (t) => {
+test("every party the state page's runner-up legend lists can be isolated from it", live, (t) => {
   // The same defect as the election page's: the legend counts the parties that came second, and the page validated a
   // party against the winners' legend and the vote-to-seat plot, so a party that only ever came second was offered a link
   // that led nowhere.
@@ -1318,7 +1316,7 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
 
 /* ─────────────────── canonical routes and the compatibility layer ─────────────────── */
 
-test("a /pl URL is redirected to its canonical route, with its query, end to end", liveIndex, () => {
+test("a /pl URL is redirected to its canonical route, with its query, end to end", live, () => {
   /**
    * `/pl/[...path]` is `legacyTarget` behind a page. legacy.test.ts holds what each request is answered with, on a
    * registry built in memory with two states, so this is the one render that proves the page, `follow` and Next's
@@ -1372,15 +1370,14 @@ test("a /pl URL is redirected to its canonical route, with its query, end to end
   assert.equal(to, `/constituency/${state}/assembly/${seatSlug}?party=INC&mode=flips`);
 });
 
-test("the pre-body URL answers to a name and matches its state exactly", liveIndex, () => {
+test("the pre-body URL answers to a name and matches its state exactly", live, () => {
   // Every route that names a body ignores the state's case and reads a registry id or a number, and this one never has: the
   // name must still answer (a redirect, or a page that asks which) while `WB`, a number and an id must not.
   const seat = all<{ state: string; name: string; id: string }>(
     db,
     `SELECT pv.jurisdiction_id AS state, pv.canonical_name AS name, pv.place_id AS id
        FROM place_version pv
-       JOIN voting_epoch ve ON ve.jurisdiction_id = pv.jurisdiction_id AND ve.house = pv.kind AND ve.epoch_id = pv.epoch_id
-      WHERE pv.kind = 'ac' AND pv.canonical_name NOT GLOB '*[^A-Za-z ]*'
+      WHERE pv.kind = 'ac' AND pv.canonical_name NOT GLOB '*[^A-Za-z ]*' AND ${currentSeat(db, "pv")}
       ORDER BY pv.id LIMIT 1`,
   )[0];
   assert.ok(seat, "no current assembly seat with a plain name in the registry");
@@ -1400,7 +1397,7 @@ test("the pre-body URL answers to a name and matches its state exactly", liveInd
   }
 });
 
-test("two seats that share a name are each reached by their registry id, from the page that asks and from their district", liveIndex, (t) => {
+test("two seats that share a name are each reached by their registry id, from the page that asks and from their district", live, (t) => {
   // Found in the registry, not named: the seed's Bishnupur in Bankura and in South 24 Parganas is the case that made the
   // choose page link twice to itself, and any registry that holds such a pair is held to it.
   const current = all<{ state: string; id: string; name: string; number: number; district: string }>(
@@ -1408,8 +1405,7 @@ test("two seats that share a name are each reached by their registry id, from th
     `SELECT pv.jurisdiction_id AS state, pv.place_id AS id, pv.canonical_name AS name, pv.number AS number,
             pv.district_place_id AS district
        FROM place_version pv
-       JOIN voting_epoch ve ON ve.jurisdiction_id = pv.jurisdiction_id AND ve.house = pv.kind AND ve.epoch_id = pv.epoch_id
-      WHERE pv.kind = 'ac' AND pv.district_place_id IS NOT NULL AND pv.number IS NOT NULL
+      WHERE pv.kind = 'ac' AND pv.district_place_id IS NOT NULL AND pv.number IS NOT NULL AND ${currentSeat(db, "pv")}
       ORDER BY pv.id`,
   );
   const words = (name: string): string => name.toLowerCase().split(/[^\p{L}\p{M}\p{N}]+/u).filter(Boolean).join(" ");

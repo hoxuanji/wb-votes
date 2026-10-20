@@ -18,11 +18,8 @@ import { PER_GROUP, partyAnchor, searchAll } from "./search.ts";
 import { placeView } from "./place-view.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
 import { electionMapView } from "./election-map.ts";
-import { skipUnlessVotingEpoch } from "./testkit.ts";
 
 const live = { skip: existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH) ? false : "no .data/registry.db" };
-/** A place is resolved against migration 017's `voting_epoch` view, which a registry built before it lacks. */
-const liveIndex = { skip: live.skip || skipUnlessVotingEpoch() };
 const db = () => openRead(DEV_DB_PATH);
 
 test("an election hit is named in the type label, whichever of the four kinds it is", () => {
@@ -128,7 +125,7 @@ test("every group caps at PER_GROUP, so no one query can flood the page", live, 
   }
 });
 
-test("every hit points at a URL that resolves", liveIndex, async () => {
+test("every hit points at a URL that resolves", live, async () => {
   const d = db();
   let states: string[] = [];
   let seats: string[] = [];

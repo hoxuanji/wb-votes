@@ -22,7 +22,8 @@
 //   D26  A RETIRED name does not resolve. `place_id` is a seat NUMBER and not a constituency (migration 011): ka.ac.214
 //        was Badami under one order and is Nanjangud under the next, so matching an old version's name and then
 //        answering with the newest version asserted a renaming that never happened. Only a seat of the epoch its
-//        house votes under is current, and only current seats answer.
+//        house votes under is current, and only current seats answer. Migration 017's `voting_epoch` view says which
+//        epoch that is; a registry without it takes the newest version of each place (`currentSeats`).
 //   D27  A state is its id. Names for a state are for the legacy module to map to ids, which nothing does yet. The
 //        decision is about states: a district still answers to its id's tail and to its name, as it always did.
 //
@@ -229,8 +230,9 @@ type TieRow = Pick<SeatRow, "versionId" | "placeId" | "stateId" | "kind" | "name
  * a seat NUMBER, so the id of a retired seat opens whichever constituency holds that number now. A retired version is
  * never tied, so it keeps the address of its name, which opens the current seat that bears the name or is a 404, where
  * its id would open a seat of another name. A house votes under one epoch, so the current seats of a state and a body
- * are one delimitation's and no epoch is part of the key. The name is the first tier of `named` and no other, because
- * that is what a canonical href carries.
+ * are one delimitation's and no epoch is part of the key (without migration 017 a seat number that a later order
+ * abolished is still current, and can tie with a seat of that order). The name is the first tier of `named` and no
+ * other, because that is what a canonical href carries.
  */
 export function tiedVersions(rows: Iterable<TieRow>): Set<number> {
   const groups = new Map<string, TieRow[]>();
@@ -353,19 +355,46 @@ export function resolve(index: PlaceIndex, query: PlaceQuery): Found {
 
 type SeatSql = Omit<SeatRow, "current">;
 
-/** A seat version is current when its epoch is the one its (state, house) votes under. */
-function isCurrent(voting: ReadonlyMap<string, string>, s: { stateId: string; kind: string; epochId: string }): boolean {
-  return voting.get(`${s.stateId} ${s.kind}`) === s.epochId;
+/**
+ * Which seat versions are current, asked once for the index and for the ties alike so the two cannot disagree.
+ *
+ * With migration 017's `voting_epoch` view (`votingEpochs`) a version is current when its epoch is the one its (state,
+ * house) votes under: not the newest order in force, because Assam's assembly still votes under delim-2008 although
+ * delim-2023-as is in force and holds no assembly seats. A house that has never held a full-house election has no
+ * voting epoch, so none of its seats is current.
+ *
+ * A registry built before the view DEGRADES instead of failing: a version is current when it is the newest of its place
+ * id, by its epoch's start and then its id, which is how search chooses a seat's version. That is the same answer
+ * wherever a seat number has one version, and it does not tie a seat with its own earlier delimitation, as every
+ * version being current would. It cannot say which epoch a house votes under, so migration 017 is what makes D26 exact:
+ * without it a newest order nobody has voted under is current, and so is the last version of a seat number that a
+ * later order abolished.
+ */
+function currentSeats(db: DatabaseSync): (s: { versionId: number; stateId: string; kind: string; epochId: string }) => boolean {
+  if (get(db, `SELECT 1 FROM sqlite_master WHERE type = 'view' AND name = 'voting_epoch'`) !== undefined) {
+    const voting = votingEpochs(db);
+    return (s) => voting.get(`${s.stateId} ${s.kind}`) === s.epochId;
+  }
+  const newest = new Set(
+    all<{ id: number }>(
+      db,
+      `SELECT id FROM (
+         SELECT pv.id AS id,
+                row_number() OVER (PARTITION BY pv.place_id ORDER BY be.effective_from DESC, pv.id DESC) AS rn
+           FROM place_version pv
+           JOIN boundary_epoch be ON be.id = pv.epoch_id
+          WHERE pv.kind IN ('ac', 'pc')
+       ) WHERE rn = 1`,
+    ).map((r) => r.id),
+  );
+  return (s) => newest.has(s.versionId);
 }
 
 /**
  * Read the whole index: every state, every district and every seat version, in three statements with no binds.
  *
  * Retired versions are loaded and marked, not left out, so the resolver declines them for a reason a test can see
- * instead of never having heard of them. A seat is current when its epoch is the one its (state, house) votes under
- * (`votingEpochs`, the `voting_epoch` view): not the newest order in force, because Assam's assembly still votes
- * under delim-2008 although delim-2023-as is in force and holds no assembly seats. A house that has never held a
- * full-house election has no voting epoch, so none of its seats is current.
+ * instead of never having heard of them. Which versions are current is `currentSeats`' question.
  *
  * A district is read from the version, and from the place's parent where the version has none, as getPlaceBrief
  * reads it; a Lok Sabha seat is not given the fallback, because it has no district and the parent is not one.
@@ -377,7 +406,7 @@ function isCurrent(voting: ReadonlyMap<string, string>, s: { stateId: string; ki
  */
 export function loadPlaceIndex(db: DatabaseSync): PlaceIndex {
   return read(() => {
-    const voting = votingEpochs(db);
+    const current = currentSeats(db);
     return {
       states: all<StateRow>(
         db,
@@ -413,7 +442,7 @@ export function loadPlaceIndex(db: DatabaseSync): PlaceIndex {
           reservation: r.reservation,
           epochId: r.epochId,
           districtId: r.districtId,
-          current: isCurrent(voting, r),
+          current: current(r),
         }),
       ),
     };
@@ -465,10 +494,8 @@ let keptTies: { stamp: string; tied: ReadonlySet<number> } | undefined;
  * The current seat versions whose name is shared, from the registry: what a page that links seats asks before it builds
  * each link (`seatHref`), kept like the index while the registry file stands.
  *
- * Not read through `placeIndex`, because a link has no use for the states and districts and must not stop a page from
- * rendering on a registry the resolver cannot be built on. A registry that predates `voting_epoch` (migration 017)
- * cannot say which seats are current, so none of its seats is tied there and every link is a seat's name, as it was
- * before a seat could be addressed by its id.
+ * Not read through `placeIndex`, because a link has no use for the states and districts. It asks `currentSeats`, as the
+ * index does, so a link and the resolver agree on which seats are tied whether or not the registry has migration 017.
  */
 export function seatTies(db: DatabaseSync): ReadonlySet<number> {
   const stamp = stampOf(db);
@@ -479,17 +506,14 @@ export function seatTies(db: DatabaseSync): ReadonlySet<number> {
 
 function loadTies(db: DatabaseSync): Set<number> {
   return read(() => {
-    const voting =
-      get(db, `SELECT 1 FROM sqlite_master WHERE type = 'view' AND name = 'voting_epoch'`) === undefined
-        ? new Map<string, string>()
-        : votingEpochs(db);
+    const current = currentSeats(db);
     return tiedVersions(
       all<TieRow & { epochId: string }>(
         db,
         `SELECT id AS versionId, place_id AS placeId, jurisdiction_id AS stateId, kind, epoch_id AS epochId,
                 canonical_name AS name
            FROM place_version WHERE kind IN ('ac', 'pc')`,
-      ).map((r): TieRow => ({ ...r, current: isCurrent(voting, r) })),
+      ).map((r): TieRow => ({ ...r, current: current(r) })),
     );
   });
 }

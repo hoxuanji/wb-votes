@@ -18,12 +18,9 @@ import { acNumber, legacyTarget, pathQuery } from "./legacy.ts";
 import type { LegacyRequest, LegacyTarget } from "./legacy.ts";
 import { readRegistry } from "./session.ts";
 import { slugOf } from "./routes.ts";
-import { skipUnlessVotingEpoch } from "./testkit.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const opts = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
-/** The routes that name a seat go through the place index, which needs migration 017's `voting_epoch` view. */
-const liveIndex = { skip: opts.skip || skipUnlessVotingEpoch() };
 
 const seed = <T,>(name: string): T =>
   JSON.parse(readFileSync(new URL(`../../../../data/seed/${name}.json`, import.meta.url), "utf8")) as T;
@@ -485,7 +482,7 @@ test("a defect in a query is thrown as itself, on every route that reads", () =>
 
 // ── the whole old URL space, against the seed registry ───────────────────────────────────────────
 
-test("every constituency id in the seed redirects to the assembly seat of that number", liveIndex, () => {
+test("every constituency id in the seed redirects to the assembly seat of that number", opts, () => {
   const rows = seed<{ id: string; name: string }[]>("constituencies");
   assert.ok(rows.length >= 294, `seed has only ${rows.length} constituencies`);
 
@@ -531,7 +528,7 @@ test("every candidate id in the seed redirects to a person", opts, () => {
   );
 });
 
-test("a sitting member resolves for every seat", liveIndex, () => {
+test("a sitting member resolves for every seat", opts, () => {
   const rows = seed<{ id: string }[]>("constituencies");
   const missing = rows
     .filter((c) => legacyTarget({ route: "mla", id: c.id }).kind !== "redirect")
@@ -543,7 +540,7 @@ test("a sitting member resolves for every seat", liveIndex, () => {
   );
 });
 
-test("garbage ids resolve to a 404 rather than throwing", liveIndex, () => {
+test("garbage ids resolve to a 404 rather than throwing", opts, () => {
   for (const bad of ["", "   ", "c9999", "wb26_999999", "'; DROP TABLE person; --", "\u0000"]) {
     assert.deepEqual(legacyTarget({ route: "constituency-id", id: bad }), NOT_FOUND, bad);
     assert.deepEqual(legacyTarget({ route: "mla", id: bad }), NOT_FOUND, bad);

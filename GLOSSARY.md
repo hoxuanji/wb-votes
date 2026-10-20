@@ -116,7 +116,7 @@ Two or more current seats of one state and body whose names, read as words, are 
 _Avoid_: Duplicate seats, namesakes
 
 **Current seat**:
-A seat version of the epoch its house votes under in its state. The same seat number under an earlier epoch is a different constituency, and the place resolver answers only with current seats.
+A seat version of the epoch its house votes under in its state; a registry built before migration 017 cannot say which epoch that is, and there it is the newest version of the seat number. The same seat number under an earlier epoch is a different constituency, and the place resolver answers only with current seats.
 _Avoid_: Active seat, latest seat
 
 **Retired name**:

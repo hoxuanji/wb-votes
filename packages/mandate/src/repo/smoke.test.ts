@@ -32,7 +32,6 @@ import * as legacy from "./legacy.ts";
 import { placeView } from "./place-view.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
 import { readRegistry } from "./session.ts";
-import { skipUnlessVotingEpoch } from "./testkit.ts";
 import { personReply, placeReply, searchReply } from "./envelope.ts";
 
 function haveRegistry(): boolean {
@@ -49,8 +48,6 @@ function haveRegistry(): boolean {
   }
 }
 const skip = haveRegistry() ? false : `no registry at ${DEV_DB_PATH}`;
-/** The place pages and the place endpoint need migration 017's `voting_epoch` view, which an older registry lacks. */
-const skipIndex = skipUnlessVotingEpoch();
 const db = (): DatabaseSync => openRead(DEV_DB_PATH);
 /** A reader over the handle a test holds, for a function that takes the session as a parameter. */
 const over =
@@ -310,7 +307,7 @@ test("review queue and legacy adapters run", { skip }, () => {
   d.close();
 });
 
-test("the legacy id routes run", { skip: skipIndex }, () => {
+test("the legacy id routes run", { skip }, () => {
   const d = db();
   ran("legacyTarget constituency-id", () => legacy.legacyTarget({ route: "constituency-id", id: "1" }, over(d)));
   ran("legacyTarget mla", () => legacy.legacyTarget({ route: "mla", id: "1" }, over(d)));
@@ -327,7 +324,7 @@ test("the API envelope answers 200 for real ids", { skip }, async () => {
   assert.equal(search.status, 200, `searchReply: ${JSON.stringify(search.body).slice(0, 160)}`);
 });
 
-test("the API envelope answers a seat by its place id", { skip: skipIndex }, async () => {
+test("the API envelope answers a seat by its place id", { skip }, async () => {
   const d = db();
   const f = fixtures(d);
   d.close();
@@ -335,7 +332,7 @@ test("the API envelope answers a seat by its place id", { skip: skipIndex }, asy
   assert.equal(pl.status, 200, `placeReply: ${JSON.stringify(pl.body).slice(0, 160)}`);
 });
 
-test("placeView renders every level of the path grammar", { skip: skipIndex }, async () => {
+test("placeView renders every level of the path grammar", { skip }, async () => {
   const d = db();
   const f = fixtures(d);
   // The path grammar is /pl/:state · /pl/:state/:district · /pl/:state/:district/:ac, so build a real

@@ -1,10 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { open } from "../db/index.ts";
+import { DEV_DB_PATH, open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { turnout_pct } from "../semantic/index.ts";
 import { pathQuery } from "./legacy.ts";
@@ -12,10 +12,8 @@ import { analysisCards, anomalies, placeTiles } from "./place-presentation.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
 import { placeView, resolveRequest } from "./place-view.ts";
 import { readRegistry } from "./session.ts";
-import { skipUnlessVotingEpoch } from "./testkit.ts";
 
-/** A place is resolved against migration 017's `voting_epoch` view, which a registry built before it lacks. */
-const skipIndex = skipUnlessVotingEpoch();
+const live = { skip: existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH) ? false : "no .data/registry.db" };
 
 /** A `/pl` path, as the query it makes. */
 function pathOf(...segments: string[]): PlaceQuery {
@@ -26,14 +24,14 @@ function pathOf(...segments: string[]): PlaceQuery {
 
 // ── the URL ──────────────────────────────────────────────────────────────────────────────────────
 
-test("placeView: a malformed percent-escape is not-found, not a server error", { skip: skipIndex }, async () => {
+test("placeView: a malformed percent-escape is not-found, not a server error", live, async () => {
   assert.equal((await placeView(pathOf("wb", "50%"), {})).kind, "not-found");
   assert.equal((await placeView(pathOf("wb", "cooch-behar", "%zz"), {})).kind, "not-found");
 });
 
 // ── tiles, anomalies, cards, against the live registry ───────────────────────────────────────────
 
-test("placeView: Mekliganj renders six tiles, each cited, census vintage in the tile", { skip: skipIndex }, async () => {
+test("placeView: Mekliganj renders six tiles, each cited, census vintage in the tile", live, async () => {
   const v = await placeView(pathOf("wb", "cooch-behar", "mekliganj"), {});
   assert.equal(v.kind, "ac");
   if (v.kind !== "ac") return;
@@ -71,7 +69,7 @@ test("placeView: Mekliganj renders six tiles, each cited, census vintage in the 
 // The two seats are read from the registry, because their numbers are the registry's and not this test's. The seed holds
 // them as wb.ac.266 (Bankura) and wb.ac.154 (South 24 Parganas), and nothing at wb.ac.146; the fixtures below carry the
 // South 24 Parganas seat as wb.ac.146, spelled 'BISHNUPUR(SC)', and this test used to name that number against the seed.
-test("placeView: a duplicated AC name resolves by the district in the path", { skip: skipIndex }, async () => {
+test("placeView: a duplicated AC name resolves by the district in the path", live, async () => {
   const read = readRegistry(
     (db) =>
       db
@@ -99,7 +97,7 @@ test("placeView: a duplicated AC name resolves by the district in the path", { s
   assert.equal((await placeView(pathOf("wb", "kolkata", "bishnupur"), {})).kind, "not-found");
 });
 
-test("placeView: an anomaly is never derived from a figure we decline to assert", { skip: skipIndex }, async () => {
+test("placeView: an anomaly is never derived from a figure we decline to assert", live, async () => {
   /**
    * THIS TEST USED TO REQUIRE THE OPPOSITE, and its own premise was the defect.
    *
@@ -131,7 +129,7 @@ test("placeView: an anomaly is never derived from a figure we decline to assert"
   }
 });
 
-test("analysisCards: six to twelve question-titled cards, each with a table", { skip: skipIndex }, async () => {
+test("analysisCards: six to twelve question-titled cards, each with a table", live, async () => {
   const v = await placeView(pathOf("wb", "kolkata", "jadavpur"), {});
   assert.equal(v.kind, "ac");
   if (v.kind !== "ac") return;
@@ -148,7 +146,7 @@ test("analysisCards: six to twelve question-titled cards, each with a table", { 
   assert.match(enpCard?.note ?? "", /OVERSTATES concentration/);
 });
 
-test("analysisCards: a one-election window has no swing card, and does not fake one", { skip: skipIndex }, async () => {
+test("analysisCards: a one-election window has no swing card, and does not fake one", live, async () => {
   const v = await placeView(pathOf("wb", "kolkata", "jadavpur"), { from: "2026", to: "2026" });
   assert.equal(v.kind, "ac");
   if (v.kind !== "ac") return;
@@ -158,7 +156,7 @@ test("analysisCards: a one-election window has no swing card, and does not fake 
   assert.ok(cards.length >= 1);
 });
 
-test("analysisCards: the share chart reconciles with the data when two contestants share a label", { skip: skipIndex }, async () => {
+test("analysisCards: the share chart reconciles with the data when two contestants share a label", live, async () => {
   // Kalimpong 2021: IND 37.6% (RUDEN SADA LEPCHA), BJP 35.1%, IND 20.6% (DR. R.B. BHUJEL), rest 2.3%.
   // Keying the series by label and taking the FIRST match dropped the third-placed 20.6% out of the
   // chart and out of the Others bucket both, so the rendered row totalled 75.0% against 95.6%.
@@ -179,7 +177,7 @@ test("analysisCards: the share chart reconciles with the data when two contestan
   assert.deepEqual(row, ["2021", "—", "58.2%", "35.1%", "2.3%"], "the two independents are summed, not dropped");
 });
 
-test("analysisCards: a party-filtered pair says the party has no earlier share, not that votes are missing", { skip: skipIndex }, async () => {
+test("analysisCards: a party-filtered pair says the party has no earlier share, not that votes are missing", live, async () => {
   const v = await placeView(pathOf("wb", "cooch-behar", "mekliganj"), { party: "TMC" });
   assert.equal(v.kind, "ac");
   if (v.kind !== "ac") return;
@@ -190,7 +188,7 @@ test("analysisCards: a party-filtered pair says the party has no earlier share, 
   assert.doesNotMatch(card.chart.table.caption, /no vote count on record/);
 });
 
-test("placeView: a district's turnout column IS turnout_pct, the same measure the Analysis floor uses", { skip: skipIndex }, async () => {
+test("placeView: a district's turnout column IS turnout_pct, the same measure the Analysis floor uses", live, async () => {
   const d = await placeView(pathOf("wb", "cooch-behar"), {});
   const seat = await placeView(pathOf("wb", "cooch-behar", "mekliganj"), {});
   assert.equal(d.kind, "parent");
@@ -201,7 +199,7 @@ test("placeView: a district's turnout column IS turnout_pct, the same measure th
   assert.equal(d.children.rows[0]?.cols[turnout], turnout_pct.format(latest?.turnoutPct ?? null));
 });
 
-test("placeView: a district lists its seats", { skip: skipIndex }, async () => {
+test("placeView: a district lists its seats", live, async () => {
   const d = await placeView(pathOf("wb", "cooch-behar"), {});
   assert.equal(d.kind, "parent");
   if (d.kind !== "parent" || d.level !== "district") return assert.fail("not a district view");
@@ -211,7 +209,7 @@ test("placeView: a district lists its seats", { skip: skipIndex }, async () => {
   assert.ok(d.sources.length > 0, "a parent level is cited too");
 });
 
-test("placeView: the path's ancestry must be true, and an unknown place is not-found", { skip: skipIndex }, async () => {
+test("placeView: the path's ancestry must be true, and an unknown place is not-found", live, async () => {
   assert.equal((await placeView(pathOf("wb", "nadia", "mekliganj"), {})).kind, "not-found");
   assert.equal((await placeView(pathOf("wb", "cooch-behar", "nowhere"), {})).kind, "not-found");
   assert.equal((await placeView(pathOf("xx"), {})).kind, "not-found");
@@ -253,7 +251,6 @@ function defectiveRegistry(): string {
     CREATE TABLE place_version (id INTEGER, place_id TEXT, jurisdiction_id TEXT, kind TEXT, epoch_id TEXT,
                                 canonical_name TEXT);
     CREATE TABLE boundary_epoch (id TEXT, effective_from TEXT);
-    CREATE TABLE voting_epoch (jurisdiction_id TEXT, house TEXT, epoch_id TEXT);
   `);
   d.close();
   return path;

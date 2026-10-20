@@ -7,12 +7,10 @@ import { placeView, resolveRequest } from "./place-view.ts";
 import { constituencyHref } from "./routes.ts";
 import { searchAll } from "./search.ts";
 import { getPersonBrief } from "./person.ts";
-import { skipUnlessVotingEpoch } from "./testkit.ts";
+import { currentSeat } from "./testkit.ts";
 
 const HAVE = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE ? false : "no .data/registry.db" };
-/** The tests that resolve a place need migration 017's `voting_epoch` view, which a registry built before it lacks. */
-const liveIndex = { skip: live.skip || skipUnlessVotingEpoch() };
 const db = HAVE ? openRead() : (null as unknown as ReturnType<typeof openRead>);
 
 /**
@@ -28,16 +26,14 @@ const db = HAVE ? openRead() : (null as unknown as ReturnType<typeof openRead>);
 type Seat = { j: string; name: string; kind: string; epoch: string; drawn: number };
 
 /**
- * A seat the resolver can answer: of the epoch its house votes under, and the only seat of its body in its state
- * that goes by its name. A tie is `many` and a retired seat is `none`, which are right answers and not what these
- * fixtures are for.
+ * A seat the resolver can answer: current, and the only current seat of its body in its state that goes by its name. A
+ * tie is `many` and a retired seat is `none`, which are right answers and not what these fixtures are for.
  */
 const answerable = (a: string): string => `
-  EXISTS (SELECT 1 FROM voting_epoch ve
-           WHERE ve.jurisdiction_id = ${a}.jurisdiction_id AND ve.house = ${a}.kind AND ve.epoch_id = ${a}.epoch_id)
+  ${currentSeat(db, a)}
   AND (SELECT COUNT(*) FROM place_version t
-        WHERE t.jurisdiction_id = ${a}.jurisdiction_id AND t.kind = ${a}.kind AND t.epoch_id = ${a}.epoch_id
-          AND LOWER(t.canonical_name) = LOWER(${a}.canonical_name)) = 1`;
+        WHERE t.jurisdiction_id = ${a}.jurisdiction_id AND t.kind = ${a}.kind
+          AND LOWER(t.canonical_name) = LOWER(${a}.canonical_name) AND ${currentSeat(db, "t")}) = 1`;
 
 function seats(kind: "ac" | "pc", sql: string, ...binds: (string | number)[]): Seat[] {
   return all<Seat>(
@@ -74,7 +70,7 @@ function bySize(kind: "ac" | "pc", pick: "smallest" | "largest"): Seat | undefin
   return seats(kind, "AND pv.jurisdiction_id = ? ORDER BY be.effective_from DESC, pv.number LIMIT 1", j)[0];
 }
 
-test("a parliamentary and an assembly seat resolve through the same code path", liveIndex, async () => {
+test("a parliamentary and an assembly seat resolve through the same code path", live, async () => {
   const cases = [
     bySize("ac", "smallest"),
     bySize("ac", "largest"),
@@ -196,7 +192,7 @@ test("the registry cannot express assembly segments of a parliamentary seat", li
   assert.equal(cross, 0, "a cross-body relationship now exists — build the assembly-segments section");
 });
 
-test("same name, same state, different body: two distinct entities, always", liveIndex, async () => {
+test("same name, same state, different body: two distinct entities, always", live, async () => {
   /**
    * THE CENTRAL CONTRACT OF PHASE D.1, over EVERY collision the registry holds rather than one example.
    *
@@ -243,7 +239,7 @@ test("same name, same state, different body: two distinct entities, always", liv
   }
 });
 
-test("the pre-body URL asks rather than choosing, and resolves when it is unambiguous", liveIndex, async () => {
+test("the pre-body URL asks rather than choosing, and resolves when it is unambiguous", live, async () => {
   // AMBIGUOUS: both bodies exist, so the resolver returns two and the route offers a choice.
   const collide = all<{ j: string; name: string }>(
     db,
@@ -282,7 +278,7 @@ test("the pre-body URL asks rather than choosing, and resolves when it is unambi
   });
 });
 
-test("a parliamentary seat is searchable, and its state is its jurisdiction", liveIndex, async () => {
+test("a parliamentary seat is searchable, and its state is its jurisdiction", live, async () => {
   /**
    * TWO DEFECTS, both of which made a Lok Sabha seat unreachable through search.
    *

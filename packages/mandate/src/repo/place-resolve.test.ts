@@ -10,16 +10,17 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync } from "node:fs";
+import { existsSync, mkdtempSync, statSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { ensureEpochs } from "../db/epochs.ts";
-import { open, openRead } from "../db/index.ts";
+import { DEV_DB_PATH, all, open, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { loadPlaceIndex, placeIndex, resolve, seatHref, seatTies, tiedVersions } from "./place-resolve.ts";
 import type { DistrictRow, Found, Place, PlaceIndex, PlaceQuery, SeatRow, StateRow } from "./place-resolve.ts";
 import { constituencyHref, districtHref, stateHref } from "./routes.ts";
+import { currentSeat } from "./testkit.ts";
 
 // ── a hand-built index ───────────────────────────────────────────────────────────────────────────
 
@@ -797,33 +798,274 @@ test("seatTies: a retired pair that shares a name is not tied, a current pair is
   }
 });
 
-test("seatTies on a registry without voting_epoch: no seat is current, so none is tied and nothing throws", () => {
-  // A registry that predates migration 017 cannot say which seats answer, and the resolver cannot be built on it. A
-  // page that only links seats still renders there, with every link a seat's name, as it was before any seat was
-  // addressed by id.
+// ── a registry built before migration 017 degrades ───────────────────────────────────────────────
+
+test("a registry without voting_epoch degrades: a seat is current when it is the newest version of its place", () => {
+  const d = fixture();
+  try {
+    d.exec("DROP VIEW voting_epoch");
+    const ix = loadPlaceIndex(d);
+    const cur = new Map(ix.seats.map((s) => [s.versionId, s.current]));
+    // A place with one version has it current, and the later version of a seat number is the one that answers.
+    assert.deepEqual([cur.get(1), cur.get(2), cur.get(3), cur.get(4)], [true, true, true, true]);
+    assert.deepEqual([cur.get(10), cur.get(11)], [false, true]);
+    // What the view decides and the newest version cannot: a seat number the 2008 order abolished keeps its last
+    // version, and Goa, which has no election, has a current seat. Both are the cost of not having migration 017.
+    assert.equal(cur.get(12), true);
+    assert.equal(cur.get(30), true);
+    // Assam's Lok Sabha seat: the 2023 version is the newest and the one its house voted under, so no difference here.
+    assert.deepEqual([cur.get(20), cur.get(21), cur.get(22)], [true, false, true]);
+    // D26 holds for every version that is not the newest: a retired name does not resolve.
+    assert.deepEqual(resolve(ix, { level: "seat", state: "ka", name: "badami" }), { found: "none" });
+    assert.equal(versionOf(one(resolve(ix, { level: "seat", state: "ka", name: "nanjangud" }))), 11);
+    assert.equal(versionOf(one(resolve(ix, { level: "seat", state: "as", body: "lok-sabha", name: "dibrugarh" }))), 22);
+  } finally {
+    d.close();
+  }
+});
+
+test("without voting_epoch, seatTies and the index tie the same seats, and a retired version of a place is never among them", () => {
   const d = fixture();
   try {
     d.exec(`
       INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.268', 'ac', 'Bishnupur', 'wb.cooch-behar');
       INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
         VALUES (5, 'wb.ac.268', 'wb', 'ac', 'delim-2008', 268, 'Bishnupur', 'wb.cooch-behar', 'general');
+      INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('wb-assembly-2021:5', 'wb-assembly-2021', 5, 'declared');
+      -- two places both called Old Twin under the 1976 order and named otherwise under the 2008 one
+      INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('ka.ac.301', 'ac', 'New One', 'ka'), ('ka.ac.302', 'ac', 'New Two', 'ka');
+      INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
+        VALUES (50, 'ka.ac.301', 'ka', 'ac', 'delim-1976', 301, 'Old Twin', 'ka.bangalore', 'general'),
+               (51, 'ka.ac.302', 'ka', 'ac', 'delim-1976', 302, 'Old Twin', 'ka.bangalore', 'general'),
+               (52, 'ka.ac.301', 'ka', 'ac', 'delim-2008', 301, 'New One', 'ka.bangalore', 'general'),
+               (53, 'ka.ac.302', 'ka', 'ac', 'delim-2008', 302, 'New Two', 'ka.bangalore', 'general');
     `);
-    assert.deepEqual([...seatTies(d)], [2, 5], "with the view, the two Bishnupurs are tied");
+    assert.deepEqual([...seatTies(d)], [2, 5], "with the view, the two Bishnupurs are tied and the retired pair is not");
+    d.exec("DROP VIEW voting_epoch");
+    const ties = seatTies(d);
+    assert.deepEqual([...ties], [2, 5], "without it, the same two");
+    assert.deepEqual([...tiedVersions(loadPlaceIndex(d).seats)], [2, 5], "and the index agrees with the registry");
+    const old = loadPlaceIndex(d).seats.find((s) => s.versionId === 50) as SeatRow;
+    assert.equal(old.current, false);
+    assert.equal(seatHref(ties, old), constituencyHref({ jurisdictionId: "ka", kind: "ac", canonicalName: "Old Twin" }));
   } finally {
     d.close();
   }
-  const bare = fixture();
+});
+
+test("Assam: a newest order nobody has voted under is declined with the view, and answered without it", () => {
+  const d = fixture();
   try {
-    bare.exec(`
-      INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.268', 'ac', 'Bishnupur', 'wb.cooch-behar');
-      INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
-        VALUES (5, 'wb.ac.268', 'wb', 'ac', 'delim-2008', 268, 'Bishnupur', 'wb.cooch-behar', 'general');
-      DROP VIEW voting_epoch;
+    // delim-2023-as redraws an Assam assembly seat, and no election has been held on it
+    d.exec(`
+      INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+        VALUES (23, 'as.ac.001', 'as', 'ac', 'delim-2023-as', 1, 'Dibrugarh East', 'general');
     `);
-    assert.deepEqual([...seatTies(bare)], []);
-    assert.throws(() => loadPlaceIndex(bare), { name: "RegistryUnavailableError" });
+    const asked = (ix: PlaceIndex, name: string): Found =>
+      resolve(ix, { level: "seat", state: "as", body: "assembly", name });
+    const ix = loadPlaceIndex(d);
+    assert.deepEqual(
+      [20, 23].map((v) => ix.seats.find((s) => s.versionId === v)?.current),
+      [true, false],
+      "the house votes under delim-2008, so that version is the current one although a newer order holds the seat",
+    );
+    assert.equal(versionOf(one(asked(ix, "dibrugarh"))), 20);
+    assert.deepEqual(asked(ix, "dibrugarh-east"), { found: "none" }, "the version nobody has voted under is not answered");
+    // The registry before migration 017 cannot tell, so it takes the newest version of the place.
+    d.exec("DROP VIEW voting_epoch");
+    const bare = loadPlaceIndex(d);
+    assert.equal(versionOf(one(asked(bare, "dibrugarh-east"))), 23);
+    assert.deepEqual(asked(bare, "dibrugarh"), { found: "none" }, "and the name it replaced is retired, as D26 says");
   } finally {
-    bare.close();
+    d.close();
+  }
+});
+
+/** A question of each shape the resolver answers for a seat, asked about every version of every seat in `ix`. */
+function questionsAbout(ix: PlaceIndex): PlaceQuery[] {
+  return ix.seats.flatMap((s): PlaceQuery[] => {
+    const scope = { state: s.stateId, body: bodyOf(s) } as const;
+    return [
+      { level: "seat", name: s.name },
+      { level: "seat", state: s.stateId, name: s.name.toLowerCase() },
+      { level: "seat", ...scope, name: s.name },
+      { level: "seat", ...scope, name: s.name.replace(/\(.*\)/, "") },
+      { level: "seat", ...scope, name: s.name.toLowerCase().replaceAll(" ", "") },
+      { level: "seat", ...scope, placeId: s.placeId },
+      { level: "seat", ...scope, number: s.number as number },
+      ...(s.districtId === null
+        ? []
+        : [{ level: "seat", ...scope, district: s.districtId.split(".").at(-1) as string, name: s.name } as PlaceQuery]),
+    ];
+  });
+}
+
+/** What a registry says about its places: its index, the seats that are tied, and the answer to each question. */
+function answersOf(d: DatabaseSync, questions: readonly PlaceQuery[]) {
+  const index = loadPlaceIndex(d);
+  return { index, ties: [...seatTies(d)], found: questions.map((q) => resolve(index, q)) };
+}
+
+/** A registry's answers as it stands, and again once its `voting_epoch` view is dropped: the registry as 016 left it. */
+function bothWays(d: DatabaseSync) {
+  const questions = questionsAbout(loadPlaceIndex(d));
+  const migrated = answersOf(d, questions);
+  d.exec("DROP VIEW voting_epoch");
+  return { migrated, bare: answersOf(d, questions) };
+}
+
+/** A small deterministic generator, so a registry that fails can be rebuilt from its seed. */
+function rng(seed: number): (n: number) => number {
+  let s = seed >>> 0;
+  return (n) => {
+    s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
+    return s % n;
+  };
+}
+
+/** Names drawn from a small pool, so that seats tie, share a name with an earlier self, and differ by a marker. */
+const POOL = ["Bishnupur", "BISHNUPUR(SC)", "Twin", "Coochbehar Uttar", "Kalyani", "Saharanpur", "Khanapur(ST)"];
+
+/**
+ * Two or three states, each with an assembly and a Lok Sabha house that has voted under one of three orders, and in which
+ * every place has a version under that order and up to two before it. Those are the registries on which the view and the
+ * newest version of a place name the same seats as current. `neverVoted` adds the one thing they disagree on: the first
+ * house's seat 1 also has a version under an order newer than the one the house voted under, which nobody has voted on.
+ */
+function randomRegistry(seed: number, neverVoted = false): DatabaseSync {
+  const next = rng(seed);
+  const epochs = ["delim-1976", "delim-2008", "delim-2023"] as const;
+  const d = open(":memory:");
+  migrate(d, NOW);
+  d.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('delim-1976', 'Delimitation 1976', '1976-01-01');
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('delim-2008', 'Delimitation 2008', '2008-02-19');
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('delim-2023', 'Delimitation 2023', '2023-03-01');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('in', 'nation', 'India');
+  `);
+  const insertPlace = d.prepare("INSERT INTO place (id, kind, canonical_name, parent_id) VALUES (?, ?, ?, ?)");
+  const insertVersion = d.prepare(
+    `INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'general')`,
+  );
+  const election = d.prepare(
+    `INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, polling_month, occurrence)
+     VALUES (?, ?, ?, ?, ?, ?, 'declared', ?, ?, 4, 1)`,
+  );
+  const contest = d.prepare("INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES (?, ?, ?, 'declared')");
+  let version = 0;
+  let first = true;
+  const states = ["wb", "ka", "up", "as"].slice(0, 2 + next(2));
+  for (const [si, st] of states.entries()) {
+    insertPlace.run(st, "state", st, "in");
+    const districts = [`${st}.north`, `${st}.south`];
+    for (const dist of districts) insertPlace.run(dist, "district", dist, st);
+    for (const kind of ["ac", "pc"] as const) {
+      const voted = neverVoted ? next(2) : next(3);
+      const voting: number[] = [];
+      const places = 3 + next(kind === "ac" ? 4 : 2);
+      for (let n = 1; n <= places; n++) {
+        const place = `${st}.${kind}.${String(n).padStart(3, "0")}`;
+        const district = kind === "ac" ? (districts[next(2)] as string) : null;
+        insertPlace.run(place, kind, `Seat ${place}`, district ?? st);
+        const versions = [...epochs.keys()].filter((e) => e === voted || (e < voted && next(2) === 0));
+        if (neverVoted && first && n === 1) versions.push(voted + 1);
+        for (const e of versions) {
+          const name = next(3) === 0 ? `Seat ${place} ${e}` : (POOL[next(POOL.length)] as string);
+          // An older order gets the higher ids, so that the newest version of a place is never the one with the highest id.
+          const vid = (epochs.length - e) * 1000 + ++version;
+          insertVersion.run(vid, place, st, kind, epochs[e] as string, n, name, next(2) === 0 ? district : null);
+          if (e === voted) voting.push(vid);
+        }
+      }
+      const id = `${st}-${kind}`;
+      const epoch = epochs[voted] as string;
+      if (kind === "ac") election.run(id, "assembly", "state", st, epoch, id, "ac", 2020);
+      else election.run(id, "general", "union", "in", epoch, id, "pc", 2010 + si);
+      for (const v of voting) contest.run(`${id}:${v}`, id, v);
+      first = false;
+    }
+  }
+  return d;
+}
+
+test("a registry without voting_epoch answers as the migrated one does wherever each house has voted under its newest order", () => {
+  // Every question about every version of every seat, the registry's index and its ties: 40 registries whose places
+  // have up to three versions, so that retired names, ties and the number and district forms are all in them.
+  let retired = 0;
+  let tied = 0;
+  let questions = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const d = randomRegistry(seed);
+    try {
+      const { migrated, bare } = bothWays(d);
+      assert.deepEqual(bare, migrated, `registry ${seed}`);
+      retired += migrated.index.seats.filter((s) => !s.current).length;
+      tied += migrated.ties.length;
+      questions += migrated.found.length;
+    } finally {
+      d.close();
+    }
+  }
+  assert.ok(retired > 100 && tied > 50, `the registries held ${retired} retired versions and ${tied} tied ones: nothing to hold equal`);
+  assert.ok(questions > 5000, `${questions} questions`);
+});
+
+test("the comparison can fail: a version of a place under an order nobody has voted under is where the two rules part", () => {
+  // The negative control of the test above. Without it a comparison that asked nothing would pass.
+  for (let seed = 1; seed <= 10; seed++) {
+    const d = randomRegistry(seed, true);
+    try {
+      const { migrated, bare } = bothWays(d);
+      assert.notDeepEqual(bare.index, migrated.index, `registry ${seed}`);
+    } finally {
+      d.close();
+    }
+  }
+});
+
+test("on the registry itself the two ways agree, when every seat number has one version and every house has voted", (t) => {
+  const file = process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH;
+  if (!existsSync(file)) return t.skip("no .data/registry.db");
+  if (statSync(file).size > 64 * 1024 * 1024) return t.skip("the registry is too large to copy for a test");
+  // A copy with migration 017 applied, because the registry in the checkout may not have it and must not be written.
+  const copy = join(mkdtempSync(join(tmpdir(), "mandate-degrade-")), "registry.db");
+  const src = openRead(file);
+  try {
+    src.exec(`VACUUM INTO '${copy}'`);
+  } finally {
+    src.close();
+  }
+  const d = open(copy);
+  try {
+    migrate(d, NOW);
+    const seats = loadPlaceIndex(d).seats;
+    if (!seats.every((s) => s.current) || new Set(seats.map((s) => s.placeId)).size !== seats.length) {
+      return t.skip("this registry holds older versions of a seat, or a house that has not voted: the rules part there");
+    }
+    const { migrated, bare } = bothWays(d);
+    assert.ok(migrated.found.length > 0);
+    assert.deepEqual(bare, migrated);
+  } finally {
+    d.close();
+  }
+});
+
+test("the SQL a test picks current seats with is the loader's own choice, with the view and without it", () => {
+  const d = fixture();
+  try {
+    const chosen = (): number[] =>
+      all<{ id: number }>(d, `SELECT pv.id FROM place_version pv WHERE pv.kind IN ('ac', 'pc') AND ${currentSeat(d, "pv")} ORDER BY pv.id`)
+        .map((r) => r.id);
+    const loaded = (): number[] =>
+      loadPlaceIndex(d).seats.filter((s) => s.current).map((s) => s.versionId).sort((a, b) => a - b);
+    assert.deepEqual(chosen(), loaded());
+    const withView = chosen();
+    d.exec("DROP VIEW voting_epoch");
+    assert.deepEqual(chosen(), loaded());
+    assert.notDeepEqual(chosen(), withView, "the fixture is one on which the two rules differ, so this is not vacuous");
+  } finally {
+    d.close();
   }
 });
 

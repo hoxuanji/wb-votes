@@ -157,15 +157,15 @@ test("a person's seat is linked by its registry id when another current seat of 
   assert.equal(lone.value.candidacies[0]?.placeHref, "/constituency/wb/assembly/lone");
 });
 
-test("a registry that cannot say which seats are current links every seat by its name, as it did, and still serves the person", () => {
-  // migration 017's view is what makes a seat current, and a registry built before it has none: no seat is tied there.
+test("a registry without migration 017 links a tied seat by its registry id too, and still serves the person", () => {
+  // the voting_epoch view is migration 017's; without it the newest version of each place is current, so the tie stands.
   const old = registry();
   const d = open(old);
   d.exec("DROP VIEW voting_epoch");
   d.close();
   const brief = readRegistry((db) => getPersonBrief(db, TIED), { path: old });
   assert.ok(brief.ok && brief.value !== null);
-  assert.equal(brief.value.candidacies[0]?.placeHref, "/constituency/wb/assembly/bishnupur");
+  assert.equal(brief.value.candidacies[0]?.placeHref, "/constituency/wb/assembly/wb.ac.266");
 });
 
 test("the person page links a tied seat to that seat, and not to the page that asks which was meant", () => {

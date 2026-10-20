@@ -240,6 +240,10 @@ Stated here so nobody discovers them from a reader:
 * **Assam and Jammu & Kashmir have no 2024 parliamentary geometry.** Those views say so and list every result.
 * **A Lok Sabha seat has no district**, and no assembly-segment list exists. The registry asserts no such
   relationship and none was invented.
+* **A registry built before migration 017 has no `voting_epoch` view, and every page still renders from it.** Without
+  the view a seat is current when it is the newest version of its place; the view is what makes that exact, by naming
+  the delimitation each house last voted under, which differs from the newest order where no election has yet been
+  held under it (Assam's assembly). `npm run registry:migrate` applies it.
 
 ### What `vercel.json` still does
 
