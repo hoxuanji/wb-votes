@@ -18,11 +18,11 @@
 // one meant a state, two a district, three a constituency. So the type of a thing was a property of how
 // long its URL happened to be, and a malformed path resolved to a different entity rather than to nothing.
 //
-//   /state/<state>                     ka
-//   /district/<state>/<district>       ka/bangalore
-//   /constituency/<state>/<name>       ka/jayanagar
-//   /election/<election>               ka-assembly-2023
-//   /p/<person>                        md-salim
+//   /state/<state>                        ka
+//   /district/<state>/<district>          ka/bangalore
+//   /constituency/<state>/<body>/<name>   ka/assembly/jayanagar
+//   /election/<election>                  ka-assembly-2023
+//   /p/<person>                           md-salim
 //
 // The type is now in the PREFIX. Depth inside a route is fixed and known, so nothing infers.
 //

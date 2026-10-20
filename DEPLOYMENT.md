@@ -46,8 +46,8 @@ npm run dev                  # http://localhost:3000
 **The last two steps are what makes the maps exist.** `data/geo/sources.json` declares two boundary datasets
 with their publisher, URL, licence and sha256; `fetch` acquires them and **refuses a file whose bytes do not
 match the manifest**; `import` resolves each polygon to a jurisdiction, a boundary epoch and a
-`place_version`, validates it, and writes what it resolved. Without them the state pages fall back to
-district tallies and say so, which is a working product with no electoral map rather than a broken one.
+`place_version`, validates it, and writes what it resolved. Without them a state page draws no map and says no
+boundary map is available, which is a working product with no electoral map rather than a broken one.
 
 Add `--replace` to overwrite geometry an earlier run wrote. Run `geography inspect` first to see what would
 happen — it is the same decision, printed, with nothing written.
@@ -241,9 +241,11 @@ Stated here so nobody discovers them from a reader:
 * **A Lok Sabha seat has no district**, and no assembly-segment list exists. The registry asserts no such
   relationship and none was invented.
 * **A registry built before migration 017 has no `voting_epoch` view, and every page still renders from it.** Without
-  the view a seat is current when it is the newest version of its place; the view is what makes that exact, by naming
-  the delimitation each house last voted under, which differs from the newest order where no election has yet been
-  held under it (Assam's assembly). `npm run registry:migrate` applies it.
+  the view a seat is current when it is the newest version of its place, and place pages and search ask that one
+  question. It is the same answer wherever a seat number has one version; the view is what makes it exact, because
+  without it a version of an order nobody has voted under yet is current, and so is the last version of a seat number
+  that a later order abolished. `npm run registry:migrate` applies it. `npm run mandate -- release` and the seat-name
+  checks of `geography validate` still read the view, so they need it.
 
 ### What `vercel.json` still does
 

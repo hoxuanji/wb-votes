@@ -68,14 +68,6 @@ function pct(v: number | null, dp = 1): string {
   return `${v.toFixed(dp)}%`;
 }
 
-/**
- * A district's own page, from the dotted place id the seats already carry.
- *
- * `ka.bangalore` -> `/district/ka/bangalore`. Built here rather than threaded through the data layer, because it is
- * one `slice` and the type it would live on is one whose whole point is that a district has no winner.
- */
-const districtPath = districtHref;
-
 export function StateSurface({
   name,
   view,
@@ -300,7 +292,7 @@ export function StateSurface({
                 </summary>
                 {focused === null ? null : (
                   <p className="iei-district-open-now">
-                    <Link className="iei-district-cta" href={districtPath(focused.id)}>
+                    <Link className="iei-district-cta" href={districtHref(focused.id)}>
                       Open the {focused.name} district page →
                     </Link>
                     <Link className="iei-district-clear" href={selection.href({ district: focused.id })}>
@@ -320,7 +312,7 @@ export function StateSurface({
                       </Link>
                       <Link
                         className="iei-district-open"
-                        href={districtPath(d.id)}
+                        href={districtHref(d.id)}
                         aria-label={`Open the ${d.name} district page`}
                       >
                         open →

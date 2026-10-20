@@ -160,6 +160,11 @@ it fills a few vacancies of a house elected earlier and cannot introduce a delim
 whenever an order has taken effect that no election has yet been held under: an Assam assembly last elected
 before its 2023 order still votes on DPACO 2008 although that order is in force.
 
+A registry built before migration 017 has no such view. The place resolver and search then take the newest version
+of each place id as current (`currentSeats` in `packages/mandate/src/repo/place-resolve.ts`): the same answer
+wherever a seat number has one version, but not the voting epoch where a version of an order nobody has voted
+under yet exists, or where a later order abolished a seat number.
+
 An epoch's end is not stored. `boundary_epoch.effective_to` stays NULL, because a national order is superseded
 in one state and not in another (DPACO 2008 is superseded in Assam and Jammu & Kashmir and not in Bihar) and no
 single column can say both. The end is the start of the epoch's successor in that jurisdiction,
@@ -205,9 +210,15 @@ Not implemented in this task; the model comes first.
 /pl/<legacy-place-id>                               301 → the current-epoch seat at that number
 ```
 
-`current` resolves through `currentEpoch()`, so the canonical URL survives the next delimitation while
-the historical URL keeps pointing at the geography that actually held the election. Existing
-`/pl/wb.ac.284` links keep working; they are redirects, not identities.
+`current` is not stored on a seat. It resolves as section 3.4 describes, through `inForce` for the order that
+governs a date, `votingEpochs` for the epoch a house is elected under, and `successor` for where an epoch ends,
+so the canonical URL survives the next delimitation while the historical URL keeps pointing at the geography
+that actually held the election. Existing `/pl/wb.ac.284` links keep working; they are redirects, not identities.
+
+What shipped differs from this sketch. The canonical routes are `/state/<state>`, `/district/<state>/<district>`,
+`/constituency/<state>/<body>/<name>` and `/election/<election>` (`repo/routes.ts`), and a constituency address
+carries its body and no epoch. `/pl/*` is redirect-only: `pathQuery` in `repo/legacy.ts` reads its path as state,
+district and seat by position, so a registry id in it is not read as one.
 
 ## 6. What the repair did, measured
 
