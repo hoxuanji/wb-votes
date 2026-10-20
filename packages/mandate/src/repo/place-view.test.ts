@@ -4,42 +4,16 @@ import { mkdtempSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
-import { DEV_DB_PATH, open, openRead } from "../db/index.ts";
+import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { turnout_pct } from "../semantic/index.ts";
-import { getPlaceAnalysis } from "./place-analysis.ts";
-import type { PlaceBrief, SourceRef } from "./index.ts";
-import {
-  analysisCards,
-  anomalies,
-  parseFilters,
-  pathQuery,
-  placeHeadline,
-  placeTiles,
-  placeView,
-  provenance,
-  resolvePlace,
-  tally,
-} from "./place-page.ts";
+import { pathQuery } from "./legacy.ts";
+import { analysisCards, anomalies, placeTiles } from "./place-presentation.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
+import { placeView, resolveRequest } from "./place-view.ts";
 import { readRegistry } from "./session.ts";
 import { skipUnlessVotingEpoch } from "./testkit.ts";
 
-// Same guard idiom as place-analysis.test.ts: the schema, not the file.
-function haveRegistry(): boolean {
-  try {
-    const d = openRead(DEV_DB_PATH);
-    try {
-      d.prepare("SELECT 1 FROM place LIMIT 1").get();
-      return true;
-    } finally {
-      d.close();
-    }
-  } catch {
-    return false;
-  }
-}
-const skip = haveRegistry() ? false : `no registry at ${DEV_DB_PATH} — run npm run registry:migrate`;
 /** A place is resolved against migration 017's `voting_epoch` view, which a registry built before it lacks. */
 const skipIndex = skipUnlessVotingEpoch();
 
@@ -52,194 +26,9 @@ function pathOf(...segments: string[]): PlaceQuery {
 
 // ── the URL ──────────────────────────────────────────────────────────────────────────────────────
 
-test("pathQuery: the three levels of §7's grammar, and nothing else", () => {
-  assert.deepEqual(pathQuery(["wb"]), { level: "state", id: "wb" });
-  assert.deepEqual(pathQuery(["wb", "Cooch-Behar"]), { level: "district", state: "wb", district: "Cooch-Behar" });
-  assert.deepEqual(pathQuery(["wb", "cooch-behar", "mekliganj"]), {
-    level: "seat",
-    state: "wb",
-    district: "cooch-behar",
-    name: "mekliganj",
-  });
-  // What each level asks is the resolver's to read: it lower-cases ids, and compares a name by its words.
-  assert.equal(pathQuery([]), null);
-  assert.equal(pathQuery(["", " "]), null);
-  assert.equal(pathQuery(["wb", "a", "b", "c"]), null);
-  // %-encoded Bengali segment survives
-  assert.deepEqual(pathQuery(["wb", "cooch-behar", encodeURIComponent("মেখলিগঞ্জ")]), {
-    level: "seat",
-    state: "wb",
-    district: "cooch-behar",
-    name: "মেখলিগঞ্জ",
-  });
-  // A stray percent is a name no place has, not a URIError out of the page: Next hands the route a
-  // once-decoded segment, so "%25zz" arrives as "%zz" and decodeURIComponent throws on it.
-  assert.deepEqual(pathQuery(["wb", "%zz"]), { level: "district", state: "wb", district: "%zz" });
-  assert.deepEqual(pathQuery(["wb", "cooch-behar", "50%"]), {
-    level: "seat",
-    state: "wb",
-    district: "cooch-behar",
-    name: "50%",
-  });
-});
-
 test("placeView: a malformed percent-escape is not-found, not a server error", { skip: skipIndex }, async () => {
   assert.equal((await placeView(pathOf("wb", "50%"), {})).kind, "not-found");
   assert.equal((await placeView(pathOf("wb", "cooch-behar", "%zz"), {})).kind, "not-found");
-});
-
-// ── filters ──────────────────────────────────────────────────────────────────────────────────────
-
-const base = "/constituency/wb/assembly/mekliganj/analysis";
-const opts = { base, years: [2026, 2021, 2016, 2011], parties: ["AIFB", "BJP", "TMC"] };
-
-test("parseFilters: valid params pass, chips drop exactly one param each", () => {
-  const p = parseFilters({ from: "2016", to: "2026", party: "bjp" }, opts);
-  assert.deepEqual(p.filters, { fromYear: 2016, toYear: 2026, party: "BJP" });
-  assert.deepEqual(p.ignored, []);
-  assert.deepEqual(
-    p.chips.map((c) => c.href),
-    [`${base}?to=2026&party=BJP`, `${base}?from=2016&party=BJP`, `${base}?from=2016&to=2026`],
-  );
-  assert.deepEqual(p.chips.map((c) => c.label), ["From 2016", "To 2026", "Party BJP"]);
-});
-
-test("parseFilters: a lone filter's chip returns to the unfiltered view", () => {
-  const p = parseFilters({ party: "TMC" }, opts);
-  assert.deepEqual(p.chips, [{ label: "Party TMC", href: base }]);
-});
-
-test("parseFilters: invalid params are rejected with a reason, never silently applied", () => {
-  const bad = parseFilters({ from: "abc", to: "1999", party: "XYZ" }, opts);
-  assert.deepEqual(bad.filters, { fromYear: undefined, toYear: undefined, party: undefined });
-  assert.equal(bad.chips.length, 0);
-  assert.equal(bad.ignored.length, 3);
-  assert.match(bad.ignored[0] ?? "", /from=abc ignored.*2011–2026/);
-  assert.match(bad.ignored[1] ?? "", /to=1999 ignored/);
-  assert.match(bad.ignored[2] ?? "", /party=XYZ ignored.*AIFB, BJP, TMC/);
-});
-
-test("parseFilters: from after to drops from, keeps to", () => {
-  const p = parseFilters({ from: "2026", to: "2011" }, opts);
-  assert.deepEqual(p.filters, { fromYear: undefined, toYear: 2011, party: undefined });
-  assert.match(p.ignored[0] ?? "", /from=2026 ignored: it is after to=2011/);
-});
-
-test("parseFilters: a repeated param takes the first, a blank one is absent", () => {
-  const p = parseFilters({ from: ["2016", "2021"], party: "  " }, opts);
-  assert.deepEqual(p.filters, { fromYear: 2016, toYear: undefined, party: undefined });
-  assert.deepEqual(p.ignored, []);
-});
-
-// ── the headline ─────────────────────────────────────────────────────────────────────────────────
-
-type Contest = PlaceBrief["contests"][number];
-
-function contest(year: number, party: string | null, margin: number | null, voters: number): Contest {
-  return {
-    contestId: `c${year}`,
-    electionId: `wb-assembly-${year}`,
-    electionName: `election ${year}`,
-    year,
-    electors: voters + 10_000,
-    voters,
-    turnout: { state: "reported" as const, pct: 80 },
-    winner:
-      party === null
-        ? null
-        : {
-            candidacyId: `cd${year}`,
-            personId: `p${year}`,
-            personName: `Winner ${year}`,
-            partyShortName: party,
-            votes: 100,
-            voteShare: 40,
-          },
-    runnerUp: null,
-    margin,
-  };
-}
-
-function brief(contests: Contest[]): PlaceBrief {
-  return {
-    place: {
-      id: "wb.ac.001",
-    kind: "ac",
-    jurisdictionId: "wb",
-      canonicalName: "Testganj",
-      names: { en: "Testganj" },
-      districtId: "wb.test",
-      districtName: "Test",
-      number: 1,
-      reservation: "general",
-      epochId: "delim-2008",
-      epochName: "Delimitation 2008",
-      electors: 200_000,
-    },
-    contests,
-    sittingMember: null,
-    demographics: [],
-    sources: [],
-  };
-}
-
-test("placeHeadline: no contest on record says so", () => {
-  assert.match(placeHeadline(brief([])), /No contest is on record for Testganj/);
-});
-
-test("placeHeadline: one election on record refuses to imply a trend", () => {
-  const h = placeHeadline(brief([contest(2026, "BJP", 1_000, 100_000)]));
-  assert.match(h, /the only election on record here, so no trend is computable/);
-});
-
-test("placeHeadline: an unbroken hold names the party, the run and the margin's direction", () => {
-  const h = placeHeadline(
-    brief([
-      contest(2026, "AITC", 5_000, 100_000), // 5.0%
-      contest(2021, "AITC", 10_000, 100_000),
-      contest(2016, "AITC", 14_000, 100_000),
-      contest(2011, "AITC", 15_000, 100_000), // 15.0%
-    ]),
-  );
-  assert.equal(
-    h,
-    "AITC has held Testganj in all 4 elections since 2011, but its margin fell 66.7% over that " +
-      "run, from 15.0% of votes cast to 5.0%.",
-  );
-});
-
-test("placeHeadline: a seat that turns over every time lists the sequence", () => {
-  const h = placeHeadline(
-    brief([
-      contest(2026, "BJP", 27_716, 200_000),
-      contest(2021, "AITC", 8_000, 200_000),
-      contest(2016, "CPM", 3_000, 200_000),
-      contest(2011, "AITC", 4_000, 200_000),
-    ]),
-  );
-  assert.match(h, /changed hands at every one of its 4 recorded elections/);
-  assert.match(h, /AITC 2011, CPM 2016, AITC 2021, BJP 2026/);
-});
-
-test("placeHeadline: silence is not continuity — undeclared elections are counted out loud", () => {
-  const h = placeHeadline(
-    brief([
-      contest(2026, "BJP", 13_938, 200_000),
-      contest(2021, "AITC", 8_000, 200_000),
-      contest(2016, null, null, 200_000),
-      contest(2011, null, null, 200_000),
-    ]),
-  );
-  assert.match(h, /changed hands once since 2011/);
-  assert.match(h, /2 of the 4 elections on record have no declared winner/);
-});
-
-test("placeHeadline: an unbroken party run with a gap does NOT claim it held them all", () => {
-  const h = placeHeadline(
-    brief([contest(2026, "AITC", 5_000, 100_000), contest(2021, null, null, 100_000)]),
-  );
-  assert.doesNotMatch(h, /held Testganj in all/);
-  assert.match(h, /no declared winner/);
 });
 
 // ── tiles, anomalies, cards, against the live registry ───────────────────────────────────────────
@@ -420,51 +209,6 @@ test("placeView: the path's ancestry must be true, and an unknown place is not-f
   if (byNumber.kind === "ac") assert.equal(byNumber.brief.place.canonicalName, "Mekliganj");
 });
 
-test("provenance: counts what was never fetched, so the page can say it in words", () => {
-  const s = (id: string, kind: "fetched" | "asserted_by_upstream", url: string | null): SourceRef => ({
-    id,
-    kind: "eci_declaration" as const,
-    publisher: null,
-    title: null,
-    licence: null,
-    url,
-    retrievedAt: `2026-05-1${id}T00:00:00Z`,
-    publishedOn: null,
-    hashKind: "document_bytes" as const,
-    retrievalKind: kind,
-  });
-  const p = provenance([s("1", "fetched", "repo:data/seed/x.json"), s("2", "asserted_by_upstream", null)]);
-  assert.deepEqual(p, { total: 2, fetched: 1, repoFiles: 1, retrievedAt: "2026-05-12T00:00:00Z" });
-  assert.deepEqual(provenance([]), { total: 0, fetched: 0, repoFiles: 0, retrievedAt: null });
-});
-
-test("tally: seat counts descending, blanks are not a party", () => {
-  assert.deepEqual(tally(["BJP", "TMC", "BJP", null, "", "TMC", "BJP"]), [
-    ["BJP", 3],
-    ["TMC", 2],
-  ]);
-  assert.deepEqual(tally([]), []);
-});
-
-test("placeTiles and anomalies survive an analysis that is null", { skip }, () => {
-  const db = openRead(DEV_DB_PATH);
-  try {
-    // getPlaceAnalysis is an AC measure; the Brief must not require it to render. The version of a district is not
-    // a seat, so it has no Analysis.
-    const district = db.prepare("SELECT id FROM place_version WHERE place_id = 'wb.cooch-behar'").get() as { id: number };
-    assert.equal(getPlaceAnalysis(db, district.id), null);
-  } finally {
-    db.close();
-  }
-  const b = brief([contest(2026, "BJP", 500, 100_000)]);
-  const tiles = placeTiles(b, null);
-  assert.ok(tiles.length >= 2);
-  assert.ok(tiles.every((t) => typeof t.value === "string"));
-  assert.deepEqual(anomalies(b, null), [
-    "2026's margin was 0.5% of votes cast — under one point, so a recount-scale error would change the winner.",
-  ]);
-});
-
 // ── the registry session: an outage is a state, a defect is thrown ──────────────────────────────
 
 /** A reader bound to one file, so a test needs neither the environment nor the cwd to point at it. */
@@ -520,7 +264,7 @@ test("placeView on a fixture registry: a state is its name and trail, and a dist
   assert.equal((await placeView(pathOf("xx"), {}, read)).kind, "not-found");
 });
 
-test("placeView says an unreadable registry is unavailable, and resolvePlace throws it", async () => {
+test("placeView says an unreadable registry is unavailable", async () => {
   const gone = at(join(mkdtempSync(join(tmpdir(), "mandate-placepage-")), "registry.db"));
   const unmigrated = at(
     (() => {
@@ -533,23 +277,20 @@ test("placeView says an unreadable registry is unavailable, and resolvePlace thr
     const v = await placeView(pathOf("wb"), {}, read);
     assert.equal(v.kind, "unavailable");
     if (v.kind === "unavailable") assert.match(v.detail, /npm run registry:migrate/);
-    // resolvePlace answers legacy redirect routes, where "none" is a 404 and a crawler keeps a 404 for good.
-    // An unreadable registry is not "no such constituency", so it is thrown.
-    await assert.rejects(resolvePlace({ level: "seat", state: "wb", name: "mekliganj" }, read), /npm run registry:migrate/);
   }
 });
 
-test("resolvePlace still answers none for a name the registry does not hold", async () => {
-  const read = at(bareRegistry());
-  assert.deepEqual(await resolvePlace({ level: "seat", state: "wb", name: "nowhere" }, read), { found: "none" });
+test("resolveRequest still answers none for a name the registry does not hold", () => {
+  const r = at(bareRegistry())((db) => resolveRequest(db, { level: "seat", state: "wb", name: "nowhere" }));
+  assert.deepEqual(r.ok && r.value, { found: "none" });
 });
 
-test("placeView and resolvePlace: a defect in a query is thrown, not hidden as unavailable or 404", async () => {
+test("placeView and resolveRequest: a defect in a query is thrown, not hidden as unavailable or 404", async () => {
   // The lookups behind a legacy route used to catch everything and answer [] / null, so a bug in their SQL read as
   // "no such constituency" and the route answered 404 for every name in India.
   const read = at(defectiveRegistry());
   await assert.rejects(placeView(pathOf("wb"), {}, read), /no such function/);
-  await assert.rejects(resolvePlace({ level: "seat", state: "wb", name: "mekliganj" }, read), /no such function/);
+  assert.throws(() => read((db) => resolveRequest(db, { level: "seat", state: "wb", name: "mekliganj" })), /no such function/);
 });
 
 // ── a place is read as the one version it resolved to ────────────────────────────────────────────
@@ -708,10 +449,10 @@ test("placeView: a district's row for a seat whose name is shared opens that sea
   }
 });
 
-test("resolvePlace: a name in both bodies is many, and in one body it is one", async () => {
+test("resolveRequest: a name in both bodies is many, and in one body it is one", () => {
   const d = seatRegistry();
   try {
-    const both = await resolvePlace(seat("bishnupur"), over(d));
+    const both = resolveRequest(d, seat("bishnupur"));
     assert.equal(both.found, "many");
     if (both.found === "many") {
       assert.deepEqual(both.places.map((p) => p.href), [
@@ -719,28 +460,28 @@ test("resolvePlace: a name in both bodies is many, and in one body it is one", a
         "/constituency/wb/lok-sabha/bishnupur",
       ]);
     }
-    const one = await resolvePlace(seat("bishnupur", { body: "lok-sabha" }), over(d));
+    const one = resolveRequest(d, seat("bishnupur", { body: "lok-sabha" }));
     assert.equal(one.found === "one" ? one.place.href : one.found, "/constituency/wb/lok-sabha/bishnupur");
   } finally {
     d.close();
   }
 });
 
-test("resolvePlace: an exact name is read as a name alone, never as an id, a number, a stripped marker or joined words", async () => {
+test("resolveRequest: an exact name is read as a name alone, never as an id, a number, a stripped marker or joined words", () => {
   const d = seatRegistry();
   try {
-    const found = async (name: string, state = "wb"): Promise<string> => {
-      const f = await resolvePlace({ level: "seat", state, name, exact: true }, over(d));
+    const found = (name: string, state = "wb"): string => {
+      const f = resolveRequest(d, { level: "seat", state, name, exact: true });
       return f.found === "one" ? f.place.href : f.found;
     };
-    assert.equal(await found("coochbehar-uttar"), "/constituency/wb/assembly/coochbehar-uttar");
-    assert.equal(await found("bishnupur(sc)"), "/constituency/wb/assembly/bishnupur(sc)");
+    assert.equal(found("coochbehar-uttar"), "/constituency/wb/assembly/coochbehar-uttar");
+    assert.equal(found("bishnupur(sc)"), "/constituency/wb/assembly/bishnupur(sc)");
     for (const written of ["coochbeharuttar", "266", "wb.ac.266", "WB.AC.266", "37", "wb.pc.37"]) {
-      assert.equal(await found(written), "none", written);
+      assert.equal(found(written), "none", written);
     }
-    assert.equal(await found("1", "ka"), "none");
+    assert.equal(found("1", "ka"), "none");
     // The same words are found when the name is not asked exact, so it is the flag that narrows them.
-    const loose = await resolvePlace({ level: "seat", state: "wb", name: "coochbeharuttar" }, over(d));
+    const loose = resolveRequest(d, { level: "seat", state: "wb", name: "coochbeharuttar" });
     assert.equal(loose.found, "one");
   } finally {
     d.close();

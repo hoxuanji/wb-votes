@@ -1,7 +1,5 @@
-import { permanentRedirect, redirect } from 'next/navigation';
-import { personForMynetaId } from '../../../../packages/mandate/src/repo/legacy.ts';
-import { personHref } from '../../../../packages/mandate/src/repo/routes.ts';
-import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
+import { follow } from '../../_place/follow.tsx';
+import { legacyTarget } from '../../../../packages/mandate/src/repo/legacy.ts';
 
 /**
  * `/candidate/wb26_52` -> `/p/hiten-barman-ca794e`.
@@ -20,8 +18,5 @@ export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
 export default function LegacyCandidate({ params }: { params: { id: string } }) {
-  const read = readRegistry((db) => personForMynetaId(db, params.id));
-  if (!read.ok) throw read.cause;
-  if (read.value === null) redirect('/search');
-  permanentRedirect(personHref(read.value));
+  return follow(legacyTarget({ route: 'candidate', id: params.id }));
 }

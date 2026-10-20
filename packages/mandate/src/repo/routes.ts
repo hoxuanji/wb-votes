@@ -3,7 +3,7 @@
 // ── WHY THIS FILE EXISTS ──
 //
 // It did not, and there were SEVENTEEN hand-assembled `/pl/...` template literals across ten files.
-// A builder in place-page.ts was the intended single one and five call sites used it; the other twelve wrote
+// A builder in the old place-page.ts was the intended single one and five call sites used it; the other twelve wrote
 // their own, each re-deriving the same path shape from ids. That is not a tidiness problem — it is how a link
 // starts pointing somewhere that does not exist. The seat link on the state page was assembled by hand, kept its
 // own private copy of the name-slug rule, and pointed at a URL that never navigated anywhere; the page's own

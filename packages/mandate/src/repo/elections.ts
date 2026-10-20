@@ -50,7 +50,7 @@ export type CloseFight = {
    * The seat's own page, or the jurisdiction's when it has none.
    *
    * Built HERE rather than in a component, because the rule — state / body / slugged name, or the registry id
-   * where two seats share the name (`seatHref`) — is the same one `election-map.ts` and `place-page.ts` apply, and
+   * where two seats share the name (`seatHref`) — is the same one `election-map.ts` and `place-view.ts` apply, and
    * a fourth copy of it in JSX is a link that silently goes nowhere. A parliamentary constituency hangs off the
    * state rather than a district, so it has no four-segment path; that is a fallback up the tree, not a broken URL.
    */

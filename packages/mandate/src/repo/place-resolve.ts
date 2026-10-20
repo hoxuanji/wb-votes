@@ -4,12 +4,12 @@
 //
 // WHY THIS EXISTS. "Which seat does this name mean?" was answered in five places, each its own SQL predicate with its
 // own positional binds: getPlaceBrief (place.ts), getPlaceAnalysis (place-analysis.ts, a copy), placeView and the two
-// constituency lookups (place-page.ts), and search (a LIKE). They disagreed. `getPlaceBrief("cooch-behar-dakshin")`
-// missed the seat placeView found, `bishnupur-sc` resolved in neither, and where two seats answered to one name each
-// silently took one: placeView the lower place id, getPlaceBrief the higher version id, the pre-body lookup whichever
-// its GROUP BY kept. So the v1 API and the page could answer one name with two different seats. Worse, placeView
-// discarded the version it resolved and the brief re-resolved by place id, so a retired name could render a different
-// seat's page.
+// constituency lookups (once place-page.ts, now place-view.ts), and search (a LIKE). They disagreed.
+// `getPlaceBrief("cooch-behar-dakshin")` missed the seat placeView found, `bishnupur-sc` resolved in neither, and where
+// two seats answered to one name each silently took one: placeView the lower place id, getPlaceBrief the higher version
+// id, the pre-body lookup whichever its GROUP BY kept. So the v1 API and the page could answer one name with two
+// different seats. Worse, placeView discarded the version it resolved and the brief re-resolved by place id, so a
+// retired name could render a different seat's page.
 //
 // ONE POLICY, three decisions the user made:
 //

@@ -126,6 +126,10 @@ _Avoid_: Old name, former name, historical name
 **Reservation marker**:
 The "(SC)" or "(ST)" the source appends to a seat's name, as in "BISHNUPUR(SC)". A seat answers to its name with the marker first, and without it only when no seat answers to the name as written.
 
+**Legacy target**:
+Where a request to an address of the previous product, or of the old `/pl` tree, is sent: a canonical href, a question asking the reader which seat was meant, or not found. An old constituency id such as `c0001` names a West Bengal assembly seat and no other.
+_Avoid_: Redirect (a target may also be a question or a not found)
+
 ### What a seat's result is
 
 **Seat result**:

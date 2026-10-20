@@ -3,7 +3,7 @@ import test from "node:test";
 import { existsSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import { all } from "../db/index.ts";
-import { placeView, resolvePlace } from "./place-page.ts";
+import { placeView, resolveRequest } from "./place-view.ts";
 import { constituencyHref } from "./routes.ts";
 import { searchAll } from "./search.ts";
 import { getPersonBrief } from "./person.ts";
@@ -92,7 +92,7 @@ test("a parliamentary and an assembly seat resolve through the same code path", 
     const slug = c.name.trim().toLowerCase().replace(/\s+/g, "-");
     // 1 — THE SAME RESOLVER. A state and a name, for either body; a pc has no district, and the resolver no longer
     //     needs one. The seat's own address resolves back to it.
-    const found = await resolvePlace({ level: "seat", state: c.j, name: slug });
+    const found = resolveRequest(db, { level: "seat", state: c.j, name: slug });
     assert.equal(found.found, "one", `${c.kind} ${c.j}/${slug} did not resolve to one seat`);
     if (found.found !== "one") continue;
     assert.equal(found.place.href, constituencyHref({ jurisdictionId: c.j, kind: c.kind, canonicalName: c.name }));
@@ -255,7 +255,7 @@ test("the pre-body URL asks rather than choosing, and resolves when it is unambi
       LIMIT 1`,
   )[0];
   assert.ok(collide, "no collision to test");
-  const both = await resolvePlace({ level: "seat", state: collide.j, name: collide.name.toLowerCase().replace(/\s+/g, "-") });
+  const both = resolveRequest(db, { level: "seat", state: collide.j, name: collide.name.toLowerCase().replace(/\s+/g, "-") });
   assert.equal(both.found, "many", `expected two bodies, got ${both.found}`);
   if (both.found === "many") {
     assert.deepEqual([...both.places.map((b) => (b.level === "seat" ? b.kind : null))].sort(), ["ac", "pc"]);
@@ -272,12 +272,12 @@ test("the pre-body URL asks rather than choosing, and resolves when it is unambi
       LIMIT 1`,
   )[0];
   assert.ok(unique, "no unambiguous parliamentary name");
-  const one = await resolvePlace({ level: "seat", state: unique.j, name: unique.name.toLowerCase().replace(/\s+/g, "-") });
+  const one = resolveRequest(db, { level: "seat", state: unique.j, name: unique.name.toLowerCase().replace(/\s+/g, "-") });
   assert.equal(one.found, "one", `${unique.j}/${unique.name} is not unambiguous after all`);
   if (one.found === "one") assert.equal(one.place.level === "seat" ? one.place.kind : null, "pc");
 
   // AND A NAME THAT IS NEITHER resolves to nothing — never to the state.
-  assert.deepEqual(await resolvePlace({ level: "seat", state: collide.j, name: "no-such-constituency-zzzz" }), {
+  assert.deepEqual(resolveRequest(db, { level: "seat", state: collide.j, name: "no-such-constituency-zzzz" }), {
     found: "none",
   });
 });

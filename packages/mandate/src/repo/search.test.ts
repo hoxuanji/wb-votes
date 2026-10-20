@@ -15,7 +15,7 @@ import { existsSync } from "node:fs";
 import { DEV_DB_PATH, open, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { PER_GROUP, partyAnchor, searchAll } from "./search.ts";
-import { placeView } from "./place-page.ts";
+import { placeView } from "./place-view.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
 import { electionMapView } from "./election-map.ts";
 import { skipUnlessVotingEpoch } from "./testkit.ts";

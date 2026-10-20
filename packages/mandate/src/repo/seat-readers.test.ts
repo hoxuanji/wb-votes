@@ -17,7 +17,7 @@ import { migrate } from "../db/migrate.ts";
 import { closeFights, foldStandings, seatsByParty, seatsWonBy } from "./elections.ts";
 import { electionMapView, SHARED_FRAME } from "./election-map.ts";
 import { electionCoverage } from "./home.ts";
-import { placeView } from "./place-page.ts";
+import { placeView } from "./place-view.ts";
 import { partyVotes, readSeats, sourcesFor } from "./seat-results.ts";
 import { searchAll } from "./search.ts";
 import { readRegistry } from "./session.ts";

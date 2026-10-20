@@ -3,7 +3,7 @@
 //
 // The builders are pure, so their shapes are pinned literally. The round trips are the point, though: a link
 // that is well-formed and resolves to nothing, or to a neighbour, passes any test that only looks at the string.
-// So each href is read back the way a request reads it, through `resolvePlace` and `placeView`, over a registry
+// So each href is read back the way a request reads it, through `resolveRequest` and `placeView`, over a registry
 // built here. That keeps them out of the registry-gated tests: they run on a bare checkout.
 
 import assert from "node:assert/strict";
@@ -11,7 +11,7 @@ import test from "node:test";
 import type { DatabaseSync } from "node:sqlite";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { placeView, resolvePlace } from "./place-page.ts";
+import { placeView, resolveRequest } from "./place-view.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
 import {
   asBody,
@@ -107,7 +107,7 @@ test("a reservation marker stays in the slug as the source wrote it, and both sp
   const d = fixture();
   try {
     for (const segment of ["bishnupur(sc)", "bishnupur%28sc%29"]) {
-      const found = await resolvePlace({ level: "seat", state: "wb", body: "assembly", name: segment }, over(d));
+      const found = resolveRequest(d, { level: "seat", state: "wb", body: "assembly", name: segment });
       assert.equal(found.found === "one" ? found.place.href : found.found, "/constituency/wb/assembly/bishnupur(sc)", segment);
     }
   } finally {

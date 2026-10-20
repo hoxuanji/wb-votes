@@ -1,6 +1,7 @@
 import { inr } from "../../../../packages/mandate/src/repo/brief.ts";
-import type { Card, PlaceView } from "../../../../packages/mandate/src/repo/place-page.ts";
-import { analysisCards } from "../../../../packages/mandate/src/repo/place-page.ts";
+import type { Card } from "../../../../packages/mandate/src/repo/place-presentation.ts";
+import { analysisCards } from "../../../../packages/mandate/src/repo/place-presentation.ts";
+import type { PlaceView } from "../../../../packages/mandate/src/repo/place-view.ts";
 import { Foot, Shell } from "../../../components/iei/Shell.tsx";
 import { Crumbs, DataList, DataRow, Panel, Table, Tabs } from "../../../components/iei/parts.tsx";
 import "../../iei.css";

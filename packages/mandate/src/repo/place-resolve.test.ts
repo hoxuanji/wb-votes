@@ -2,7 +2,7 @@
 // loader needs a registry and is built through the real migrations in memory, because the live one cannot show a
 // retired name, a house that never voted, or a state whose two houses vote under different epochs.
 //
-// The cases come from the two suites the SQL resolvers were held to: place-page.test.ts (a duplicated name resolved by
+// The cases come from the two suites the SQL resolvers were held to: place-view.test.ts (a duplicated name resolved by
 // the district in the path, the path's ancestry must be true, the number form) and constituency.test.ts (one name in
 // two bodies is two seats; the pre-body URL asks rather than choosing). What they could not say, because the SQL
 // resolvers could not do it, is D25 (the exact name wins, the marker-stripped name applies only when it is empty, a
@@ -197,7 +197,7 @@ test("a district is not matched by a seat's name, and a seat is not matched by a
   assert.deepEqual(resolve(index, wb("wb")), { found: "none" });
 });
 
-// ── a seat by name: place-page.test.ts and constituency.test.ts ──────────────────────────────────
+// ── a seat by name: place-view.test.ts and constituency.test.ts ──────────────────────────────────
 
 test("a seat resolves by name, with the href routes.ts builds from the seat itself", () => {
   const p = one(resolve(index, wb("mekliganj", { body: "assembly" })));
@@ -214,7 +214,7 @@ test("the place carries its version id in-process, and the href never contains i
 });
 
 test("a duplicated name resolves by the district in the path, and the district must be true", () => {
-  // place-page.test.ts: Bankura's Bishnupur and South 24 Parganas', whichever has the lower id.
+  // place-view.test.ts: Bankura's Bishnupur and South 24 Parganas', whichever has the lower id.
   assert.equal(versionOf(one(resolve(index, wb("bishnupur", { district: "bankura" })))), 266);
   assert.equal(versionOf(one(resolve(index, wb("bishnupur", { district: "south-24-parganas" })))), 146);
   // A name that exists, but not in the named district, is still none.

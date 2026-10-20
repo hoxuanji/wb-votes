@@ -1318,27 +1318,16 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
 
 /* ─────────────────── canonical routes and the compatibility layer ─────────────────── */
 
-test("every /pl URL redirects to its canonical route, resolved and not guessed", liveIndex, () => {
+test("a /pl URL is redirected to its canonical route, with its query, end to end", liveIndex, () => {
   /**
-   * `/pl/[...path]` served three entity types and decided which by COUNTING SEGMENTS. So the type of a thing
-   * was a property of how long its URL happened to be, and a malformed path resolved to a different KIND of
-   * entity rather than to nothing.
+   * `/pl/[...path]` is `legacyTarget` behind a page. legacy.test.ts holds what each request is answered with, on a
+   * registry built in memory with two states, so this is the one render that proves the page, `follow` and Next's
+   * redirect error are wired to it.
    *
-   * It is a redirect now. `permanentRedirect` throws a Next control-flow error rather than returning markup,
-   * so a successful redirect is a FAILED render whose stderr names the destination — which is what this reads.
-   * A route that renders markup has stopped redirecting, and that is a failure here.
+   * `permanentRedirect` throws a Next control-flow error rather than returning markup, so a successful redirect is
+   * a FAILED render whose stderr names the destination — which is what this reads. A route that renders markup has
+   * stopped redirecting, and that is a failure here.
    */
-  const redirectOf = (segments: string): { to: string | null; notFound: boolean } => {
-    const r = spawnSync(
-      process.execPath,
-      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/pl", "", segments],
-      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-    );
-    const err = `${r.stderr ?? ""}${r.stdout ?? ""}`;
-    const m = /NEXT_REDIRECT[;,]?\s*(?:replace|push)?[;,]?\s*(\/[^\s;"']*)/.exec(err) ?? /"(\/(?:state|district|constituency)\/[^"]*)"/.exec(err);
-    return { to: m?.[1] ?? null, notFound: /NEXT_NOT_FOUND|NEXT_HTTP_ERROR_FALLBACK/.test(err) };
-  };
-
   // Fixtures discovered from the registry, so this is not five states hand-picked.
   /**
    * ONE QUERY FOR THE WHOLE CHAIN, so the fixtures are guaranteed to be an actual state / district / seat
@@ -1362,35 +1351,25 @@ test("every /pl URL redirects to its canonical route, resolved and not guessed",
     : seat.district;
   const seatSlug = seat.name.trim().toLowerCase().replace(/\s+/g, "-");
 
-  // 1 — A STATE, A DISTRICT AND A CONSTITUENCY each reach their own entity route, and the constituency
-  //     drops the district because the canonical form carries the jurisdiction instead.
-  for (const [path, want] of [
-    [state, `/state/${state}`],
-    [`${state}/${districtSeg}`, `/district/${state}/${districtSeg}`],
-    [`${state}/${districtSeg}/${seatSlug}`, `/constituency/${state}/assembly/${seatSlug}`],
-  ] as const) {
-    const r = redirectOf(path);
-    assert.ok(!r.notFound, `/pl/${path} 404s instead of redirecting`);
-    assert.equal(r.to, want, `/pl/${path} redirected to ${r.to}`);
-  }
-
-  // 2 — THE QUERY SURVIVES. `?election=`, `?district=`, `?party=`, `?mode=` and `?seat=` mean the same thing
-  //     on the canonical route, so dropping them would silently change what a shared link shows.
-  const withQuery = spawnSync(
+  // A CONSTITUENCY reaches its own entity route, which drops the district because the canonical form carries the
+  // jurisdiction instead, and THE QUERY SURVIVES: `?election=`, `?district=`, `?party=`, `?mode=` and `?seat=` mean the
+  // same thing on the canonical route, so dropping them would silently change what a shared link shows.
+  const r = spawnSync(
     process.execPath,
-    ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/pl", "party=INC&mode=flips", state],
+    [
+      "--import",
+      "./ops/probe/render/register.mjs",
+      "./ops/probe/render/render.mjs",
+      "/pl",
+      "party=INC&mode=flips",
+      `${state}/${districtSeg}/${seatSlug}`,
+    ],
     { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
   );
-  const q = `${withQuery.stderr ?? ""}${withQuery.stdout ?? ""}`;
-  assert.match(q, /party=INC/, "the redirect dropped the query string");
-  assert.match(q, /mode=flips/, "the redirect dropped part of the query string");
-
-  // 3 — AN UNKNOWN ENTITY IS A 404, NEVER A REDIRECT UP THE TREE. Answering a constituency request with a
-  //     state page is the silent substitution this phase exists to end.
-  for (const bad of ["zz", `${state}/no-such-district`, `${state}/${districtSeg}/no-such-seat`]) {
-    const r = redirectOf(bad);
-    assert.ok(r.notFound || r.to === null, `/pl/${bad} redirected to ${r.to} instead of 404ing`);
-  }
+  const out = `${r.stderr ?? ""}${r.stdout ?? ""}`;
+  assert.doesNotMatch(out, /NEXT_NOT_FOUND|NEXT_HTTP_ERROR_FALLBACK/, `/pl/${state}/${districtSeg}/${seatSlug} 404s instead of redirecting`);
+  const to = /NEXT_REDIRECT[;,]?\s*(?:replace|push)?[;,]?\s*(\/[^\s;"']*)/.exec(out)?.[1] ?? null;
+  assert.equal(to, `/constituency/${state}/assembly/${seatSlug}?party=INC&mode=flips`);
 });
 
 test("the pre-body URL answers to a name and matches its state exactly", liveIndex, () => {

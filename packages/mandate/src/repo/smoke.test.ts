@@ -29,8 +29,9 @@ import * as home from "./home.ts";
 import * as review from "./review.ts";
 import * as coverage from "./coverage.ts";
 import * as legacy from "./legacy.ts";
-import { pathQuery, placeView } from "./place-page.ts";
+import { placeView } from "./place-view.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
+import { readRegistry } from "./session.ts";
 import { skipUnlessVotingEpoch } from "./testkit.ts";
 import { personReply, placeReply, searchReply } from "./envelope.ts";
 
@@ -51,6 +52,10 @@ const skip = haveRegistry() ? false : `no registry at ${DEV_DB_PATH}`;
 /** The place pages and the place endpoint need migration 017's `voting_epoch` view, which an older registry lacks. */
 const skipIndex = skipUnlessVotingEpoch();
 const db = (): DatabaseSync => openRead(DEV_DB_PATH);
+/** A reader over the handle a test holds, for a function that takes the session as a parameter. */
+const over =
+  (d: DatabaseSync): typeof readRegistry =>
+  (fn) => ({ ok: true, value: fn(d) });
 
 /** Everything the suite needs to call a read function, read out of the registry itself. */
 type Fixtures = {
@@ -301,9 +306,14 @@ test("review queue and legacy adapters run", { skip }, () => {
   ran("review.progress", () => review.progress(d));
   ran("review.nextForReview", () => review.nextForReview(d));
   ran("review.recallEstimate", () => review.recallEstimate(d));
-  ran("legacy.placePathForLegacyId", () => legacy.placePathForLegacyId(d, "1"));
-  ran("legacy.sittingMemberForLegacyId", () => legacy.sittingMemberForLegacyId(d, "1"));
-  ran("legacy.personForMynetaId", () => legacy.personForMynetaId(d, "0"));
+  ran("legacyTarget candidate", () => legacy.legacyTarget({ route: "candidate", id: "0" }, over(d)));
+  d.close();
+});
+
+test("the legacy id routes run", { skip: skipIndex }, () => {
+  const d = db();
+  ran("legacyTarget constituency-id", () => legacy.legacyTarget({ route: "constituency-id", id: "1" }, over(d)));
+  ran("legacyTarget mla", () => legacy.legacyTarget({ route: "mla", id: "1" }, over(d)));
   d.close();
 });
 
@@ -331,7 +341,7 @@ test("placeView renders every level of the path grammar", { skip: skipIndex }, a
   // The path grammar is /pl/:state · /pl/:state/:district · /pl/:state/:district/:ac, so build a real
   // three-segment path out of the registry rather than assuming one.
   const path = (...segments: string[]): PlaceQuery => {
-    const q = pathQuery(segments);
+    const q = legacy.pathQuery(segments);
     assert.ok(q !== null, `/pl/${segments.join("/")} is not a path`);
     return q;
   };

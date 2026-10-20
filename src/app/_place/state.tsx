@@ -71,7 +71,7 @@ function pct(v: number | null, dp = 1): string {
 /**
  * A district's own page, from the dotted place id the seats already carry.
  *
- * `ka.bangalore` -> `/pl/ka/bangalore`. Built here rather than threaded through the data layer, because it is
+ * `ka.bangalore` -> `/district/ka/bangalore`. Built here rather than threaded through the data layer, because it is
  * one `slice` and the type it would live on is one whose whole point is that a district has no winner.
  */
 const districtPath = districtHref;

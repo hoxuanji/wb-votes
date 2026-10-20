@@ -7,8 +7,8 @@ import {
   anomalies,
   placeHeadline,
   placeTiles,
-  placeView,
-} from "../../../packages/mandate/src/repo/place-page.ts";
+} from "../../../packages/mandate/src/repo/place-presentation.ts";
+import { placeView } from "../../../packages/mandate/src/repo/place-view.ts";
 import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
 import type { PlaceQuery } from "../../../packages/mandate/src/repo/place-resolve.ts";
 import { fillFor } from "../../../packages/mandate/src/viz/party-ink.ts";
@@ -42,7 +42,8 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 /**
- * `/pl/<state>[/<district>[/<seat>]]` — a place, at whichever level the path names.
+ * `/state/<state>`, `/district/<state>/<district>` and `/constituency/<state>/<body>/<name>` — a place, at whichever
+ * level the route names.
  *
  * ── A STATE PAGE IS AN INTELLIGENCE BRIEF, WHICH IS WHAT THE FINAL DESIGN PASS CHANGED ──
  *
@@ -71,8 +72,8 @@ export const dynamic = "force-dynamic";
  * — seven affordances for one question. The provenance did not get smaller; it stopped being offered seven
  * times.
  *
- * All the logic is in packages/mandate/src/repo/place-page.ts, which is where the tests can reach it and
- * where webpack can statically see it (cycle 2's 500-on-every-slug lesson).
+ * All the logic is in packages/mandate/src/repo/place-view.ts and place-presentation.ts, which is where the tests can
+ * reach it and where webpack can statically see it (cycle 2's 500-on-every-slug lesson).
  */
 
 const RESERVATION: Record<string, string> = { general: "General", sc: "Reserved SC", st: "Reserved ST" };

@@ -55,6 +55,7 @@ const PLACE_VIEW = "PlaceView's discriminant: which level of the place hierarchy
 const SEAT_KIND = "a place or place_version kind ('ac' | 'pc'), which names a seat's body, not an election's";
 const FILL = "ElectionContext.kind, which is already a Fill";
 const STATE_VIEW = "StateView's discriminant: whether the state exists and has an election to open on, not an election's kind";
+const LEGACY_TARGET = "LegacyTarget's discriminant: redirect, choose or not-found, not an election's kind";
 
 const ALLOWED: Allowed[] = [
   { file: "app/_place/analysis/floor.tsx", includes: `{ kind: "ac" }`, why: PLACE_VIEW },
@@ -71,10 +72,8 @@ const ALLOWED: Allowed[] = [
   { file: "app/_place/surface.tsx", includes: "bodyOfKind(p.kind)", why: SEAT_KIND },
   { file: "app/election/[id]/page.tsx", includes: "typeLabel(ctx.body, ctx.kind)", why: FILL },
   { file: "app/election/[id]/page.tsx", includes: "ctx?.kind === 'bypoll'", why: FILL },
-  { file: "app/pl/[...path]/page.tsx", includes: "view.kind === 'not-found'", why: PLACE_VIEW },
-  { file: "app/pl/[...path]/page.tsx", includes: "view.kind === 'unavailable'", why: PLACE_VIEW },
-  { file: "app/pl/[...path]/page.tsx", includes: "view.kind === 'many'", why: PLACE_VIEW },
-  { file: "app/pl/[...path]/page.tsx", includes: "view.kind === 'ac'", why: PLACE_VIEW },
+  { file: "app/_place/follow.tsx", includes: "target.kind === 'not-found'", why: LEGACY_TARGET },
+  { file: "app/_place/follow.tsx", includes: "target.kind === 'choose'", why: LEGACY_TARGET },
   { file: "components/iei/parts.tsx", includes: "s.kind.replace", why: "a source's kind" },
 ];
 
