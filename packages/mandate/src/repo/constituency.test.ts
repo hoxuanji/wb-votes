@@ -375,11 +375,9 @@ test("a person's page reaches the constituency they contested, with the right bo
   assert.ok(latest, `${person} has no candidacy`);
   assert.ok(latest.jurisdictionId !== null, `${person}'s latest contest has no jurisdiction`);
   assert.ok(latest.placeKind === "ac" || latest.placeKind === "pc", `unexpected body ${latest.placeKind}`);
-  const href = constituencyHref({
-    jurisdictionId: latest.jurisdictionId,
-    kind: latest.placeKind,
-    canonicalName: latest.placeName,
-  });
+  // The link the page puts in its breadcrumb is the brief's, so this is the address a reader is sent to.
+  const href = latest.placeHref;
+  assert.ok(href !== null, `${person}'s latest contest has no link`);
   assert.match(href, /^\/constituency\/[a-z]{2}\/(assembly|lok-sabha)\/.+/, `${person} built ${href}`);
   assert.ok(!href.includes("/in/"), `${person} links to a constituency of the country`);
 });

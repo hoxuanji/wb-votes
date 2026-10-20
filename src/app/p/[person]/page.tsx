@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { constituencyHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import Link from "next/link";
 import type { PersonBrief } from "../../../../packages/mandate/src/repo/index.ts";
 import type { Problem } from "../../../../packages/mandate/src/repo/envelope.ts";
@@ -80,23 +79,12 @@ export default async function PersonBriefPage({ params }: { params: { person: st
            *
            * No migration was needed and none was made: the jurisdiction and the body come from
            * `place_version` through candidacy -> contest, which is where a contest's seat is recorded. The
-           * crumb is unlinked only when that relation is genuinely absent, never guessed from the name.
+           * crumb is unlinked only when that relation is genuinely absent, never guessed from the name. The
+           * address is the brief's `placeHref`, so a seat whose name another seat shares opens that seat.
            */
           ...(latest === undefined || latest.placeName === null
             ? []
-            : [
-                {
-                  label: latest.placeName,
-                  href:
-                    latest.jurisdictionId === null || latest.placeKind === null
-                      ? undefined
-                      : constituencyHref({
-                          jurisdictionId: latest.jurisdictionId,
-                          kind: latest.placeKind,
-                          canonicalName: latest.placeName,
-                        }),
-                },
-              ]),
+            : [{ label: latest.placeName, href: latest.placeHref ?? undefined }]),
           { label: brief.person.canonicalName },
         ]}
       />

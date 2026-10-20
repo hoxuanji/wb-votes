@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { Shell } from "../../components/iei/Shell.tsx";
 import { Crumbs, Panel } from "../../components/iei/parts.tsx";
-import type { Place, SeatPlace } from "../../../packages/mandate/src/repo/place-resolve.ts";
+import type { Apart, Place, SeatPlace } from "../../../packages/mandate/src/repo/place-resolve.ts";
+import { tellApart } from "../../../packages/mandate/src/repo/place-resolve.ts";
 import { bodyOfKind, stateHref } from "../../../packages/mandate/src/repo/routes.ts";
 import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import "../iei.css";
@@ -17,7 +18,9 @@ import "../iei.css";
  * a difference in body it has not got.
  *
  * Each entry links to its place's own address. Two seats of one body that share a name are addressed by their
- * registry id, so those entries are two links to two seats and not two links back to this page.
+ * registry id, so those entries are two links to two seats and not two links back to this page. They would also read
+ * alike, so each says its district, and its seat number where its district is not enough (`tellApart`); an entry
+ * that a name or a body already tells from the rest says only its body.
  */
 export function Choose({ places: found }: { places: readonly Place[] }) {
   // A tie is between seats: a state or a district is named by its id and has nothing to tie with.
@@ -25,6 +28,7 @@ export function Choose({ places: found }: { places: readonly Place[] }) {
   const [first] = places;
   if (first === undefined) return null;
   const bodies = new Set(places.map((p) => p.kind));
+  const apart = tellApart(places);
   return (
     <Shell here="place" reading>
       <Crumbs
@@ -47,14 +51,21 @@ export function Choose({ places: found }: { places: readonly Place[] }) {
       </div>
       <Panel title="Which did you mean?">
         <ul className="iei-district-list">
-          {places.map((p) => (
-            <li key={p.versionId}>
-              <Link href={p.href}>
-                {p.name}
-                <b>{bodyWord(bodyOfKind(p.kind))}</b>
-              </Link>
-            </li>
-          ))}
+          {places.map((p, i) => {
+            const { district, number } = apart[i] as Apart;
+            return (
+              <li key={p.versionId}>
+                <Link href={p.href}>
+                  {p.name}
+                  <b>
+                    {[bodyWord(bodyOfKind(p.kind)), district, number === null ? null : `no. ${number}`]
+                      .filter((part) => part !== null)
+                      .join(" · ")}
+                  </b>
+                </Link>
+              </li>
+            );
+          })}
         </ul>
       </Panel>
     </Shell>

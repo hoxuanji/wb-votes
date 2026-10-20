@@ -64,24 +64,36 @@ test("placeView: Mekliganj renders six tiles, each cited, census vintage in the 
   assert.match(pop?.note ?? "", /Cooch Behar-wide, not this seat's/);
 });
 
-// Bishnupur is a duplicated AC name: wb.ac.146 (South 24 Parganas, which the source spells
-// 'BISHNUPUR(SC)') and wb.ac.266 (Bankura). The district page links both by slug, so the district in
-// the path — not the lower id — has to decide which one the name means.
+// Bishnupur is a duplicated AC name: West Bengal has two current assembly seats that answer to it, one in Bankura and
+// one in South 24 Parganas. The district page links both by slug, so the district in the path — not the lower id — has
+// to decide which one the name means.
 //
-// It was wb.ac.154 before the electoral-geography repair. That was the SEED's numbering, which runs 1-307
-// across a 294-seat assembly and disagrees with ECI's from seat 100 on; wb.ac.154 holds Behala Paschim's
-// results and Partha Chatterjee's 2021 win, and is now named accordingly. The seat did not move — the
-// registry stopped using a numbering no authority uses. docs/model/electoral-geography.md §4.
+// The two seats are read from the registry, because their numbers are the registry's and not this test's. The seed holds
+// them as wb.ac.266 (Bankura) and wb.ac.154 (South 24 Parganas), and nothing at wb.ac.146; the fixtures below carry the
+// South 24 Parganas seat as wb.ac.146, spelled 'BISHNUPUR(SC)', and this test used to name that number against the seed.
 test("placeView: a duplicated AC name resolves by the district in the path", { skip: skipIndex }, async () => {
-  const bankura = await placeView(pathOf("wb", "bankura", "bishnupur"), {});
-  assert.equal(bankura.kind, "ac");
-  if (bankura.kind !== "ac") return;
-  assert.equal(bankura.brief.place.id, "wb.ac.266");
+  const read = readRegistry(
+    (db) =>
+      db
+        .prepare(
+          `SELECT place_id AS id, district_place_id AS district FROM place_version
+            WHERE jurisdiction_id = 'wb' AND kind = 'ac' AND canonical_name LIKE 'Bishnupur%' ORDER BY place_id`,
+        )
+        .all() as { id: string; district: string }[],
+  );
+  assert.ok(read.ok);
+  const seats = read.value;
+  assert.equal(seats.length, 2, "fixture changed: West Bengal no longer has two assembly seats called Bishnupur");
+  assert.equal(new Set(seats.map((s) => s.district)).size, 2, "fixture changed: the two Bishnupurs share a district");
 
-  const south = await placeView(pathOf("wb", "south-24-parganas", "bishnupur"), {});
-  assert.equal(south.kind, "ac");
-  if (south.kind !== "ac") return;
-  assert.equal(south.brief.place.id, "wb.ac.146");
+  for (const seat of seats) {
+    // `wb.south-24-parganas` is `/wb/south-24-parganas/bishnupur`
+    const district = seat.district.split(".").slice(1).join(".");
+    const found = await placeView(pathOf("wb", district, "bishnupur"), {});
+    assert.equal(found.kind, "ac", district);
+    if (found.kind !== "ac") return;
+    assert.equal(found.brief.place.id, seat.id, district);
+  }
 
   // A name that exists, but not in the named district, is still not-found.
   assert.equal((await placeView(pathOf("wb", "kolkata", "bishnupur"), {})).kind, "not-found");

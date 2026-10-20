@@ -4,6 +4,7 @@ import { DatabaseSync } from "node:sqlite";
 import { DEV_DB_PATH, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { RegistryUnavailableError, counted, getPersonBrief, searchPersons } from "./index.ts";
+import { seatTies } from "./place-resolve.ts";
 
 // The live registry is gitignored, so CI has no database. The guard probes the SCHEMA, not the
 // file: existsSync was defeated by the read path itself, which used to create an empty
@@ -38,7 +39,10 @@ function counting(real: DatabaseSync): { db: DatabaseSync; count: () => number }
           return target.prepare(sql);
         };
       }
-      return Reflect.get(target, prop, recv) as unknown;
+      // Bound to the real handle: a native method called on the proxy is an illegal invocation (`location`, which
+      // `seatTies` stamps its cache with).
+      const v = Reflect.get(target, prop, target) as unknown;
+      return typeof v === "function" ? (v as (...a: unknown[]) => unknown).bind(target) : v;
     },
   });
   return { db: proxy, count: () => n };
@@ -55,6 +59,9 @@ test("getPersonBrief: multi-election person, newest first, with sources", { skip
     .get() as { id: string } | undefined;
   assert.ok(slug, "registry has a person contesting two elections");
 
+  // Which seats share a name is read once per registry file and kept (`seatTies`), so it is not a cost of one Brief: it
+  // is read here, before the count, and the Brief must not read it again.
+  seatTies(d);
   const { db: counted, count } = counting(d);
   const brief = getPersonBrief(counted, slug.id);
   assert.ok(brief);

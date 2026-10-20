@@ -119,7 +119,12 @@ export type Place =
   | (DistrictRow & { level: "district"; href: string })
   | SeatPlace;
 
-export type SeatPlace = SeatRow & { level: "seat"; href: string };
+export type SeatPlace = SeatRow & {
+  level: "seat";
+  href: string;
+  /** The name of the seat's district, which the index holds and the seat row does not; null where it has none. */
+  districtName: string | null;
+};
 
 /**
  * `one` is a destination, `many` is a question for the reader, `none` is a 404.
@@ -261,6 +266,38 @@ export function seatHref(
     : constituencyHref({ jurisdictionId: seat.stateId, kind: seat.kind, canonicalName: seat.name });
 }
 
+/**
+ * What a page that asks which seat was meant says of an entry besides its name and its body: the seat's district, and its
+ * seat number. `null` is nothing to add.
+ */
+export type Apart = { district: string | null; number: number | null };
+
+/**
+ * What tells the entries of a `many` answer apart, in the order given, said only as far as the entries need it.
+ *
+ * Entries read alike when they are of one state and body and their names are the same words (the test `tiedVersions`
+ * applies), because the page shows a name and a body. An entry that none reads alike to is told nothing, so a page whose names
+ * and bodies already differ is the page it was. Among entries that read alike the district is said, and the seat number as
+ * well for those that still share a district name: two seats of one name in one district, or Lok Sabha seats, which have none.
+ */
+export function tellApart(places: readonly SeatPlace[]): Apart[] {
+  const alike = new Map<string, number[]>();
+  places.forEach((p, i) => {
+    const at = `${p.stateId} ${p.kind} ${nameKey(p.name)}`;
+    alike.set(at, [...(alike.get(at) ?? []), i]);
+  });
+  const said = places.map((): Apart => ({ district: null, number: null }));
+  for (const group of alike.values()) {
+    if (group.length < 2) continue;
+    for (const i of group) {
+      const p = places[i] as SeatPlace;
+      const shared = group.filter((j) => (places[j] as SeatPlace).districtName === p.districtName).length > 1;
+      said[i] = { district: p.districtName, number: shared ? p.number : null };
+    }
+  }
+  return said;
+}
+
 /** `tiedVersions` of an index, worked out once: `placeIndex` shares one between requests and a page asks per row. */
 const tiedOf = new WeakMap<PlaceIndex, Set<number>>();
 
@@ -301,7 +338,14 @@ export function resolve(index: PlaceIndex, query: PlaceQuery): Found {
   return found(
     ("placeId" in query ? narrowed(index, query).filter((s) => s.placeId === query.placeId) : seatsOf(index, query))
       .sort(bySeat)
-      .map((s): Place => ({ ...s, level: "seat", href: seatHref(tied, s) })),
+      .map(
+        (s): Place => ({
+          ...s,
+          level: "seat",
+          href: seatHref(tied, s),
+          districtName: index.districts.find((d) => d.id === s.districtId)?.name ?? null,
+        }),
+      ),
   );
 }
 
