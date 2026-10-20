@@ -8,16 +8,27 @@
 // The second job is the two decisions in search.ts that could quietly rot: the wildcards are escaped, and
 // constituencies are matched on the name a seat carries NOW rather than on any name any delimitation gave a
 // place row that groups seats by number.
+//
+// The third is that "now" is the resolver's now. The stock registry has one epoch, so on it the newest version of
+// a seat and the version its house votes under are the same row and the property above cannot fail; `orders()`
+// below builds the registry on which they part.
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { existsSync } from "node:fs";
-import { DEV_DB_PATH, open, openRead } from "../db/index.ts";
+import { existsSync, mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import type { DatabaseSync } from "node:sqlite";
+import { ensureEpochs } from "../db/epochs.ts";
+import { DEV_DB_PATH, all, open, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { PER_GROUP, partyAnchor, searchAll } from "./search.ts";
+import type { Hit, Results } from "./search.ts";
 import { placeView } from "./place-view.ts";
+import { seatHref, seatTies } from "./place-resolve.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
 import { electionMapView } from "./election-map.ts";
+import { readRegistry } from "./session.ts";
 
 const live = { skip: existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH) ? false : "no .data/registry.db" };
 const db = () => openRead(DEV_DB_PATH);
@@ -125,17 +136,24 @@ test("every group caps at PER_GROUP, so no one query can flood the page", live, 
   }
 });
 
-test("every hit points at a URL that resolves", live, async () => {
-  const d = db();
+/**
+ * The property this file is for, asked of the registry at `path`: every hit the queries produce opens a page.
+ *
+ * `search` is what offers the hits, so that a control can hand it another query and watch this fail.
+ */
+async function everyHitResolves(
+  path: string,
+  queries: string[],
+  search: (d: DatabaseSync, q: string) => Results = searchAll,
+): Promise<void> {
+  const d = openRead(path);
   let states: string[] = [];
   let seats: string[] = [];
   let elections: string[] = [];
   let parties: string[] = [];
   try {
-    // Queries chosen to hit all five groups: a state, a seat, a party, a year, and a letter that is
-    // everywhere. Nothing here names a jurisdiction the product started with.
-    for (const q of ["a", "north", "congress", "assembly", "2023"]) {
-      const r = searchAll(d, q);
+    for (const q of queries) {
+      const r = search(d, q);
       states.push(...r.states.map((h) => h.href));
       seats.push(...r.constituencies.map((h) => h.href));
       elections.push(...r.elections.map((h) => h.href));
@@ -170,13 +188,13 @@ test("every hit points at a URL that resolves", live, async () => {
             name: parts[3] as string,
           }
         : { level: "state", id: parts[1] as string };
-    const view = await placeView(query, {});
+    const view = await placeView(query, {}, (fn) => readRegistry(fn, { path }));
     assert.notEqual(view.kind, "not-found", `${href} is offered by search and 404s`);
     assert.notEqual(view.kind, "unavailable", `${href} could not be read`);
   }
 
   // An election hit goes to the election's own page, which answers for it; a party hit goes to a landscape row anchor.
-  const registry = db();
+  const registry = openRead(path);
   try {
     for (const href of new Set(elections)) {
       const id = /^\/election\/([^/]+)$/.exec(href)?.[1];
@@ -189,6 +207,192 @@ test("every hit points at a URL that resolves", live, async () => {
   for (const href of new Set(parties)) {
     assert.match(href, /^\/#party-[a-z0-9-]+$/, `${href} is not a landscape anchor`);
   }
+}
+
+test("every hit points at a URL that resolves", live, async () => {
+  // Queries chosen to hit all five groups: a state, a seat, a party, a year, and a letter that is
+  // everywhere. Nothing here names a jurisdiction the product started with.
+  await everyHitResolves(DEV_DB_PATH, ["a", "north", "congress", "assembly", "2023"]);
+});
+
+// ── a seat's newest order is not always the one its house votes under ────────────────────────────
+
+const NOW = "2026-08-12T00:00:00.000Z";
+
+/**
+ * A registry in which the newest order of some places is not the one their house votes under, which the stock
+ * registry, having one epoch, cannot show.
+ *
+ *   Assam      its assembly votes under delim-2008, and delim-2023-as redraws seat 1 as "Dibrugarh East" without any
+ *              election having been held on it; its Lok Sabha seat voted under delim-2023-as, so there the newest
+ *              order is the voting one
+ *   Karnataka  seat 214 was BADAMI and is NANJANGUD; seat 300 existed under delim-1976 only; two seats are named Twin
+ *   Goa        a seat and no election at all
+ */
+function orders(): DatabaseSync {
+  const d = open(":memory:");
+  migrate(d, NOW);
+  d.exec(`
+    INSERT INTO place (id, kind, canonical_name) VALUES ('in', 'nation', 'India');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('as', 'state', 'Assam', 'in');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('ka', 'state', 'Karnataka', 'in');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('ga', 'state', 'Goa', 'in');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('as.dibrugarh', 'district', 'Dibrugarh', 'as');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('ka.bangalore', 'district', 'Bangalore', 'ka');
+  `);
+  ensureEpochs(d, ["delim-1976", "delim-2008", "delim-2023-as"]);
+  const insertPlace = d.prepare("INSERT OR IGNORE INTO place (id, kind, canonical_name, parent_id) VALUES (?, ?, ?, ?)");
+  const insertVersion = d.prepare(
+    `INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, district_place_id, reservation)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'general')`,
+  );
+  for (const [v, place, epoch, name, district] of [
+    [1, "as.ac.001", "delim-2008", "Dibrugarh", "as.dibrugarh"],
+    [2, "as.ac.001", "delim-2023-as", "Dibrugarh East", "as.dibrugarh"],
+    [3, "as.pc.001", "delim-2008", "Dibrugarh", null],
+    [4, "as.pc.001", "delim-2023-as", "Dibrugarh", null],
+    [10, "ka.ac.214", "delim-1976", "BADAMI", "ka.bangalore"],
+    [11, "ka.ac.214", "delim-2008", "NANJANGUD", "ka.bangalore"],
+    [12, "ka.ac.300", "delim-1976", "GONE", "ka.bangalore"],
+    [13, "ka.ac.302", "delim-2008", "Twin", "ka.bangalore"],
+    [14, "ka.ac.301", "delim-2008", "Twin", "ka.bangalore"],
+    [20, "ga.ac.001", "delim-2008", "Mapusa", null],
+  ] as const) {
+    const [state, kind, number] = [place.slice(0, 2), place.slice(3, 5), Number(place.slice(6))];
+    insertPlace.run(place, kind, name, state);
+    insertVersion.run(v, place, state, kind, epoch, number, name, district);
+  }
+  const election = d.prepare(
+    `INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, polling_month, occurrence)
+     VALUES (?, ?, ?, ?, ?, ?, 'declared', ?, ?, 4, 1)`,
+  );
+  const contest = d.prepare("INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES (?, ?, ?, 'declared')");
+  election.run("as-assembly-2021", "assembly", "state", "as", "delim-2008", "AS 2021", "ac", 2021);
+  election.run("ka-assembly-2018", "assembly", "state", "ka", "delim-2008", "KA 2018", "ac", 2018);
+  election.run("ls-2019", "general", "union", "in", "delim-2008", "LS 2019", "pc", 2019);
+  election.run("ls-2024", "general", "union", "in", "delim-2023-as", "LS 2024", "pc", 2024);
+  for (const [e, v] of [
+    ["as-assembly-2021", 1], ["ka-assembly-2018", 11], ["ka-assembly-2018", 13], ["ka-assembly-2018", 14],
+    ["ls-2019", 3], ["ls-2024", 4],
+  ] as const) {
+    contest.run(`${e}:${v}`, e, v);
+  }
+  return d;
+}
+
+/** `orders()` as a file, because a page reads a path; `bare` is the registry as migration 016 left it: no view. */
+function ordersFile(bare = false): string {
+  const d = orders();
+  if (bare) d.exec("DROP VIEW voting_epoch");
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-search-")), "registry.db");
+  d.exec(`VACUUM INTO '${path}'`);
+  d.close();
+  return path;
+}
+
+/** What `orders()` can be asked: a state, a seat of each kind, and the letter that matches nearly all of it. */
+const ORDER_QUERIES = ["a", "assam", "karnataka", "dibrugarh", "east", "badami", "nanjangud", "gone", "twin", "mapusa"];
+
+function seatsFor(d: DatabaseSync, q: string): Hit[] {
+  return searchAll(d, q).constituencies;
+}
+
+test("search offers the seat its house votes under, not the newest order of its place", () => {
+  const d = orders();
+  try {
+    // Assam's assembly votes under delim-2008, so seat 1 is Dibrugarh; the "Dibrugarh East" that delim-2023-as made of
+    // it has no page. The Lok Sabha seat voted under delim-2023-as, which is its newest version as well.
+    const hits = seatsFor(d, "dibrugarh");
+    assert.deepEqual(
+      hits.map((h) => [h.id, h.label, h.href]),
+      [
+        ["as.pc.001", "Dibrugarh", "/constituency/as/lok-sabha/dibrugarh"],
+        ["as.ac.001", "Dibrugarh", "/constituency/as/assembly/dibrugarh"],
+      ],
+    );
+    // and the row says what the page it leads to says: its district, its state and the elections of the seat number
+    assert.equal(hits[1]?.detail, "Assembly constituency no. 1 · Dibrugarh, Assam · 1 election");
+    assert.deepEqual(seatsFor(d, "east"), [], "the version nobody has voted under is not offered");
+  } finally {
+    d.close();
+  }
+});
+
+test("a place with no version under the order its house votes under is not offered", () => {
+  const d = orders();
+  try {
+    assert.deepEqual(seatsFor(d, "mapusa"), [], "Goa has a seat and no election, so none is its voting order");
+    assert.deepEqual(seatsFor(d, "gone"), [], "a seat number that exists under delim-1976 only");
+    assert.deepEqual(seatsFor(d, "badami"), [], "a retired name is declined, as it always was");
+    assert.deepEqual(seatsFor(d, "nanjangud").map((h) => h.href), ["/constituency/ka/assembly/nanjangud"]);
+  } finally {
+    d.close();
+  }
+});
+
+test("two current seats of one name are each offered by their registry id", () => {
+  const d = orders();
+  try {
+    // as many elections each, so the place id says which comes first
+    assert.deepEqual(
+      seatsFor(d, "twin").map((h) => h.href),
+      ["/constituency/ka/assembly/ka.ac.301", "/constituency/ka/assembly/ka.ac.302"],
+    );
+  } finally {
+    d.close();
+  }
+});
+
+test("every hit points at a URL that resolves, where the newest order is not the voting one", async () => {
+  await everyHitResolves(ordersFile(), ORDER_QUERIES);
+});
+
+test("a registry without migration 017 offers the newest version of each place, and the pages answer it", async () => {
+  // The resolver takes the newest version of a place there, because it cannot say which order a house votes under, and
+  // search asks the resolver: the two cannot part, whichever way the registry is built.
+  const path = ordersFile(true);
+  const d = openRead(path);
+  try {
+    assert.deepEqual(seatsFor(d, "east").map((h) => h.href), ["/constituency/as/assembly/dibrugarh-east"]);
+    assert.deepEqual(seatsFor(d, "mapusa").map((h) => h.href), ["/constituency/ga/assembly/mapusa"]);
+  } finally {
+    d.close();
+  }
+  await everyHitResolves(path, ORDER_QUERIES);
+});
+
+/**
+ * What search offered before it asked the resolver: the newest version of each place by its epoch's start, whatever
+ * its house votes under. Kept as the control for the property above, which a query that offers nothing passes.
+ */
+function newestOfEachPlace(d: DatabaseSync, q: string): Results {
+  const tied = seatTies(d);
+  const constituencies = all<{ place: string; version: number; name: string; kind: string; state: string }>(
+    d,
+    `SELECT place, version, name, kind, state FROM (
+       SELECT pv.place_id AS place, pv.id AS version, pv.canonical_name AS name, pv.kind AS kind, pv.jurisdiction_id AS state,
+              row_number() OVER (PARTITION BY pv.place_id ORDER BY be.effective_from DESC, pv.id DESC) AS rn
+         FROM place_version pv JOIN boundary_epoch be ON be.id = pv.epoch_id
+        WHERE pv.kind IN ('ac', 'pc')
+     ) WHERE rn = 1 AND name LIKE ?`,
+    `%${q}%`,
+  ).map((r): Hit => ({
+    id: r.place,
+    label: r.name,
+    detail: "",
+    href: seatHref(tied, { versionId: r.version, placeId: r.place, stateId: r.state, kind: r.kind, name: r.name }),
+  }));
+  return { ...searchAll(d, q), constituencies };
+}
+
+test("the property can fail: the newest version of each place 404s where an order is unvoted", async () => {
+  // The negative control of the two tests above. Without it a property that was asked nothing would pass.
+  await assert.rejects(
+    everyHitResolves(ordersFile(), ORDER_QUERIES, newestOfEachPlace),
+    /\/constituency\/as\/assembly\/dibrugarh-east is offered by search and 404s/,
+  );
+  // and on a registry with no view it is the one search always was, so the same query passes
+  await everyHitResolves(ordersFile(true), ORDER_QUERIES, newestOfEachPlace);
 });
 
 test("a constituency hit is the seat that carries the name now", live, () => {

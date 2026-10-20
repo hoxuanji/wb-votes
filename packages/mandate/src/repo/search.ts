@@ -17,7 +17,7 @@
 // module must not flatten — a phonetic hit is a suggestion to check, not a person found.
 
 import type { DatabaseSync } from "node:sqlite";
-import { seatHref, seatTies } from "./place-resolve.ts";
+import { placeIndex, seatHref, seatTies } from "./place-resolve.ts";
 import { districtHref, electionHref, stateHref } from "./routes.ts";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
@@ -127,7 +127,12 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
  * Constituencies, matched on the name a seat carries NOW.
  *
  * A seat has one `place_version` per delimitation it survived, so the naive query matches every version and
- * returns the same seat three times. The window function keeps the newest.
+ * returns the same seat three times. It keeps the CURRENT one, which is the version the place resolver answers and
+ * `placeIndex` names. The newest is not always that: Assam's assembly votes under delim-2008 although delim-2023-as
+ * holds the seat in force, and a hit on the newest version linked to a page that 404s. A place with no current
+ * version, such as a seat of a house that has held no full-house election, is not offered. Which versions are
+ * current is the index's to say and is not worked out here a second time, so a hit and the page it opens cannot
+ * name different seats.
  *
  * IT DELIBERATELY DOES NOT MATCH HISTORICAL NAMES, and that is the interesting decision here. The first
  * version of this did: it matched any version and displayed the current one, with "· was BADAMI" where they
@@ -146,6 +151,8 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
  */
 function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
   const tied = seatTies(db);
+  // One bind for the whole set, unpacked by json_each: a placeholder for each would grow with the registry.
+  const current = JSON.stringify(placeIndex(db).seats.filter((s) => s.current).map((s) => s.versionId));
   return all<{
     place: string;
     version: number;
@@ -171,18 +178,19 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
                 -- the district parent, and a parliamentary seat has no district, so its parent resolved to the
                 -- nation and search offered a constituency URL whose state segment was the country.
                 pv.jurisdiction_id AS jur,
-                COALESCE(pv.district_place_id, pl.parent_id) AS district,
-                row_number() OVER (PARTITION BY pl.id ORDER BY be.effective_from DESC, pv.id DESC) AS rn
+                COALESCE(pv.district_place_id, pl.parent_id) AS district
            FROM place_version pv
            JOIN place pl ON pl.id = pv.place_id
-           JOIN boundary_epoch be ON be.id = pv.epoch_id
-          WHERE pv.kind IN ('ac', 'pc')
+          WHERE pv.id IN (SELECT value FROM json_each(?))
        ) v
        LEFT JOIN place d ON d.id = v.district
        LEFT JOIN place s ON s.id = d.parent_id
-      WHERE v.rn = 1 AND v.name LIKE ? ESCAPE '\\'
-      ORDER BY (v.name LIKE ? ESCAPE '\\') DESC, contests DESC, v.name
+      WHERE v.name LIKE ? ESCAPE '\\'
+      -- The place id last: seats of one name and as many elections were left in place-id order by the window this
+      -- replaced, and nothing else says which of them comes first.
+      ORDER BY (v.name LIKE ? ESCAPE '\\') DESC, contests DESC, v.name, v.place
       LIMIT ?`,
+    current,
     pattern,
     prefix,
     PER_GROUP,

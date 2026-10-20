@@ -364,11 +364,11 @@ type SeatSql = Omit<SeatRow, "current">;
  * voting epoch, so none of its seats is current.
  *
  * A registry built before the view DEGRADES instead of failing: a version is current when it is the newest of its place
- * id, by its epoch's start and then its id, which is how search chooses a seat's version. That is the same answer
- * wherever a seat number has one version, and it does not tie a seat with its own earlier delimitation, as every
- * version being current would. It cannot say which epoch a house votes under, so migration 017 is what makes D26 exact:
- * without it a newest order nobody has voted under is current, and so is the last version of a seat number that a
- * later order abolished.
+ * id, by its epoch's start and then its id, which is how search chose a seat's version before it asked this. That is
+ * the same answer wherever a seat number has one version, and it does not tie a seat with its own earlier delimitation,
+ * as every version being current would. It cannot say which epoch a house votes under, so migration 017 is what makes
+ * D26 exact: without it a newest order nobody has voted under is current, and so is the last version of a seat number
+ * that a later order abolished.
  */
 function currentSeats(db: DatabaseSync): (s: { versionId: number; stateId: string; kind: string; epochId: string }) => boolean {
   if (get(db, `SELECT 1 FROM sqlite_master WHERE type = 'view' AND name = 'voting_epoch'`) !== undefined) {

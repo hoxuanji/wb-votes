@@ -392,8 +392,9 @@ test("two retired seats that share a name are linked by that name wherever seats
     assert.equal(hrefs.get("ka.ac.001"), named);
     assert.equal(hrefs.get("ka.ac.002"), named);
 
-    const found = searchAll(d, "Seat A").constituencies.filter((h) => h.label === "Seat A");
-    assert.deepEqual(found.map((h) => h.href), [named, named]);
+    // Search offers a seat a page answers, and these two have no version under e2, so there is nothing to offer: a
+    // link by their name would be a 404.
+    assert.deepEqual(searchAll(d, "Seat A").constituencies, []);
   } finally {
     d.close();
   }
