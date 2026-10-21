@@ -126,18 +126,9 @@ jobs:
       - name: Seed round trip
         run: npm run mandate -- export
 
-      # And the reports, regenerated and checked for drift. A generated document that is stale in the tree is
-      # a document that lies, and one that changes on a second run with no new data is not generated from the
-      # data at all — Phase 3 found `provenance.json` doing exactly that with the run clock.
-      - name: Generated reports are current and deterministic
-        run: |
-          npm run mandate -- geography coverage --write
-          npm run mandate -- geography missing --write
-          npm run mandate -- geography inspect --write
-          npm run mandate -- release --write
-          # The drift is named in annotations, because the job log is not always readable.
-          if ! git diff --quiet -- docs/geo docs/release; then
-            echo "::error title=Generated reports differ from the committed ones::$(git diff --stat -- docs/geo docs/release | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
-            echo "::notice title=First 150 lines of the report diff::$(git diff -U1 -- docs/geo docs/release | head -150 | sed 's/%/%25/g' | tr -d '\r' | awk '{printf "%s%%0A", $0}')"
-            exit 1
-          fi
+      # There is no step here that regenerates docs/geo and docs/release and fails on a difference. It was tried, and
+      # it cannot pass in this job: those reports are generated from the full registry (every state's elections
+      # and the sources behind them), and this job builds only the registry that data/seed/ and the fetched
+      # geometry give, so the regenerated coverage tables lose every state the seed does not hold. Regenerate them
+      # where a full registry exists — `npm run mandate -- geography coverage --write`, `geography missing
+      # --write`, `geography inspect --write` and `release --write` — and commit the result.

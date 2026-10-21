@@ -122,7 +122,10 @@ so CI without a registry is green and proves less — worth knowing before trust
 
 `.github/workflows/ci.yml` runs exactly that, in that order, and builds the registry first so the two suites
 that need one actually run. It compares the failing tests with `.github/test-baseline.txt` rather than ignoring
-failures or counting them, so a test already known to fail stays green and a new failure turns the job red. The workflow it replaced triggered
+failures or counting them, so a test already known to fail stays green and a new failure turns the job red.
+It does not regenerate the reports under `docs/geo` and `docs/release`: they come from a full registry, which this job
+does not build, so regenerate them (`geography coverage --write`, `geography missing --write`, `geography inspect --write`
+and `release --write`) where one exists and commit the result. The workflow it replaced triggered
 the deleted `/api/cron/scrape-results` endpoint.
 
 ## Hosting — resolved
