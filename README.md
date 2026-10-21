@@ -68,10 +68,10 @@ npm run registry:audit       # export round-trip and provenance report
 ```
 
 The registry a fresh clone builds from the committed seed (`registry:migrate`, `registry:ingest`,
-`registry:resolve`) is small, and 52 tests fail against it, each on data only the full registry holds: Bihar's and
+`registry:resolve`) is small, and 52 tests fail against it. Many need data only a fuller registry holds: Bihar's and
 Karnataka's elections, the Lok Sabha seats of other states, the 1976 delimitation, drawn polygons, and the people
-`searchPersons` ranks. CI asserts that at most one test fails, the classified `searchPersons`
-ranking/order-independence one in `packages/mandate/src/repo/person.test.ts` (`.github/workflows/ci.yml`).
+`searchPersons` ranks. CI builds a fuller registry and still fails some tests. `.github/test-baseline.txt` lists the
+tests that fail on every run, and CI fails only on a failure that is not listed (`.github/workflows/ci.yml`).
 
 Three suites are worth knowing about, because between them they cover what `tsc` cannot see:
 

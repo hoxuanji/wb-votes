@@ -68,7 +68,7 @@ MANDATE_DIST=.next-verify npx next build
 npm run type-check           # tsc over the app
 npm run registry:typecheck   # tsc over packages/mandate
 npm run lint                 # next lint, via .eslintrc.json
-npm test                     # needs the full registry: 52 fail on the seed one; CI allows at most one failure
+npm test                     # needs the full registry: 52 fail on the seed one; CI fails only on a test not in .github/test-baseline.txt
 MANDATE_DIST=.next-verify npx next build
 npm run mandate -- geography validate   # constituency identity
 npm run mandate -- elections validate   # election-event identity
@@ -121,8 +121,8 @@ quarantined seats — Assam's fourteen and Jammu & Kashmir's five have no epoch 
 so CI without a registry is green and proves less — worth knowing before trusting a green build.
 
 `.github/workflows/ci.yml` runs exactly that, in that order, and builds the registry first so the two suites
-that need one actually run. It asserts the failure COUNT is at most one rather than ignoring failures, so the
-classified `searchPersons` failure stays green and a second one does not. The workflow it replaced triggered
+that need one actually run. It compares the failing tests with `.github/test-baseline.txt` rather than ignoring
+failures or counting them, so a test already known to fail stays green and a new failure turns the job red. The workflow it replaced triggered
 the deleted `/api/cron/scrape-results` endpoint.
 
 ## Hosting — resolved

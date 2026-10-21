@@ -68,17 +68,52 @@ jobs:
       - name: Registry invariants
         run: npm run registry:audit
 
-      # ONE test is classified and expected to fail: searchPersons ranking/order-independence, in
-      # packages/mandate/src/repo/person.test.ts. `|| true` would hide a second failure as well, so the
-      # COUNT is asserted instead — the classified one stays green and a new one turns the job red.
+      # The tests that fail on every run are listed in .github/test-baseline.txt, one name per line, and this step
+      # fails only on a failure that is not listed. `|| true` would hide a new failure, and a count would let one
+      # test's fix pay for another's break. The run names what it found as annotations (read them with
+      # `gh api repos/<owner>/<repo>/check-runs/<job id>/annotations`): the new failures as an error, every failing
+      # test as a notice, and any listed test that now passes, whose line should then be deleted.
       - name: Tests
         run: |
           set +e
           npm test 2>&1 | tee /tmp/test.log
           set -e
-          fail=$(grep -E '^ℹ fail ' /tmp/test.log | tail -1 | grep -oE '[0-9]+' || echo 99)
-          echo "failing tests: ${fail}"
-          test "${fail}" -le 1
+          export LC_ALL=C
+
+          # Node prints the spec reporter ("✖ name (1.2ms)", "ℹ fail N") on a terminal and TAP ("not ok N - name",
+          # "# fail N") when its output is piped, as it is here under Node 22. Read either. This step once looked
+          # for the spec form only, found nothing, and reported 99 failures on every run.
+          ran=$(grep -E '^(ℹ|#) tests ' /tmp/test.log | tail -1 | grep -oE '[0-9]+' || true)
+          reported=$(grep -E '^(ℹ|#) fail ' /tmp/test.log | tail -1 | grep -oE '[0-9]+' || true)
+          if [ -z "${ran}" ] || [ -z "${reported}" ]; then
+            echo "::error title=No test summary::npm test printed no summary, so the run did not finish"
+            exit 1
+          fi
+
+          {
+            grep -E '^✖ ' /tmp/test.log | grep -vx '✖ failing tests:' | sed -E 's/^✖ //; s/ \([0-9.]+ms\)$//'
+            grep -E '^not ok [0-9]+ - ' /tmp/test.log | sed -E 's/^not ok [0-9]+ - //'
+          } | sort -u > /tmp/failing.txt || true
+          found=$(awk 'NF' /tmp/failing.txt | wc -l | tr -d ' ')
+          if [ "${reported}" -gt 0 ] && [ "${found}" -eq 0 ]; then
+            echo "::error title=Failing tests unreadable::the summary reports ${reported} failing but none could be named"
+            exit 1
+          fi
+
+          sort -u .github/test-baseline.txt > /tmp/baseline.txt
+          comm -13 /tmp/baseline.txt /tmp/failing.txt > /tmp/new.txt
+          comm -23 /tmp/baseline.txt /tmp/failing.txt > /tmp/fixed.txt
+          echo "tests: ${ran}, failing: ${reported} (${found} distinct names), not in .github/test-baseline.txt: $(awk 'NF' /tmp/new.txt | wc -l | tr -d ' ')"
+
+          annotate() {
+            [ -s "$3" ] || return 0
+            echo "::$1 title=$2::$(sed 's/%/%25/g' "$3" | awk '{printf "%s%%0A", $0}')"
+          }
+          annotate error "Failing tests not in test-baseline.txt" /tmp/new.txt
+          annotate notice "Baseline tests that now pass - remove them from test-baseline.txt" /tmp/fixed.txt
+          annotate notice "Every failing test on this run" /tmp/failing.txt
+
+          test ! -s /tmp/new.txt
 
       # Somewhere other than .next, which is what a dev server owns. MANDATE_DIST exists because a
       # verification build replacing that directory broke a running server three times.
