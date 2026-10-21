@@ -135,4 +135,9 @@ jobs:
           npm run mandate -- geography missing --write
           npm run mandate -- geography inspect --write
           npm run mandate -- release --write
-          git diff --exit-code -- docs/geo docs/release
+          # The drift is named in annotations, because the job log is not always readable.
+          if ! git diff --quiet -- docs/geo docs/release; then
+            echo "::error title=Generated reports differ from the committed ones::$(git diff --stat -- docs/geo docs/release | sed 's/%/%25/g' | awk '{printf "%s%%0A", $0}')"
+            echo "::notice title=First 150 lines of the report diff::$(git diff -U1 -- docs/geo docs/release | head -150 | sed 's/%/%25/g' | tr -d '\r' | awk '{printf "%s%%0A", $0}')"
+            exit 1
+          fi
