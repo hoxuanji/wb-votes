@@ -249,15 +249,13 @@ Stated here so nobody discovers them from a reader:
   `geography missing` and checks 5 and 6 of `geography validate` (the seat-name checks, which run only with the cached
   source files) still read the view, so they need it.
 
-### What `vercel.json` still does
+### No `vercel.json`
 
-Kept for the headers and the inbound rewrite; Cloudflare supplies the same caching at the edge.
-
-* Security headers on every response: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
-* `/v1/*` cached for 15 minutes with a one-hour stale-while-revalidate; static assets immutable for a year.
-* `/west-bengal/:slug` → `/constituency/wb/assembly/:slug`. The body is in the destination because a name
-  does not identify a seat, and `/constituency/<slug>` is now the legacy numeric-id route, which 404s on a
-  name. The old site held West Bengal assembly seats only, which is why the body is known.
+The site runs on Fly behind Cloudflare, and the repo no longer carries a `vercel.json`. The security headers it set are
+also set by `next.config.mjs`, and the caching it set on `/v1/*` and static assets is Cloudflare's job, as above. Its
+one other rule rewrote the previous product's `/west-bengal/:slug` to `/constituency/wb/assembly/:slug` (the body is in
+the destination because a name does not identify a seat). Only Vercel ever served that rule, so nothing serves those
+URLs now. Port it to `rewrites()` in `next.config.mjs` if they still matter.
 
 ## Legal and ethical notes
 
