@@ -29,8 +29,8 @@ Everything is in [repo/home.ts](../../packages/mandate/src/repo/home.ts). No SQL
 the page holds no jurisdiction name or id as a literal — asserted by a test, because that rule is what makes
 a new state a data load rather than an engineering project.
 
-**One spine, shared.** The first draft cost **1,435 ms** because `swingRows()` calls `standings()` twice and
-asking it for a swing per jurisdiction is 62 full passes over `result`. It is **798 ms** median now over
+**One spine, shared.** The first draft cost **1,435 ms** because each swing read an election's party standings
+twice, and asking for a swing per jurisdiction is 62 full passes over `result`. It is **798 ms** median now over
 566,580 result rows and 1,202 elections:
 
 - `seatsByParty` does all 62 elections in one `GROUP BY` where the old path did one query each
@@ -117,7 +117,10 @@ None of these were introduced here, and none are fixed here — they are ingest 
 3. **West Bengal 2026 reports 93.0% turnout** — 63,258,146 voters against 68,014,564 electors. The voter
    count reconciles with the source's own totals and the elector count does not; West Bengal 2021 holds
    76.7M. The aggregation is right (Karnataka reads 72.8% against the ECI's 73.19%, and the 2024 Lok Sabha
-   66.0% against 65.79%), so this is the seed's placeholder 2026 election.
+   66.0% against 65.79%), so this is the seed's placeholder 2026 election. The Turnout and Margin layers, the
+   knife-edge signal and Closest contests withhold the figure, and any margin share built on it, for an election
+   whose turnout nothing corroborates (`turnout-trust.ts`): West Bengal 2026's cell reads "turnout — verification
+   pending", and its seats are not ranked as close, because their margin as a share of votes polled is unknown.
 4. **BJP's Lok Sabha sparkline reads 278 for 2014 and 301 for 2019** against the 282 and 303 it won, because
    some winners' party did not resolve past `party_raw`.
 

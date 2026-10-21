@@ -11,8 +11,10 @@ import type {
 import { UNPARSEABLE_KEY, blockingKeys } from "../core/index.ts";
 import { cleanText, toLatin } from "../core/indic/index.ts";
 import { all, get } from "../db/index.ts";
+import { chronoAsc, chronoDesc } from "../core/election-kind.ts";
 import type { SourceRef } from "./index.ts";
 import { loadSources, marks, read, yearOf } from "./index.ts";
+import { seatHref, seatTies } from "./place-resolve.ts";
 
 export type PersonBrief = {
   person: {
@@ -32,9 +34,15 @@ export type PersonBrief = {
     electionName: string;
     year: number;
     placeName: string;
-    /** The seat's jurisdiction and body, from `place_version` — everything a canonical link needs. */
+    /** The seat's jurisdiction and body, from `place_version`. */
     jurisdictionId: string | null;
     placeKind: string | null;
+    /**
+     * The seat's canonical address (`seatHref`): its name's, or its registry id's where another current seat of its state and
+     * body shares the name, so the link opens this seat and not the page that asks which was meant. Null where the
+     * jurisdiction or the body is not recorded, because a link is never guessed from the name.
+     */
+    placeHref: string | null;
     placeNumber: number | null;
     reservation: Reservation | null;
     partyShortName: string | null;
@@ -107,7 +115,8 @@ type PersonRowSql = {
 /**
  * Everything the Brief lens renders, in one call. SEVEN fixed queries — person, aliases,
  * candidacies, affidavits, person-level claims, merges, sources — never N+1 in the number of
- * candidacies, affidavits or sources. Asserted by person.test.ts's statement counter.
+ * candidacies, affidavits or sources. Asserted by person.test.ts's statement counter. Which seats share a name
+ * (`seatTies`, for each candidacy's `placeHref`) is read once per registry file and kept, so it is not one of the seven.
  */
 export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | null {
   return read(() => {
@@ -131,6 +140,8 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
       contest_id: string;
       election_id: string;
       election_name: string;
+      version_id: number;
+      place_id: string;
       place_name: string;
       jurisdiction_id: string | null;
       place_kind: string | null;
@@ -157,6 +168,8 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
               -- whose name comes from whichever delimitation created the row, so it can differ from the seat
               -- the contest was actually held in, and a canonical URL built from it would not resolve.
               pv.canonical_name AS place_name,
+              -- The version and its place: what tells a seat whose name another seat shares from one whose name is its own.
+              pv.id AS version_id, pv.place_id AS place_id,
               -- THE AUTHORITATIVE JURISDICTION AND BODY, and no migration was needed for either. The audit
               -- proposed adding candidacy.jurisdiction_id; the relation already exists through
               -- candidacy -> contest -> place_version, which is where a contest's seat is recorded.
@@ -181,7 +194,7 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
         WHERE ca.person_id = ?
         -- newest first is by YEAR, not by id (see repo/index.ts yearOf): a career spanning
         -- 'ls-2019' and 'up-assembly-2017' came back as two separately-descending runs.
-        ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, c.id`,
+        ORDER BY ${chronoDesc()}, c.id`,
       slug,
     );
 
@@ -209,7 +222,7 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
         WHERE ca.person_id = ?
         GROUP BY a.id
         -- oldest first, by real chronology: election.year / polling_month / occurrence (migration 013)
-        ORDER BY e.year, e.polling_month, e.occurrence, a.filed_on, a.id`,
+        ORDER BY ${chronoAsc()}, a.filed_on, a.id`,
       slug,
     );
 
@@ -244,6 +257,7 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
       ...aff.map((a) => a.source_id),
     ].filter((id): id is string => id !== null);
     const subjectRefs = [`person:${slug}`, ...cand.map((c) => `candidacy:${c.candidacy_id}`)];
+    const tied = seatTies(db);
 
     return {
       person: {
@@ -264,6 +278,16 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
         placeName: c.place_name,
         jurisdictionId: c.jurisdiction_id,
         placeKind: c.place_kind,
+        placeHref:
+          c.jurisdiction_id === null || c.place_kind === null
+            ? null
+            : seatHref(tied, {
+                versionId: c.version_id,
+                placeId: c.place_id,
+                stateId: c.jurisdiction_id,
+                kind: c.place_kind,
+                name: c.place_name,
+              }),
         placeNumber: c.number,
         reservation: c.reservation,
         partyShortName: c.party_short_name,
@@ -446,7 +470,7 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
                   pt.short_name AS party_short_name, ca.status,
                   r.votes, r.vote_share, r.is_winner, r.source_id AS result_source_id,
                   ROW_NUMBER() OVER (PARTITION BY ca.person_id
-                                     ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, c.id) AS rn
+                                     ORDER BY ${chronoDesc()}, c.id) AS rn
              FROM candidacy ca
              JOIN contest c ON c.id = ca.contest_id
              JOIN election e ON e.id = c.election_id

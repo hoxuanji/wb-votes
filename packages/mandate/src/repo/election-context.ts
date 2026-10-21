@@ -36,17 +36,13 @@ import { get } from "../db/index.ts";
 import { read } from "./index.ts";
 import { previousElection } from "./elections.ts";
 import { JURISDICTIONS } from "../ingest/india.ts";
+import { facetOf, majorityOf, typeOf } from "../core/election-kind.ts";
+import type { Body, Fill } from "../core/election-kind.ts";
 
-/** Which body was elected. From `house`, which is the column that actually says so. */
-export type Body = "assembly" | "lok-sabha";
-
-/**
- * Whether the whole house was elected or a few vacant seats were.
- *
- * The registry's `kind` has three values and only one of them is about this; 'general' and 'assembly' are
- * both full-house events and differ only in body, which `body` already carries.
- */
-export type ElectionKind = "general" | "bypoll";
+// The vocabulary lives in core/election-kind.ts; re-exported so the types a context carries stay importable
+// from here. `Fill` is whether the whole house was elected or a few vacant seats were — the registry's `kind`
+// has more values and only this part of it is acted on.
+export type { Body, Fill };
 
 /**
  * What happened to ONE SEAT in the context of ONE election.
@@ -68,7 +64,7 @@ export type ElectionContext = {
   jurisdictionId: string;
   jurisdictionName: string;
   body: Body;
-  kind: ElectionKind;
+  kind: Fill;
   /** "Karnataka Assembly Election 2023", "Karnataka Assembly By-election 2024". Never assembled by a page. */
   label: string;
   year: number;
@@ -97,18 +93,9 @@ const HOUSE_SEATS = new Map(JURISDICTIONS.map((j) => [j.id, j]));
 /** The Lok Sabha's elected strength. Reference data holds per-state figures; the national total is this. */
 const LOK_SABHA = 543;
 
-function bodyOf(house: string): Body {
-  return house === "pc" ? "lok-sabha" : "assembly";
-}
-
-function kindOf(kind: string): ElectionKind {
-  return kind === "bypoll" ? "bypoll" : "general";
-}
-
 /** "Assembly Election", "Lok Sabha By-election" — the type, in the words a reader uses for it. */
-export function typeLabel(body: Body, kind: ElectionKind): string {
-  const house = body === "lok-sabha" ? "Lok Sabha" : "Assembly";
-  return kind === "bypoll" ? `${house} By-election` : `${house} Election`;
+export function typeLabel(body: Body, kind: Fill): string {
+  return typeOf(body, kind);
 }
 
 /**
@@ -130,7 +117,8 @@ function houseSeats(body: Body, jurisdictionId: string, scope: string | null): n
  * `electionMapView` does, so the two can never describe the same view differently.
  *
  * Returns null for an unknown id — and for NO other reason. The predecessor of this logic refused every
- * by-election here, which is how 829 elections came to 404.
+ * by-election here, which is how 829 elections came to 404. (A row whose house and kind the product does not
+ * label THROWS, from `facetOf`, rather than being described as something it is not.)
  */
 export function electionContext(
   db: DatabaseSync,
@@ -166,8 +154,7 @@ export function electionContext(
     );
     if (e === undefined) return null;
 
-    const body = bodyOf(e.house);
-    const kind = kindOf(e.kind);
+    const { body, fill: kind, type } = facetOf(e.house, e.kind);
     const scope = jurisdictionId ?? null;
     const seatsInHouse = houseSeats(body, e.j, scope);
     const where = scope === null ? e.jName : (HOUSE_SEATS.get(scope)?.name ?? e.jName);
@@ -184,7 +171,7 @@ export function electionContext(
       jurisdictionName: e.jName,
       body,
       kind,
-      label: `${where} ${typeLabel(body, kind)} ${e.year}`,
+      label: `${where} ${type} ${e.year}`,
       year: e.year,
       chronology: { year: e.year, pollingMonth: e.pollingMonth, occurrence: e.occurrence },
       seatsContested: e.seats,
@@ -201,7 +188,7 @@ export function electionContext(
        * Dividing today's figure would have announced a 1962 majority of 148 against a house of 251.
        * A full-house election's contest count IS its house.
        */
-      majority: kind === "bypoll" ? null : Math.floor(e.seats / 2) + 1,
+      majority: majorityOf(e.seats, kind),
       previous: prevId === null || prev === null ? null : { id: prevId, year: prev.year },
       epochId: e.epochId,
       scope,

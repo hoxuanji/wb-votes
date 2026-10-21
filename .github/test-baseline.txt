@@ -1,0 +1,51 @@
+ElectionContext: body comes from the house and kind from whether the house was filled
+INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves
+Karnataka carries BOTH names: seat 1 is Bidar in 1976 and Chikkodi in 2008
+THE REGRESSION: Bihar's two 2005 assembly elections are two events
+THE REGRESSION: Karnataka PC 1 is Chikkodi in 2019, and Jolle is not put in Bidar
+URL state restores the map, and the layer strip carries it
+West Bengal historical names survive, and its numbering conflict is recorded not resolved
+a by-election map shows the seats that did not vote, and never as a result
+a comparison across a redrawn map is refused on the page, not just in the data
+a constituency name does not identify its body, so the URL cannot either
+a cross-epoch pair exists in the registry, so this gate is not theoretical
+a district both navigates and focuses, and is never given a winner
+a district on the state page is reachable, and its link is not hidden in a citation
+a general election gains no uncontested layer and keeps its majority
+a map draws polygons from one coordinate space, and says how many it withheld
+a parliamentary seat carries its own election history, epoch by epoch
+a party can be isolated, and the isolation is in the URL
+a party that won seats never renders in the register that means absence
+a selection actually dims the map rather than only changing the list
+a state map's polygons name their publisher and their licence, in the drawer
+a state page draws constituencies, and colours them by who won each one
+a state's Lok Sabha view is that state's seats, not the whole country
+a turnout the registry cannot corroborate never renders as a hero figure
+an assembly and a parliamentary by-election in one state and year are distinct
+both houses are named from source, and a by-poll shares its epoch's seat
+by-election rounds in one year are separate events
+canonical routes resolve for discovered jurisdictions of every size
+chronology comes from the columns, and a split id would break string sorting
+every map layer renders, and an unknown one falls back instead of breaking
+every multi-delimitation state names each epoch's seat 1 from its own delimitation
+every party on the map has its own colour, and it is not assigned by rank
+every real polygon survives simplification with area to draw
+every selection the state page offers is in the URL and moves the map
+every watch signal is traceable, thresholded and honest about its basis
+fixtures: the registry offers everything the read layer needs
+majority for a full house is the house that voted, not today's reference strength
+majority is null for a by-election and never derived from seats contested
+no SVG title is assembled from several nodes, on any figure
+one field answers for every kind of thing, and every group it offers is navigable
+searchPersons: a person is the FIRST answer to their own name
+searchPersons: every exactly-named person is REACHABLE, not merely ranked
+searchPersons: exactness outranks prominence, never the reverse
+the discovered matrix covers every election type the registry holds
+the homepage never prints a fabricated figure
+the navigation graph walks all the way down, in five jurisdictions
+the parties that appear in one view separate from each other, in every jurisdiction
+the same candidate winning the same seat twice is two results, not a collision
+the split is recorded in the ledger IF it ever had to happen
+the state page offers evidence once, and no per-value provenance
+the state page opens on the state's own house, not the newest election
+the unopposed seat is never counted among the numeric results

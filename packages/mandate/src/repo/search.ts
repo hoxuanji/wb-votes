@@ -17,12 +17,14 @@
 // module must not flatten — a phonetic hit is a suggestion to check, not a person found.
 
 import type { DatabaseSync } from "node:sqlite";
-import { constituencyHref, districtHref, stateHref } from "./routes.ts";
+import { placeIndex, seatHref, seatTies } from "./place-resolve.ts";
+import { electionHref, stateHref } from "./routes.ts";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
 import { searchPersons, type PersonRow } from "./person.ts";
 import { detectScript, toLatin } from "../core/indic/index.ts";
 import { CHRONO_DESC } from "./elections.ts";
+import { facetOf } from "../core/election-kind.ts";
 
 /** One navigable thing. `detail` is what the row says about itself, so a hit is informative unopened. */
 export type Hit = {
@@ -95,8 +97,8 @@ function states(db: DatabaseSync, pattern: string, prefix: string, q: string): H
 /**
  * Elections, by their formal name or by their jurisdiction's.
  *
- * An election has no page of its own; what it has is a coverage record, which is the honest destination —
- * "how much of this election do we hold" is the question a reader who searched for one is closest to.
+ * A hit opens the election's own page: its seat map and how it went, which is what a reader who searched for an
+ * election is after. How much of it the registry holds is the coverage record, at /coverage.
  */
 function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
   return all<{ id: string; name: string; year: number; house: string; kind: string; seats: number; jname: string }>(
@@ -115,9 +117,9 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
     PER_GROUP,
   ).map((r) => ({
     id: r.id,
-    label: `${r.jname} ${r.house === "pc" ? "Lok Sabha" : "Assembly"} ${r.year}${r.kind === "bypoll" ? " by-election" : ""}`,
+    label: `${r.jname} ${facetOf(r.house, r.kind).type} ${r.year}`,
     detail: `${r.seats} constituenc${r.seats === 1 ? "y" : "ies"} loaded`,
-    href: `/coverage?election=${r.id}#election`,
+    href: electionHref(r.id),
   }));
 }
 
@@ -125,12 +127,22 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
  * Constituencies, matched on the name a seat carries NOW.
  *
  * A seat has one `place_version` per delimitation it survived, so the naive query matches every version and
- * returns the same seat three times. The window function keeps the newest.
+ * returns the same seat three times. It keeps the CURRENT one, which is the version the place resolver answers and
+ * `placeIndex` names. The newest is not always that, and a hit on a newest version that is not current linked to a
+ * page that 404s. Two shapes do it: a seat number that the order its house votes under left out, which keeps only
+ * its older versions (search.test.ts builds Karnataka's seat 300, under delim-1976 only), and a seat that an order
+ * nobody has voted under yet redraws (the test's Assam assembly, under delim-2023-as). The second is the fixture's and
+ * not the registry's: delim-2023-as holds 14 parliamentary seats and no assembly seats (docs/geo/audit.md), so Assam's
+ * newest assembly versions are delim-2008, which is where its house votes. A place with no current version is not
+ * offered. With migration 017 that is a seat of a house that has held no full-house election, or a seat number with no
+ * version in the epoch its house votes under; a registry without it takes the newest version of every place as
+ * current, so every place is offered. Which versions are current is the index's to say and is not worked out here a
+ * second time, so a hit and the page it opens cannot name different seats.
  *
  * IT DELIBERATELY DOES NOT MATCH HISTORICAL NAMES, and that is the interesting decision here. The first
  * version of this did: it matched any version and displayed the current one, with "· was BADAMI" where they
  * differed. Against the real registry that produced "NANJANGUD · no. 214 · MYSORE · was BADAMI" — and
- * Badami is a seat in Bagalkot, five hundred kilometres away. The reason is in place-page.ts's own comment:
+ * Badami is a seat in Bagalkot, five hundred kilometres away. The reason is in place-resolve.ts's `loadPlaceIndex`:
  * a `place` row is a legacy seat-NUMBER grouping, so `ka.ac.214` accumulated versions from delimitations in
  * which the number 214 belonged to different constituencies. "Was BADAMI" asserted a renaming that never
  * happened.
@@ -139,12 +151,16 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
  * is not make the claim: a search for a historical name finds nothing here, which is a miss, and a miss is
  * survivable in a way that a confident wrong answer is not.
  *
- * The path is built exactly as `placeHref` builds it, because that is the construction the render tests
- * already prove resolves: state, then the district segment, then the name slug.
+ * The path is built by `seatHref`, because that is the construction the render tests already prove
+ * resolves: state, then the body, then the name slug, or the registry id where two seats share the name.
  */
 function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
+  const tied = seatTies(db);
+  // One bind for the whole set, unpacked by json_each: a placeholder for each would grow with the registry.
+  const current = JSON.stringify(placeIndex(db).seats.filter((s) => s.current).map((s) => s.versionId));
   return all<{
     place: string;
+    version: number;
     name: string;
     kind: string;
     number: number | null;
@@ -155,37 +171,38 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
     contests: number;
   }>(
     db,
-    `SELECT v.place AS place, v.name AS name, v.kind AS kind, v.number AS number,
+    `SELECT v.place AS place, v.version AS version, v.name AS name, v.kind AS kind, v.number AS number,
             v.district AS district, d.canonical_name AS dname,
             v.jur AS state, s.canonical_name AS sname,
             (SELECT COUNT(*) FROM contest c
                JOIN place_version v2 ON v2.id = c.place_version_id
               WHERE v2.place_id = v.place) AS contests
        FROM (
-         SELECT pl.id AS place, pv.canonical_name AS name, pv.kind AS kind, pv.number AS number,
+         SELECT pl.id AS place, pv.id AS version, pv.canonical_name AS name, pv.kind AS kind, pv.number AS number,
                 -- THE JURISDICTION, which is the ancestor BOTH bodies have. The state used to be derived from
                 -- the district parent, and a parliamentary seat has no district, so its parent resolved to the
                 -- nation and search offered a constituency URL whose state segment was the country.
                 pv.jurisdiction_id AS jur,
-                COALESCE(pv.district_place_id, pl.parent_id) AS district,
-                row_number() OVER (PARTITION BY pl.id ORDER BY be.effective_from DESC, pv.id DESC) AS rn
+                COALESCE(pv.district_place_id, pl.parent_id) AS district
            FROM place_version pv
            JOIN place pl ON pl.id = pv.place_id
-           JOIN boundary_epoch be ON be.id = pv.epoch_id
-          WHERE pv.kind IN ('ac', 'pc')
+          WHERE pv.id IN (SELECT value FROM json_each(?))
        ) v
        LEFT JOIN place d ON d.id = v.district
        LEFT JOIN place s ON s.id = d.parent_id
-      WHERE v.rn = 1 AND v.name LIKE ? ESCAPE '\\'
-      ORDER BY (v.name LIKE ? ESCAPE '\\') DESC, contests DESC, v.name
+      WHERE v.name LIKE ? ESCAPE '\\'
+      -- The place id last: seats of one name and as many elections were left in place-id order by the window this
+      -- replaced, and nothing else says which of them comes first.
+      ORDER BY (v.name LIKE ? ESCAPE '\\') DESC, contests DESC, v.name, v.place
       LIMIT ?`,
+    current,
     pattern,
     prefix,
     PER_GROUP,
   )
     .map((r): Hit | null => {
-      // No district or no state means no four-segment path, and a link to /pl// resolves to nothing. A seat
-      // that cannot be addressed is left out rather than offered as a dead row.
+      // A seat with no state has no address, since /constituency/<state>/<body>/<name> needs one. A seat that cannot
+      // be addressed is left out rather than offered as a dead row.
       // A PARLIAMENTARY SEAT HAS NO DISTRICT, and this used to require one — so every pc hit was dropped and
       // search could not reach a Lok Sabha constituency at all. The canonical URL carries the body and the
       // jurisdiction now, so the district is not part of the identity and its absence is not a reason to hide
@@ -200,7 +217,7 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
           (r.number === null ? "" : ` no. ${r.number}`) +
           (where === "" ? "" : ` · ${where}`) +
           ` · ${r.contests} election${r.contests === 1 ? "" : "s"}`,
-        href: constituencyHref({ jurisdictionId: r.state, kind: r.kind, canonicalName: r.name }),
+        href: seatHref(tied, { versionId: r.version, placeId: r.place, stateId: r.state, kind: r.kind, name: r.name }),
       };
     })
     .filter((h): h is Hit => h !== null);
@@ -218,11 +235,6 @@ export function partyAnchor(key: string): string {
   // A key with nothing addressable in it — "Unattached" is a real bucket and a blank raw string is a real
   // row — gets the bare prefix rather than a trailing hyphen, which is not a legal fragment either.
   return slug === "" ? "party" : `party-${slug}`;
-}
-
-/** The name slug a place path uses. Same rule as place-page.ts's, and it has to stay the same rule. */
-function slug(name: string): string {
-  return name.trim().toLowerCase().replace(/\s+/g, "-");
 }
 
 /**

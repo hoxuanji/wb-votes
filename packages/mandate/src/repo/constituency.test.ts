@@ -3,10 +3,11 @@ import test from "node:test";
 import { existsSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import { all } from "../db/index.ts";
-import { constituenciesNamed, constituencyPath, placeView } from "./place-page.ts";
+import { placeView, resolveRequest } from "./place-view.ts";
 import { constituencyHref } from "./routes.ts";
 import { searchAll } from "./search.ts";
 import { getPersonBrief } from "./person.ts";
+import { currentSeat } from "./testkit.ts";
 
 const HAVE = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE ? false : "no .data/registry.db" };
@@ -24,6 +25,16 @@ const db = HAVE ? openRead() : (null as unknown as ReturnType<typeof openRead>);
  */
 type Seat = { j: string; name: string; kind: string; epoch: string; drawn: number };
 
+/**
+ * A seat the resolver can answer: current, and the only current seat of its body in its state that goes by its name. A
+ * tie is `many` and a retired seat is `none`, which are right answers and not what these fixtures are for.
+ */
+const answerable = (a: string): string => `
+  ${currentSeat(db, a)}
+  AND (SELECT COUNT(*) FROM place_version t
+        WHERE t.jurisdiction_id = ${a}.jurisdiction_id AND t.kind = ${a}.kind
+          AND LOWER(t.canonical_name) = LOWER(${a}.canonical_name) AND ${currentSeat(db, "t")}) = 1`;
+
 function seats(kind: "ac" | "pc", sql: string, ...binds: (string | number)[]): Seat[] {
   return all<Seat>(
     db,
@@ -39,6 +50,7 @@ function seats(kind: "ac" | "pc", sql: string, ...binds: (string | number)[]): S
           SELECT 1 FROM place_version o
            WHERE o.jurisdiction_id = pv.jurisdiction_id AND o.kind <> pv.kind
              AND LOWER(o.canonical_name) = LOWER(pv.canonical_name))
+        AND ${answerable("pv")}
         ${sql}`,
     kind,
     ...binds,
@@ -74,15 +86,16 @@ test("a parliamentary and an assembly seat resolve through the same code path", 
 
   for (const c of cases) {
     const slug = c.name.trim().toLowerCase().replace(/\s+/g, "-");
-    // 1 — THE SAME RESOLVER. `constituencyPath` takes a jurisdiction and a name for either body; a pc has no
-    //     district, and the resolver no longer needs one.
-    const segments = await constituencyPath(c.j, slug);
-    assert.ok(segments !== null, `${c.kind} ${c.j}/${slug} did not resolve`);
-    assert.equal(segments.length, 2, `${c.j}/${slug} resolved to ${segments.length} segments`);
+    // 1 — THE SAME RESOLVER. A state and a name, for either body; a pc has no district, and the resolver no longer
+    //     needs one. The seat's own address resolves back to it.
+    const found = resolveRequest(db, { level: "seat", state: c.j, name: slug });
+    assert.equal(found.found, "one", `${c.kind} ${c.j}/${slug} did not resolve to one seat`);
+    if (found.found !== "one") continue;
+    assert.equal(found.place.href, constituencyHref({ jurisdictionId: c.j, kind: c.kind, canonicalName: c.name }));
 
     // 2 — THE SAME VIEW TYPE. Not a parent view: a pc used to resolve correctly and then be handed to the
     //     state/district renderer, so 606 Lok Sabha seats rendered as their own state's assembly page.
-    const view = await placeView(segments, {}, "constituency");
+    const view = await placeView({ level: "seat", state: c.j, name: slug }, {});
     assert.equal(view.kind, "ac", `${c.j}/${slug} (${c.kind}) is not served as a constituency`);
     if (view.kind !== "ac") continue;
 
@@ -195,9 +208,11 @@ test("same name, same state, different body: two distinct entities, always", liv
     `SELECT a.jurisdiction_id AS j, a.canonical_name AS name
        FROM place_version a
       WHERE a.kind = 'ac' AND a.epoch_id = 'delim-2008' AND a.jurisdiction_id IS NOT NULL
+        AND ${answerable("a")}
         AND EXISTS (SELECT 1 FROM place_version b
                      WHERE b.kind = 'pc' AND b.epoch_id = 'delim-2008'
                        AND b.jurisdiction_id = a.jurisdiction_id
+                       AND ${answerable("b")}
                        AND LOWER(b.canonical_name) = LOWER(a.canonical_name))
       GROUP BY a.jurisdiction_id, LOWER(a.canonical_name)
       ORDER BY a.jurisdiction_id, a.canonical_name
@@ -207,8 +222,8 @@ test("same name, same state, different body: two distinct entities, always", liv
 
   for (const c of collisions) {
     const slug = c.name.trim().toLowerCase().replace(/\s+/g, "-");
-    const ac = await placeView([c.j, slug], {}, "constituency", "ac");
-    const pc = await placeView([c.j, slug], {}, "constituency", "pc");
+    const ac = await placeView({ level: "seat", state: c.j, body: "assembly", name: slug }, {});
+    const pc = await placeView({ level: "seat", state: c.j, body: "lok-sabha", name: slug }, {});
     assert.equal(ac.kind, "ac", `${c.j}/assembly/${slug} did not resolve`);
     assert.equal(pc.kind, "ac", `${c.j}/lok-sabha/${slug} did not resolve`);
     if (ac.kind !== "ac" || pc.kind !== "ac") continue;
@@ -225,38 +240,42 @@ test("same name, same state, different body: two distinct entities, always", liv
 });
 
 test("the pre-body URL asks rather than choosing, and resolves when it is unambiguous", live, async () => {
-  // AMBIGUOUS: both bodies exist, so `constituenciesNamed` returns two and the route offers a choice.
+  // AMBIGUOUS: both bodies exist, so the resolver returns two and the route offers a choice.
   const collide = all<{ j: string; name: string }>(
     db,
     `SELECT a.jurisdiction_id AS j, a.canonical_name AS name FROM place_version a
-      WHERE a.kind = 'ac' AND a.jurisdiction_id IS NOT NULL
+      WHERE a.kind = 'ac' AND a.jurisdiction_id IS NOT NULL AND ${answerable("a")}
         AND EXISTS (SELECT 1 FROM place_version b WHERE b.kind = 'pc'
-                     AND b.jurisdiction_id = a.jurisdiction_id
+                     AND b.jurisdiction_id = a.jurisdiction_id AND ${answerable("b")}
                      AND LOWER(b.canonical_name) = LOWER(a.canonical_name))
       LIMIT 1`,
   )[0];
   assert.ok(collide, "no collision to test");
-  const both = await constituenciesNamed(collide.j, collide.name.toLowerCase().replace(/\s+/g, "-"));
-  assert.equal(both.length, 2, `expected two bodies, got ${both.length}`);
-  assert.deepEqual([...both.map((b) => b.kind)].sort(), ["ac", "pc"]);
+  const both = resolveRequest(db, { level: "seat", state: collide.j, name: collide.name.toLowerCase().replace(/\s+/g, "-") });
+  assert.equal(both.found, "many", `expected two bodies, got ${both.found}`);
+  if (both.found === "many") {
+    assert.deepEqual([...both.places.map((b) => (b.level === "seat" ? b.kind : null))].sort(), ["ac", "pc"]);
+  }
 
   // UNAMBIGUOUS: one body only, so the old URL has exactly one correct destination and may redirect.
   const unique = all<{ j: string; name: string }>(
     db,
     `SELECT a.jurisdiction_id AS j, a.canonical_name AS name FROM place_version a
-      WHERE a.kind = 'pc' AND a.jurisdiction_id IS NOT NULL
+      WHERE a.kind = 'pc' AND a.jurisdiction_id IS NOT NULL AND ${answerable("a")}
         AND NOT EXISTS (SELECT 1 FROM place_version b WHERE b.kind = 'ac'
                          AND b.jurisdiction_id = a.jurisdiction_id
                          AND LOWER(b.canonical_name) = LOWER(a.canonical_name))
       LIMIT 1`,
   )[0];
   assert.ok(unique, "no unambiguous parliamentary name");
-  const one = await constituenciesNamed(unique.j, unique.name.toLowerCase().replace(/\s+/g, "-"));
-  assert.equal(one.length, 1, `${unique.j}/${unique.name} is not unambiguous after all`);
-  assert.equal(one[0]?.kind, "pc");
+  const one = resolveRequest(db, { level: "seat", state: unique.j, name: unique.name.toLowerCase().replace(/\s+/g, "-") });
+  assert.equal(one.found, "one", `${unique.j}/${unique.name} is not unambiguous after all`);
+  if (one.found === "one") assert.equal(one.place.level === "seat" ? one.place.kind : null, "pc");
 
   // AND A NAME THAT IS NEITHER resolves to nothing — never to the state.
-  assert.deepEqual(await constituenciesNamed(collide.j, "no-such-constituency-zzzz"), []);
+  assert.deepEqual(resolveRequest(db, { level: "seat", state: collide.j, name: "no-such-constituency-zzzz" }), {
+    found: "none",
+  });
 });
 
 test("a parliamentary seat is searchable, and its state is its jurisdiction", live, async () => {
@@ -276,6 +295,7 @@ test("a parliamentary seat is searchable, and its state is its jurisdiction", li
     `SELECT pv.jurisdiction_id AS j, pv.canonical_name AS name
        FROM place_version pv
       WHERE pv.kind = 'pc' AND pv.district_place_id IS NULL AND pv.jurisdiction_id IS NOT NULL
+        AND ${answerable("pv")}
         AND EXISTS (SELECT 1 FROM contest c WHERE c.place_version_id = pv.id)
       ORDER BY pv.id LIMIT 4`,
   );
@@ -295,10 +315,11 @@ test("a parliamentary seat is searchable, and its state is its jurisdiction", li
     assert.equal(parts[2], "lok-sabha");
 
     // 3 — AND IT RESOLVES, to a pc and not to an assembly seat of the same name.
-    const segments = await constituencyPath(parts[1] as string, parts[3] as string);
-    assert.ok(segments !== null, `${mine.href} does not resolve`);
-    const view = await placeView(segments, {}, "constituency", "pc");
-    assert.equal(view.kind, "ac");
+    const view = await placeView(
+      { level: "seat", state: parts[1] as string, body: "lok-sabha", name: parts[3] as string },
+      {},
+    );
+    assert.equal(view.kind, "ac", `${mine.href} does not resolve to one seat`);
     if (view.kind === "ac") assert.equal(view.brief.place.kind, "pc", `${mine.href} resolved to an assembly seat`);
   }
 });
@@ -350,11 +371,9 @@ test("a person's page reaches the constituency they contested, with the right bo
   assert.ok(latest, `${person} has no candidacy`);
   assert.ok(latest.jurisdictionId !== null, `${person}'s latest contest has no jurisdiction`);
   assert.ok(latest.placeKind === "ac" || latest.placeKind === "pc", `unexpected body ${latest.placeKind}`);
-  const href = constituencyHref({
-    jurisdictionId: latest.jurisdictionId,
-    kind: latest.placeKind,
-    canonicalName: latest.placeName,
-  });
+  // The link the page puts in its breadcrumb is the brief's, so this is the address a reader is sent to.
+  const href = latest.placeHref;
+  assert.ok(href !== null, `${person}'s latest contest has no link`);
   assert.match(href, /^\/constituency\/[a-z]{2}\/(assembly|lok-sabha)\/.+/, `${person} built ${href}`);
   assert.ok(!href.includes("/in/"), `${person} links to a constituency of the country`);
 });

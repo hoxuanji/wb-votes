@@ -255,15 +255,15 @@ date its orders took effect.
 
 ## How the 19 resolved, without a single exception in the importer
 
-`stage.ts` no longer holds a constant epoch. It asks `currentEpochFor(db, jurisdiction)` — the newest
-`boundary_epoch` that either names that jurisdiction or is national. Assam resolves to `delim-2023-as`
+`stage.ts` no longer holds a constant epoch. It asks `currentEpochFor(jurisdiction)` — the newest epoch in the
+table (`core/epochs.ts`) that either names that jurisdiction or is national. Assam resolves to `delim-2023-as`
 (2023-08-11) and J&K to `delim-2022-jk` (2022-05-20) because those beat DPACO 2008's 2008-02-19; every other
 jurisdiction still resolves to `delim-2008` because it has nothing newer.
 
-So the mapping is a property of the registry's own cited geography, and **the same code path that imported
-the other 524 imported these 19**. No fuzzy matching, no seat-number shifting, no state exceptions, no
-name-only inference. Future ECI imports resolve Assam and J&K automatically, and any jurisdiction
-re-delimited later needs a cited epoch row and nothing else.
+So the mapping is a property of the cited orders, and **the same code path that imported the other 524
+imported these 19**. No fuzzy matching, no seat-number shifting, no state exceptions, no name-only inference.
+Future ECI imports resolve Assam and J&K automatically, and any jurisdiction re-delimited later needs an entry in
+the epoch table and its cited document, and nothing else.
 
 The `place` row is reused across epochs, not duplicated: `as.pc.001` is the seat-number grouping and its two
 `place_version` rows are Karimganj (2008) and Kokrajhar (2023) — exactly how `ka.pc.001` has always held

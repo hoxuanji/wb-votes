@@ -12,6 +12,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Reservation } from "../core/index.ts";
 import { all, get } from "../db/index.ts";
+import { chronoDesc } from "../core/election-kind.ts";
 import {
   enp,
   incumbency_retention,
@@ -25,6 +26,7 @@ import { loadSources, read, yearOf } from "./index.ts";
 import { counted } from "./person.ts";
 import type { DemographicFigure } from "./place.ts";
 import { demographicClaims, groupDemographics } from "./place.ts";
+import { sameSeat } from "./seat-comparison.ts";
 
 /** Exactly what the Analysis page's URL exposes. A fourth filter would be a parameter with no
  *  caller. */
@@ -160,6 +162,7 @@ type PlaceSql = {
 type RowSql = {
   contest_id: string;
   election_id: string;
+  place_id: string;
   epoch_id: string;
   electors: number | null;
   voters: number | null;
@@ -187,6 +190,7 @@ type Contest = {
   contestId: string;
   electionId: string;
   year: number;
+  placeId: string;
   epochId: string;
   electors: number | null;
   voters: number | null;
@@ -196,15 +200,15 @@ type Contest = {
 };
 
 /**
- * Place Analysis. `slug` is the place id ('wb.ac.001') or the constituency name ('Mekliganj'),
- * case-insensitive — the same two-candidate match getPlaceBrief uses.
+ * Place Analysis. `versionId` is the seat version place-resolve.ts resolved, the one getPlaceBrief is
+ * given too, so the Brief and the Analysis of one page are about one delimitation.
  *
  * Series are computed over the FULL history and then narrowed by `filters`, so a swing at the edge
  * of the window still knows the election it is measured from (it carries `previousYear`).
  */
 export function getPlaceAnalysis(
   db: DatabaseSync,
-  slug: string,
+  versionId: number,
   filters: PlaceAnalysisFilters = {},
 ): PlaceAnalysis | null {
   return read(() => {
@@ -224,17 +228,14 @@ export function getPlaceAnalysis(
          LEFT JOIN boundary_epoch be ON be.id = pv.epoch_id
         -- Either body. A pc has no district, so the district baseline below returns nothing for one and the
         -- surface already renders that as absent rather than as a comparison against zero.
-        WHERE pv.kind IN ('ac', 'pc') AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
-        ORDER BY be.effective_from DESC, pv.id DESC
-        LIMIT 1`,
-      slug,
-      slug,
+        WHERE pv.id = ? AND pv.kind IN ('ac', 'pc')`,
+      versionId,
     );
     if (p === undefined) return null;
 
     const rows = all<RowSql>(
       db,
-      `SELECT c.id AS contest_id, c.election_id, pv.epoch_id,
+      `SELECT c.id AS contest_id, c.election_id, pv.place_id, pv.epoch_id,
               t.electors, t.voters, t.source_id AS turnout_source_id,
               r.rank, r.votes, r.margin, r.source_id AS result_source_id,
               per.canonical_name AS person_name,
@@ -249,7 +250,7 @@ export function getPlaceAnalysis(
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
         WHERE c.place_version_id = ?
-        ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, r.rank, r.candidacy_id`,
+        ORDER BY ${chronoDesc()}, r.rank, r.candidacy_id`,
       p.place_version_id,
     );
 
@@ -270,8 +271,9 @@ export function getPlaceAnalysis(
          JOIN place dist ON dist.id = pl.parent_id
          JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
         WHERE dist.parent_id = ?
-        GROUP BY c.election_id
-        ORDER BY MAX(e.year) DESC, MAX(e.polling_month) DESC, MAX(e.occurrence) DESC`,
+        -- grouped by e.id as well, its primary key, so the chronology columns need no aggregate to be ordered by
+        GROUP BY c.election_id, e.id
+        ORDER BY ${chronoDesc()}`,
       p.parent_id,
       p.parent_id,
       p.state_id,
@@ -373,7 +375,7 @@ export function getPlaceAnalysis(
           held: incumbency_retention.compute({
             winningPartyId: w,
             previousWinningPartyId: pw,
-            sameEpoch: now.epochId === prev.epochId,
+            sameEpoch: sameSeat(now, prev),
           }),
         };
       }),
@@ -407,6 +409,7 @@ function groupContests(rows: readonly RowSql[]): Contest[] {
         contestId: r.contest_id,
         electionId: r.election_id,
         year: yearOf(r.election_id),
+        placeId: r.place_id,
         epochId: r.epoch_id,
         electors: r.electors,
         voters: r.voters,
@@ -499,7 +502,7 @@ function swings(now: Contest, prev: Contest, party: string | undefined): SwingPo
         swingPp: swing_pp.compute({
           sharePct: r.voteSharePct,
           previousSharePct: previousVoteSharePct,
-          sameEpoch: now.epochId === prev.epochId,
+          sameEpoch: sameSeat(now, prev),
         }),
       };
     });

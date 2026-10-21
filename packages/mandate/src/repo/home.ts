@@ -18,20 +18,20 @@
 //     never be one: importing Kerala's next assembly makes it appear on the front page with no code change.
 
 import type { DatabaseSync } from "node:sqlite";
-import { constituencyHref, districtHref, stateHref } from "./routes.ts";
+import { stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
-import { loadSources, read, type SourceRef } from "./index.ts";
+import { read, type SourceRef } from "./index.ts";
 import {
   CHRONO_DESC,
   bypolls,
   closeFights,
+  currentElection,
   currentStandings,
   foldStandings,
   latestPerJurisdiction,
-  partitionByEpoch,
+  partyRows,
   previousElection,
   recent,
-  seatKey,
   seatsByParty,
   upcoming,
   seatsWonBy,
@@ -42,11 +42,24 @@ import {
   type SeatsByParty,
   type SeatsWon,
   type Standing,
-  type SwingRow,
 } from "./elections.ts";
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
+import { compareSeats } from "./seat-comparison.ts";
+import type { Choices, SeatFacts } from "./map-selection.ts";
+import {
+  medianMarginShare,
+  partyVotes,
+  readSeats,
+  sourcesFor,
+  tallyByJurisdiction,
+  turnoutOf,
+  type SeatResult,
+} from "./seat-results.ts";
+import { turnoutHeadline } from "./turnout-trust.ts";
 import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
+import { FULL_HOUSE, bodyIs, bodyWord, currentIds, facetOf, majorityOf } from "../core/election-kind.ts";
+import type { Body } from "../core/election-kind.ts";
 
 /* ────────────────────────────── palette ──────────────────────────────
    THE PARTY COLOURS ARE NOT HERE ANY MORE, and that is the fix rather than a move.
@@ -111,22 +124,16 @@ export function snapshot(
 ): Snapshot {
   return read(() => {
     const n = (sql: string): number => Number(get<{ n: number }>(db, sql)?.n ?? 0);
-    const seatsHeld = (house: string): number =>
+    const seatsHeld = (body: Body): number =>
       Number(
         get<{ n: number }>(
           db,
-          // Seats in the NEWEST election of this house per jurisdiction — the only denominator that
+          // Seats in the CURRENT election of this body per jurisdiction — the only denominator that
           // compares with today's India. Every place row would exceed 100%: undivided Bihar's 324
           // assembly seats are real, just not current.
           `SELECT COUNT(DISTINCT c.place_version_id) AS n
              FROM contest c
-            WHERE c.election_id IN (
-              SELECT id FROM (
-                SELECT e.id AS id,
-                       row_number() OVER (PARTITION BY e.jurisdiction_place_id ORDER BY ${CHRONO_DESC}) AS rn
-                  FROM election e WHERE e.house = ? AND e.kind <> 'bypoll'
-              ) WHERE rn = 1)`,
-          house,
+            WHERE c.election_id IN (${currentIds(body)})`,
         )?.n ?? 0,
       );
     return {
@@ -140,9 +147,9 @@ export function snapshot(
         ...houseStandings.map((s) => s.jurisdictionId),
       ]).size,
       assemblySeatsTotal: INDIA.assemblySeats,
-      assemblySeatsHeld: seatsHeld("ac"),
+      assemblySeatsHeld: seatsHeld("assembly"),
       lokSabhaSeatsTotal: INDIA.lokSabhaSeats,
-      lokSabhaSeatsHeld: seatsHeld("pc"),
+      lokSabhaSeatsHeld: seatsHeld("lok-sabha"),
       elections: n("SELECT COUNT(*) AS n FROM election"),
       earliestYear: get<{ y: number }>(db, "SELECT MIN(year) AS y FROM election")?.y ?? null,
       latest,
@@ -197,6 +204,22 @@ export type Layer = {
 };
 
 /**
+ * What a layer's map can be narrowed to: a party its legend names, and nothing else. A magnitude layer has no party to
+ * name, so on it a `?party=` is set aside, and the layer itself is not the selection's business (it chose the data).
+ */
+export function layerChoices(layer: { legend: readonly { key: string | null }[] }): Choices {
+  return { parties: new Set(layer.legend.flatMap((l) => (l.key === null ? [] : [l.key]))) };
+}
+
+/**
+ * A jurisdiction as a selection reads a seat: only the party leading it is known. The leader answers on both sides of
+ * the runner-up switch, so a `?mode=` this page does not use cannot change which jurisdictions it mutes.
+ */
+export function leaderOf(cell: Pick<Cell, "partyKey">): SeatFacts {
+  return { partyKey: cell.partyKey, runnerUpKey: cell.partyKey, marginPct: null, marginBin: null, districtId: null };
+}
+
+/**
  * The layers, and their names are the product's most load-bearing words.
  *
  * "GOVERNMENT", NOT "ASSEMBLY CONTROL" AND NEVER "ELECTION WINNERS". The colour on a state polygon is the
@@ -221,57 +244,7 @@ export function isLayer(v: string | undefined): v is LayerKey {
   return LAYERS.some((l) => l.key === v);
 }
 
-/** Per-seat facts for a set of elections: the winner, the margin and the turnout of every contest. */
-type SeatFact = {
-  electionId: string;
-  jurisdictionId: string;
-  placeId: string;
-  /** The boundary the contest was fought under — half of the seat's comparison identity. See `seatKey`. */
-  epochId: string;
-  placeName: string;
-  winnerKey: string | null;
-  winnerLabel: string | null;
-  marginVotes: number | null;
-  voters: number | null;
-  electors: number | null;
-};
-
-function seatFacts(db: DatabaseSync, electionIds: readonly string[]): SeatFact[] {
-  if (electionIds.length === 0) return [];
-  return read(() =>
-    all<SeatFact>(
-      db,
-      `SELECT c.election_id AS electionId,
-              CASE WHEN dis.kind = 'district' THEN dis.parent_id ELSE pl.parent_id END AS jurisdictionId,
-              pl.id AS placeId, pvv.epoch_id AS epochId, pvv.canonical_name AS placeName,
-              pt.id AS winnerKey,
-              COALESCE(NULLIF(pt.short_name, ''), NULLIF(pt.name, ''), NULLIF(cd.party_raw, '')) AS winnerLabel,
-              r.margin AS marginVotes, t.voters AS voters, t.electors AS electors
-         FROM contest c
-         JOIN place_version pvv ON pvv.id = c.place_version_id
-         JOIN place pl          ON pl.id = pvv.place_id
-         LEFT JOIN place dis    ON dis.id = COALESCE(pvv.district_place_id, pl.parent_id)
-         LEFT JOIN result r     ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1
-         LEFT JOIN candidacy cd ON cd.id = r.candidacy_id
-         LEFT JOIN party_version pv ON pv.id = cd.party_version_id
-         LEFT JOIN party pt         ON pt.id = pv.party_id
-         LEFT JOIN turnout t    ON t.contest_id = c.id AND t.scope = 'contest'
-        WHERE c.election_id IN (${electionIds.map(() => "?").join(",")})`,
-      ...electionIds,
-    ),
-  );
-}
-
 const IN_NUM = new Intl.NumberFormat("en-IN");
-
-/** Median, or null for an empty set. The median rather than the mean: one uncontested landslide moves a
- *  mean by several points and says nothing about the typical seat. */
-function median(xs: readonly number[]): number | null {
-  if (xs.length === 0) return null;
-  const s = [...xs].sort((a, b) => a - b);
-  const mid = Math.floor(s.length / 2);
-  return s.length % 2 === 1 ? (s[mid] as number) : ((s[mid - 1] as number) + (s[mid] as number)) / 2;
-}
 
 /** Ramp a value onto SEQUENTIAL. `invert` puts the darkest step at the LOW end, which is right for a
  *  margin — a knife-edge seat is the signal, so it must be the loud one. */
@@ -393,26 +366,34 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     }
     legend = spine.standings.length === 0 ? [] : bandLegend(lo, hi + 1, "");
   } else {
-    // The three magnitude layers, all read off the same per-seat facts. The shares are pulled ONLY for the
+    // The three magnitude layers, all read off the same per-seat results. The shares are pulled ONLY for the
     // layer that shows them: `leaderShare()` is the 62-election party read, and turnout and margin have no
     // use for it.
     const shareOf = key === "voteshare" ? spine.leaderShare() : null;
-    const perElection = new Map<string, SeatFact[]>();
+    const perElection = new Map<string, SeatResult[]>();
     for (const x of spine.seats) {
       perElection.set(x.electionId, [...(perElection.get(x.electionId) ?? []), x]);
     }
-    const per = new Map<string, { turnout: number | null; margin: number | null; share: number | null; s: Standing }>();
+    const per = new Map<
+      string,
+      { turnout: number | null; margin: number | null; share: number | null; withheld: string | null; s: Standing }
+    >();
     for (const s of spine.standings) {
       const seats = perElection.get(s.electionId) ?? [];
-      const voters = seats.reduce((n, x) => n + (x.voters ?? 0), 0);
-      const electors = seats.reduce((n, x) => n + (x.electors ?? 0), 0);
-      const margins = seats.flatMap((x) =>
-        x.marginVotes === null || x.voters === null || x.voters <= 0 ? [] : [(100 * Math.abs(x.marginVotes)) / x.voters],
-      );
+      const turnout = turnoutOf(seats);
       per.set(s.jurisdictionId, {
-        turnout: electors > 0 && voters > 0 ? (100 * voters) / electors : null,
-        margin: median(margins),
+        // Only a REPORTED turnout is a figure here. An unverified one is withheld, and so is every margin
+        // share of the same election (seat-results.ts): both divide by votes polled, which nothing corroborates.
+        turnout: turnout.state === "reported" ? turnout.pct : null,
+        margin: medianMarginShare(seats),
         share: key === "voteshare" ? (shareOf?.get(s.electionId) ?? null) : null,
+        // Withheld is a different fact from never published, and the card says which, in the words a dense list
+        // may print for it. A margin is withheld only if there was one to divide.
+        withheld:
+          turnout.state === "unverified" &&
+          (key === "turnout" || (key === "margin" && seats.some((x) => x.margin !== null)))
+            ? turnoutHeadline(turnout)
+            : null,
         s,
       });
     }
@@ -435,7 +416,11 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
           detail:
             v === undefined
               ? []
-              : [`Assembly ${v.s.year}`, key === "voteshare" ? "no vote counts published" : "not reported by the source"],
+              : [
+                  `Assembly ${v.s.year}`,
+                  v.withheld ??
+                    (key === "voteshare" ? "no vote counts published" : "not reported by the source"),
+                ],
           electionId: v?.s.electionId ?? null,
           year: v?.s.year ?? null,
         });
@@ -461,7 +446,9 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     unknownWhy =
       key === "voteshare"
         ? "their source published a winner and no vote counts, which is not a share of zero"
-        : "their source reports no figure, which is not a figure of zero";
+        : [...per.values()].some((v) => v.withheld !== null)
+          ? "their source reports no figure, or none that can be verified, which is not a figure of zero"
+          : "their source reports no figure, which is not a figure of zero";
   }
 
   const unknown = cells.filter((c) => c.label === null).length;
@@ -492,8 +479,11 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
  * `false` here and is offered as unavailable rather than shading a country in a colour that means nothing.
  */
 export function availability(spine: Spine): Map<LayerKey, boolean> {
-  const anyTurnout = spine.seats.some((x) => x.voters !== null && x.voters > 0 && x.electors !== null && x.electors > 0);
-  const anyMargin = spine.seats.some((x) => x.marginVotes !== null && x.voters !== null && x.voters > 0);
+  // Of the elections the layers colour: the spine also holds each one's predecessor, whose figures colour nothing.
+  const shown = new Set(spine.standings.map((s) => s.electionId));
+  const seats = spine.seats.filter((x) => shown.has(x.electionId));
+  const anyTurnout = seats.some((x) => x.turnout.state === "reported");
+  const anyMargin = seats.some((x) => x.marginShare !== null);
   return new Map<LayerKey, boolean>([
     ["government", spine.standings.some((s) => s.leaderKey !== null)],
     ["loksabha", spine.houseStandings.some((s) => s.leaderKey !== null)],
@@ -562,7 +552,7 @@ export function partyLandscape(db: DatabaseSync, spine: Spine, limit = 10): Part
     // Sparkline: the last SPARK Lok Sabha elections, winners only.
     const houseRun = all<{ id: string; year: number }>(
       db,
-      `SELECT id, year FROM election e WHERE e.house = 'pc' AND e.kind <> 'bypoll'
+      `SELECT id, year FROM election e WHERE ${bodyIs("lok-sabha")} AND ${FULL_HOUSE}
         ORDER BY ${CHRONO_DESC} LIMIT ?`,
       SPARK,
     ).reverse();
@@ -711,9 +701,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
       // derived in both places. One fact, one home: Upcoming owns it, and what is left here is measured.
 
       // 1. Knife-edge seats in the most recent election.
-      const knife = seats.filter(
-        (x) => x.marginVotes !== null && x.voters !== null && x.voters > 0 && (100 * Math.abs(x.marginVotes)) / x.voters < KNIFE_PP,
-      );
+      const knife = seats.filter((x) => x.marginShare !== null && x.marginShare < KNIFE_PP);
       if (knife.length > 0) {
         out.push({
           rule: "seats decided by a margin under the threshold",
@@ -722,7 +710,7 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
           href,
           detail: `${knife.length} of ${s.seatsContested} seats in ${s.year} were decided by under ${KNIFE_PP}% of the votes polled — ${knife
             .slice(0, 3)
-            .map((x) => x.placeName)
+            .map((x) => x.name)
             .join(", ")}${knife.length > 3 ? " and others" : ""}.`,
           basis: "measured",
           weight: knife.length,
@@ -730,28 +718,23 @@ export function watchSignals(db: DatabaseSync, spine: Spine, thisYear: number, l
       }
 
       // 2. Seats that changed hands against the previous election of the same kind — THROUGH THE EPOCH
-      // GATE. Keyed on (epoch, place), never on place alone: a delimitation renumbers seats from scratch,
-      // so matching on the number compares AURAD to NIPPANI. Cross-epoch pairs land in `incomparable` and
-      // produce no signal at all, rather than a flip count about redrawn territory.
+      // GATE, which `compareSeats` is: a delimitation renumbers seats from scratch, so matching on the number
+      // compares AURAD to NIPPANI. Cross-epoch pairs are incomparable and produce no signal at all, rather than a
+      // flip count about redrawn territory; a seat with no declared winner on either side is unknown, so the
+      // "of N" is the seats that held or flipped, as the incumbency methodology counts them.
       const thenId = spine.previousOf(s.electionId);
       if (thenId !== null) {
         const thenSeats = spine.seats.filter((x) => x.electionId === thenId);
-        const before = new Map(thenSeats.map((x) => [seatKey(x.placeId, x.epochId), x.winnerKey]));
-        const split = partitionByEpoch(seats, thenSeats);
-        const flipped = split.comparable.filter((x) => {
-          const was = before.get(seatKey(x.placeId, x.epochId));
-          // An unknown party on either side is neither a flip nor a hold. It is unknown.
-          return was != null && x.winnerKey != null && was !== x.winnerKey;
-        });
-        if (flipped.length > 0) {
+        const compared = compareSeats(seats, thenSeats);
+        if (compared.flipped.length > 0) {
           out.push({
             rule: "seats whose winning party differs from the previous election",
             threshold: "same seat, same boundary, consecutive elections",
             subject: s.jurisdictionName,
             href,
-            detail: `${flipped.length} of ${split.comparable.length} seats changed hands between ${spine.yearOf(thenId) ?? "the previous election"} and ${s.year}.`,
+            detail: `${compared.flipped.length} of ${compared.comparable} seats changed hands between ${spine.yearOf(thenId) ?? "the previous election"} and ${s.year}.`,
             basis: "measured",
-            weight: flipped.length,
+            weight: compared.flipped.length,
           });
         }
 
@@ -835,8 +818,6 @@ export type Completeness = "complete" | "partial" | "unavailable";
 export type ElectionCoverage = {
   electionId: string;
   name: string;
-  kind: string;
-  house: string;
   year: number;
   jurisdictionId: string;
   jurisdictionName: string;
@@ -905,6 +886,9 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
       electionId,
     );
     if (e === undefined) return null;
+    // Body and fill, decoded once. A house/kind pair the product does not label throws rather than reading as
+    // an assembly election.
+    const facet = facetOf(e.house, e.kind);
 
     const n = (sql: string, ...p: (string | number)[]): number =>
       Number(get<{ n: number }>(db, sql, ...p)?.n ?? 0);
@@ -955,29 +939,23 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
       e.id,
     );
 
-    // Is this the newest election of its house in its jurisdiction? Only then does today's reference
+    // Is this the current election of its body in its jurisdiction? Only then does today's reference
     // seat count describe the same house.
-    const newest = get<{ id: string }>(
-      db,
-      `SELECT id FROM election e WHERE e.house = ? AND e.jurisdiction_place_id = ? AND e.kind <> 'bypoll'
-        ORDER BY ${CHRONO_DESC} LIMIT 1`,
-      e.house,
-      e.j,
-    )?.id;
+    const newest = currentElection(db, facet.body, e.j)?.id;
     const ref = JURISDICTIONS.find((x) => x.id === e.j);
     let expected: number | null = null;
     let expectedBasis: string;
-    if (e.kind === "bypoll") {
+    if (facet.fill === "bypoll") {
       expectedBasis = "a by-election has no expected seat count — the seats that fell vacant are the fact";
     } else if (newest !== e.id) {
-      expectedBasis = `the ${e.year} house's own size is not held as reference data — only today's is, and this is not the most recent ${e.house === "pc" ? "Lok Sabha" : "assembly"} election here`;
-    } else if (e.house === "pc" && e.j === "in") {
+      expectedBasis = `the ${e.year} house's own size is not held as reference data — only today's is, and this is not the most recent ${facet.body === "lok-sabha" ? "Lok Sabha" : "assembly"} election here`;
+    } else if (facet.body === "lok-sabha" && e.j === "in") {
       expected = INDIA_TOTALS.lokSabhaSeats;
       expectedBasis = `elected strength of the Lok Sabha, from reference data (${INDIA_TOTALS.lokSabhaSeats} across ${INDIA_TOTALS.jurisdictions} states and union territories)`;
-    } else if (e.house === "ac" && ref?.assemblySeats != null) {
+    } else if (facet.body === "assembly" && ref?.assemblySeats != null) {
       expected = ref.assemblySeats;
       expectedBasis = `elected strength of the ${ref.name} assembly, from reference data`;
-    } else if (e.house === "pc" && ref !== undefined) {
+    } else if (facet.body === "lok-sabha" && ref !== undefined) {
       expected = ref.lokSabhaSeats;
       expectedBasis = `${ref.name}'s Lok Sabha seats, from reference data`;
     } else {
@@ -990,9 +968,9 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     // 2011/2016/2021 elections each hold 307 contests for a 294-seat assembly — a pre-existing defect in
     // the imported geography that this line surfaces instead of averaging away.
     const referenceSeats =
-      e.kind === "bypoll" ? null : e.house === "pc" && e.j === "in"
+      facet.fill === "bypoll" ? null : facet.body === "lok-sabha" && e.j === "in"
         ? INDIA_TOTALS.lokSabhaSeats
-        : e.house === "ac"
+        : facet.body === "assembly"
           ? (ref?.assemblySeats ?? null)
           : (ref?.lokSabhaSeats ?? null);
 
@@ -1030,8 +1008,6 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     return {
       electionId: e.id,
       name: e.name,
-      kind: e.kind,
-      house: e.house,
       year: e.year,
       jurisdictionId: e.j,
       jurisdictionName: e.j === "in" ? "India" : (ref?.name ?? e.j),
@@ -1046,7 +1022,7 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
       candidaciesWithoutResult,
       turnoutRows,
       epochs,
-      sources: loadSources(db, sourceIdsOf(db, e.id), []),
+      sources: sourcesFor(db, { elections: [e.id] }, { turnout: true }, SOURCES_SHOWN),
       completeness,
       gaps,
       anomalies,
@@ -1054,22 +1030,9 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
   });
 }
 
-/** The distinct sources behind an election's results and turnout. Capped, because a Lokdhaba import can
- *  cite one source per row and the panel shows publishers, not a bibliography. */
-function sourceIdsOf(db: DatabaseSync, electionId: string): string[] {
-  return all<{ id: string }>(
-    db,
-    `SELECT id FROM (
-       SELECT DISTINCT r.source_id AS id FROM result r JOIN contest c ON c.id = r.contest_id
-         WHERE c.election_id = ?
-       UNION
-       SELECT DISTINCT t.source_id AS id FROM turnout t JOIN contest c ON c.id = t.contest_id
-         WHERE c.election_id = ?
-     ) LIMIT 12`,
-    electionId,
-    electionId,
-  ).map((r) => r.id);
-}
+/** How many of an election's sources the coverage panel names. It shows publishers, not a bibliography, and a
+ *  Lokdhaba import can cite one source per row. */
+const SOURCES_SHOWN = 12;
 
 /** Completeness for many elections at once, for the recent-elections rows. */
 export function completenessOf(db: DatabaseSync, electionIds: readonly string[]): Map<string, Completeness> {
@@ -1101,10 +1064,11 @@ export function electionCoverageView(
   asked: string | undefined,
   limit = ELECTION_CHOICES,
 ): { choices: ElectionChoice[]; chosen: ElectionCoverage | null } {
-  const rows = all<{ id: string; name: string; year: number; j: string; house: string }>(
+  const rows = all<{ id: string; name: string; year: number; j: string; house: string; kind: string }>(
     db,
-    `SELECT e.id AS id, e.name AS name, e.year AS year, e.jurisdiction_place_id AS j, e.house AS house
-       FROM election e WHERE e.kind <> 'bypoll' ORDER BY ${CHRONO_DESC} LIMIT ?`,
+    `SELECT e.id AS id, e.name AS name, e.year AS year, e.jurisdiction_place_id AS j, e.house AS house,
+            e.kind AS kind
+       FROM election e WHERE ${FULL_HOUSE} ORDER BY ${CHRONO_DESC} LIMIT ?`,
     limit,
   );
   // A SHORT LABEL, BUILT HERE. `election.name` is the registry's formal name — "West Bengal Legislative
@@ -1114,9 +1078,9 @@ export function electionCoverageView(
     id: r.id,
     name: r.name,
     year: r.year,
-    short: `${r.j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === r.j)?.name ?? r.j)} ${
-      r.house === "pc" ? "Lok Sabha" : "Assembly"
-    } ${r.year}`,
+    short: `${r.j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === r.j)?.name ?? r.j)} ${bodyWord(
+      facetOf(r.house, r.kind).body,
+    )} ${r.year}`,
   }));
   const id = choices.find((c) => c.id === asked)?.id ?? choices[0]?.id ?? null;
   return { choices, chosen: id === null ? null : electionCoverage(db, id) };
@@ -1134,10 +1098,20 @@ export function electionCoverageView(
  *
  * It is not simply deleted. A state's own run of elections is a real thing to want and the state page did
  * not have it; that is where the question belongs, one level down, beside the districts. See
- * `place-page.ts`, where a state view now carries its elections.
+ * `state-view.ts`, where a state view carries its elections.
  */
 
 /* ────────────────────────────── the spine ────────────────────────────── */
+
+export type SwingRow = {
+  key: string;
+  label: string;
+  nowPct: number | null;
+  thenPct: number | null;
+  changePp: number | null;
+  nowSeats: number;
+  thenSeats: number;
+};
 
 /**
  * The reads every section shares, done once.
@@ -1153,7 +1127,7 @@ export type Spine = {
   /** Each jurisdiction's slice of the latest Lok Sabha, in the same shape as an assembly standing. */
   houseStandings: readonly Standing[];
   house: LatestElection | null;
-  seats: readonly SeatFact[];
+  seats: readonly SeatResult[];
   latestAssemblySeats: readonly SeatsWon[];
   /** Seats by party per jurisdiction in the latest Lok Sabha — the breakdown that layer's cards show. */
   houseSeatRows: readonly SeatsWon[];
@@ -1181,13 +1155,7 @@ export function spine(db: DatabaseSync): Spine {
   const states = jurisdictions(db);
   const standings = currentStandings(db);
   const latest = latestPerJurisdiction(db, "assembly");
-  const houseRow =
-    all<LatestElection>(
-      db,
-      `SELECT e.id AS id, e.jurisdiction_place_id AS jurisdictionId, e.year AS year,
-              (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seatsContested
-         FROM election e WHERE e.house = 'pc' AND e.kind <> 'bypoll' ORDER BY ${CHRONO_DESC} LIMIT 1`,
-    )[0] ?? null;
+  const houseRow = currentElection(db, "lok-sabha");
 
   // Previous elections, resolved once: both the flip comparison and the swing table need them.
   const previous = new Map<string, string | null>();
@@ -1197,12 +1165,13 @@ export function spine(db: DatabaseSync): Spine {
     years.set(r.id, r.year);
   }
 
-  const facts = seatFacts(db, [
-    ...latest.map((l) => l.id),
-    ...[...previous.values()].filter((v): v is string => v !== null),
-  ]);
+  const facts = readSeats(db, {
+    elections: [...latest.map((l) => l.id), ...[...previous.values()].filter((v): v is string => v !== null)],
+  });
 
-  const latestAssemblySeats = seatsWonBy(db, latest.map((l) => l.id));
+  // The seats above already hold every latest assembly's winners, so they are tallied rather than read again.
+  const latestIds = new Set(latest.map((l) => l.id));
+  const latestAssemblySeats = tallyByJurisdiction(facts.filter((x) => latestIds.has(x.electionId)));
 
   const ids = latest.map((l) => l.id);
   const counted = new Set(
@@ -1234,7 +1203,9 @@ export function spine(db: DatabaseSync): Spine {
   const priorIds = [...previous.values()].filter((v): v is string => v !== null);
   let bulkRows: SeatsByParty[] | null = null;
   const bulk = (): SeatsByParty[] => {
-    bulkRows ??= seatsByParty(db, [...new Set([...latest.map((l) => l.id), ...priorIds])]);
+    // The seats are the ones read above, for the same elections; only the votes of every candidate are read here.
+    const ranked = [...new Set([...latest.map((l) => l.id), ...priorIds])];
+    bulkRows ??= partyRows(facts, partyVotes(db, { elections: ranked }));
     return bulkRows;
   };
   const partyCache = new Map<string, readonly PartyStanding[]>();
@@ -1279,6 +1250,8 @@ export function spine(db: DatabaseSync): Spine {
             .map(([j, rows]): Standing => {
               const total = rows.reduce((n, r) => n + r.seats, 0);
               const top = [...rows].sort((a, b) => b.seats - a.seats || a.key.localeCompare(b.key))[0];
+              // `houseRow` is a full house, so a majority exists: more than half of the seats counted here.
+              const needed = majorityOf(total, "general");
               return {
                 jurisdictionId: j,
                 jurisdictionName: j === "in" ? "India" : (JURISDICTIONS.find((x) => x.id === j)?.name ?? j),
@@ -1288,7 +1261,7 @@ export function spine(db: DatabaseSync): Spine {
                 leaderKey: top?.key ?? null,
                 leaderLabel: top?.label ?? null,
                 leaderSeats: top?.seats ?? 0,
-                majority: top !== undefined && total > 0 && top.seats > total / 2,
+                majority: top !== undefined && total > 0 && needed !== null && top.seats >= needed,
               };
             })
             .sort((a, b) => b.leaderSeats - a.leaderSeats || a.jurisdictionName.localeCompare(b.jurisdictionName));

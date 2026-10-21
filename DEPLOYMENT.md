@@ -19,7 +19,7 @@ a SQLite file, runs its `SELECT`s and closes the handle.
                             .data/registry.db  (SQLite, gitignored)
                                       ▲
                        ┌──────────────┴───────────────┐
-                       │  src/app — 18 routes         │
+                       │  src/app — the routes        │
                        │  runtime: nodejs             │
                        │  dynamic: force-dynamic      │
                        └──────────────────────────────┘
@@ -46,8 +46,8 @@ npm run dev                  # http://localhost:3000
 **The last two steps are what makes the maps exist.** `data/geo/sources.json` declares two boundary datasets
 with their publisher, URL, licence and sha256; `fetch` acquires them and **refuses a file whose bytes do not
 match the manifest**; `import` resolves each polygon to a jurisdiction, a boundary epoch and a
-`place_version`, validates it, and writes what it resolved. Without them the state pages fall back to
-district tallies and say so, which is a working product with no electoral map rather than a broken one.
+`place_version`, validates it, and writes what it resolved. Without them a state page draws no map and says no
+boundary map is available, which is a working product with no electoral map rather than a broken one.
 
 Add `--replace` to overwrite geometry an earlier run wrote. Run `geography inspect` first to see what would
 happen — it is the same decision, printed, with nothing written.
@@ -68,7 +68,7 @@ MANDATE_DIST=.next-verify npx next build
 npm run type-check           # tsc over the app
 npm run registry:typecheck   # tsc over packages/mandate
 npm run lint                 # next lint, via .eslintrc.json
-npm test                     # 465 tests; one classified failure (searchPersons ranking)
+npm test                     # needs the full registry: 52 fail on the seed one; CI fails only on a test not in .github/test-baseline.txt
 MANDATE_DIST=.next-verify npx next build
 npm run mandate -- geography validate   # constituency identity
 npm run mandate -- elections validate   # election-event identity
@@ -121,8 +121,11 @@ quarantined seats — Assam's fourteen and Jammu & Kashmir's five have no epoch 
 so CI without a registry is green and proves less — worth knowing before trusting a green build.
 
 `.github/workflows/ci.yml` runs exactly that, in that order, and builds the registry first so the two suites
-that need one actually run. It asserts the failure COUNT is at most one rather than ignoring failures, so the
-classified `searchPersons` failure stays green and a second one does not. The workflow it replaced triggered
+that need one actually run. It compares the failing tests with `.github/test-baseline.txt` rather than ignoring
+failures or counting them, so a test already known to fail stays green and a new failure turns the job red.
+It does not regenerate the reports under `docs/geo` and `docs/release`: they come from a full registry, which this job
+does not build, so regenerate them (`geography coverage --write`, `geography missing --write`, `geography inspect --write`
+and `release --write`) where one exists and commit the result. The workflow it replaced triggered
 the deleted `/api/cron/scrape-results` endpoint.
 
 ## Hosting — resolved
@@ -140,8 +143,7 @@ Three measured requirements decided it, and each ruled out an alternative:
 | --- | --- | --- |
 | Read a SQLite file from disk | 581 MB (446 MB with resolution working data dropped) | Vercel functions (250 MB), Workers (10 MB) |
 | `node:sqlite`, synchronous | 151 call sites, 127 repo functions, 3 already async | Any network database, without an async port |
-| Import `.ts` at request time | `place-page.ts` dynamic `file://` import | Cloudflare Workers — no filesystem, no runtime module loading |
-| Node ≥ 23.6 | type stripping unflagged | Node 22 without `--experimental-strip-types` |
+| Node ≥ 23.6 | type stripping unflagged, for the image's own `.ts` import check only | Node 22 without `--experimental-strip-types`, while that check stays |
 
 Verified on the first real build: `node:24-slim` passes the image's own self-check, and the image is 162 MB.
 
@@ -151,15 +153,16 @@ and mostly invisible behind a Cloudflare cache: the origin is reached on a cache
 Capacity fluctuates, so moving back is a one-line change plus a volume, and relocating a file-backed database
 is an upload rather than a migration.
 
-That third row is the constraint nobody predicts. `place-page.ts` loads the repo layer through a dynamic
-import of an absolute `file://` URL with a `webpackIgnore` comment, deliberately, so the bundler leaves it
-alone. `packages/mandate/src/**` therefore has to exist in the running container, and `output: 'standalone'`
-is unusable — it copies what the bundler traced, and the bundler was told not to trace those files. It would
-produce an image where every route works except the place, district and constituency surfaces.
+The repo layer is bundled by `next build`: every page and route imports it statically, and
+`repo/brief.test.ts` fails if a `webpackIgnore` or a `createRequire` comes back. It used to
+be loaded at request time through a dynamic import of an absolute `file://` URL with a `webpackIgnore`
+comment, which kept `packages/mandate/src/**` in the container as TypeScript source and made
+`output: 'standalone'` unusable. Neither is true now. The image still copies `packages/` and `standalone` is
+still off, until a container build has shown the image serves without them.
 
-`Dockerfile` checks the last two rows at **build** time — it imports the runtime `.ts` module and opens an
-in-memory `node:sqlite` database in the same form the request path uses. A wrong base image fails the build
-instead of failing every page in production.
+`Dockerfile` checks `node:sqlite` at **build** time — it opens an in-memory database — and still imports the
+repo layer as `.ts`, the old request-time form. A wrong base image fails the build instead of failing every
+page in production.
 
 ### First deploy
 
@@ -240,16 +243,22 @@ Stated here so nobody discovers them from a reader:
 * **Assam and Jammu & Kashmir have no 2024 parliamentary geometry.** Those views say so and list every result.
 * **A Lok Sabha seat has no district**, and no assembly-segment list exists. The registry asserts no such
   relationship and none was invented.
+* **A registry built before migration 017 has no `voting_epoch` view, and every page still renders from it.** Without
+  the view a seat is current when it is the newest version of its place, and place pages and search ask that one
+  question. It is the view's answer for a seat number whose newest version is in the epoch its house votes under; the
+  view is what makes it exact, because without it a version of an order nobody has voted under yet is current, so is
+  the last version of a seat number that a later order abolished, and so is every seat of a house that has held no
+  full-house election. `npm run registry:migrate` applies it. `npm run mandate -- release`, `geography coverage`,
+  `geography missing` and checks 5 and 6 of `geography validate` (the seat-name checks, which run only with the cached
+  source files) still read the view, so they need it.
 
-### What `vercel.json` still does
+### No `vercel.json`
 
-Kept for the headers and the inbound rewrite; Cloudflare supplies the same caching at the edge.
-
-* Security headers on every response: `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`.
-* `/v1/*` cached for 15 minutes with a one-hour stale-while-revalidate; static assets immutable for a year.
-* `/west-bengal/:slug` → `/constituency/wb/assembly/:slug`. The body is in the destination because a name
-  does not identify a seat, and `/constituency/<slug>` is now the legacy numeric-id route, which 404s on a
-  name. The old site held West Bengal assembly seats only, which is why the body is known.
+The site runs on Fly behind Cloudflare, and the repo no longer carries a `vercel.json`. The security headers it set are
+also set by `next.config.mjs`, and the caching it set on `/v1/*` and static assets is Cloudflare's job, as above. Its
+one other rule rewrote the previous product's `/west-bengal/:slug` to `/constituency/wb/assembly/:slug` (the body is in
+the destination because a name does not identify a seat). Only Vercel ever served that rule, so nothing serves those
+URLs now. Port it to `rewrites()` in `next.config.mjs` if they still matter.
 
 ## Legal and ethical notes
 

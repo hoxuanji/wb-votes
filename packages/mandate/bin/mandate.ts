@@ -13,7 +13,6 @@
 //   mandate export                       rebuild data/seed/*.json FROM the registry and report
 //                                        what does not come back (a measurement, never a migration)
 
-import { createHash } from "node:crypto";
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname } from "node:path";
 import { blockingKeys } from "../src/core/indic/index.ts";
@@ -39,7 +38,7 @@ import {
 import { formatGeometryReport, markdownGeometryReport } from "../src/ingest/geography/geometry-report.ts";
 import { markdownMissing, missingGeometry } from "../src/ingest/geography/missing.ts";
 import { validateGeometry } from "../src/ingest/geography/geometry-validate.ts";
-import { httpGet } from "../src/ingest/sources/eci/transport.ts";
+import { httpGet, sha256Hex } from "../src/ingest/raw/index.ts";
 import { backfillElections, repairElections, repairPlan } from "../src/ingest/elections/identity.ts";
 import { perEvent, validateElections } from "../src/ingest/elections/validate.ts";
 import { formatReport as formatEciReport, runLs2024 } from "../src/ingest/sources/eci/ls2024.ts";
@@ -117,6 +116,16 @@ function fail(message: string): never {
   process.exit(1);
 }
 
+/**
+ * The footer of a validation run. A check that was not asked is not a check that passed, so say how many of
+ * each: a run that skipped half its checks (CI has no source cache) must not print the line a full run does.
+ */
+function passFooter(checks: readonly { skipped?: boolean }[]): string {
+  const notAsked = checks.filter((c) => c.skipped === true).length;
+  const asked = checks.length - notAsked;
+  return notAsked === 0 ? `all ${asked} checks pass` : `all ${asked} asked checks pass; ${notAsked} not asked`;
+}
+
 const nowIso = new Date().toISOString();
 
 try {
@@ -189,16 +198,13 @@ try {
       const given = arg("file");
       let file;
       try {
-        file = given === undefined ? await fetchState(stateFile, type, { refresh: has("refresh") }) : localFile(given, url);
+        file = given === undefined ? await fetchState(stateFile, type, { refresh: has("refresh") }) : localFile(given, url, () => nowIso);
       } catch (cause) {
-        // Node's fetch does not use proxy environment variables, so on a proxied machine curl reaches
-        // Lokdhaba and this does not. Rather than fail with a bare message, print the command that works.
+        // fetchState already falls back to curl when Node's fetch cannot connect (the proxy case), so what
+        // is left is a real failure; bytes obtained some other way can still be passed in with --file.
         console.error(
-          `import: could not read ${stateFile}_${type}.csv.gz — ${(cause as Error).message}\n\n` +
-            "If that was a connection failure, download it with a tool that honours your proxy and\n" +
-            "pass the file in:\n\n" +
-            `  curl -o /tmp/${stateFile}_${type}.csv.gz "${url}"\n` +
-            `  mandate import --state=${wanted} --type=${type} --file=/tmp/${stateFile}_${type}.csv.gz\n`,
+          `import: could not read ${stateFile}_${type}.csv.gz — ${(cause as Error).message}\n` +
+            "If it cannot be fetched from here, download it elsewhere and pass it in with --file=<path>.",
         );
         process.exitCode = 1;
         break;
@@ -245,7 +251,7 @@ try {
     case "audit": {
       const n = posInt("n", 200);
       const seed = num("seed", 1);
-      const db = open();
+      const db = openRead();
       const out = auditSample(db, n, seed);
       console.log(`audit n=${n} seed=${seed}:`);
       console.log(JSON.stringify(out, null, 2));
@@ -273,7 +279,7 @@ try {
       // Every key the ingest indexed this name under, unioned — blockingKeys() returns 1-3 and
       // matching only the first would miss exactly the surname-first / given-name-first pairs.
       const keys = blockingKeys(term);
-      const db = open();
+      const db = openRead();
       console.log(`blocking keys: ${keys.join(" ")}`);
       const people = all<{ id: string; canonical_name: string; matched: string }>(
         db,
@@ -345,7 +351,7 @@ try {
       break;
     }
 
-    case "coverage": {      const db = open();
+    case "coverage": {      const db = openRead();
       const tables = all<{ name: string }>(
         db,
         "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' ORDER BY name",
@@ -410,7 +416,7 @@ try {
       const result = await runLs2024(db, {
         apply: has("apply"),
         refresh: has("refresh"),
-        nowIso: new Date().toISOString(),
+        nowIso,
       });
       console.log("");
       console.log(formatEciReport(result, db));
@@ -425,7 +431,7 @@ try {
       const sub = argv[1] ?? "";
       const apply = argv.includes("--apply");
       if (sub === "validate") {
-        const db = open();
+        const db = openRead();
         const v = validateElections(db);
         for (const c of v.checks) {
           console.log(
@@ -449,27 +455,9 @@ try {
         ]);
         console.log("\nmost recent events");
         table(perEvent(db).map((e): [string, unknown] => [e.id, `${e.contests} contests, ${e.results} results`]));
-        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        console.log(v.ok ? `\n${passFooter(v.checks)}` : "\nCHECKS FAILED");
         db.close();
         if (!v.ok) process.exit(1);
-        break;
-      }
-      if (sub === "delimitation") {
-        // The delimitation orders themselves: which order drew each epoch, what its dates mean, and what
-        // DPACO 2008 carried forward. docs/model/delimitation-assam-jk.md.
-        const db = open();
-        const r = applyDelimitation(db, { nowIso: new Date().toISOString(), dryRun: !has("apply") });
-        table([
-          ["documents registered", r.sources],
-          ["epochs created", r.epochsCreated],
-          ["epochs updated", r.epochsUpdated],
-          ["derivation links", r.derivationLinks],
-          ["chain claims", r.chainClaims],
-        ]);
-        console.log("\nderivations");
-        table(r.perDerivation.map((d): [string, unknown] => [`${d.jurisdiction} ${d.kind}`, `${d.links} links from ${d.note}`]));
-        console.log(has("apply") ? "\napplied" : "\ndry run — pass --apply to write");
-        db.close();
         break;
       }
       if (sub === "backfill") {
@@ -511,7 +499,7 @@ try {
             const rep = importLokdhaba(db, {
               jurisdictionId,
               type: path.includes("_GE.") ? "GE" : "AE",
-              file: localFile(path, url),
+              file: localFile(path, url, () => nowIso),
               nowIso,
             });
             return { contests: rep.contests, candidacies: rep.candidacies, results: rep.results };
@@ -536,7 +524,7 @@ try {
       // place_version and is reconstructed from the source files. docs/model/electoral-geography.md.
       const sub = argv[1] ?? "";
       if (sub === "validate") {
-        const db = open();
+        const db = openRead();
         const v = validateGeography(db);
         for (const c of v.checks) {
           const verdict = c.skipped ? "SKIPPED" : c.violations === 0 ? "pass" : `${c.violations} VIOLATIONS`;
@@ -560,7 +548,7 @@ try {
           ["crosswalk rows (quantitative succession)", v.metrics.crosswalkRows],
           ["asserted succession links", v.metrics.succession],
         ]);
-        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        console.log(v.ok ? `\n${passFooter(v.checks)}` : "\nCHECKS FAILED");
         db.close();
         if (!v.ok) process.exit(1);
         break;
@@ -569,7 +557,7 @@ try {
         // The delimitation orders themselves: which order drew each epoch, what its dates mean, and what
         // DPACO 2008 carried forward. docs/model/delimitation-assam-jk.md.
         const db = open();
-        const r = applyDelimitation(db, { nowIso: new Date().toISOString(), dryRun: !has("apply") });
+        const r = applyDelimitation(db, { nowIso, dryRun: !has("apply") });
         table([
           ["documents registered", r.sources],
           ["epochs created", r.epochsCreated],
@@ -638,7 +626,7 @@ try {
           ["multipart polygons", v.metrics.multipart],
           ["distinct sources", v.metrics.sources],
         ]);
-        console.log(v.ok ? "\nall checks pass" : "\nCHECKS FAILED");
+        console.log(v.ok ? `\n${passFooter(v.checks)}` : "\nCHECKS FAILED");
         if (!v.ok) process.exit(1);
         break;
       }
@@ -736,7 +724,7 @@ try {
           if (!res.ok) fail(`${d.url} returned ${res.status}`);
           mkdirSync(dirname(d.file), { recursive: true });
           writeFileSync(d.file, res.bytes);
-          const got = createHash("sha256").update(res.bytes).digest("hex");
+          const got = sha256Hex(res.bytes);
           console.log(`  fetched ${res.bytes.length.toLocaleString("en-IN")} bytes  sha256 ${got.slice(0, 16)}…`);
           if (got !== d.sha256) fail(`sha256 mismatch: the manifest declares ${d.sha256}`);
         }
@@ -789,7 +777,7 @@ try {
         }
         break;
       }
-      fail("geography <validate|check|coverage|missing|backfill|fetch|inspect|import>");
+      fail("geography <validate|check|coverage|missing|backfill|delimitation|fetch|inspect|import>");
       break;
     }
     default:

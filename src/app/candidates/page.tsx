@@ -1,4 +1,5 @@
-import { permanentRedirect } from 'next/navigation';
+import { follow } from '../_place/follow.tsx';
+import { legacyTarget } from '../../../packages/mandate/src/repo/legacy.ts';
 
 /**
  * `/candidates` -> `/search`.
@@ -10,5 +11,5 @@ import { permanentRedirect } from 'next/navigation';
  */
 
 export default function LegacyCandidates() {
-  permanentRedirect('/search');
+  return follow(legacyTarget({ route: 'candidates' }));
 }

@@ -27,6 +27,8 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import { all } from "../../db/index.ts";
+import { votingEpochs } from "../../db/epochs.ts";
+import { FULL_HOUSE } from "../../core/election-kind.ts";
 
 /** One (jurisdiction, house, epoch) — the unit a polygon can belong to. */
 export type CoverageRow = {
@@ -60,9 +62,9 @@ export type CoverageRow = {
   publishers: string[];
   status: "COMPLETE" | "PARTIAL" | "UNRESOLVED" | "UNAVAILABLE";
   /**
-   * The epoch this jurisdiction's newest election of this house was held under — what a release is judged
-   * on. Derived, because "delim-2008 is current" is false for Assam and Jammu & Kashmir, and hardcoding it
-   * would print that falsehood on the front page.
+   * The epoch this jurisdiction's newest full-house election of this house was held under — what a release
+   * is judged on. Derived, because "delim-2008 is current" is false for Assam and Jammu & Kashmir, and
+   * hardcoding it would print that falsehood on the front page.
    */
   currentEpoch: boolean;
 };
@@ -140,7 +142,7 @@ export function geometryCoverage(db: DatabaseSync): Coverage {
        SELECT pv.jurisdiction_id AS j, pv.kind AS house, pv.epoch_id AS epoch,
               COUNT(DISTINCT c.election_id) AS elections,
               MAX(e.year) AS latestYear,
-              COUNT(DISTINCT CASE WHEN e.kind <> 'bypoll' THEN c.election_id END) AS fullElections
+              COUNT(DISTINCT CASE WHEN ${FULL_HOUSE} THEN c.election_id END) AS fullElections
          FROM contest c
          JOIN place_version pv ON pv.id = c.place_version_id
          JOIN election e ON e.id = c.election_id
@@ -234,14 +236,9 @@ export function geometryCoverage(db: DatabaseSync): Coverage {
     currentEpoch: false,
   }));
 
-  // The current epoch of a house: the one its newest election used. One pass, highest year wins.
-  const newest = new Map<string, CoverageRow>();
-  for (const r of rows) {
-    const key = `${r.jurisdictionId}:${r.house}`;
-    const held = newest.get(key);
-    if (held === undefined || (r.latestYear ?? -1) > (held.latestYear ?? -1)) newest.set(key, r);
-  }
-  for (const r of newest.values()) r.currentEpoch = true;
+  // The current epoch of a house is the one it votes under.
+  const voting = votingEpochs(db);
+  for (const r of rows) r.currentEpoch = voting.get(`${r.jurisdictionId} ${r.house}`) === r.epochId;
 
   const elections = all<Omit<ElectionCoverage, "epochs"> & { epochs: string }>(
     db,

@@ -54,7 +54,7 @@ CREATE VIEW party_version_overlap AS …   -- empty view == invariant holds
 using half-open `[valid_from, valid_to)` semantics identical to Postgres `daterange`, with
 `COALESCE(valid_to, '9999-12-31')` for open-ended versions. `migrate.test.ts` asserts the detector
 actually fires on an overlapping pair (abutting ranges must *not* fire), and `registry:audit` runs
-the view as one of its nine invariants and exits 1 when it returns rows. On the Postgres cutover the real `EXCLUDE` constraint is added and the
+the view as one of its ten invariants and exits 1 when it returns rows. On the Postgres cutover the real `EXCLUDE` constraint is added and the
 view stays as a cheap explanation of what it enforces. `alliance_version` has the same shape and no
 constraint in §19 either; if it starts mattering, it gets the same view.
 
@@ -80,7 +80,7 @@ Cross-table invariants a `CHECK` cannot express — §19 already routes these to
 here they are routed to `registry:audit`. They live as SQL in `INVARIANTS`
 (`packages/mandate/src/ingest/resolve/index.ts`); every query counts VIOLATIONS, so 0 rows means the
 invariant holds, `auditSample` returns each with its row count, pass/fail and the SQL that produced
-it, and the CLI exits 1 when any of them returns rows. There are nine:
+it, and the CLI exits 1 when any of them returns rows. There are ten:
 
 1. `convicted_requires_court_order` — `legal_case.stage='convicted'` ⟹ `source.kind='court_order'` (P5)
 2. `vote_share_never_exceeds_100` — per contest revision. **One-sided on purpose**: the two-sided
@@ -89,7 +89,10 @@ it, and the CLI exits 1 when any of them returns rows. There are nine:
    trigger (full candidate-level results landing).
 3. `margin_is_rank1_minus_rank2` — split out of the share check so its 0 violations stay visible
 4. `contest_epoch_matches_election_epoch` (P4: no cross-epoch contests)
-5. `contested_place_version_has_crosswalk_to_current_epoch`
+5. `contested_place_version_has_crosswalk_to_current_epoch` — **half-checked on purpose** while
+   `place_crosswalk` is empty: a crosswalk begun for a superseded epoch must cover its contested seats (which
+   epochs are superseded comes from `core/epochs.ts`, per jurisdiction). The unconditional form would be red
+   by construction.
 6. `booth_votes_not_more_than_result_votes`
 7. `party_version_no_overlapping_validity` — D2's view, standing in for the dropped `EXCLUDE`
 8. `party_version_no_two_open_ended_rows` — the case a reviewer proved reachable through D2
@@ -97,11 +100,17 @@ it, and the CLI exits 1 when any of them returns rows. There are nine:
    `person_merge_candidate`'s two person FKs (they cascaded a reviewer's work item away the moment a
    merge deleted the absorbed person) and nothing replaced them, so a `pending`/`deferred` row that
    names a person that no longer exists was caught by no constraint at all.
+10. `winner_is_rank1` — `is_winner = 1` exactly when `rank = 1`, and a winner has a rank. `is_winner` is
+    `NOT NULL` and `rank` is nullable, and the schema ties neither to the other; seat results read the
+    winner by one and the runner-up by `rank = 2`, which names the right candidate only while they agree.
 
 Measured 2026-08-08 on a fresh `registry:migrate` + `registry:ingest --fresh` + `registry:resolve`:
-all nine return 0 rows, `invariantsFailed 0`, `registry:audit` exits 0. Two of the nine pass
+the first nine return 0 rows, `invariantsFailed 0`, `registry:audit` exits 0. Two of the nine pass
 vacuously and the ADR says so rather than claiming coverage it does not have: `booth_result` is empty,
 and `delim-2008` *is* the current epoch so every contested `place_version` trivially has one.
+The tenth was added with seat results and measured on the seed registry (5 elections, 4,399 result
+rows, all at revision 0): 0 rows, with every winner at rank 1 and every rank 1 a winner. The full
+registry has not been measured.
 
 What the schema *does* enforce, because these are the ones that cannot be allowed to fail even for
 one query: `result.source_id`/`citation.source_id`/`affidavit.source_id`/`legal_case.source_id`

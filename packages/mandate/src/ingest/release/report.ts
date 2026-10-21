@@ -17,6 +17,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../../db/index.ts";
 import { geometryCoverage } from "../geography/geometry-coverage.ts";
+import { byElection } from "../../core/election-kind.ts";
 
 export type Row = { label: string; value: number | string; note?: string };
 
@@ -59,7 +60,7 @@ export function releaseReport(db: DatabaseSync): Release {
     ["election events", n(db, `SELECT COUNT(*) AS n FROM election`)],
     ["  of those, assembly", n(db, `SELECT COUNT(*) AS n FROM election WHERE kind = 'assembly'`)],
     ["  of those, general (Lok Sabha)", n(db, `SELECT COUNT(*) AS n FROM election WHERE kind = 'general'`)],
-    ["  of those, by-elections", n(db, `SELECT COUNT(*) AS n FROM election WHERE kind = 'bypoll'`)],
+    ["  of those, by-elections", n(db, `SELECT COUNT(*) AS n FROM election WHERE ${byElection("election")}`)],
     ["contests", n(db, `SELECT COUNT(*) AS n FROM contest`)],
     ["candidacies", n(db, `SELECT COUNT(*) AS n FROM candidacy`)],
     ["result rows", n(db, `SELECT COUNT(*) AS n FROM result`)],
@@ -142,7 +143,8 @@ export function releaseReport(db: DatabaseSync): Release {
   const headline = all<ElectionRow>(
     db,
     // DRAWN MEANS DRAWN TOGETHER: a polygon in a different projection from the rest of the election's
-    // polygons cannot go in the same SVG, so it is held rather than counted — the rule stateMapView applies.
+    // polygons cannot go in the same SVG, so it is held rather than counted — the modal-frame rule the state map
+    // applied before electionMapView, which holds anything outside the shared frame instead.
     // Counting rows made West Bengal 2026 report 294 of 294 for a map that draws 263.
     //
     // COMPUTED ONCE PER ELECTION, in a CTE, and that is not a style choice. The first version asked for the

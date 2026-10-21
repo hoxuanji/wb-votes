@@ -101,8 +101,9 @@ place_version (
 )
 ```
 
-Validity comes from `boundary_epoch.effective_from` / `effective_to`. No per-version validity columns are
-invented, because no source gives per-seat validity inside an order.
+Validity comes from the epoch: `boundary_epoch.effective_from`, and an end derived from the epoch's successor
+(§3.4). No per-version validity columns are invented, because no source gives per-seat validity inside an
+order.
 
 ### 3.2 What `place` becomes for a constituency
 
@@ -146,12 +147,33 @@ without asserting the geography is the same.
 
 ### 3.4 No hardcoded 2008
 
-"Current" is resolved, never literal: the current epoch for a `(jurisdiction, house)` is the epoch of its
-most recent election on record. `currentEpochs()` in
-`packages/mandate/src/ingest/geography/validate.ts` is the single implementation, and no epoch id appears
-as a literal anywhere in it. When the next Delimitation Commission reports, the work is: add a
-`boundary_epoch` row with its order and source, set the previous epoch's `effective_to`, import the
-results, run the backfill — and every surface follows, because nothing anywhere names an epoch.
+"Current" is resolved, never literal, and it is two different questions.
+
+**In force** is the table's answer to which epoch governs a jurisdiction on a date, and not a finding of law:
+`inForce(jurisdiction, date)` in `packages/mandate/src/core/epochs.ts` reads the epoch table in that file, which
+marks the dates of the four national orders `not_established`. The table is also where an epoch's TCPD `DelimID`
+and its block of `place_version` ids are held, once.
+
+**Voting** is the results: the epoch a `(jurisdiction, house)` is elected under, which is the epoch of the
+seats in its newest full-house election. The `voting_epoch` view (migration 017), read by `votingEpochs()` in
+`packages/mandate/src/db/epochs.ts`, is the single implementation. A by-election never counts toward it, since
+it fills a few vacancies of a house elected earlier and cannot introduce a delimitation. The two differ
+whenever an order has taken effect that no election has yet been held under: an Assam assembly last elected
+before its 2023 order still votes on DPACO 2008 although that order is in force.
+
+A registry built before migration 017 has no such view. The place resolver and search then take the newest version
+of each place id as current (`currentSeats` in `packages/mandate/src/repo/place-resolve.ts`): the view's answer
+for a seat number whose newest version is in the epoch its house votes under, and not where an order nobody has
+voted under yet has a version, where a later order abolished the seat number, or where the house has held no
+full-house election.
+
+An epoch's end is not stored. `boundary_epoch.effective_to` stays NULL, because a national order is superseded
+in one state and not in another (DPACO 2008 is superseded in Assam and Jammu & Kashmir and not in Bihar) and no
+single column can say both. The end is the start of the epoch's successor in that jurisdiction,
+`successor(jurisdiction, epoch)`. When the next Delimitation Commission reports, the work is: add the epoch to
+the table in `core/epochs.ts` (its order, its date and what kind of date it is, and the next free
+`versionBlock`), cite the order's document in `ingest/geography/delimitation.ts`, import the results, run the
+backfill — and every surface follows, because nothing anywhere names an epoch.
 
 ## 4. Two authorities disagreeing: West Bengal
 
@@ -190,9 +212,15 @@ Not implemented in this task; the model comes first.
 /pl/<legacy-place-id>                               301 → the current-epoch seat at that number
 ```
 
-`current` resolves through `currentEpoch()`, so the canonical URL survives the next delimitation while
-the historical URL keeps pointing at the geography that actually held the election. Existing
-`/pl/wb.ac.284` links keep working; they are redirects, not identities.
+`current` is not stored on a seat. It resolves as section 3.4 describes, through `inForce` for the order that
+governs a date, `votingEpochs` for the epoch a house is elected under, and `successor` for where an epoch ends,
+so the canonical URL survives the next delimitation while the historical URL keeps pointing at the geography
+that actually held the election.
+
+What shipped differs from this sketch. The canonical routes are `/state/<state>`, `/district/<state>/<district>`,
+`/constituency/<state>/<body>/<name>` and `/election/<election>` (`repo/routes.ts`), and a constituency address
+carries its body and no epoch. `/pl/*` is redirect-only: `pathQuery` in `repo/legacy.ts` reads its path as state,
+district and seat by position, so a registry id in it is not read as one, and `/pl/wb.ac.284` is a 404.
 
 ## 6. What the repair did, measured
 

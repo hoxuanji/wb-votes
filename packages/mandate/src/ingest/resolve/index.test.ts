@@ -15,6 +15,7 @@ import { fileURLToPath } from "node:url";
 import test from "node:test";
 import type { DatabaseSync } from "node:sqlite";
 import { DEV_DB_PATH, all, open } from "../../db/index.ts";
+import { ensureEpochs } from "../../db/epochs.ts";
 import { migrate } from "../../db/migrate.ts";
 import { blockingKeys, phoneticKey } from "../../core/indic/index.ts";
 import { blockPairs, loadPersons } from "./block.ts";
@@ -507,6 +508,7 @@ test("the ADR-0001 cross-table invariants hold on the fixture, and the detectors
     "convicted_requires_court_order",
     "vote_share_never_exceeds_100",
     "margin_is_rank1_minus_rank2",
+    "winner_is_rank1",
     "contest_epoch_matches_election_epoch",
     "contested_place_version_has_crosswalk_to_current_epoch",
     "booth_votes_not_more_than_result_votes",
@@ -554,6 +556,18 @@ test("the ADR-0001 cross-table invariants hold on the fixture, and the detectors
   );
   db.prepare("UPDATE result SET margin = 3000 WHERE candidacy_id = ?").run(c1.id);
 
+  // A winner and rank 1 are one fact written twice. Each way of breaking that must fail on its own name.
+  const brokenBy = (sql: string): boolean => {
+    db.prepare(sql).run(c1.id);
+    return checkInvariants(db).filter((i) => !i.pass).map((i) => i.name).includes("winner_is_rank1");
+  };
+  assert.ok(brokenBy(`UPDATE result SET "rank" = 2 WHERE candidacy_id = ?`), "a winner who is not rank 1");
+  db.prepare(`UPDATE result SET "rank" = 1 WHERE candidacy_id = ?`).run(c1.id);
+  assert.ok(brokenBy(`UPDATE result SET "rank" = NULL WHERE candidacy_id = ?`), "a winner with no rank at all");
+  db.prepare(`UPDATE result SET "rank" = 1 WHERE candidacy_id = ?`).run(c1.id);
+  assert.ok(brokenBy(`UPDATE result SET is_winner = 0 WHERE candidacy_id = ?`), "a rank 1 who did not win");
+  db.prepare(`UPDATE result SET is_winner = 1 WHERE candidacy_id = ?`).run(c1.id);
+  assert.deepEqual(checkInvariants(db).filter((i) => !i.pass), [], "and restored, every invariant holds again");
   // Each detector must actually fire, or "0 rows" means nothing.
   db.prepare("INSERT INTO legal_case (id, person_id, stage, source_id) VALUES ('lc9', 'md-salim', 'convicted', 's1')").run();
   db.prepare("INSERT INTO party_version (id, party_id, valid_from, name) VALUES (99, 'AITC', '2015-01-01', 'AITC')").run();
@@ -568,6 +582,66 @@ test("the ADR-0001 cross-table invariants hold on the fixture, and the detectors
   assert.ok(failed.includes("party_version_no_overlapping_validity"));
   assert.ok(failed.includes("party_version_no_two_open_ended_rows"));
   assert.ok(failed.includes("queued_pair_names_two_live_persons"));
+  db.close();
+});
+
+test("the crosswalk invariant asks the epoch table which epochs are superseded, so it is no longer vacuous", () => {
+  // It used to ask `boundary_epoch.effective_to IS NOT NULL`, which no writer sets, so it could never fire.
+  // Now an epoch is superseded where the table says so, per jurisdiction: DPACO 2008 is superseded in Assam
+  // and is the epoch in force in West Bengal.
+  const db = open(":memory:");
+  migrate(db, NOW);
+  db.exec(`
+    INSERT INTO place (id, kind, canonical_name) VALUES ('in','nation','India');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('as','state','Assam','in'), ('wb','state','West Bengal','in');
+  `);
+  ensureEpochs(db, ["delim-1976", "delim-2008", "delim-2023-as"]);
+  const seat = (id: number, j: string, epoch: string, number: number): void => {
+    const place = `${j}.ac.${String(number).padStart(3, "0")}`;
+    db.prepare("INSERT OR IGNORE INTO place (id, kind, canonical_name, parent_id) VALUES (?, 'ac', ?, ?)").run(place, place, j);
+    db.prepare(
+      "INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name) VALUES (?, ?, ?, 'ac', ?, ?, ?)",
+    ).run(id, place, j, epoch, number, place);
+  };
+  seat(1, "as", "delim-2008", 1);
+  seat(2, "as", "delim-2008", 2);
+  seat(3, "as", "delim-2023-as", 1);
+  seat(4, "wb", "delim-1976", 1);
+  seat(5, "wb", "delim-1976", 2);
+  seat(6, "wb", "delim-2008", 1);
+  const election = db.prepare(
+    `INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+       VALUES (?, 'assembly', 'state', ?, ?, ?, 'declared', 'ac', ?, 1)`,
+  );
+  election.run("as-assembly-2016", "as", "delim-2008", "AS 2016", 2016);
+  election.run("wb-assembly-1977", "wb", "delim-1976", "WB 1977", 1977);
+  election.run("wb-assembly-2016", "wb", "delim-2008", "WB 2016", 2016);
+  const contest = db.prepare("INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES (?, ?, ?, 'declared')");
+  for (const [e, v] of [["as-assembly-2016", 1], ["as-assembly-2016", 2], ["wb-assembly-1977", 4], ["wb-assembly-1977", 5], ["wb-assembly-2016", 6]] as const) {
+    contest.run(`${e}:${v}`, e, v);
+  }
+  const crosswalk = db.prepare(
+    "INSERT INTO place_crosswalk (from_place_version_id, to_place_version_id, area_share, method) VALUES (?, ?, 1, 'official_order')",
+  );
+  const violations = (): number =>
+    checkInvariants(db).find((i) => i.name === "contested_place_version_has_crosswalk_to_current_epoch")?.rows ?? -1;
+
+  // Nothing has been crosswalked yet, so there is no half-finished crosswalk to report (the documented half).
+  assert.equal(violations(), 0);
+
+  // Assam's 2008 seats are superseded by its 2023 order. Seat 1 is crosswalked and seat 2 is not: one violation.
+  crosswalk.run(1, 3);
+  assert.equal(violations(), 1, "a crosswalk begun for Assam's 2008 epoch must cover both contested seats");
+  crosswalk.run(2, 3);
+  assert.equal(violations(), 0);
+
+  // West Bengal's 2008 seats are the epoch in force there, so Assam's crosswalk makes them no demand. Its 1976
+  // seats are superseded by 2008: crosswalking one of two is one violation, the other epoch's crosswalk or not.
+  assert.equal(violations(), 0);
+  crosswalk.run(4, 6);
+  assert.equal(violations(), 1);
+  crosswalk.run(5, 6);
+  assert.equal(violations(), 0);
   db.close();
 });
 

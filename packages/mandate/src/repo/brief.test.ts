@@ -3,7 +3,7 @@
 // test file that glob cannot match is a test file that never runs.
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import type { PersonBrief, SourceRef } from "./index.ts";
 import {
@@ -45,6 +45,7 @@ function cand(o: Partial<PersonBrief["candidacies"][number]>): PersonBrief["cand
     year: 2021,
     jurisdictionId: "wb",
     placeKind: "ac",
+    placeHref: "/constituency/wb/assembly/uluberia-dakshin",
     placeName: "Uluberia Dakshin",
     placeNumber: 188,
     reservation: null,
@@ -393,22 +394,41 @@ test("a repo: source is never described as a document read from the publisher", 
  * binding to `undefined` and the first call threw a TypeError the page's own catch rethrew — dead
  * 404 path, dead not-found.tsx, 500 for every reader.
  *
- * A .tsx file cannot be imported under `node --test` (Node strips types, not JSX) and node:test
- * cannot run webpack, so this guards the source instead: the page must load the registry through
- * envelope.ts's `import(/* webpackIgnore *\/ ...)`, which webpack leaves alone, and must not
- * reintroduce a require webpack has to guess at.
+ * The cure was to import the repo layer statically. The place pages had a second form of the same mistake, a
+ * dynamic `import()` of a `file://` URL under `webpackIgnore`, which kept the repo layer out of the bundle and on
+ * the request path as TypeScript source. Both are gone, and nothing but a source assertion keeps them gone: a
+ * .tsx file cannot be imported under `node --test` (Node strips types, not JSX) and node:test cannot run
+ * webpack. So this reads the source webpack bundles, the app and the repo layer, and fails on any way of
+ * loading code that webpack has to guess at.
  * ponytail: a source assertion. Replace it with a rendered-page assertion the day the app grows a
  * JSX-capable test transform — until then a build + a request through the real handler is the
  * manual check, and this is the one that runs on every commit.
  */
-test("the Brief page loads the registry the way a production build survives", () => {
+test("nothing webpack bundles loads code in a way it cannot follow", () => {
+  const roots = [
+    new URL("../../../../src/", import.meta.url),
+    new URL("./", import.meta.url), // packages/mandate/src/repo/
+  ];
+  let scanned = 0;
+  for (const root of roots) {
+    for (const f of readdirSync(root, { recursive: true, encoding: "utf8" })) {
+      // src/data holds raw documents, not code, and a test file names what it bans.
+      if (!/\.(tsx?|mjs|js)$/.test(f) || f.endsWith(".test.ts") || f.startsWith("data")) continue;
+      const text = readFileSync(new URL(f, root), "utf8");
+      scanned++;
+      for (const banned of [/webpackIgnore/, /createRequire/, /\brequire\s*\(/, /\beval\s*\(/]) {
+        assert.doesNotMatch(text, banned, `${f} must not load code webpack cannot parse: ${banned}`);
+      }
+    }
+  }
+  assert.ok(scanned > 50, `scanned ${scanned} files; the roots have moved`);
+});
+
+test("the Brief page reads through the envelope and is never prerendered", () => {
   const page = readFileSync(
     fileURLToPath(new URL("../../../../src/app/p/[person]/page.tsx", import.meta.url)),
     "utf8",
   );
-  for (const banned of [/createRequire/, /\brequire\s*\(/, /eval\s*\(/]) {
-    assert.doesNotMatch(page, banned, `page.tsx must not load code webpack cannot parse: ${banned}`);
-  }
   assert.match(page, /personReply/, "the page reads through the same function /v1 answers with");
   assert.match(page, /export const dynamic = "force-dynamic"/, "never prerendered: .data is gitignored");
   assert.match(page, /notFound\(\)/, "an unknown slug is a 404, not a 500");

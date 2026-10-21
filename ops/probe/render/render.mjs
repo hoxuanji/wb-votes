@@ -45,6 +45,19 @@ const routes = {
     load: () => import("../../../src/app/p/[person]/page.tsx"),
     params: (segs) => ({ person: segs.join("/") }),
   },
+  // The legacy ids, which redirect: one segment under /constituency is always an id from the previous product.
+  "/constituency/id": {
+    load: () => import("../../../src/app/constituency/[state]/page.tsx"),
+    params: (segs) => ({ state: segs[0] ?? "" }),
+  },
+  "/mla": { load: () => import("../../../src/app/mla/[id]/page.tsx"), params: (segs) => ({ id: segs.join("/") }) },
+  "/candidate": {
+    load: () => import("../../../src/app/candidate/[id]/page.tsx"),
+    params: (segs) => ({ id: segs.join("/") }),
+  },
+  "/review/merges": { load: () => import("../../../src/app/review/merges/page.tsx"), params: null },
+  // A route HANDLER, not a page: the query is the form body, and what it prints is the status and the redirect.
+  "/review/merges/decide": { load: () => import("../../../src/app/review/merges/decide/route.ts"), post: true },
   "/search": { load: () => import("../../../src/app/search/page.tsx"), params: null },
   "/election": {
     load: () => import("../../../src/app/election/[id]/page.tsx"),
@@ -68,12 +81,19 @@ const searchParams = Object.fromEntries(
 const segments = (process.argv[4] ?? "").split("/").filter(Boolean);
 
 const mod = await route.load();
-const props = { searchParams };
-if (route.params !== null) props.params = route.params(segments);
+if (route.post) {
+  const res = await mod.POST(
+    new Request("http://localhost/review/merges/decide", { method: "POST", body: new URLSearchParams(searchParams) }),
+  );
+  process.stdout.write(`${res.status} ${res.headers.get("location")}`);
+} else {
+  const props = { searchParams };
+  if (route.params !== null) props.params = route.params(segments);
 
-// An async server component returns a Promise, and renderToStaticMarkup cannot render one — that is the
-// bundler's job in a real Next render. Calling it and awaiting the element first is enough here, because
-// every page in this app is one component deep on the server.
-const called = mod.default(props);
-const element = typeof called?.then === "function" ? await called : called;
-process.stdout.write(renderToStaticMarkup(element));
+  // An async server component returns a Promise, and renderToStaticMarkup cannot render one — that is the
+  // bundler's job in a real Next render. Calling it and awaiting the element first is enough here, because
+  // every page in this app is one component deep on the server.
+  const called = mod.default(props);
+  const element = typeof called?.then === "function" ? await called : called;
+  process.stdout.write(renderToStaticMarkup(element));
+}

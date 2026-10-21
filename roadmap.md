@@ -42,7 +42,7 @@ historical trends.
 | 10 | Upcoming elections with month and year, link to all state/UT dates | **year only** — announced dates and phases are not in the registry. The ECI publishes all eight fields as JSON for every 2023–2026 assembly election (`docs/ingestion/eci-2023-2026.md` §10); `election_phase` still holds zero rows |
 | 11 | States dropdown in the top bar | **built** |
 | 12 | State page: seat distribution, party-wise count, constituency results, historical, fact checks | **not built** — the dropdown lands on the existing state brief. Every part the rebuild needs is in `src/components/iei/` |
-| 13 | Year dropdown on the state page | **not built** — `electionsIn()` is the query it needs, and exists |
+| 13 | Year dropdown on the state page | **not built** as a dropdown — the state page already offers its elections as choices (`src/app/_place/surface.tsx`) |
 | 14 | Search bar's hardcoded hint text looks bad | **fixed** |
 | 15 | Don't make West Bengal the hero | **fixed** |
 | 16 | Search and state picker looked disjoint in the chrome | **fixed** — one bordered control cluster after the wordmark |
@@ -149,9 +149,9 @@ things that genuinely need it — the ⌘K command bar and the evidence drawer.
    is the one outstanding verification and it needs a human.
 1. **The state page** (asks 12, 13). `/pl/<state>` becomes the state front page: seat distribution,
    party-wise count, constituency results, the last five cycles, with a year picker. Every query it needs
-   is already in `repo/elections.ts` — `electionSummary`, `electionsIn`, `swings` and `closeFights` all
-   take an election id and none of them cares which house it is — and every component it needs is in
-   `src/components/iei/`, built for this reuse.
+   is already in `repo/` — `closeFights` in `repo/elections.ts`, and the election choices built in
+   `src/app/_place/surface.tsx` — and every component it needs is in `src/components/iei/`, built for
+   this reuse.
 2. **Scoring, so the 52,330-pair queue can be worked.** No pair scores above the auto-merge line on name
    evidence, because the contest-deferral rule means a seed person and a TCPD person never share a
    contest — so `sameContest`, the strongest feature there is, is structurally zero for exactly the pairs

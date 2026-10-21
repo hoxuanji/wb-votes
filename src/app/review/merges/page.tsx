@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import { openRead } from '../../../../packages/mandate/src/db/open.ts';
 import {
   AUTO_MERGE_AT,
   QUEUE_AT,
@@ -7,6 +6,8 @@ import {
   recallEstimate,
 } from '../../../../packages/mandate/src/repo/review.ts';
 import type { Candidate, Pair } from '../../../../packages/mandate/src/repo/review.ts';
+import { personHref } from '../../../../packages/mandate/src/repo/routes.ts';
+import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { Shell } from '../../../components/iei/Shell.tsx';
 import { RegistryMissing, Table } from '../../../components/iei/parts.tsx';
 import '../../iei.css';
@@ -46,7 +47,7 @@ function Side({ c, other }: { c: Candidate; other: Candidate }) {
   return (
     <div className="rv-side">
       <p className="rv-name">{c.canonicalName}</p>
-      <Link className="rv-id" href={`/p/${c.id}`}>
+      <Link className="rv-id" href={personHref(c.id)}>
         {c.id}
       </Link>
       <dl className="rv-facts">
@@ -140,16 +141,11 @@ export default function MergeReview({
   const saved = one(searchParams?.['saved']);
   const already = one(searchParams?.['already']);
   const error = one(searchParams?.['error']);
-  let pair: Pair | null = null;
-  let est: ReturnType<typeof recallEstimate> | null = null;
-  let unavailable = false;
-  try {
-    const db = openRead();
-    pair = nextForReview(db);
-    est = recallEstimate(db);
-  } catch {
-    unavailable = true;
-  }
+  // An outage shows the registry notice under the heading; a defect in either query is thrown, not shown as one.
+  const read = readRegistry((db) => ({ pair: nextForReview(db), est: recallEstimate(db) }));
+  const unavailable = !read.ok;
+  const pair: Pair | null = read.ok ? read.value.pair : null;
+  const est: ReturnType<typeof recallEstimate> | null = read.ok ? read.value.est : null;
 
   return (
     <Shell here="india" reading>

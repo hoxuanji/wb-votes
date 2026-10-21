@@ -1,11 +1,12 @@
 import Link from 'next/link';
-import { constituencyHref, districtHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
-import { openRead } from '../../packages/mandate/src/db/open.ts';
-import { homeView } from '../../packages/mandate/src/repo/home.ts';
+import { stateHref } from '../../packages/mandate/src/repo/routes.ts';
+import { homeView, layerChoices, leaderOf } from '../../packages/mandate/src/repo/home.ts';
+import { bodyWord } from '../../packages/mandate/src/core/election-kind.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
-import { RegistryUnavailableError } from '../../packages/mandate/src/repo/index.ts';
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
+import { readAsk, readSelection, queryHref } from '../../packages/mandate/src/repo/map-selection.ts';
+import { readRegistry } from '../../packages/mandate/src/repo/session.ts';
 import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
 import { Foot, Shell } from '../components/iei/Shell.tsx';
@@ -77,42 +78,9 @@ export const dynamic = 'force-dynamic';
  */
 const THIS_YEAR = 2026;
 
-type Params = Record<string, string | string[] | undefined> | undefined;
-
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
-}
-
-/**
- * A link to this page with one parameter changed and the rest kept, anchored at the map.
- *
- * An empty value DROPS the parameter rather than writing `party=`, so "show every party" produces the URL a
- * reader would have arrived at, not a longer one that means the same thing. The anchor is `#map` because every
- * parameter this page takes changes the map, and a reader who clicks a legend entry should not be returned to
- * the top of the document.
- */
-function href(params: Params, change: Record<string, string>): string {
-  const q = new URLSearchParams();
-  for (const [k, val] of Object.entries(params ?? {})) {
-    const one = first(val);
-    if (one !== undefined && one !== '') q.set(k, one);
-  }
-  for (const [k, val] of Object.entries(change)) {
-    if (val === '') q.delete(k);
-    else q.set(k, val);
-  }
-  const s = q.toString();
-  return s === '' ? '/#map' : `/?${s}#map`;
-}
-
 /** The span of the elections the party table sums over, so its caveat states its own range. */
 const oldest = (v: HomeView): number => Math.min(...v.standings.map((s) => s.year));
 const newest = (v: HomeView): number => Math.max(...v.standings.map((s) => s.year));
-
-/** The house a row is about, in the words a reader uses. `ac`/`pc` are the registry's codes. */
-function houseWord(house: string): string {
-  return house === 'pc' ? 'Lok Sabha' : house === 'ac' ? 'Assembly' : house;
-}
 
 const IN = new Intl.NumberFormat('en-IN');
 
@@ -126,47 +94,33 @@ export default function Home({
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  let v: HomeView | null = null;
-  let unavailable = false;
-  // openRead() is INSIDE the try. A missing .data/registry.db throws there, not in homeView, so opening
-  // outside it sent a fresh clone a 500 instead of the page that names the command to fix it.
-  let db: ReturnType<typeof openRead> | null = null;
-  try {
-    db = openRead();
-    v = homeView(db, { layer: first(searchParams?.['layer']), thisYear: THIS_YEAR });
-  } catch (e) {
-    // A fresh clone has no registry. That is the expected failure, not a bug in this process, and the page
-    // says so with the command that fixes it rather than rendering a 500.
-    if (!(e instanceof RegistryUnavailableError) && !/unable to open database file/.test(String(e))) throw e;
-    unavailable = true;
-  } finally {
-    db?.close();
-  }
+  const ask = readAsk(searchParams);
+  /**
+   * A link to this page with one parameter changed and the rest kept, anchored at the map: every parameter this page
+   * takes changes the map, and a reader who clicks a layer should not be returned to the top of the document. The layer
+   * is a subject param, which chooses the data, so it is not a move of the selection and is written here.
+   */
+  const href = (change: Record<string, string>): string => queryHref('/', ask, change, 'map');
 
-  if (v === null) {
+  // A fresh clone has no registry. That is the expected failure, not a bug in this process, and the page
+  // says so with the command that fixes it rather than rendering a 500. Anything else is thrown.
+  const read = readRegistry((db) => homeView(db, { layer: ask.get('layer'), thisYear: THIS_YEAR }));
+  if (!read.ok) {
     return (
       <Shell here="india">
-        {unavailable ? (
-          <RegistryMissing />
-        ) : (
-          <div className="iei-empty">
-            <h1 className="iei-answer">No elections are loaded.</h1>
-            <p className="iei-sub">
-              The registry is built but holds no election. Ingest one with{' '}
-              <code>npm run registry:ingest</code>.
-            </p>
-          </div>
-        )}
+        <RegistryMissing />
       </Shell>
     );
   }
+  const v = read.value;
 
   const next = [...v.announced, ...v.upcoming];
   // VALIDATED BY MEMBERSHIP, never parsed: `?party=` has to name a party the CURRENT layer actually shows, so
   // a hand-edited value cannot isolate nothing, cannot reach the SQL, and cannot survive a layer switch that
-  // makes it meaningless. Switching to the turnout layer drops it, because a turnout band is not a party.
-  const asked = first(searchParams?.['party']);
-  const party = v.layer.legend.some((l) => l.key === asked) ? (asked as string) : null;
+  // makes it meaningless. Switching to the turnout layer drops it, because a turnout band is not a party. The layer
+  // is read first, and what it shows is what the selection may be narrowed to: its party links are moves of `sel`.
+  const sel = readSelection(searchParams, layerChoices(v.layer), { base: '/', anchor: 'map' });
+  const party = sel.isolation?.by === 'party' ? sel.isolation.key : null;
   // The legend names the parties leading more than one state, and always the one being isolated. Everything
   // else is one state each and folds into a disclosure below.
   const many = v.layer.legend.filter((l) => l.key === null || l.key === party || !/^1 state$/.test(l.note ?? ''));
@@ -211,13 +165,13 @@ export default function Home({
           choices={v.layers.map((l) => ({
             key: l.key,
             label: l.label,
-            href: href(searchParams, { layer: l.key }),
+            href: href({ layer: l.key }),
             available: l.available,
           }))}
         />
 
         <div className="iei-linked iei-map-split">
-          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} highlight={party} />
+          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} />
 
           <div>
             {/* A CONTEXTUAL LEGEND, and an interactive one. It names the parties this layer actually shows —
@@ -235,7 +189,7 @@ export default function Home({
                     </>
                   ) : (
                     <Link
-                      href={href(searchParams, party === l.key ? { party: '' } : { party: l.key })}
+                      href={sel.href({ party: l.key })}
                       className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
                       aria-pressed={party === l.key}
                       title={party === l.key ? `Stop isolating ${l.label}` : `Show only where ${l.label} leads`}
@@ -267,7 +221,7 @@ export default function Home({
                   {rest.map((l) => (
                     <li key={l.label}>
                       <Link
-                        href={href(searchParams, party === l.key ? { party: '' } : { party: l.key as string })}
+                        href={sel.href({ party: l.key as string })}
                         className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
                       >
                         <span className="iei-sw" style={{ background: l.fill }} aria-hidden="true" />
@@ -281,7 +235,7 @@ export default function Home({
             {party === null ? null : (
               <p className="iei-note">
                 Showing only where <b>{v.layer.legend.find((l) => l.key === party)?.label ?? party}</b> leads.{' '}
-                <Link href={href(searchParams, { party: '' })}>Show every party</Link>
+                <Link href={sel.href('release')}>Show every party</Link>
               </p>
             )}
 
@@ -320,9 +274,9 @@ export default function Home({
             >
               {v.layer.cells.map((c) => {
                 const st = standingOf(c.jurisdictionId);
-                // The table mutes with the map. A highlight that dimmed the polygons and left the rows at full
-                // strength would be two answers to one question on one screen.
-                const muted = party !== null && c.partyKey !== party;
+                // The table mutes with the map, by the same selection. A highlight that dimmed the polygons and left
+                // the rows at full strength would be two answers to one question on one screen.
+                const muted = !sel.covers(leaderOf(c));
                 return (
                   <tr key={c.jurisdictionId} data-j={c.jurisdictionId} className={muted ? 'iei-legend-off' : undefined}>
                     <th scope="row">
@@ -426,12 +380,12 @@ export default function Home({
                     <>
                       {r.jurisdictionName}
                       <span className="iei-rule">
-                        {houseWord(r.house)} {r.year}
-                        {r.kind === 'bypoll' ? ' by-election' : ''}
+                        {bodyWord(r.body)} {r.year}
+                        {r.fill === 'bypoll' ? ' by-election' : ''}
                       </span>
                     </>
                   }
-                  href={r.kind === 'general' ? undefined : stateHref(r.jurisdictionId)}
+                  href={r.body === 'lok-sabha' && r.fill === 'general' ? undefined : stateHref(r.jurisdictionId)}
                   aside={
                     <b>
                       {/* A reading, never a bare number: West Bengal 2026's 93.0% is a seed defect, and

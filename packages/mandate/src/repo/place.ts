@@ -1,6 +1,7 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Names, Reservation } from "../core/index.ts";
 import { all, get } from "../db/index.ts";
+import { chronoDesc } from "../core/election-kind.ts";
 import type { Provenanced, SourceRef } from "./index.ts";
 import { loadSources, read, yearOf } from "./index.ts";
 import { counted, parseNames, pct } from "./person.ts";
@@ -102,20 +103,19 @@ type ContestSql = {
  * Assembly constituency Brief. FOUR fixed queries — place, contest history (top two per contest),
  * demographic claims with their citations, sources — regardless of how many elections it has.
  *
- * `slug` is the place id ('wb.ac.001') or the constituency name ('Mekliganj'), case-insensitive.
- * ponytail: no separate slug column; two candidate matches on an indexed PK and a name is cheaper
- * than a migration. Add one when a name collides across states.
+ * `versionId` is the seat version place-resolve.ts resolved. The caller has already decided which constituency
+ * is meant, so this does not look for it again by a place id or a name: a place id is a seat NUMBER, and
+ * re-resolving by it could hand back a different version than the one asked about.
  *
- * SCOPED TO ONE DELIMITATION, deliberately. The name and the history both come from the newest
- * `place_version` for the seat, not from `place`: a place is keyed by seat number, and a seat number is
+ * SCOPED TO ONE DELIMITATION, deliberately. The name and the history both come from that
+ * `place_version`, not from `place`: a place is keyed by seat number, and a seat number is
  * not an identity across delimitation. Reading the history as `WHERE pv.place_id = ?` returned every
  * election ever held under that NUMBER — sixteen of them for Mekliganj, spanning four different sets of
  * boundaries — presented as one seat's record. Karnataka's parliamentary seat 1 was Bidar until 2008 and
  * Chikkodi after it; those are not one constituency with a long history, and a page that adds their
- * results together is asserting a continuity no source supports. Matching a name resolves in the same
- * scope, so 'Mekliganj' means the seat that carries the name now.
+ * results together is asserting a continuity no source supports.
  */
-export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null {
+export function getPlaceBrief(db: DatabaseSync, versionId: number): PlaceBrief | null {
   return read(() => {
     const p = get<PlaceSql>(
       db,
@@ -137,11 +137,8 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
         -- EITHER BODY. This was kind = 'ac', which is why a Lok Sabha seat had no page: 606 parliamentary
         -- constituencies across six delimitations were in the registry and unreachable through the one
         -- function that renders a constituency.
-        WHERE pv.kind IN ('ac', 'pc') AND (pl.id = ? OR LOWER(pv.canonical_name) = LOWER(?))
-        ORDER BY be.effective_from DESC, pv.id DESC
-        LIMIT 1`,
-      slug,
-      slug,
+        WHERE pv.id = ? AND pv.kind IN ('ac', 'pc')`,
+      versionId,
     );
     if (p === undefined) return null;
 
@@ -162,7 +159,7 @@ export function getPlaceBrief(db: DatabaseSync, slug: string): PlaceBrief | null
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
         WHERE c.place_version_id = ?
-        ORDER BY e.year DESC, e.polling_month DESC, e.occurrence DESC, r.rank, r.candidacy_id`,
+        ORDER BY ${chronoDesc()}, r.rank, r.candidacy_id`,
       p.place_version_id,
     );
 

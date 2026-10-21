@@ -20,10 +20,14 @@ const babel = require("next/dist/compiled/babel/core");
 
 /** Node decides the format BEFORE calling load(), and has no format for .tsx — so resolve must say. */
 export async function resolve(specifier, context, nextResolve) {
-  // next/link and next/navigation are CJS with no ESM export-map entry for the bare specifier. The bundler
-  // rewrites them; outside it they have to be pointed at the file. `next/link` renders a real <a> in the
+  // next/link, next/navigation and next/server are CJS with no ESM export-map entry for the bare specifier. The
+  // bundler rewrites them; outside it they have to be pointed at the file. `next/link` renders a real <a> in the
   // server output, which is exactly what this harness is checking.
-  const shim = { "next/link": "next/link.js", "next/navigation": "next/navigation.js" }[specifier];
+  const shim = {
+    "next/link": "next/link.js",
+    "next/navigation": "next/navigation.js",
+    "next/server": "next/server.js",
+  }[specifier];
   const r = await nextResolve(shim ?? specifier, context);
   return r.url.endsWith(".tsx") || r.url.endsWith(".css") ? { ...r, format: "module" } : r;
 }

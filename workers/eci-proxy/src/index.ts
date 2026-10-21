@@ -13,7 +13,7 @@
  *   npx wrangler deploy
  *
  * Scraper side: set ECI_BASE=https://<worker>.workers.dev/AcResultGenMay2026
- * and ECI_PROXY_SECRET=<value> in Vercel env vars (and locally for
+ * and ECI_PROXY_SECRET=<value> in the scraper's environment (and locally for
  * scripts/local-scrape.js).
  */
 

@@ -15,10 +15,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";
 import { read } from "./index.ts";
+import { byElection, currentIds } from "../core/election-kind.ts";
+import type { Body } from "../core/election-kind.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
-
-/** The delimitation in force. Every seat count comparable to today's totals is scoped to it. */
-export const CURRENT_EPOCH = "delim-2008";
 
 /**
  * `no-model` — nothing in the schema can hold this yet.
@@ -88,7 +87,7 @@ export const VERTICALS: readonly Vertical[] = [
     unit: "elections",
     reachProbe: `SELECT (SELECT count(*) FROM election WHERE kind = 'assembly') || ' assembly, '
                      || (SELECT count(*) FROM election WHERE kind = 'general') || ' general, '
-                     || (SELECT count(*) FROM election WHERE kind = 'bypoll') || ' by-elections' AS reach`,
+                     || (SELECT count(*) FROM election WHERE ${byElection("election")}) || ' by-elections' AS reach`,
     scope: "no municipal or panchayat election is modelled, and no Rajya Sabha election",
     source: "Lokdhaba",
   },
@@ -327,7 +326,7 @@ export function jurisdictions(db: DatabaseSync): JurisdictionState[] {
       // state directly rather than off a district, and for those `d` IS the state — so its parent_id is
       // 'in', and COALESCE filed every one of them under the nation. Andhra Pradesh's 300 seats read as
       // "not loaded" in the state picker and as no-data ink on the map while its 2019 results sat in the
-      // registry. Same defect, same shape, as the one repo/elections.ts documents at J_OF_SEAT.
+      // registry. Seat results avoid it by reading `place_version.jurisdiction_id` (repo/seat-results.ts).
       `SELECT CASE WHEN d.kind = 'district' THEN d.parent_id ELSE p.parent_id END AS state_id,
               count(*) AS n
          FROM place p
@@ -375,26 +374,17 @@ export function geography(db: DatabaseSync): Geography {
   return read(() => {
     const n = (sql: string, ...p: string[]): number => Number(get<{ n: number }>(db, sql, ...p)?.n ?? 0);
     const states = n("SELECT count(*) AS n FROM place WHERE kind IN ('state','ut')");
-    // The latest election per jurisdiction, then the seats contested in it. A general election is one row
-    // for the whole union, so the same query serves both houses.
-    const seatsNow = (kind: string): number =>
+    // The seats contested in each jurisdiction's current election. A general election is one row for the
+    // whole union, so the same query serves both houses.
+    const seatsNow = (body: Body): number =>
       n(
         `SELECT count(*) AS n FROM (
            SELECT DISTINCT c.place_version_id
-             FROM election e
-             JOIN contest c ON c.election_id = e.id
-            WHERE e.kind = ?
-              AND e.id IN (
-                SELECT id FROM (
-                  SELECT e2.id AS id,
-                         row_number() OVER (PARTITION BY e2.jurisdiction_place_id ORDER BY e2.id DESC) AS rn
-                    FROM election e2 WHERE e2.kind = ?
-                ) WHERE rn = 1))`,
-        kind,
-        kind,
+             FROM contest c
+            WHERE c.election_id IN (${currentIds(body)}))`,
       );
     const acs = seatsNow("assembly");
-    const pcs = seatsNow("general");
+    const pcs = seatsNow("lok-sabha");
     const everyAcAndPc = n("SELECT count(*) AS n FROM place WHERE kind IN ('ac','pc')");
     return {
       statesLoaded: states,

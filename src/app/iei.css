@@ -1478,7 +1478,7 @@ html {
 /* The map column: the choropleth and the tile row for the jurisdictions too small to click. One box, so
    the grid above sees one item — see IndiaMap.tsx for the fragment this replaced and what it did.
 
-   ITS WIDTH COMES FROM THE MAP'S OWN SHAPE, which StateMap sets inline: `--iei-map-w` is the width a figure
+   ITS WIDTH COMES FROM THE MAP'S OWN SHAPE, which the map component sets inline: `--iei-map-w` is the width a figure
    of this frame's proportions needs to fill the height it is allowed — `--iei-map-h` times the aspect ratio.
    That was `70vh` times the aspect, which made an `auto` grid track depend on the window's HEIGHT; see the
    token's own note. */
@@ -1507,7 +1507,7 @@ html {
    *
    * The muted neighbours are still DRAWN — they are the geographic context that makes a zoom legible — they
    * are simply confined to the figure. The cost is that a label sitting on the frame's own edge can clip by a
-   * pixel or two, which is why the frame carries 8% padding (see `frame()` in lib/india-geo.ts).
+   * pixel or two, which is why a frame carries a margin (see `frameOf()` in repo/election-map.ts).
    */
   overflow: hidden;
 }
@@ -1543,9 +1543,9 @@ html {
  * geographic disclosure is the standard here and it is what the brief asks for: state fills and state borders
  * at national zoom, districts when a state is open, constituencies when the registry holds them.
  *
- * The geometry did not go anywhere. `districtsOf()` still serves the state map's neutral district level (see
- * `.iei-map-neutral` below), which is where a district IS the unit — it frames, it links, and it carries a
- * tally. What was deleted is drawing all 726 of them at once, on a screen where none of them can be clicked.
+ * The geometry did not go anywhere: the district rings are still in the asset (see india-geo.ts), though nothing
+ * reads them now. What was deleted is drawing all 726 of them at once, on a screen where none of them can be
+ * clicked.
  */
 
 /* A state border reads as a border: the canvas colour, from the states' own outline geometry rather than as a
@@ -1650,7 +1650,7 @@ html {
   stroke: rgba(255, 255, 255, 0.55);
   /* In USER UNITS, so it has to scale with the label. A state map's frame is 12 units across at district
      level and 597 across the country; a fixed 2.2 is a hairline at one and swallows the glyphs at the
-     other. StateMap sets the variable from its own viewBox. */
+     other. The map component sets the variable from its own frame. */
   stroke-width: var(--iei-label-stroke, 2.2);
   stroke-linejoin: round;
 }
@@ -1666,7 +1666,7 @@ html {
 /* A state's electoral map. Taller than the national one because a state is taller than it is wide more often
    than not, and it is the only thing in its column. */
 .iei-map-state svg {
-  /* ASPECT-RATIO FROM THE VIEWBOX, set inline by StateMap because only the component knows the frame. It
+  /* ASPECT-RATIO FROM THE VIEWBOX, set inline by the map component because only it knows the frame. It
      makes the figure's intrinsic width computable, which is what lets the column above be max-content.
      Height is bounded by the shared token — in pixels, not vh, so the column's width cannot depend on the
      window's height. */

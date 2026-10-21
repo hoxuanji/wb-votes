@@ -27,11 +27,12 @@
 import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../../db/index.ts";
 import { all, get } from "../../../db/index.ts";
+import { ensureEpochs } from "../../../db/epochs.ts";
+import { epochById } from "../../../core/epochs.ts";
 import { candidacyId, contestId, slug } from "../../../core/ids.ts";
 import { blockingKeys, detectScript } from "../../../core/indic/index.ts";
 import { JURISDICTIONS } from "../../india.ts";
 import { versionId } from "../lokdhaba.ts";
-import { delimIdOf } from "../../geography/delimitation.ts";
 import { ECI_STATISTICAL_DISCLAIMER, type RawArtefact } from "./acquire.ts";
 import { LS2024_EPOCH_ID, type Staged, type StagedCandidate, type StagedContest } from "./stage.ts";
 
@@ -95,6 +96,10 @@ export function importStaged(
 
   db.exec("BEGIN");
   try {
+    // The epochs these seats sit in, from the table and inside the transaction, so no other command has to
+    // have registered them first and a rollback leaves none behind.
+    ensureEpochs(db, importable.map((c) => c.epochId));
+
     // ── ingest_run, opened first so anything that follows can be attributed ──────────────────────
     db.prepare(
       "INSERT INTO ingest_run (pipeline, parser_version, started_at, status, rows_in) VALUES (?, ?, ?, 'running', ?)",
@@ -156,7 +161,7 @@ export function importStaged(
       // versions of one place row. A per-epoch place id would also collide with `place`'s
       // UNIQUE (kind, eci_code, parent_id), which exists to stop exactly that duplication.
       const placeId = `${c.jurisdictionId}.pc.${String(c.number).padStart(3, "0")}`;
-      const vid = versionId(idx + 1, delimIdOf(c.epochId), c.number, "pc");
+      const vid = versionId(idx + 1, epochById(c.epochId).versionBlock, c.number, "pc");
       if (!existingPlaces.has(placeId)) {
         db.prepare(placeSql).run(placeId, "pc", c.jurisdictionId, c.rawName, String(c.number));
         existingPlaces.add(placeId);

@@ -12,7 +12,8 @@ export const dynamic = 'force-dynamic';
  *   curl -s http://localhost:3000/v1/entity/place/wb.ac.001 | jq '.meta.caveats'
  *   curl -s http://localhost:3000/v1/entity/place/Mekliganj | jq '.data.place'
  *
- * `slug` is the place id ('wb.ac.001') or the constituency name, case-insensitive.
+ * `slug` is the place id ('wb.ac.001') or the constituency name, case-insensitive. Only the seat that carries a name
+ * now answers to it, and a name that two seats answer to is a 300 that lists their place ids, never a pick.
  */
 export async function GET(_req: Request, { params }: { params: { slug: string } }) {
   const r = await placeReply(params.slug);

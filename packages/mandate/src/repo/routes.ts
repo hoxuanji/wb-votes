@@ -3,29 +3,32 @@
 // ── WHY THIS FILE EXISTS ──
 //
 // It did not, and there were SEVENTEEN hand-assembled `/pl/...` template literals across ten files.
-// `placeHref` was the intended single builder and five call sites used it; the other twelve wrote their own,
-// each re-deriving the same path shape from ids. That is not a tidiness problem — it is how a link starts
-// pointing somewhere that does not exist. The seat link on the state page was assembled by hand, kept its
+// A builder in the old place-page.ts was the intended single one and five call sites used it; the other twelve wrote
+// their own, each re-deriving the same path shape from ids. That is not a tidiness problem — it is how a link
+// starts pointing somewhere that does not exist. The seat link on the state page was assembled by hand, kept its
 // own private copy of the name-slug rule, and pointed at a URL that never navigated anywhere; the page's own
 // test passed the whole time because a link to the wrong place is still a link.
 //
+// routes.guard.test.ts is what keeps it one place: it fails on a literal that starts like one of these routes
+// anywhere else in the app or the package.
+//
 // ── THE ROUTE ARCHITECTURE, AND WHY DEPTH NO LONGER DECIDES ANYTHING ──
 //
-// Before, one catch-all served three entity types and `parsePath` decided which by COUNTING SEGMENTS:
+// Before, one catch-all served three entity types and its path parser decided which by COUNTING SEGMENTS:
 // one meant a state, two a district, three a constituency. So the type of a thing was a property of how
 // long its URL happened to be, and a malformed path resolved to a different entity rather than to nothing.
 //
-//   /state/<state>                     ka
-//   /district/<state>/<district>       ka/bangalore
-//   /constituency/<state>/<name>       ka/jayanagar
-//   /election/<election>               ka-assembly-2023
-//   /p/<person>                        md-salim
+//   /state/<state>                        ka
+//   /district/<state>/<district>          ka/bangalore
+//   /constituency/<state>/<body>/<name>   ka/assembly/jayanagar
+//   /election/<election>                  ka-assembly-2023
+//   /p/<person>                           md-salim
 //
 // The type is now in the PREFIX. Depth inside a route is fixed and known, so nothing infers.
 //
 // A NOTE ON THE TWO-SEGMENT FORMS, since the brief asked for single slugs. A district id (`ka.bangalore`) is
 // globally unique and would fit one segment; a constituency NAME is not — "Jayanagar" may exist in more than
-// one state, and `getPlaceBrief` resolves a bare name by taking whichever version sorts first, which is
+// one state, and `getPlaceBrief` resolved a bare name by taking whichever version sorted first, which is
 // precisely the silent resolution to a different entity this phase forbids. The alternative single slug is
 // the place id (`wb.ac.001`), which is unique but is a seat NUMBER, unreadable, and demoted by
 // docs/model/electoral-geography.md as an identity. So both district and constituency carry their state:
@@ -103,9 +106,17 @@ export function constituencyHref(place: {
   return `/constituency/${place.jurisdictionId}/${bodyOfKind(place.kind)}/${slugOf(place.canonicalName)}`;
 }
 
-/** The ambiguous pre-body form, for the compatibility route that has to recognise its own old URLs. */
-export function legacyConstituencyHref(jurisdictionId: string, name: string): string {
-  return `/constituency/${jurisdictionId}/${slugOf(name)}`;
+/**
+ * A constituency by its registry id: `/constituency/wb/assembly/wb.ac.266`.
+ *
+ * For two seats of one state and body that carry one name (West Bengal's Bishnupur in Bankura and in South 24
+ * Parganas). Their name's address is a page asking which was meant, so each is addressed by the id that tells them
+ * apart: the same three-segment route with the id where the name goes, which place-resolve.ts reads as a seat asked by
+ * its `placeId`. `seatHref` there chooses between this and `constituencyHref`; nothing else should, because a name is
+ * what a reader can read in a URL and this is the exception.
+ */
+export function constituencyIdHref(place: { jurisdictionId: string; kind: string; placeId: string }): string {
+  return `/constituency/${place.jurisdictionId}/${bodyOfKind(place.kind)}/${place.placeId}`;
 }
 
 /** An election of any body or kind: `/election/ka-assembly-2023`. */
@@ -125,25 +136,12 @@ export function personHref(personId: string): string {
   return `/p/${personId}`;
 }
 
-/** What kind of thing a `/pl/...` path was asking for, resolved rather than counted. */
-export type PlaceKind = "state" | "district" | "ac" | "pc";
-
 /**
- * The canonical URL for a place whose kind is already KNOWN — resolved from the registry, never guessed
- * from the shape of a string.
+ * One election's panel on the coverage page: `/coverage?election=ls-2024#election`.
  *
- * `jurisdictionId` is the state; `parentId` is the district for an `ac` and the state for a `district`,
- * matching what the repo rows already carry.
+ * `#election` is the panel's id, so choosing another election in its tabs leaves the reader at the panel
+ * rather than back at the top of the page.
  */
-export function canonicalHref(p: {
-  kind: PlaceKind;
-  id: string;
-  canonicalName: string;
-  jurisdictionId: string | null;
-  parentId: string | null;
-}): string {
-  if (p.kind === "state") return stateHref(p.id);
-  if (p.kind === "district") return districtHref(p.id);
-  const state = p.jurisdictionId ?? (p.parentId ?? "").split(".")[0] ?? "";
-  return state === "" ? "/" : constituencyHref({ jurisdictionId: state, kind: "ac", canonicalName: p.canonicalName });
+export function coverageHref(electionId: string): string {
+  return `/coverage?election=${electionId}#election`;
 }

@@ -45,5 +45,7 @@ declare module 'node:sqlite' {
     close(): void;
     exec(sql: string): void;
     prepare(sql: string): StatementSync;
+    /** The file this database was opened from; null for an in-memory one. Node 22.16 and later. */
+    location(dbName?: string): string | null;
   }
 }

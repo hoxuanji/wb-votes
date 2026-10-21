@@ -11,17 +11,20 @@ there is no figure, never as a zero. A date nobody announced is marked **derived
 | route | what it answers |
 | --- | --- |
 | `/` | What is happening across India? A choropleth of 36 jurisdictions — coloured by **government**, which is not a claim about any district inside them — with six layers, a contextual legend, party isolation, and the page's primary navigation. |
-| `/pl/<state>` | Who won each constituency, in which election? A map where the boundaries are held, a district tally everywhere. |
-| `/pl/<state>/<district>` | Which seats does this district elect? |
-| `/pl/<state>/<district>/<seat>` | Who has won this seat, and by how much? |
-| `/pl/<...>/<seat>/analysis` | How did this seat get this way? Turnout against a baseline, swing, effective parties, seat-by-seat retention. |
+| `/state/<state>` | Who won each constituency, in which election? A map where the boundaries are held, and a note where they are not, with the seats listed beside it and a link to each district's page. |
+| `/district/<state>/<district>` | Which seats does this district elect? |
+| `/constituency/<state>/<body>/<name>` | Who has won this seat, and by how much? `<body>` is `assembly` or `lok-sabha`, and two seats of one body that share a name are addressed by their registry id in place of `<name>`. |
+| `/constituency/<state>/<body>/<name>/analysis` | How did this seat get this way? Turnout against a baseline, swing, effective parties, seat-by-seat retention. |
+| `/election/<election>` | How did this election go? Its seats on a map, read as winners, flips, margin or runner-up. |
 | `/p/<person>` | One person's whole record, and what they declared. |
 | `/search?q=` | One field over states, elections, constituencies, people and parties. |
 | `/coverage` | What this platform holds and what it does not — counted at request time, per subject area and per election. |
 | `/v1/entity/{person,place}/<slug>`, `/v1/search` | The same reads as JSON, with `sources[]`. |
 
-`/candidate/<id>`, `/constituency/<id>`, `/mla/<id>` and `/candidates` are permanent redirects that resolve
-old ids through `person_identifier` and the place tree.
+`/pl/*`, `/candidate/<id>`, `/constituency/<id>`, `/constituency/<state>/<name>`, `/mla/<id>` and `/candidates` are
+old addresses, kept as permanent redirects to the routes above; they resolve old ids through `person_identifier` and the
+place tree. A name that belongs to several seats gets a page asking which was meant, and an id that names nothing is a
+404 (an unknown candidate id goes to search). `/pl` has no page of its own.
 
 ## Running it
 
@@ -41,7 +44,7 @@ than returning a 500.
 ```text
 src/app/                     one route per surface, and one stylesheet
   iei.css                    the design system: tokens, primitives, grid, breakpoints
-src/components/iei/          Shell, IndiaMap, StateMap, and the primitives every page is built from
+src/components/iei/          Shell, IndiaMap, ElectionMap, and the primitives every page is built from
 data/party-ink.json          party visual identity: curated hues as OKLCH, with their provenance
 data/geo/india-states.json   state outlines and named district rings, with their hash and epoch
 packages/mandate/            the registry: schema, migrations, ingestion, entity resolution, read layer
@@ -56,7 +59,7 @@ ops/probe/                   test scaffolding: render a route, and screenshot it
 ## Checks
 
 ```bash
-npm test                     # 405 tests, including a real-registry smoke suite
+npm test                     # the unit tests, and the smoke and render suites against .data/registry.db
 npm run type-check           # tsc over the app
 npm run registry:typecheck   # tsc over packages/mandate
 npm run lint                 # next lint
@@ -64,8 +67,11 @@ npm run build                # production build
 npm run registry:audit       # export round-trip and provenance report
 ```
 
-One test fails and is classified: `searchPersons` ranking/order-independence, in
-`packages/mandate/src/repo/person.test.ts`.
+The registry a fresh clone builds from the committed seed (`registry:migrate`, `registry:ingest`,
+`registry:resolve`) is small, and 52 tests fail against it. Many need data only a fuller registry holds: Bihar's and
+Karnataka's elections, the Lok Sabha seats of other states, the 1976 delimitation, drawn polygons, and the people
+`searchPersons` ranks. CI builds a fuller registry and still fails some tests. `.github/test-baseline.txt` lists the
+tests that fail on every run, and CI fails only on a failure that is not listed (`.github/workflows/ci.yml`).
 
 Three suites are worth knowing about, because between them they cover what `tsc` cannot see:
 

@@ -1,21 +1,17 @@
 import Link from 'next/link';
-import { constituencyHref, districtHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
-import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
-import {
-  MARGIN_BANDS,
-  bandOf,
-  districtGroups,
-  marginBandCounts,
-  seatsInBand,
-  seatsInDistrict,
-} from '../../../packages/mandate/src/repo/election-map.ts';
+import { districtHref, electionHref } from '../../../packages/mandate/src/repo/routes.ts';
+import type { ElectionChoice, ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
+import { MARGIN_BANDS, districtGroups, marginBandCounts } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';
+import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
+import { tally } from '../../../packages/mandate/src/repo/map-selection.ts';
+import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
+import { bodyWord } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { ElectionMap, MODES } from '../../components/iei/ElectionMap.tsx';
-import type { MapMode } from '../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginBands,
@@ -39,7 +35,8 @@ import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
  *   ?seat=      one seat outlined, set by the list
  *
  * `party` and `band` are mutually exclusive because two isolations on one map are two answers to one
- * question. Everything else composes: a district focus narrows the seat set that the bands, the scatter and
+ * question: the selection (repo/map-selection.ts) holds one isolation, reads it out of the URL and writes every
+ * link below. Everything else composes: a district focus narrows the seat set that the bands, the scatter and
  * the list all describe. `SEATS` below is the single derived subset, computed once and handed to every
  * section — which is what makes the map and the charts feel like one instrument rather than five widgets
  * that happen to sit on one page.
@@ -71,55 +68,38 @@ function pct(v: number | null, dp = 1): string {
   return `${v.toFixed(dp)}%`;
 }
 
-const houseWord = (h: string): string => (h === 'pc' ? 'Lok Sabha' : 'Assembly');
-
-/**
- * A district's own page, from the dotted place id the seats already carry.
- *
- * `ka.bangalore` -> `/pl/ka/bangalore`. Built here rather than threaded through the data layer, because it is
- * one `slice` and the type it would live on is one whose whole point is that a district has no winner.
- */
-const districtPath = districtHref;
-
-export type StateSelection = {
-  mode: MapMode;
-  party: string | null;
-  band: string | null;
-  district: string | null;
-  seat: string | null;
-};
-
 export function StateSurface({
   name,
   view,
+  choices,
+  asked,
   trajectory,
   selection,
-  hrefFor,
 }: {
   name: string;
   view: ElectionMapView;
+  /** The offers to switch between, newest first: the state view's `choices`, not the map's `siblings`. */
+  choices: readonly ElectionChoice[];
+  /** What became of the election the URL asked for. `defaulted` earns a notice. */
+  asked: Asked;
   trajectory: StateTrajectory;
-  selection: StateSelection;
-  /** A link to this page with parameters changed. The component builds no URLs of its own. */
-  hrefFor: (change: Record<string, string>) => string;
+  /** What the reader has narrowed the map to. It writes every link on the page: the component builds no URLs of its own. */
+  selection: MapSelection;
 }) {
   const e = view.election;
   if (e === null) return null;
 
-  const { mode, party, band, district, seat } = selection;
+  const { mode, district, seat, isolation } = selection;
+  const party = isolation?.by === 'party' ? isolation.key : null;
+  const band = isolation?.by === 'band' ? isolation.key : null;
   const lead = view.legend[0] ?? null;
   const districts = districtGroups(view.seats);
   const focused = districts.find((d) => d.id === district) ?? null;
 
-  // THE ONE DERIVED SUBSET. District narrows first because it is geographic; party and band then filter
-  // within it. Every figure below describes exactly this set, which is why they cannot disagree.
-  const inDistrict = seatsInDistrict(view.seats, focused?.id ?? null);
-  const SEATS: ElectionSeat[] =
-    band !== null
-      ? seatsInBand(inDistrict, band)
-      : party !== null
-        ? inDistrict.filter((s) => (mode === 'runnerup' ? s.runnerUpKey : s.partyKey) === party)
-        : inDistrict;
+  // THE ONE DERIVED SUBSET, and it is the selection's. District narrows first because it is geographic; the isolation
+  // then filters within it. Every figure below describes exactly this set, which is why they cannot disagree.
+  const inDistrict = selection.inDistrict(view.seats);
+  const SEATS: ElectionSeat[] = selection.narrow(view.seats);
 
   const bands = marginBandCounts(inDistrict);
   const narrowed = band !== null || party !== null || focused !== null;
@@ -156,9 +136,9 @@ export function StateSurface({
               <span className="iei-of"> / {IN.format(view.seats.length)}</span>
             </span>
             <span className="iei-hero-meta">
-              {/* THE TYPE AND THE SCALE, both from ElectionContext. `houseWord(house)` called a Lok Sabha
-                  by-election a "Lok Sabha", and "majority N" is a claim only a full house can support. */}
-              {view.ctx === null ? `${houseWord(e.house)} ${e.year}` : `${scaleLabel(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
+              {/* THE TYPE AND THE SCALE, both from ElectionContext: "majority N" is a claim only a full house
+                  can support, and a by-election is not one. */}
+              {view.ctx === null ? `${bodyWord(e.body)} ${e.year}` : `${scaleLabel(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
               {/* NOT a number when the registry cannot corroborate one. West Bengal 2026's 93.0% used to
                   sit right here, in the same type as a real majority count, and a first-time reader had no
                   way to discount it. `turnoutHeadline` cannot return a figure for an unverified reading. */}
@@ -169,6 +149,15 @@ export function StateSurface({
         {/* ONE analytical statement, from the findings the data layer already produced — never authored
             here, so it cannot claim something the registry does not hold. */}
         {view.flips === null ? null : <p className="iei-sub">{summarise(view.flips)}</p>}
+        {/* AN ELECTION THE URL ASKED FOR AND THIS PAGE CANNOT SHOW is replaced by the default, and the reader is
+            told. A link to one election that answered with another and said nothing looks right and is about
+            something else. */}
+        {asked !== 'defaulted' ? null : (
+          <p className="iei-note">
+            The election in the link is not one this page can show for {name}, so this is the{' '}
+            {typeLabel(e.body, e.fill)} {e.year}.
+          </p>
+        )}
       </div>
 
       {/* ══ 2 · THE ELECTORAL MAP — constituency winners, never a state filled with its government ══ */}
@@ -191,21 +180,29 @@ export function StateSurface({
         <Tabs
           label="Election"
           current={e.id}
-          choices={view.siblings.slice(0, 8).map((s) => ({
+          choices={choices.slice(0, 8).map((s) => ({
             key: s.id,
             label: String(s.year),
             // Changing election drops every selection: a party's seats, a margin band and a district focus
             // are all statements about ONE election and mean nothing carried to another.
-            href: hrefFor({ election: s.id, party: '', band: '', district: '', seat: '' }),
+            href: selection.href({ election: s.id }),
           }))}
         />
+        {/* A STATE'S LOK SABHA VIEW IS A NATIONAL ELECTION NARROWED TO ONE STATE, and the election's own page is the
+            only place that shows the rest of it. */}
+        {e.body !== 'lok-sabha' ? null : (
+          <p className="iei-note">
+            The {e.year} Lok Sabha election, narrowed to the seats in {name}.{' '}
+            <Link href={electionHref(e.id)}>See the whole country</Link>.
+          </p>
+        )}
         <Tabs
           label="What the map shows"
           current={mode}
           choices={MODES.map((m) => ({
             key: m.key,
             label: m.label,
-            href: hrefFor({ mode: m.key }),
+            href: selection.href({ mode: m.key }),
             available: m.key === 'flips' ? view.flips !== null : true,
           }))}
         />
@@ -235,19 +232,16 @@ export function StateSurface({
         ) : null}
 
         <div className="iei-linked iei-map-split">
-          <ElectionMap
-            view={view}
-            mode={mode}
-            highlight={party}
-            band={band}
-            district={focused?.id ?? null}
-            focusSeat={seat}
-          />
+          <ElectionMap view={view} selection={selection} />
 
           <div>
             {/* The legend answers to the mode, because the mode decides what a colour means. */}
             {mode === 'margin' ? (
-              <MarginBands bands={bands} selected={band} hrefFor={(b) => hrefFor({ band: b ?? '', party: '' })} />
+              <MarginBands
+                bands={bands}
+                selected={band}
+                hrefFor={(b) => (b === null ? selection.href('release') : selection.href({ band: b }))}
+              />
             ) : mode === 'flips' ? (
               <ul className="iei-legend">
                 <li>
@@ -264,10 +258,10 @@ export function StateSurface({
               </ul>
             ) : (
               <ul className="iei-legend">
-                {(mode === 'runnerup' ? runnerUpTally(inDistrict) : tallyOf(inDistrict)).slice(0, 10).map((l) => (
+                {tally(inDistrict, mode === 'runnerup' ? 'runnerUp' : 'winner').slice(0, 10).map((l) => (
                   <li key={l.key}>
                     <Link
-                      href={hrefFor(party === l.key ? { party: '' } : { party: l.key, band: '' })}
+                      href={selection.href({ party: l.key })}
                       className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
                       aria-pressed={party === l.key}
                     >
@@ -298,10 +292,10 @@ export function StateSurface({
                 </summary>
                 {focused === null ? null : (
                   <p className="iei-district-open-now">
-                    <Link className="iei-district-cta" href={districtPath(focused.id)}>
+                    <Link className="iei-district-cta" href={districtHref(focused.id)}>
                       Open the {focused.name} district page →
                     </Link>
-                    <Link className="iei-district-clear" href={hrefFor({ district: '', seat: '' })}>
+                    <Link className="iei-district-clear" href={selection.href({ district: focused.id })}>
                       ← the whole state
                     </Link>
                   </p>
@@ -310,7 +304,7 @@ export function StateSurface({
                   {districts.map((d) => (
                     <li key={d.id}>
                       <Link
-                        href={hrefFor(focused?.id === d.id ? { district: '', seat: '' } : { district: d.id, seat: '' })}
+                        href={selection.href({ district: d.id })}
                         className={focused === null ? undefined : focused.id === d.id ? 'iei-legend-on' : 'iei-legend-off'}
                       >
                         {d.name}
@@ -318,7 +312,7 @@ export function StateSurface({
                       </Link>
                       <Link
                         className="iei-district-open"
-                        href={districtPath(d.id)}
+                        href={districtHref(d.id)}
                         aria-label={`Open the ${d.name} district page`}
                       >
                         open →
@@ -347,7 +341,13 @@ export function StateSurface({
                   key={s.versionId}
                   title={s.name}
                   href={s.href ?? undefined}
-                  aside={<b>{s.marginVotes === null ? '—' : `${IN.format(s.marginVotes)} votes`}</b>}
+                  aside={
+                    <b>
+                      {s.marginVotes === null
+                        ? '—'
+                        : `${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`}
+                    </b>
+                  }
                   detail={
                     <>
                       <span className="iei-mark">
@@ -367,7 +367,7 @@ export function StateSurface({
                       {pct(s.marginPct, 2)}
                       {/* Focus this seat on the map, without leaving the page. */}
                       {' · '}
-                      <Link className="iei-body-link" href={hrefFor({ seat: seat === s.placeId ? '' : s.placeId })}>
+                      <Link className="iei-body-link" href={selection.href({ seat: s.placeId })}>
                         {seat === s.placeId ? 'unfocus' : 'find on map'}
                       </Link>
                     </>
@@ -382,7 +382,7 @@ export function StateSurface({
             ) : null}
             {narrowed ? (
               <p className="iei-note">
-                <Link href={hrefFor({ party: '', band: '', district: '', seat: '' })}>Clear the selection</Link>
+                <Link href={selection.href('clear')}>Clear the selection</Link>
               </p>
             ) : null}
           </div>
@@ -422,12 +422,12 @@ export function StateSurface({
                 )}
               </ul>
               <p className="iei-note">
-                <Link href={hrefFor({ mode: 'flips' })}>Show this on the map</Link>
+                <Link href={selection.href({ mode: 'flips' })}>Show this on the map</Link>
               </p>
             </div>
             <FlipMatrix
               pairs={view.flips.pairs}
-              hrefFor={(p) => hrefFor(p === null ? { party: '' } : { party: p, band: '', mode: 'flips' })}
+              hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }, { mode: 'flips' }))}
             />
           </div>
         </Panel>
@@ -439,7 +439,9 @@ export function StateSurface({
           <MarginBands
             bands={bands}
             selected={band}
-            hrefFor={(b) => hrefFor({ band: b ?? '', party: '', mode: 'margin' })}
+            hrefFor={(b) =>
+              b === null ? selection.href('release', { mode: 'margin' }) : selection.href({ band: b }, { mode: 'margin' })
+            }
           />
           <p className="iei-note">
             Margin over votes polled, winner against runner-up. Select a band to find those seats on the map.
@@ -458,7 +460,7 @@ export function StateSurface({
             <VoteSeatPlot
               rows={view.voteSeat}
               selected={party}
-              hrefFor={(p) => hrefFor(p === null ? { party: '' } : { party: p, band: '' })}
+              hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
             />
             <ul className="iei-partyrows" aria-label="Vote share, seat share and the gap between them">
               {view.voteSeat.slice(0, 8).map((r) => {
@@ -468,7 +470,7 @@ export function StateSurface({
                 return (
                   <li key={r.party.key}>
                     <Link
-                      href={hrefFor(party === r.party.key ? { party: '' } : { party: r.party.key, band: '' })}
+                      href={selection.href({ party: r.party.key })}
                       className={party === null ? undefined : party === r.party.key ? 'iei-legend-on' : 'iei-legend-off'}
                     >
                       <span className="iei-mark">
@@ -507,13 +509,13 @@ export function StateSurface({
       {/* EVERY ELECTION ON RECORD, as a compact strip. The selector above shows the recent ones because a
           reader almost always wants those; this is the complete set, so an election from 1978 is still one
           click away rather than unreachable. It replaced a 17-row table that carried the same links. */}
-      {view.siblings.length <= 1 ? null : (
+      {choices.length <= 1 ? null : (
         <Panel id="elections" title="Elections on record" question="What has this state voted in?">
           <ul className="iei-sibs">
-            {view.siblings.map((sib) => (
+            {choices.map((sib) => (
               <li key={sib.id}>
                 <Link
-                  href={hrefFor({ election: sib.id, party: '', band: '', district: '', seat: '' })}
+                  href={selection.href({ election: sib.id })}
                   aria-current={sib.id === e.id ? 'page' : undefined}
                   className={sib.id === e.id ? 'iei-legend-on' : undefined}
                 >
@@ -539,7 +541,7 @@ export function StateSurface({
                 data={trajectory}
                 metric="seatPct"
                 selected={party}
-                hrefFor={(p) => hrefFor(p === null ? { party: '' } : { party: p, band: '' })}
+                hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
               />
             </div>
             <div>
@@ -548,7 +550,7 @@ export function StateSurface({
                 data={trajectory}
                 metric="votePct"
                 selected={party}
-                hrefFor={(p) => hrefFor(p === null ? { party: '' } : { party: p, band: '' })}
+                hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
               />
             </div>
           </div>
@@ -564,34 +566,3 @@ export function StateSurface({
     </>
   );
 }
-
-/** Winners by party, over whatever subset is in view. */
-function tallyOf(seats: readonly ElectionSeat[]): { key: string; label: string; n: number }[] {
-  const counts = new Map<string, { key: string; label: string; n: number }>();
-  for (const s of seats) {
-    if (s.partyKey === null) continue;
-    const at = counts.get(s.partyKey) ?? { key: s.partyKey, label: s.partyLabel ?? s.partyKey, n: 0 };
-    at.n += 1;
-    counts.set(s.partyKey, at);
-  }
-  return [...counts.values()].sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
-}
-
-/** Who came second, and how often. */
-function runnerUpTally(seats: readonly ElectionSeat[]): { key: string; label: string; n: number }[] {
-  const counts = new Map<string, { key: string; label: string; n: number }>();
-  for (const s of seats) {
-    if (s.runnerUpKey === null) continue;
-    const at = counts.get(s.runnerUpKey) ?? {
-      key: s.runnerUpKey,
-      label: s.runnerUpLabel ?? s.runnerUpKey,
-      n: 0,
-    };
-    at.n += 1;
-    counts.set(s.runnerUpKey, at);
-  }
-  return [...counts.values()].sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
-}
-
-/** Re-exported so the page can validate a band from the URL without importing the repo directly. */
-export { bandOf };

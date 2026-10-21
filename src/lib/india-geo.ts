@@ -1,4 +1,4 @@
-// India's geometry: state outlines, district rings, and a label anchor precomputed for each state.
+// India's geometry: state outlines and a label anchor precomputed for each state.
 //
 // A `.ts` module rather than an import inside the map component, for two reasons. The mechanical one: an
 // import attribute (`with { type: 'json' }`) is required for JSON in ESM, and the Babel that Next bundles
@@ -28,16 +28,6 @@ export type StateShape = {
   path: string;
   box: Box;
   /** Null when the path holds no usable ring, which is a data problem and must not become a label at 0,0. */
-  anchor: Anchor | null;
-};
-
-export type DistrictShape = {
-  /** The census name. Joins to the registry's district places by name, imperfectly — see map-validation.md. */
-  name: string;
-  /** The 2011 census district code, kept because a name is not an identifier. */
-  code: string;
-  path: string;
-  box: Box;
   anchor: Anchor | null;
 };
 
@@ -98,24 +88,6 @@ export const INDIA_SHAPES: readonly StateShape[] = Object.entries(asset.states).
   anchor: anchorOf(s.path),
 }));
 
-/** Every district ring, by the geometry's own state name. Anchors are computed lazily — 726 is too many to
- *  centroid at module load for the one state a request actually draws. */
-const districtCache = new Map<string, readonly DistrictShape[]>();
-
-export function districtsOf(stateName: string): readonly DistrictShape[] {
-  const hit = districtCache.get(stateName);
-  if (hit !== undefined) return hit;
-  const rows = (asset.districts[stateName] ?? []).map((d) => ({
-    name: d.name,
-    code: d.code,
-    path: d.path,
-    box: d.box as unknown as Box,
-    anchor: anchorOf(d.path),
-  }));
-  districtCache.set(stateName, rows);
-  return rows;
-}
-
 /*
  * `everyDistrictPath()` IS GONE, and this note is where it was.
  *
@@ -124,18 +96,7 @@ export function districtsOf(stateName: string): readonly DistrictShape[] {
  * a district is not the unit of anything a reader can select, compare or navigate to, so drawing all of them
  * was interference rather than texture. See IndiaMap.tsx.
  *
- * `districtsOf()` above is the survivor and the one that was always doing real work: it serves the STATE map's
- * district level, where a district frames the view, links to itself and carries a constituency tally.
+ * The rings are still in the asset (`Asset.districts`) and nothing reads them. `districtsOf()` and `frame()`, which
+ * served the state map's district level, went with that map: a state page draws constituencies, and frames them
+ * with `frameOf()` in repo/election-map.ts.
  */
-
-/**
- * A viewBox that frames a box, with a margin, clamped to the country.
- *
- * This is what "zoom" means here: a level frames its own geometry, the frame is in the URL, and going deeper
- * is a navigation rather than a gesture. No pan-and-zoom engine, and nothing to hydrate.
- */
-export function frame(box: Box, pad = 0.08): string {
-  const [x, y, w, h] = box;
-  const m = Math.max(w, h) * pad;
-  return `${(x - m).toFixed(1)} ${(y - m).toFixed(1)} ${(w + 2 * m).toFixed(1)} ${(h + 2 * m).toFixed(1)}`;
-}

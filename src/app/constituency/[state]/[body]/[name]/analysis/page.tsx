@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { PlaceSurface } from '../../../../../_place/surface.tsx';
-import { asBody, kindOfBody } from '../../../../../../../packages/mandate/src/repo/routes.ts';
+import { asBody } from '../../../../../../../packages/mandate/src/repo/routes.ts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,9 +16,8 @@ export default async function ConstituencyAnalysis({
   const body = asBody(params.body);
   if (body === null) notFound();
   return await PlaceSurface({
-    segments: [params.state, params.name, 'analysis'],
+    place: { level: 'seat', state: params.state, body, name: params.name },
+    lens: 'analysis',
     searchParams,
-    level: 'constituency',
-    kind: kindOfBody(body),
   });
 }

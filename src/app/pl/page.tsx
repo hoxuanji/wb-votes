@@ -1,5 +1,5 @@
-import { notFound, permanentRedirect } from "next/navigation";
-import { stateHref } from "../../../packages/mandate/src/repo/routes.ts";
+import { follow } from "../_place/follow.tsx";
+import { legacyTarget } from "../../../packages/mandate/src/repo/legacy.ts";
 
 /**
  * `/pl` — not a page. A redirect, and the only reason the file still exists.
@@ -23,7 +23,5 @@ import { stateHref } from "../../../packages/mandate/src/repo/routes.ts";
 export const dynamic = "force-dynamic";
 
 export default function PlaceIndex({ searchParams }: { searchParams?: { to?: string } }) {
-  const to = searchParams?.to;
-  if (to !== undefined && /^[a-z]{2}$/.test(to)) permanentRedirect(stateHref(to));
-  notFound();
+  return follow(legacyTarget({ route: "pl-picker", to: searchParams?.to }));
 }

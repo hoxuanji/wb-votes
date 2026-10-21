@@ -1,6 +1,6 @@
 import { notFound } from 'next/navigation';
 import { PlaceSurface } from '../../../../_place/surface.tsx';
-import { asBody, kindOfBody } from '../../../../../../packages/mandate/src/repo/routes.ts';
+import { asBody } from '../../../../../../packages/mandate/src/repo/routes.ts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,8 +16,8 @@ export const dynamic = 'force-dynamic';
  * `asBody` accepts `assembly` and `lok-sabha` and NOTHING else. Not `ac`, not `pc`, not `ls`, not `parliament`
  * — a near-miss is a 404, because normalising one would be the resolver guessing again.
  *
- * ONE RENDERER. The body reaches `PlaceSurface` as the registry kind it maps to, and the surface reads it as
- * data. There is no assembly page and no parliamentary page.
+ * ONE RENDERER. The body reaches `PlaceSurface` in the place it names, and the surface reads the seat's body
+ * as data. There is no assembly page and no parliamentary page.
  */
 export default async function ConstituencyPage({
   params,
@@ -29,9 +29,7 @@ export default async function ConstituencyPage({
   const body = asBody(params.body);
   if (body === null) notFound();
   return await PlaceSurface({
-    segments: [params.state, params.name],
+    place: { level: 'seat', state: params.state, body, name: params.name },
     searchParams,
-    level: 'constituency',
-    kind: kindOfBody(body),
   });
 }

@@ -24,6 +24,8 @@ import type { DatabaseSync } from "node:sqlite";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
 import { CHRONO_DESC } from "./elections.ts";
+import { partyVotes, readSeats, tally, votesByParty } from "./seat-results.ts";
+import { FULL_HOUSE } from "../core/election-kind.ts";
 
 /** One election in a state's run, for one party. */
 export type TrajectoryPoint = {
@@ -107,7 +109,7 @@ export function stateTrajectory(
               (SELECT SUM(t.electors) FROM contest c JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
                 WHERE c.election_id = e.id) AS electors
          FROM election e
-        WHERE e.jurisdiction_place_id = ? AND e.house = ? AND e.kind <> 'bypoll'
+        WHERE e.jurisdiction_place_id = ? AND e.house = ? AND ${FULL_HOUSE}
         ORDER BY ${CHRONO_DESC}`,
       jurisdictionId,
       house,
@@ -118,49 +120,23 @@ export function stateTrajectory(
     }
 
     const ids = elections.map((e) => e.id);
-    const marks = ids.map(() => "?").join(",");
 
     // Seats won per party per election, and total votes per party per election, in two reads over the run.
-    const seatRows = all<{ electionId: string; key: string; label: string; n: number }>(
-      db,
-      `SELECT c.election_id AS electionId,
-              COALESCE(pt.id, NULLIF(cd.party_raw, ''), 'unattached') AS key,
-              COALESCE(NULLIF(pt.short_name, ''), NULLIF(pt.name, ''), NULLIF(cd.party_raw, ''), 'Unattached') AS label,
-              COUNT(*) AS n
-         FROM contest c
-         JOIN result r  ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1
-         JOIN candidacy cd ON cd.id = r.candidacy_id
-         LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
-         LEFT JOIN party pt          ON pt.id = pvv.party_id
-        WHERE c.election_id IN (${marks})
-        GROUP BY 1, 2, 3`,
-      ...ids,
+    const results = readSeats(db, { elections: ids });
+    const seatRows = ids.flatMap((electionId) =>
+      tally(results.filter((s) => s.electionId === electionId)).map((p) => ({ electionId, ...p })),
     );
-
-    const voteRows = all<{ electionId: string; key: string; votes: number | null }>(
-      db,
-      `SELECT c.election_id AS electionId,
-              COALESCE(pt.id, NULLIF(cd.party_raw, ''), 'unattached') AS key,
-              SUM(r.votes) AS votes
-         FROM contest c
-         JOIN result r  ON r.contest_id = c.id AND r.revision = 0
-         JOIN candidacy cd ON cd.id = r.candidacy_id
-         LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
-         LEFT JOIN party pt          ON pt.id = pvv.party_id
-        WHERE c.election_id IN (${marks})
-        GROUP BY 1, 2`,
-      ...ids,
-    );
+    const voteRows = votesByParty(partyVotes(db, { elections: ids }));
 
     const totalVotes = new Map<string, number>();
     for (const r of voteRows) {
       totalVotes.set(r.electionId, (totalVotes.get(r.electionId) ?? 0) + (r.votes ?? 0));
     }
-    const voteOf = new Map(voteRows.map((r) => [`${r.electionId}|${r.key}`, r.votes]));
-    const seatOf = new Map(seatRows.map((r) => [`${r.electionId}|${r.key}`, r.n]));
+    const voteOf = new Map(voteRows.map((r) => [`${r.electionId}|${r.party.key}`, r.votes]));
+    const seatOf = new Map(seatRows.map((r) => [`${r.electionId}|${r.key}`, r.seats]));
     const labelOf = new Map<string, string>();
     for (const r of seatRows) labelOf.set(r.key, r.label);
-    for (const r of voteRows) if (!labelOf.has(r.key)) labelOf.set(r.key, r.key);
+    for (const r of voteRows) if (!labelOf.has(r.party.key)) labelOf.set(r.party.key, r.party.key);
 
     const latestId = elections.at(-1)?.id ?? "";
     const keys = [...new Set(seatRows.map((r) => r.key))];

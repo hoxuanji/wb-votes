@@ -39,6 +39,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { all } from "../../db/index.ts";
 import { readManifest, reconstruct, type SourceSeat } from "./reconstruct.ts";
 
+/** The record `ops/geo/refetch-lokdhaba.sh` writes; every reader of it (see `readManifest`) takes its path from here. */
 export const MANIFEST_PATH = ".data/cache/lokdhaba/refetch-manifest.tsv";
 
 /** Which bucket a version fell into. Every version lands in exactly one, and the counts are the report. */

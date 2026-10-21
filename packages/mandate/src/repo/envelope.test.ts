@@ -12,14 +12,16 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { blockingKeys } from "../core/index.ts";
 import { open, openRead } from "../db/index.ts";
+import { ensureEpochs } from "../db/epochs.ts";
 import { migrate } from "../db/migrate.ts";
 import type { Envelope, Meta, Reply } from "./envelope.ts";
 import { personReply, placeReply, searchReply, unavailable } from "./envelope.ts";
+import { readRegistry } from "./session.ts";
 
 const AC = "wb.ac.001";
 const NOW = "2026-08-01T00:00:00.000Z";
@@ -38,6 +40,12 @@ async function withDb<T>(path: string | undefined, fn: () => Promise<T>): Promis
     else process.env["MANDATE_DB_PATH"] = prev;
   }
 }
+
+/** A reader bound to one file: the registry is chosen by argument, not by the process's environment. */
+const at =
+  (path: string): typeof readRegistry =>
+  (fn) =>
+    readRegistry(fn, { path });
 
 function aliasRows(personId: string, name: string): string {
   return blockingKeys(name)
@@ -113,7 +121,52 @@ function buildFixture(): string {
   return path;
 }
 
+/**
+ * Two states in one registry with both of their epochs registered: West Bengal on DPACO 2008 and Assam on its
+ * 2023 order. `meta.epoch` used to be "the newest epoch with no `effective_to`" — which is every epoch, since
+ * nothing writes one — so this registry told a reader of the Bengal seat that Assam's order governs it.
+ */
+function buildTwoStateFixture(): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-fixture-")), "registry.db");
+  const d = open(path);
+  migrate(d, NOW);
+  d.exec(`
+    INSERT INTO source (id,kind,publisher,title,url,retrieved_at,doc_hash,hash_kind,retrieval_kind)
+      VALUES ('src-results','eci_declaration','ECI','Results','repo:x','2026-07-01T00:00:00.000Z','h1','document_bytes','fetched');
+    INSERT INTO ingest_run (pipeline,parser_version,started_at,finished_at,status)
+      VALUES ('static:fixture','v1','${NOW}','${NOW}','ok');
+    INSERT INTO place (id,kind,canonical_name) VALUES ('in','nation','India');
+    INSERT INTO place (id,kind,parent_id,canonical_name) VALUES ('wb','state','in','West Bengal'), ('as','state','in','Assam');
+    INSERT INTO place (id,kind,parent_id,canonical_name) VALUES
+      ('wb.pc.001','pc','wb','Cooch Behar'), ('as.pc.001','pc','as','Kokrajhar');
+  `);
+  ensureEpochs(d, ["delim-2008", "delim-2023-as"]);
+  d.exec(`
+    INSERT INTO place_version (id,place_id,jurisdiction_id,kind,epoch_id,number,canonical_name) VALUES
+      (1,'wb.pc.001','wb','pc','delim-2008',1,'Cooch Behar'),
+      (2,'as.pc.001','as','pc','delim-2023-as',1,'Kokrajhar');
+    INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle,house,year,occurrence)
+      VALUES ('ls-2024','general','union','in','delim-2008','Lok Sabha 2024','declared','pc',2024,1);
+    INSERT INTO contest (id,election_id,place_version_id,lifecycle) VALUES
+      ('ls-2024:wb1','ls-2024',1,'declared'), ('ls-2024:as1','ls-2024',2,'declared');
+    INSERT INTO party (id,name,short_name,kind) VALUES ('p','A Party','AP','state');
+    INSERT INTO party_version (id,party_id,valid_from,name) VALUES (1,'p','2011-01-01','A Party');
+    INSERT INTO person (id,canonical_name,names,review_state,created_at) VALUES ('one-person-000001','ONE PERSON','{}','auto','${NOW}');
+    INSERT INTO person_alias (person_id,name,script,norm_key,kind,source_id) VALUES ${aliasRows("one-person-000001", "ONE PERSON")};
+    INSERT INTO candidacy (id,contest_id,person_id,party_version_id,status) VALUES
+      ('ls-2024:wb1:a','ls-2024:wb1','one-person-000001',1,'elected'),
+      ('ls-2024:as1:a','ls-2024:as1','one-person-000001',1,'elected');
+    INSERT INTO result (contest_id,candidacy_id,revision,votes,vote_share,rank,is_winner,margin,source_id,ingested_at) VALUES
+      ('ls-2024:wb1','ls-2024:wb1:a',0,100,60,1,1,50,'src-results','${NOW}'),
+      ('ls-2024:as1','ls-2024:as1:a',0,100,60,1,1,50,'src-results','${NOW}');
+  `);
+  d.close();
+  return path;
+}
+
 const FIXTURE = buildFixture();
+const TWO_STATES = buildTwoStateFixture();
+const NAMESAKES = buildNamesakeFixture();
 /** True when this machine also has the real registry — then the contract is asserted twice. */
 const live = await withDb(undefined, async () => {
   try {
@@ -130,18 +183,22 @@ function ok200<T>(r: Reply<T>): Envelope<T> {
   return r.body;
 }
 
-/** The complete meta block of §20 — every key, right type, no placeholder. */
-function assertMeta(m: Meta, label: string): void {
+/**
+ * The complete meta block of §20 — every key, right type, no placeholder. `epoch` is named for a response
+ * about one jurisdiction and absent for one that is not, so the caller says which it expects.
+ */
+function assertMeta(m: Meta, label: string, epoch: string | undefined): void {
   assert.match(m.dataVersion, /^\d{4}-\d{2}-\d{2}T/, `${label}: dataVersion is an ISO timestamp`);
   assert.match(m.freshness.oldestSource, /^\d{4}-\d{2}-\d{2}$/, `${label}: freshness.oldestSource`);
   assert.match(m.freshness.computedAt, /^\d{4}-\d{2}-\d{2}T/, `${label}: freshness.computedAt`);
-  assert.ok(m.epoch.length > 0 && m.epoch !== "unknown", `${label}: epoch is named`);
+  assert.equal(m.epoch, epoch, `${label}: epoch`);
+  assert.equal("epoch" in m, epoch !== undefined, `${label}: an unscoped response omits the key rather than guessing`);
   assert.equal(typeof m.estimated, "boolean", `${label}: estimated`);
   assert.ok(Array.isArray(m.caveats), `${label}: caveats is an array`);
   assert.deepEqual(m.gated, [], `${label}: gated is empty this cycle`);
 }
 
-function assertEnvelope<T>(label: string, r: Reply<T>): Envelope<T> {
+function assertEnvelope<T>(label: string, r: Reply<T>, epoch?: string): Envelope<T> {
   const e = ok200(r);
   // P2: an empty sources array is a contract violation, not an edge case.
   assert.ok(e.sources.length > 0, `${label}: sources must be non-empty`);
@@ -153,7 +210,7 @@ function assertEnvelope<T>(label: string, r: Reply<T>): Envelope<T> {
     assert.ok(["fetched", "asserted_by_upstream"].includes(s.retrievalKind), `${label}: retrievalKind`);
     assert.ok(["document_bytes", "url_only"].includes(s.hashKind), `${label}: hashKind`);
   }
-  assertMeta(e.meta, label);
+  assertMeta(e.meta, label, epoch);
   assert.equal(r.headers["X-Data-Version"], e.meta.dataVersion, `${label}: X-Data-Version`);
   assert.ok(r.headers["ETag"]?.includes(e.meta.dataVersion), `${label}: ETag carries the data version`);
   return e;
@@ -169,7 +226,8 @@ async function personSlug(name: string): Promise<string> {
 /** The whole §20 contract, run against whichever registry MANDATE_DB_PATH points at. */
 async function assertContract(where: string, searchTerm: string): Promise<void> {
   const person = assertEnvelope(`${where} person`, await personReply(await personSlug(searchTerm)));
-  const place = assertEnvelope(`${where} place`, await placeReply(AC));
+  // A seat in West Bengal is on DPACO 2008; a person and a search are about no one jurisdiction.
+  const place = assertEnvelope(`${where} place`, await placeReply(AC), "delim-2008");
   const search = assertEnvelope(`${where} search`, await searchReply(searchTerm, 5));
   assert.ok(search.data.count > 0, `${where}: search count`);
 
@@ -268,8 +326,165 @@ test("a registry that is not there is a 503 problem document, never a throw", as
   });
 });
 
+test("a registry that is unmigrated, damaged or never ingested is a 503 problem document", async () => {
+  const unmigrated = join(mkdtempSync(join(tmpdir(), "mandate-unmigrated-")), "registry.db");
+  open(unmigrated).close();
+  const damaged = join(mkdtempSync(join(tmpdir(), "mandate-damaged-")), "registry.db");
+  writeFileSync(damaged, "this is not a sqlite database ".repeat(300));
+  // A schema and no ingest run: there is no dataVersion to name, so nothing can be served.
+  const neverRun = join(mkdtempSync(join(tmpdir(), "mandate-neverrun-")), "registry.db");
+  const d = open(neverRun);
+  migrate(d, NOW);
+  d.close();
+  for (const path of [unmigrated, damaged, neverRun]) {
+    const read = at(path);
+    for (const r of [await placeReply(AC, read), await personReply("x", read), await searchReply("Mamata", 5, read)]) {
+      assert.equal(r.status, 503, JSON.stringify(r.body));
+      assert.deepEqual(r.body, unavailable());
+    }
+  }
+  // and the injected reader reads the fixture without touching the environment
+  assert.equal((await placeReply(AC, at(FIXTURE))).status, 200);
+});
+
+test("a bug in a query is thrown, not answered as 'registry not built'", async () => {
+  // metaBase's query, over a view that calls a function SQLite does not have: a defect in this process, which
+  // used to be one of the failures a reader could be told was "the registry is not built".
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-defect-")), "registry.db");
+  const d = open(path);
+  d.exec(`
+    CREATE VIEW ingest_run AS SELECT no_such_function() AS finished_at, NULL AS status;
+  `);
+  d.close();
+  const read = at(path);
+  await assert.rejects(placeReply(AC, read), /no such function/);
+  await assert.rejects(personReply("x", read), /no such function/);
+  await assert.rejects(searchReply("Mamata", 5, read), /no such function/);
+});
+
 test("§20 contract holds on a fixture registry (the CI case)", async () => {
   await withDb(FIXTURE, () => assertContract("fixture", "AA TEST WINNER"));
+});
+
+/**
+ * A name two states share (Aurangabad is a Bihar seat and a Maharashtra seat), a seat number that was Badami
+ * under one order and is Nanjangud under the next, and a name of several words with its reservation marker. Each
+ * current seat is cited once, which is all a 200 asks of it.
+ */
+function buildNamesakeFixture(): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-fixture-")), "registry.db");
+  const d = open(path);
+  migrate(d, NOW);
+  d.exec(`
+    INSERT INTO source (id,kind,publisher,title,url,retrieved_at,doc_hash,hash_kind,retrieval_kind)
+      VALUES ('src-census','census','Census of India','Census 2011','repo:x','2026-07-03T00:00:00.000Z','h3','document_bytes','fetched');
+    INSERT INTO ingest_run (pipeline,parser_version,started_at,finished_at,status)
+      VALUES ('static:fixture','v1','${NOW}','${NOW}','ok');
+    INSERT INTO place (id,kind,canonical_name) VALUES ('in','nation','India');
+    INSERT INTO place (id,kind,parent_id,canonical_name) VALUES
+      ('br','state','in','Bihar'), ('mh','state','in','Maharashtra'), ('ka','state','in','Karnataka');
+    INSERT INTO place (id,kind,parent_id,canonical_name) VALUES
+      ('br.ac.001','ac','br','Aurangabad'), ('mh.ac.001','ac','mh','Aurangabad'), ('ka.ac.214','ac','ka','NANJANGUD'),
+      ('ka.ac.001','ac','ka','Kolar Gold Field(SC)');
+  `);
+  ensureEpochs(d, ["delim-1976", "delim-2008"]);
+  d.exec(`
+    INSERT INTO place_version (id,place_id,jurisdiction_id,kind,epoch_id,number,canonical_name) VALUES
+      (1,'br.ac.001','br','ac','delim-2008',1,'Aurangabad'),
+      (2,'mh.ac.001','mh','ac','delim-2008',1,'Aurangabad'),
+      (3,'ka.ac.214','ka','ac','delim-2008',214,'NANJANGUD'),
+      (4,'ka.ac.214','ka','ac','delim-1976',214,'BADAMI'),
+      (5,'ka.ac.001','ka','ac','delim-2008',1,'Kolar Gold Field(SC)');
+    INSERT INTO election (id,kind,level,jurisdiction_place_id,epoch_id,name,lifecycle,house,year,occurrence) VALUES
+      ('br-assembly-2020','assembly','state','br','delim-2008','Bihar 2020','declared','ac',2020,1),
+      ('mh-assembly-2019','assembly','state','mh','delim-2008','Maharashtra 2019','declared','ac',2019,1),
+      ('ka-assembly-2018','assembly','state','ka','delim-2008','Karnataka 2018','declared','ac',2018,1);
+    INSERT INTO contest (id,election_id,place_version_id,lifecycle) VALUES
+      ('br-assembly-2020:1','br-assembly-2020',1,'declared'),
+      ('mh-assembly-2019:1','mh-assembly-2019',2,'declared'),
+      ('ka-assembly-2018:214','ka-assembly-2018',3,'declared'),
+      ('ka-assembly-2018:1','ka-assembly-2018',5,'declared');
+    INSERT INTO claim (subject_ref,predicate,object_value,unit,as_of,confidence) VALUES
+      ('place:br.ac.001','demographics.population','100','persons','2011-01-01','provisional'),
+      ('place:mh.ac.001','demographics.population','100','persons','2011-01-01','provisional'),
+      ('place:ka.ac.214','demographics.population','100','persons','2011-01-01','provisional'),
+      ('place:ka.ac.001','demographics.population','100','persons','2011-01-01','provisional');
+    INSERT INTO citation (claim_id,source_id,page_no,parser_version,extracted_at)
+      SELECT id, 'src-census', 0, 'v1', '${NOW}' FROM claim;
+  `);
+  d.close();
+  return path;
+}
+
+test("a place is its registry id or a bare name, the same seat either way and whatever the case", async () => {
+  const read = at(FIXTURE);
+  const byId = ok200(await placeReply(AC, read));
+  assert.equal(byId.data.place.id, AC);
+  for (const name of ["Mekliganj", "mekliganj", "MEKLIGANJ"]) {
+    const byName = ok200(await placeReply(name, read));
+    assert.equal(byName.data.place.id, AC, name);
+  }
+});
+
+test("a name two seats answer to is a 300 that names each by the id that selects it, never a pick", async () => {
+  const read = at(NAMESAKES);
+  const r = await placeReply("aurangabad", read);
+  assert.equal(r.status, 300, JSON.stringify(r.body));
+  if ("data" in r.body) return assert.fail("a tie must not carry data");
+  assert.equal(r.body.code, "ambiguous-place");
+  assert.match(r.body.detail, /br\.ac\.001, mh\.ac\.001/);
+  assert.match(r.body.detail, /\/v1\/entity\/place\/br\.ac\.001/);
+  assert.equal(r.headers["Cache-Control"], "no-store");
+  // The id is not a name, so it is not ambiguous: it selects its seat.
+  for (const id of ["br.ac.001", "mh.ac.001"]) assert.equal(ok200(await placeReply(id, read)).data.place.id, id);
+});
+
+test("a bare name is the registry's own spelling, case apart, and no other reading of it", async () => {
+  const read = at(NAMESAKES);
+  for (const name of ["Kolar Gold Field(SC)", "kolar gold field(sc)", "KOLAR GOLD FIELD(SC)"]) {
+    assert.equal(ok200(await placeReply(name, read)).data.place.id, "ka.ac.001", name);
+  }
+  // A page reads these as the seat (without its marker, joined, hyphenated, padded) and this API never has.
+  for (const name of [
+    "kolar gold field",
+    "kolargoldfield(sc)",
+    "kolar-gold-field(sc)",
+    "kolar-gold-field-sc",
+    "kolar gold field (sc)",
+    "kolar  gold field(sc)",
+    "kolar_gold_field(sc)",
+    " kolar gold field(sc)",
+    "kolar gold field(sc) ",
+  ]) {
+    const r = await placeReply(name, read);
+    assert.equal(r.status, 404, `${JSON.stringify(name)}: ${JSON.stringify(r.body).slice(0, 120)}`);
+  }
+});
+
+test("a retired name is a 404 and the current name is not", async () => {
+  const read = at(NAMESAKES);
+  // ka.ac.214 was Badami under delim-1976 and is Nanjangud under delim-2008.
+  const retired = await placeReply("badami", read);
+  assert.equal(retired.status, 404);
+  if ("data" in retired.body) return assert.fail("a 404 must not carry data");
+  assert.equal(retired.body.code, "unknown-place");
+  const current = ok200(await placeReply("nanjangud", read));
+  assert.equal(current.data.place.id, "ka.ac.214");
+  assert.equal(current.data.place.canonicalName, "NANJANGUD");
+});
+
+test("meta.epoch is the epoch in force for the response's jurisdiction, and absent when there is none", async () => {
+  await withDb(TWO_STATES, async () => {
+    // Same registry, two states, two answers. The old query named one epoch for both.
+    assertEnvelope("wb seat", await placeReply("wb.pc.001"), "delim-2008");
+    assertEnvelope("as seat", await placeReply("as.pc.001"), "delim-2023-as");
+    // One person stood in both states, so no jurisdiction speaks for the response, and neither does a search.
+    assertEnvelope("person", await personReply("one-person-000001"), undefined);
+    assertEnvelope("search", await searchReply("ONE PERSON", 5), undefined);
+    // …and it is a plain absence on the wire, not a null or an "unknown".
+    const wire = JSON.parse(JSON.stringify((await searchReply("ONE PERSON", 5)).body)) as { meta: Record<string, unknown> };
+    assert.equal(Object.hasOwn(wire.meta, "epoch"), false);
+  });
 });
 
 test("§20 contract: a name with no person-level claim still carries provenance", async () => {

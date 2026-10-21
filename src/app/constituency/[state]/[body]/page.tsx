@@ -1,11 +1,5 @@
-import Link from 'next/link';
-import { notFound } from 'next/navigation';
-import { permanentRedirect } from 'next/navigation';
-import { Shell } from '../../../../components/iei/Shell.tsx';
-import { Crumbs, Panel } from '../../../../components/iei/parts.tsx';
-import { constituenciesNamed } from '../../../../../packages/mandate/src/repo/place-page.ts';
-import { constituencyHref, stateHref } from '../../../../../packages/mandate/src/repo/routes.ts';
-import '../../../iei.css';
+import { follow } from '../../../_place/follow.tsx';
+import { legacyTarget } from '../../../../../packages/mandate/src/repo/legacy.ts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -18,55 +12,23 @@ export const dynamic = 'force-dynamic';
  * single destination for it.
  *
  * ONE MATCH  -> permanent redirect, because there is nothing to choose between.
- * TWO MATCHES-> ASK. Both are offered by name and body, and the reader picks. Answering with either would be
- *               the silent substitution the whole route architecture exists to prevent — and it would be
- *               wrong about half the time by construction.
+ * MANY       -> ASK. Every seat that answers to the name is offered by name and body, and the reader picks.
+ *               Answering with any of them would be the silent substitution the whole route architecture exists
+ *               to prevent — and for an assembly seat and a Lok Sabha seat of one name it would be wrong half
+ *               the time by construction.
  * NONE       -> 404. Never the state page: a reader who asked for a constituency did not ask for a state.
+ *               A registry that cannot be read is not NONE: `legacyTarget` throws, because a 404 is cached.
+ *
+ * The name is read as the registry spells it and in no looser way: no id, no number, no marker stripped, no words
+ * joined. This URL is where old links live, and it has only ever answered to a name.
  *
  * The second segment is named `body` because Next allows one slug name per path position and the canonical
  * three-segment route beside it owns that name. What arrives here is a constituency name.
  */
-export default async function ConstituencyDisambiguation({
+export default function ConstituencyDisambiguation({
   params,
 }: {
   params: { state: string; body: string };
 }) {
-  const found = await constituenciesNamed(params.state, params.body);
-  if (found.length === 0) notFound();
-  if (found.length === 1) {
-    const only = found[0] as (typeof found)[number];
-    permanentRedirect(constituencyHref(only));
-  }
-
-  return (
-    <Shell here="place" reading>
-      <Crumbs
-        trail={[
-          { label: 'India', href: '/' },
-          { label: params.state.toUpperCase(), href: stateHref(params.state) },
-          { label: found[0]?.canonicalName ?? params.body },
-        ]}
-      />
-      <div className="iei-head">
-        <p className="iei-eyebrow">Two constituencies share this name</p>
-        <h1 className="iei-answer">{found[0]?.canonicalName ?? params.body}</h1>
-        <p className="iei-sub">
-          One elects a member of the state assembly, the other a member of the Lok Sabha. They cover different
-          territory and different electorates.
-        </p>
-      </div>
-      <Panel title="Which did you mean?">
-        <ul className="iei-district-list">
-          {found.map((c) => (
-            <li key={`${c.kind}-${c.id}`}>
-              <Link href={constituencyHref(c)}>
-                {c.canonicalName}
-                <b>{c.kind === 'pc' ? 'Lok Sabha' : 'Assembly'}</b>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      </Panel>
-    </Shell>
-  );
+  return follow(legacyTarget({ route: 'constituency-name', state: params.state, body: params.body }));
 }

@@ -1,21 +1,21 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { openRead } from '../../../../packages/mandate/src/db/open.ts';
-import { RegistryUnavailableError } from '../../../../packages/mandate/src/repo/index.ts';
 import {
+  choicesOf,
   electionMapView,
-  seatsInBin,
   tightest,
 } from '../../../../packages/mandate/src/repo/election-map.ts';
-import type { ElectionMapView, ElectionSeat } from '../../../../packages/mandate/src/repo/election-map.ts';
+import type { ElectionSeat } from '../../../../packages/mandate/src/repo/election-map.ts';
 import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
-import { stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
+import { readSelection, tally } from '../../../../packages/mandate/src/repo/map-selection.ts';
+import { electionHref, stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
+import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
+import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
-import { ElectionMap, MODES, isMode } from '../../../components/iei/ElectionMap.tsx';
-import type { MapMode } from '../../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES } from '../../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginDistribution,
@@ -70,12 +70,6 @@ import '../../iei.css';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-type Params = Record<string, string | string[] | undefined> | undefined;
-
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
-}
-
 const IN = new Intl.NumberFormat('en-IN');
 
 function pct(v: number | null, dp = 1): string {
@@ -84,9 +78,6 @@ function pct(v: number | null, dp = 1): string {
   return `${v.toFixed(dp)}%`;
 }
 
-/** The house in the words a reader uses. `ac`/`pc` are the registry's codes and never reach the page. */
-const houseWord = (h: string): string => (h === 'pc' ? 'Lok Sabha' : h === 'ac' ? 'Assembly' : h);
-
 export default function ElectionPage({
   params,
   searchParams,
@@ -94,95 +85,52 @@ export default function ElectionPage({
   params: { id: string };
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  let v: ElectionMapView | null = null;
-  let unavailable = false;
-  let db: ReturnType<typeof openRead> | null = null;
-  try {
-    db = openRead();
-    v = electionMapView(db, decodeURIComponent(params.id));
-  } catch (e) {
-    if (!(e instanceof RegistryUnavailableError) && !/unable to open database file/.test(String(e))) throw e;
-    unavailable = true;
-  } finally {
-    db?.close();
-  }
-
-  if (unavailable) {
+  const read = readRegistry((db) => electionMapView(db, decodeURIComponent(params.id)));
+  if (!read.ok) {
     return (
       <Shell here="india">
         <RegistryMissing />
       </Shell>
     );
   }
+  const v = read.value;
   // An id that names no election this route serves is a 404, not an empty page.
-  if (v === null || v.election === null) notFound();
+  if (v.election === null) notFound();
 
   const e = v.election;
   const ctx = v.ctx;
-  const mode: MapMode = (() => {
-    const asked = first(searchParams?.['mode']);
-    // A mode nobody can read is not offered: without a previous election there is nothing to flip against.
-    if (asked === 'flips' && v.flips === null) return 'winners';
-    return isMode(asked) ? asked : 'winners';
-  })();
 
-  /** A link to this page with one parameter changed, anchored at the map. */
-  const href = (change: Record<string, string>): string => {
-    const q = new URLSearchParams();
-    for (const [k, val] of Object.entries(searchParams ?? {})) {
-      const one = first(val);
-      if (one !== undefined && one !== '') q.set(k, one);
-    }
-    for (const [k, val] of Object.entries(change)) {
-      if (val === '') q.delete(k);
-      else q.set(k, val);
-    }
-    const s = q.toString();
-    return `/election/${e.id}${s === '' ? '' : `?${s}`}#map`;
-  };
-
-  // BOTH SELECTIONS VALIDATED BY MEMBERSHIP, never parsed. A party has to be one this election returned or
-  // ran; a bin has to be one the distribution actually has. And they are mutually exclusive: two isolations
-  // on one map is two answers to one question.
-  const askedParty = first(searchParams?.['party']);
-  const party =
-    askedParty !== undefined &&
-    (v.legend.some((l) => l.key === askedParty) || v.voteSeat.some((r) => r.party.key === askedParty))
-      ? askedParty
-      : null;
-  const askedBin = Number(first(searchParams?.['bin']));
-  const bin =
-    party === null && Number.isFinite(askedBin) && v.marginBins.some((b) => b.lo === askedBin)
-      ? askedBin
-      : null;
+  // WHAT THE READER ASKED FOR, validated by membership against what this election offers, never parsed: a party has to
+  // be one this election returned, ran or came second for, and a bin has to be one the distribution actually has. And
+  // they are mutually exclusive, which the selection keeps by holding one isolation: two on one map is two answers to
+  // one question. Every link on the page is a move of this selection, anchored at the map.
+  const sel = readSelection(searchParams, choicesOf(v), { base: electionHref(e.id), anchor: 'map' });
+  const mode = sel.mode;
+  const party = sel.isolation?.by === 'party' ? sel.isolation.key : null;
+  const bin = sel.isolation?.by === 'bin' ? sel.isolation.lo : null;
 
   const top = v.legend[0];
   const marginTotal = v.seats.filter((s) => s.marginPct !== null).length;
   // The list beside the map: the selection when there is one, the closest contests otherwise. It is the map's
   // accessible representation, which is why the full result lives here and not in 492 hover cards.
-  const listed: ElectionSeat[] =
-    bin !== null
-      ? seatsInBin(v, bin).slice(0, 40)
-      : party !== null
-        ? v.seats.filter((s) => (mode === 'runnerup' ? s.runnerUpKey : s.partyKey) === party).slice(0, 40)
-        : tightest(v, 12);
+  const listed: ElectionSeat[] = sel.isolation === null ? tightest(v, 12) : sel.narrow(v.seats).slice(0, 40);
 
   return (
     <Shell here="india">
       <Crumbs
         trail={[
           { label: 'India', href: '/' },
-          ...(e.house === 'ac'
+          ...(e.body === 'assembly'
             ? [{ label: e.jurisdictionName, href: stateHref(e.jurisdictionId) }]
             : []),
-          { label: `${houseWord(e.house)} ${e.year}` },
+          { label: `${bodyWord(e.body)} ${e.year}` },
         ]}
       />
 
       {/* ── 1 · HEADER. One sentence of result, then the five figures that frame it. Not a tile grid. ── */}
       <div className="iei-head">
-        {/* THE TYPE, FROM ElectionContext. Not `houseWord(house)`, which says "Lok Sabha" for a Lok Sabha
-            by-election and so described 829 elections as something they are not. */}
+        {/* THE TYPE, FROM ElectionContext. The body alone says "Lok Sabha" for a Lok Sabha by-election, which
+            would describe 829 elections as something they are not. */}
         <p className="iei-eyebrow">
           {ctx === null
             ? null
@@ -217,7 +165,7 @@ export default function ElectionPage({
             <>
               {' '}
               ·{' '}
-              <Link className="iei-body-link" href={`/election/${v.previous.id}`}>
+              <Link className="iei-body-link" href={electionHref(v.previous.id)}>
                 compare {v.previous.year}
               </Link>
             </>
@@ -227,7 +175,7 @@ export default function ElectionPage({
         <ul className="iei-standing" aria-label="Seats won, by party">
           {v.legend.slice(0, 8).map((l) => (
             <li key={l.key}>
-              <Link href={href(party === l.key ? { party: '' } : { party: l.key, bin: '' })}>
+              <Link href={sel.href({ party: l.key })}>
                 <span className="iei-sw" style={{ background: fillFor(l.key) }} aria-hidden="true" />
                 {l.label} <b>{l.n}</b>
               </Link>
@@ -239,7 +187,7 @@ export default function ElectionPage({
       {/* ── 2 and 3 · THE MAP, and the four ways of reading it ── */}
       <Panel
         id="map"
-        title={`${e.house === 'pc' ? 'India' : e.jurisdictionName} · ${
+        title={`${e.body === 'lok-sabha' ? 'India' : e.jurisdictionName} · ${
           MODES.find((m) => m.key === mode)?.label ?? ''
         }`}
         question={MODES.find((m) => m.key === mode)?.question ?? ''}
@@ -261,14 +209,14 @@ export default function ElectionPage({
           choices={MODES.map((m) => ({
             key: m.key,
             label: m.label,
-            href: href({ mode: m.key }),
+            href: sel.href({ mode: m.key }),
             // Flips need a previous election of the same house under the same boundaries.
             available: m.key === 'flips' ? v.flips !== null : true,
           }))}
         />
 
         <div className="iei-linked iei-map-split">
-          <ElectionMap view={v} mode={mode} highlight={party} bin={bin} />
+          <ElectionMap view={v} selection={sel} />
 
           <div>
             {/* THE LEGEND CHANGES WITH THE MODE, because the mode changes what a colour means. */}
@@ -291,10 +239,10 @@ export default function ElectionPage({
               </ul>
             ) : (
               <ul className="iei-legend">
-                {(mode === 'runnerup' ? runnerUpTally(v) : v.legend).slice(0, 10).map((l) => (
+                {(mode === 'runnerup' ? tally(v.seats, 'runnerUp') : v.legend).slice(0, 10).map((l) => (
                   <li key={l.key}>
                     <Link
-                      href={href(party === l.key ? { party: '' } : { party: l.key, bin: '' })}
+                      href={sel.href({ party: l.key })}
                       className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
                       aria-pressed={party === l.key}
                     >
@@ -325,7 +273,11 @@ export default function ElectionPage({
                   title={s.name}
                   href={s.href ?? undefined}
                   aside={
-                    <b>{s.marginVotes === null ? '—' : `${IN.format(s.marginVotes)} votes`}</b>
+                    <b>
+                      {s.marginVotes === null
+                        ? '—'
+                        : `${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`}
+                    </b>
                   }
                   detail={
                     <>
@@ -345,7 +297,7 @@ export default function ElectionPage({
                       {' · '}
                       {pct(s.marginPct, 2)}
                       {turnoutHeadline(s.turnout) === null ? null : <> · {turnoutHeadline(s.turnout)}</>}
-                      {e.house === 'pc' && s.jurisdictionName !== null ? <> · {s.jurisdictionName}</> : null}
+                      {e.body === 'lok-sabha' && s.jurisdictionName !== null ? <> · {s.jurisdictionName}</> : null}
                     </>
                   }
                 />
@@ -369,7 +321,7 @@ export default function ElectionPage({
             bins={v.marginBins}
             selected={bin}
             total={marginTotal}
-            hrefFor={(b) => href(b === null ? { bin: '' } : { bin: String(b), party: '' })}
+            hrefFor={(b) => (b === null ? sel.href('release') : sel.href({ bin: b }))}
           />
         </Panel>
       )}
@@ -384,7 +336,7 @@ export default function ElectionPage({
           <VoteSeatPlot
             rows={v.voteSeat}
             selected={party}
-            hrefFor={(p) => href(p === null ? { party: '' } : { party: p, bin: '' })}
+            hrefFor={(p) => (p === null ? sel.href('release') : sel.href({ party: p }))}
           />
         </Panel>
       )}
@@ -428,13 +380,13 @@ export default function ElectionPage({
                 )}
               </ul>
               <p className="iei-note">
-                <Link href={href({ mode: 'flips' })}>Show this on the map</Link> — flipped seats wear the
+                <Link href={sel.href({ mode: 'flips' })}>Show this on the map</Link> — flipped seats wear the
                 colour of the party that gained them.
               </p>
             </div>
             <FlipMatrix
               pairs={v.flips.pairs}
-              hrefFor={(p) => href(p === null ? { party: '' } : { party: p, bin: '', mode: 'flips' })}
+              hrefFor={(p) => (p === null ? sel.href('release') : sel.href({ party: p }, { mode: 'flips' }))}
             />
           </div>
         </Panel>
@@ -446,7 +398,7 @@ export default function ElectionPage({
             {v.siblings.slice(0, 12).map((s) => (
               <Link
                 key={s.id}
-                href={`/election/${s.id}`}
+                href={electionHref(s.id)}
                 aria-current={s.id === e.id ? 'page' : undefined}
                 className={s.id === e.id ? 'iei-legend-on' : undefined}
               >
@@ -458,20 +410,4 @@ export default function ElectionPage({
       </Foot>
     </Shell>
   );
-}
-
-/** Who came second, and how often. The runner-up mode's legend, computed from the seats on screen. */
-function runnerUpTally(v: ElectionMapView): { key: string; label: string; n: number }[] {
-  const counts = new Map<string, { key: string; label: string; n: number }>();
-  for (const s of v.seats) {
-    if (s.runnerUpKey === null) continue;
-    const at = counts.get(s.runnerUpKey) ?? {
-      key: s.runnerUpKey,
-      label: s.runnerUpLabel ?? s.runnerUpKey,
-      n: 0,
-    };
-    at.n += 1;
-    counts.set(s.runnerUpKey, at);
-  }
-  return [...counts.values()].sort((a, b) => b.n - a.n || a.key.localeCompare(b.key));
 }

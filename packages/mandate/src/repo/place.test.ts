@@ -21,6 +21,13 @@ function haveRegistry(): boolean {
 }
 const skip = haveRegistry() ? false : `no registry at ${DEV_DB_PATH} — run npm run registry:migrate`;
 
+/** The seat version a place id names. The live registry holds one delimitation, so it holds one version of each. */
+function versionOf(d: DatabaseSync, placeId: string): number {
+  const row = d.prepare("SELECT id FROM place_version WHERE place_id = ?").get(placeId) as { id: number } | undefined;
+  assert.ok(row !== undefined, `${placeId} has no version`);
+  return row.id;
+}
+
 function counting(real: DatabaseSync): { db: DatabaseSync; count: () => number } {
   let n = 0;
   const proxy = new Proxy(real, {
@@ -40,7 +47,7 @@ function counting(real: DatabaseSync): { db: DatabaseSync; count: () => number }
 test("getPlaceBrief: four elections, winner/runner-up/margin/turnout, sitting member", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
   const { db: counted, count } = counting(d);
-  const brief = getPlaceBrief(counted, "wb.ac.001");
+  const brief = getPlaceBrief(counted, versionOf(d, "wb.ac.001"));
   assert.ok(brief);
   // FIXED, which is the property — not the number. Five now: the fifth asks, in ONE query for every
   // election in the history at once, which of their turnouts the registry can corroborate. What must never
@@ -101,7 +108,7 @@ test("getPlaceBrief: four elections, winner/runner-up/margin/turnout, sitting me
 
 test("getPlaceBrief: demographics carry their census vintage and provenance", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
-  const brief = getPlaceBrief(d, "wb.ac.001");
+  const brief = getPlaceBrief(d, versionOf(d, "wb.ac.001"));
   assert.ok(brief);
   assert.ok(brief.demographics.length >= 6, "population, literacy, sex ratio, sc, st, urban");
   const keys = brief.demographics.map((x) => x.value.key);
@@ -116,18 +123,19 @@ test("getPlaceBrief: demographics carry their census vintage and provenance", { 
   d.close();
 });
 
-test("getPlaceBrief: name slug resolves, unknown slug is null", { skip }, () => {
+test("getPlaceBrief: reads the version it is given, and nothing else is a seat", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
-  const byId = getPlaceBrief(d, "wb.ac.001");
+  const byId = getPlaceBrief(d, versionOf(d, "wb.ac.001"));
   assert.ok(byId);
-  const byName = getPlaceBrief(d, byId.place.canonicalName.toLowerCase());
-  assert.equal(byName?.place.id, byId.place.id);
-  assert.equal(getPlaceBrief(d, "wb.ac.999-nope"), null);
+  assert.equal(byId.place.id, "wb.ac.001");
+  // A version nobody holds, and the version of a district, which is a place and not a constituency.
+  assert.equal(getPlaceBrief(d, -1), null);
+  assert.equal(getPlaceBrief(d, versionOf(d, "wb.cooch-behar")), null);
   d.close();
 });
 
 test("getPlaceBrief on an unmigrated database throws RegistryUnavailableError", () => {
   const empty = new DatabaseSync(":memory:");
-  assert.throws(() => getPlaceBrief(empty, "wb.ac.001"), RegistryUnavailableError);
+  assert.throws(() => getPlaceBrief(empty, 1), RegistryUnavailableError);
   empty.close();
 });

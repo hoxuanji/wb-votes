@@ -10,44 +10,32 @@
 // error in a src/ file as "src/...", and registry:typecheck greps for "^packages/mandate" — a
 // strict-mode error in this file would have been filtered out of its own gate.
 //
-// ponytail: the two `meta` queries (ingest run / current epoch, and the claim tally that generates
+// ponytail: the two `meta` queries (the newest ingest run, and the claim tally that generates
 // the confidence caveat) are SQL here because repo/ exposes neither a run reader nor claim
 // confidence. Move them to repo/meta.ts the moment a second caller needs them.
 
-import { join } from "node:path";
-import { pathToFileURL } from "node:url";
 import type { DatabaseSync } from "node:sqlite";
+import { all, get } from "../db/index.ts";
+import {
+  RegistryUnavailableError,
+  getPersonBrief,
+  getPlaceBrief,
+  loadSources,
+  marks,
+  searchPersons,
+} from "./index.ts";
+import { inForce } from "../core/epochs.ts";
 import type { PersonBrief, PersonRow, PlaceBrief, SourceRef } from "./index.ts";
-
-// The registry loads at RUNTIME, not through the bundler: db/migrate.ts resolves the migrations
-// directory with new URL("../../../../ops/migrations/", import.meta.url), which webpack cannot
-// resolve, and db/index.ts re-exports it — so a static import of the repo layer fails `next build`.
-// Types are erased, so `typeof import(...)` keeps full type safety; only the values go dynamic.
-// ponytail: cwd-relative because Next always runs from the project root. Ship packages/mandate
-// with the server, or move to a workspace package with an exports map, if that stops being true.
-type RepoMod = typeof import("./index.ts");
-type DbMod = typeof import("../db/index.ts");
-
-let mods: Promise<[RepoMod, DbMod]> | undefined;
-
-function load(): Promise<[RepoMod, DbMod]> {
-  const base = pathToFileURL(join(process.cwd(), "packages/mandate/src/")).href;
-  mods ??= Promise.all([
-    import(/* webpackIgnore: true */ `${base}repo/index.ts`) as Promise<RepoMod>,
-    import(/* webpackIgnore: true */ `${base}db/index.ts`) as Promise<DbMod>,
-    // A rejected promise must not be cached: one transient import failure would otherwise pin every
-    // /v1 endpoint to an error until the process restarts.
-  ]).catch((cause: unknown) => {
-    mods = undefined;
-    throw cause;
-  });
-  return mods;
-}
+import type { Found, Place, PlaceIndex } from "./place-resolve.ts";
+import { placeIndex, resolve } from "./place-resolve.ts";
+import { readRegistry } from "./session.ts";
 
 export type Meta = {
   dataVersion: string;
   freshness: { oldestSource: string; computedAt: string };
-  epoch: string;
+  /** The epoch in force for the response's jurisdiction on the day it was computed. Absent when the response
+   *  is not about one jurisdiction: a person who stood in two states, or a search. */
+  epoch?: string;
   /** True when any figure is crosswalk-derived. Derived, never typed by hand — see `tally`. */
   estimated: boolean;
   caveats: string[];
@@ -84,6 +72,8 @@ type Payload<T> = {
   refs: string[];
   /** Optional LIKE pattern for compound subject refs ('candidacy:<election>:<place>:<person>'). */
   like: string | null;
+  /** The one jurisdiction this payload is about, or null. Decides whether `meta.epoch` is named. */
+  jurisdictionId: string | null;
   /** Caveats only the endpoint's own data knows about (e.g. a census vintage). */
   caveats: string[];
   /** True when a figure in this payload is derived rather than measured for this entity. */
@@ -116,40 +106,50 @@ function notFound(kind: string, slug: string): Problem {
   );
 }
 
-type MetaBase = { dataVersion: string; epoch: string };
+type MetaBase = { dataVersion: string };
 
 /**
- * dataVersion is the finished_at of the newest run that finished; epoch is the open boundary
- * epoch. Both in one round trip.
+ * More than one seat answers to the name, and a response about one place cannot be about all of them. 300, because
+ * the answer is a list the caller picks from, and each seat is named by the id that does select it.
+ */
+function ambiguous(slug: string, places: readonly Place[]): Problem {
+  const ids = places.flatMap((p) => (p.level === "seat" ? [p.placeId] : []));
+  return problem(
+    300,
+    "ambiguous-place",
+    `More than one place for “${slug}”`,
+    `“${slug}” names ${ids.length} seats: ${ids.join(", ")}. Ask for one by its place id, for example ` +
+      `/v1/entity/place/${ids[0] ?? ""}.`,
+  );
+}
+
+/**
+ * dataVersion is the finished_at of the newest run that finished.
  * ponytail: 'partial' counts as successful — a partial run is what every real ingest of this
  * corpus is (unresolved party strings land in `anomalies`), and gating dataVersion on 'ok' would
  * leave a live registry versionless. Tighten to status='ok' when the pipeline can reach it.
  */
-function metaBase(db: DatabaseSync, [repo, sql]: [RepoMod, DbMod]): MetaBase {
-  return repo.read(() => {
-    const r = sql.get<{ data_version: string | null; epoch: string | null }>(
-      db,
-      `SELECT (SELECT finished_at FROM ingest_run
-                WHERE finished_at IS NOT NULL AND status IN ('ok','partial')
-                ORDER BY finished_at DESC LIMIT 1) AS data_version,
-              (SELECT id FROM boundary_epoch WHERE effective_to IS NULL
-                ORDER BY effective_from DESC LIMIT 1) AS epoch`,
-    );
-    if (r === undefined || r.data_version === null) throw new repo.RegistryUnavailableError();
-    return { dataVersion: r.data_version, epoch: r.epoch ?? "unknown" };
-  });
+function metaBase(db: DatabaseSync): MetaBase {
+  const r = get<{ data_version: string | null }>(
+    db,
+    `SELECT (SELECT finished_at FROM ingest_run
+              WHERE finished_at IS NOT NULL AND status IN ('ok','partial')
+              ORDER BY finished_at DESC LIMIT 1) AS data_version`,
+  );
+  if (r === undefined || r.data_version === null) throw new RegistryUnavailableError();
+  return { dataVersion: r.data_version };
 }
 
 type Tally = { claims: number; provisional: number };
 
 /** One query over the response's claim subjects. Generates the confidence caveat. */
-function tally(db: DatabaseSync, [repo, sql]: [RepoMod, DbMod], refs: readonly string[], like: string | null): Tally {
+function tally(db: DatabaseSync, refs: readonly string[], like: string | null): Tally {
   if (refs.length === 0 && like === null) return { claims: 0, provisional: 0 };
-  const rows = sql.all<{ confidence: string; n: number }>(
+  const rows = all<{ confidence: string; n: number }>(
     db,
     `SELECT confidence, COUNT(*) AS n
        FROM claim
-      WHERE subject_ref IN (${repo.marks(refs.length)})
+      WHERE subject_ref IN (${marks(refs.length)})
          OR (? IS NOT NULL AND subject_ref LIKE ?)
       GROUP BY confidence`,
     ...refs,
@@ -234,18 +234,14 @@ function headers(dataVersion: string, key: string, ok: boolean): Record<string, 
 /** Open, read, envelope, close. The only place a status code is chosen. */
 async function run<T>(
   key: string,
-  build: (db: DatabaseSync, repo: RepoMod) => Payload<T> | Problem,
+  build: (db: DatabaseSync) => Payload<T> | Problem,
+  read = readRegistry,
 ): Promise<Reply<T>> {
-  let db: DatabaseSync | undefined;
-  let repo: RepoMod | undefined;
-  try {
-    const m = await load();
-    repo = m[0];
-    // Inside read(): opening is where a missing file, a locked database and an unwritable cwd all
-    // surface, and all three are RegistryUnavailableError, not a 500.
-    db = repo.read(() => m[1].openRead());
-    const base = metaBase(db, m);
-    const p = build(db, repo);
+  // An outage (no file, unmigrated, damaged, busy) is the 503 problem. A bug in this process is thrown, not
+  // dressed up as "registry not built".
+  const r = read((db): Reply<T> => {
+    const base = metaBase(db);
+    const p = build(db);
     if ("status" in p) {
       return { status: p.status, headers: headers(base.dataVersion, key, false), body: p };
     }
@@ -260,12 +256,13 @@ async function run<T>(
       );
       return { status: 500, headers: headers(base.dataVersion, key, false), body: bug };
     }
-    const t = tally(db, m, p.refs, p.like);
+    const t = tally(db, p.refs, p.like);
     const oldest = p.sources.reduce((a, s) => (s.retrievedAt < a ? s.retrievedAt : a), p.sources[0]!.retrievedAt);
+    const computedAt = new Date().toISOString();
     const meta: Meta = {
       dataVersion: base.dataVersion,
-      freshness: { oldestSource: oldest.slice(0, 10), computedAt: new Date().toISOString() },
-      epoch: base.epoch,
+      freshness: { oldestSource: oldest.slice(0, 10), computedAt },
+      ...(p.jurisdictionId === null ? {} : { epoch: inForce(p.jurisdictionId, computedAt.slice(0, 10)).id }),
       estimated: p.estimated,
       caveats: caveats(p.sources, t, p.caveats),
       gated: [],
@@ -275,35 +272,15 @@ async function run<T>(
       headers: headers(base.dataVersion, key, true),
       body: { data: p.data, sources: p.sources, meta },
     };
-  } catch (e) {
-    if (repo !== undefined && e instanceof repo.RegistryUnavailableError) {
-      const u = unavailable();
-      return { status: u.status, headers: { "Cache-Control": "no-store" }, body: u };
-    }
-    if (repo === undefined) {
-      // The registry CODE did not load — a deployment fault, not a missing database. Telling the
-      // operator to run migrate here would send them after the wrong bug, so name the real one and
-      // keep the cause in the log.
-      console.error("mandate: packages/mandate failed to load", e);
-      const p = problem(
-        503,
-        "registry-not-deployed",
-        "Registry code is not on this server",
-        "This server could not load packages/mandate, so no registry read is possible. Deploy " +
-          "packages/mandate alongside the server build. Load error: " +
-          (e instanceof Error ? e.message : String(e)),
-      );
-      return { status: p.status, headers: { "Cache-Control": "no-store" }, body: p };
-    }
-    throw e;
-  } finally {
-    db?.close();
-  }
+  });
+  if (r.ok) return r.value;
+  const u = unavailable();
+  return { status: u.status, headers: { "Cache-Control": "no-store" }, body: u };
 }
 
-export function personReply(slug: string): Promise<Reply<PersonBrief>> {
-  return run(`person/${slug}`, (db, repo) => {
-    const b = repo.getPersonBrief(db, slug);
+export function personReply(slug: string, read = readRegistry): Promise<Reply<PersonBrief>> {
+  return run(`person/${slug}`, (db) => {
+    const b = getPersonBrief(db, slug);
     if (b === null) return notFound("person", slug);
     // Candidacy claims are subject_ref 'candidacy:<election>:<place>:<personId>'.
     return {
@@ -311,25 +288,51 @@ export function personReply(slug: string): Promise<Reply<PersonBrief>> {
       sources: b.sources,
       refs: [`person:${b.person.id}`],
       like: `%:${b.person.id}`,
+      jurisdictionId: null,
       caveats: [],
       estimated: false,
     };
-  });
+  }, read);
 }
 
-export function placeReply(slug: string): Promise<Reply<PlaceBrief>> {
-  return run(`place/${slug}`, (db, repo) => {
-    const b = repo.getPlaceBrief(db, slug);
+/**
+ * The seat a slug names: the registry's own place id, else a bare name, and neither says which state. A name that more
+ * than one seat answers to is a question for the caller, not a choice for this to make.
+ *
+ * A name is the registry's own spelling, case apart, because that is all this API has ever matched (the SQL this
+ * replaced was `LOWER(canonical_name) = LOWER(slug)`). The resolver reads a name by its words, so `Coochbehar-Uttar`
+ * and `Coochbehar Uttar ` are `Coochbehar Uttar`, and falls back to the name without its marker and to the words
+ * joined, which is how a page's old links are read. `exact` stops at the first reading; the spelling check holds
+ * what that found to the registry's own.
+ */
+function seatNamed(index: PlaceIndex, slug: string): Found {
+  const byId = resolve(index, { level: "seat", placeId: slug });
+  if (byId.found !== "none") return byId;
+  const named = resolve(index, { level: "seat", name: slug, exact: true });
+  const spelt = (named.found === "one" ? [named.place] : named.found === "many" ? named.places : []).filter(
+    (p) => p.level === "seat" && p.name.toLowerCase() === slug.toLowerCase(),
+  );
+  if (spelt.length === 0) return { found: "none" };
+  return spelt.length === 1 ? { found: "one", place: spelt[0]! } : { found: "many", places: spelt };
+}
+
+export function placeReply(slug: string, read = readRegistry): Promise<Reply<PlaceBrief>> {
+  return run(`place/${slug}`, (db) => {
+    const found = seatNamed(placeIndex(db), slug);
+    if (found.found === "none") return notFound("place", slug);
+    if (found.found === "many") return ambiguous(slug, found.places);
+    const b = found.place.level === "seat" ? getPlaceBrief(db, found.place.versionId) : null;
     if (b === null) return notFound("place", slug);
     return {
       data: b,
       sources: b.sources,
       refs: [`place:${b.place.id}`],
       like: null,
+      jurisdictionId: b.place.jurisdictionId,
       caveats: vintageCaveat(b),
       estimated: crosswalked(b.sources),
     };
-  });
+  }, read);
 }
 
 /**
@@ -339,20 +342,23 @@ export function placeReply(slug: string): Promise<Reply<PlaceBrief>> {
  * ponytail: persons only. Add places when the picker needs them; `types=` is not parsed until it
  * has a second value to choose between.
  */
-export function searchReply(q: string, limit = 20): Promise<Reply<SearchHit>> {
+export function searchReply(q: string, limit = 20, read = readRegistry): Promise<Reply<SearchHit>> {
   const term = q.trim();
   if (term === "") {
-    return run("search/", () =>
-      problem(
-        400,
-        "missing-query",
-        "No search term",
-        "Add a name to search for, in Bengali or English: /v1/search?q=Mamata.",
-      ),
+    return run(
+      "search/",
+      () =>
+        problem(
+          400,
+          "missing-query",
+          "No search term",
+          "Add a name to search for, in Bengali or English: /v1/search?q=Mamata.",
+        ),
+      read,
     );
   }
-  return run(`search/${term}/${limit}`, (db, repo) => {
-    const results = repo.searchPersons(db, term, limit);
+  return run(`search/${term}/${limit}`, (db) => {
+    const results = searchPersons(db, term, limit);
     if (results.length === 0) {
       return problem(
         404,
@@ -366,14 +372,15 @@ export function searchReply(q: string, limit = 20): Promise<Reply<SearchHit>> {
     // do), so resolving sources from `refs` alone answered 500 for ordinary historical names.
     // Every row carries its own source id, and those are the ids that make the list citable.
     const directIds = results.map((r) => r.sourceId).filter((id): id is string => id !== null);
-    const sources = repo.read(() => repo.loadSources(db, directIds, refs));
+    const sources = loadSources(db, directIds, refs);
     return {
       data: { query: term, count: results.length, results },
       sources,
       refs,
       like: null,
+      jurisdictionId: null,
       caveats: [],
       estimated: false,
     };
-  });
+  }, read);
 }

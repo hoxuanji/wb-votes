@@ -19,5 +19,5 @@ export default async function DistrictPage({
 }) {
   // AWAITED, not nested as JSX. `PlaceSurface` is an async component, and a legacy synchronous renderer
   // (the visual-QA harness uses one) cannot resolve a Promise it is handed as a child.
-  return await PlaceSurface({ segments: [params.state, params.district], searchParams });
+  return await PlaceSurface({ place: { level: 'district', state: params.state, district: params.district }, searchParams });
 }

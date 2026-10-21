@@ -41,6 +41,7 @@ import {
   spine,
   watchSignals,
   type LayerKey,
+  type Spine,
 } from "./home.ts";
 import {
   closeFights,
@@ -50,7 +51,10 @@ import {
   recent,
   seatsWonBy,
   upcoming,
+  type Standing,
 } from "./elections.ts";
+import { seatsFromRecords, type SeatRecord } from "./seat-results.ts";
+import { unverifiedTurnout } from "./turnout-trust.ts";
 import { INDIA_TOTALS } from "../ingest/india.ts";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
@@ -394,6 +398,210 @@ test("the vote-share layer prints an absence, not a zero, where no counts were p
   }
 });
 
+/* ────────────────────────────── the magnitude layers, on literal seats ────────────────────────────── */
+
+// West Bengal 2026 is the live example of an election whose turnout nothing corroborates, and the registry-backed
+// layer tests above can only assert what the registry happens to hold. These build the spine by hand: one
+// jurisdiction whose election published vote counts, one whose did not, and a third with no election at all.
+
+const party = { id: "AAA", shortName: "AAA", name: "A Party", raw: null };
+const rival = { id: "BBB", shortName: "BBB", name: "B Party", raw: null };
+
+/** One contest. `margin` is the winner's declared margin; `counts` are the winner's and runner-up's votes. */
+function contestOf(
+  electionId: string,
+  n: number,
+  o: { voters: number | null; electors: number | null; margin: number | null; counts?: [number, number] },
+): SeatRecord {
+  const counts = o.counts ?? null;
+  return {
+    electionId,
+    contestId: `${electionId}:${n}`,
+    placeId: `x.ac.${n}`,
+    versionId: n,
+    epochId: "delim-2008",
+    name: `Seat ${n}`,
+    number: n,
+    reservation: "general",
+    jurisdictionId: "x",
+    districtId: null,
+    districtName: null,
+    winner: { personId: `w${n}`, name: `Winner ${n}`, party, votes: counts === null ? null : counts[0] },
+    runnerUp: counts === null ? null : { personId: `r${n}`, name: `Runner ${n}`, party: rival, votes: counts[1] },
+    declaredMargin: o.margin,
+    voters: o.voters,
+    electors: o.electors,
+  };
+}
+
+const standing = (jurisdictionId: string, electionId: string, seatsContested: number): Standing => ({
+  jurisdictionId,
+  jurisdictionName: jurisdictionId.toUpperCase(),
+  electionId,
+  year: 2026,
+  seatsContested,
+  leaderKey: "AAA",
+  leaderLabel: "AAA",
+  leaderSeats: seatsContested,
+  majority: true,
+});
+
+/**
+ * A spine over `ok` (published vote counts) and `bad` (a winner, a margin and a turnout, and no counts).
+ * `unverified` is what `unverifiedTurnout` would return, so an empty set shows what the layers printed before
+ * the gate. `earlier` seats are a predecessor's: held in the spine, shown on no map.
+ */
+function literalSpine(
+  unverified: ReadonlySet<string>,
+  seats: readonly SeatRecord[],
+  earlier: readonly SeatRecord[] = [],
+): Spine {
+  const state = (id: string) => ({ id, name: id.toUpperCase(), kind: "state" as const, seats: 10, loaded: 2, hasData: true });
+  return {
+    states: [state("ok"), state("bad"), state("none")],
+    standings: [standing("ok", "ok-1", 2), standing("bad", "bad-1", 2)],
+    houseStandings: [],
+    house: null,
+    seats: seatsFromRecords([...seats, ...earlier], unverified),
+    latestAssemblySeats: [],
+    houseSeatRows: [],
+    leaderShare: () => new Map(),
+    counted: new Set(["ok-1"]),
+    bypoll: null,
+    partiesOf: () => [],
+    previousOf: () => null,
+    swingOf: () => [],
+    yearOf: () => null,
+    labelOf: () => null,
+  };
+}
+
+const OK = [
+  contestOf("ok-1", 1, { voters: 600, electors: 1000, margin: 40, counts: [320, 280] }),
+  contestOf("ok-1", 2, { voters: 400, electors: 1000, margin: 8, counts: [204, 196] }),
+];
+// 93% turnout and margins of 0.4% and 12% of it: the shape of West Bengal 2026.
+const BAD = [
+  contestOf("bad-1", 3, { voters: 930, electors: 1000, margin: 4 }),
+  contestOf("bad-1", 4, { voters: 930, electors: 1000, margin: 112 }),
+];
+const GATED: ReadonlySet<string> = new Set(["bad-1"]);
+
+test("the turnout layer prints a verified election's turnout and withholds an unverified one's", () => {
+  const d = open(":memory:");
+  try {
+    const l = layer(d, "turnout", literalSpine(GATED, [...OK, ...BAD]));
+    const [ok, bad, none] = l.cells;
+    assert.equal(ok?.label, "50.0%", "1,000 voters of 2,000 electors: the sum of counts");
+    assert.equal(bad?.label, null, "93.0% is not printed");
+    assert.equal(bad?.fill, NO_DATA_HUE);
+    assert.deepEqual(bad?.detail, ["Assembly 2026", "turnout — verification pending"], "and the card says why, in the words a list may print");
+    assert.equal(bad?.electionId, "bad-1", "it is an election we hold, not one we lack");
+    assert.deepEqual(none?.detail, [], "a jurisdiction with no election still says nothing");
+    assert.equal(l.unknown, 2);
+    assert.match(l.unknownWhy, /none that can be verified/);
+    assert.equal(l.legend.length, 6, "the legend is built from the one figure shown, not from 93.0");
+    assert.ok(l.legend.every((x) => x.label.startsWith("50.")));
+    assert.equal(l.available, true);
+  } finally {
+    d.close();
+  }
+});
+
+test("the same seats with nothing unverified print 93.0%: the gate is the only thing that withholds it", () => {
+  const d = open(":memory:");
+  try {
+    const l = layer(d, "turnout", literalSpine(new Set(), [...OK, ...BAD]));
+    assert.equal(l.cells[1]?.label, "93.0%");
+    assert.equal(l.cells[1]?.detail[1], "93.0% of electors voted");
+    assert.doesNotMatch(l.unknownWhy, /verified/, "and the layer's wording is the one it always had");
+  } finally {
+    d.close();
+  }
+});
+
+test("a layer with only unverified figures behind it is unavailable, and the cheap probe agrees", () => {
+  const d = open(":memory:");
+  try {
+    const sp = literalSpine(GATED, BAD);
+    const can = availability(sp);
+    for (const key of ["turnout", "margin"] as const) {
+      assert.equal(layer(d, key, sp).available, false, `${key} has no figure to shade`);
+      assert.equal(can.get(key), false, `${key}: the probe offers a layer nothing can colour`);
+    }
+  } finally {
+    d.close();
+  }
+});
+
+test("a predecessor's figures do not make a layer available when the shown election has none", () => {
+  const d = open(":memory:");
+  try {
+    // `bad-0` is the election before `bad-1`: verified, with a turnout and margins, but not the one on the map.
+    const earlier = [contestOf("bad-0", 5, { voters: 700, electors: 1000, margin: 30, counts: [350, 320] })];
+    const sp = literalSpine(GATED, BAD, earlier);
+    assert.equal(layer(d, "turnout", sp).available, false);
+    assert.equal(availability(sp).get("turnout"), false);
+    assert.equal(availability(sp).get("margin"), false);
+  } finally {
+    d.close();
+  }
+});
+
+test("the margin layer withholds an unverified election's median share, but its seats keep their margin in votes", () => {
+  const d = open(":memory:");
+  try {
+    const sp = literalSpine(GATED, [...OK, ...BAD]);
+    const l = layer(d, "margin", sp);
+    // ok: 40 of 600 and 8 of 400 votes polled are 6.7% and 2%, median 4.3%. bad: withheld.
+    assert.equal(l.cells[0]?.label, "4.3%");
+    assert.equal(l.cells[1]?.label, null);
+    assert.deepEqual(l.cells[1]?.detail, ["Assembly 2026", "turnout — verification pending"]);
+    assert.deepEqual(
+      sp.seats.filter((x) => x.electionId === "bad-1").map((x) => x.margin),
+      [
+        { votes: 4, basis: "declared" },
+        { votes: 112, basis: "declared" },
+      ],
+      "the sourced margins are still there",
+    );
+    // And with nothing withheld the same election's median is the figure the layer printed before: 0.4% and 12%.
+    assert.equal(layer(d, "margin", literalSpine(new Set(), [...OK, ...BAD])).cells[1]?.label, "6.2%");
+  } finally {
+    d.close();
+  }
+});
+
+test("a margin cell is not called withheld when the election published no margin to withhold", () => {
+  const d = open(":memory:");
+  try {
+    const bare = [contestOf("bad-1", 3, { voters: 930, electors: 1000, margin: null })];
+    const l = layer(d, "margin", literalSpine(GATED, bare));
+    assert.deepEqual(l.cells[1]?.detail, ["Assembly 2026", "not reported by the source"]);
+  } finally {
+    d.close();
+  }
+});
+
+test("the knife-edge signal counts a verified election's close seats and none of an unverified one's", () => {
+  const d = open(":memory:");
+  try {
+    // 4 votes of 930 polled is 0.4%, under the 1% threshold; it is also a share of a figure nobody believes.
+    const knife = /margin under the threshold/;
+    const before = watchSignals(d, literalSpine(new Set(), BAD), 2026, 10).filter((s) => knife.test(s.rule));
+    assert.equal(before.length, 1, "before the gate this was a knife-edge signal");
+    assert.match(before[0]?.detail ?? "", /^1 of 2 seats/);
+    assert.deepEqual(watchSignals(d, literalSpine(GATED, BAD), 2026, 10).filter((s) => knife.test(s.rule)), []);
+    // A verified election's close seat still fires, so the gate has not switched the rule off.
+    const close = [contestOf("ok-1", 9, { voters: 1000, electors: 2000, margin: 5, counts: [502, 497] })];
+    const fired = watchSignals(d, literalSpine(GATED, [...OK, ...close, ...BAD]), 2026, 10).filter((s) => knife.test(s.rule));
+    assert.equal(fired.length, 1);
+    assert.equal(fired[0]?.subject, "OK");
+  } finally {
+    d.close();
+  }
+});
+
 /* ────────────────────────────── coverage ────────────────────────────── */
 
 test("election coverage counts rows and never asserts a total", live, () => {
@@ -515,12 +723,12 @@ test("a seat that changed hands really did change hands", live, () => {
     assert.ok(thenId !== null, `${flip.subject} has no previous election to have flipped against`);
     // Recount independently: same place, same house, consecutive elections, both winners known.
     const before = new Map(
-      sp.seats.filter((x) => x.electionId === thenId).map((x) => [x.placeId, x.winnerKey]),
+      sp.seats.filter((x) => x.electionId === thenId).map((x) => [x.placeId, x.winner?.party.key]),
     );
     const flipped = sp.seats.filter((x) => {
       if (x.electionId !== stand.electionId) return false;
       const was = before.get(x.placeId);
-      return was != null && x.winnerKey != null && was !== x.winnerKey;
+      return was != null && x.winner !== null && was !== x.winner.party.key;
     }).length;
     assert.match(flip.detail, new RegExp(`^${flipped} of `), `the signal's count is not the recount (${flipped})`);
   } finally {
@@ -689,7 +897,13 @@ test("close fights are the closest results held, with a runner-up where one was 
   const d = db();
   try {
     const rows = closeFights(d, "assembly", 10);
-    assert.ok(rows.length > 0, "no close fights");
+    // A seat of an election whose turnout is unverified has no margin share, so it is not close, it is unknown:
+    // on a registry whose only assembly is West Bengal 2026 there may be nothing to list at all.
+    const unverified = unverifiedTurnout(
+      d,
+      latestPerJurisdiction(d, "assembly").map((l) => l.id),
+    );
+    for (const r of rows) assert.ok(!unverified.has(r.electionId), `${r.placeName}: ranked by a share nothing corroborates`);
     for (let i = 1; i < rows.length; i += 1) {
       assert.ok((rows[i]?.marginPct ?? 0) >= (rows[i - 1]?.marginPct ?? 0), "not sorted by margin");
     }
@@ -717,6 +931,8 @@ test("the bulk seat reads agree with the per-election ones they replaced", live,
     // The optimisation that turned 62 scans into one must not have changed a single number.
     const latest = latestPerJurisdiction(d, "assembly").slice(0, 6);
     const won = seatsWonBy(d, latest.map((l) => l.id));
+    // The seat results the spine holds are a third bulk read of the same winners.
+    const held = spine(d).seats;
     for (const l of latest) {
       const mine = won.filter((w) => w.electionId === l.id);
       const total = mine.reduce((n, w) => n + w.seats, 0);
@@ -727,6 +943,9 @@ test("the bulk seat reads agree with the per-election ones they replaced", live,
         l.id,
       );
       assert.equal(total, direct?.n, `${l.id}: the bulk read counts ${total} winners, the registry has ${direct?.n}`);
+      const seats = held.filter((x) => x.electionId === l.id);
+      assert.equal(seats.length, l.seatsContested, `${l.id}: the spine holds ${seats.length} of its ${l.seatsContested} contests`);
+      assert.equal(seats.filter((x) => x.winner !== null).length, total, `${l.id}: the spine's declared winners are not the bulk read's`);
       // And every seat must be attributed to a real jurisdiction, never to the nation.
       for (const w of mine) {
         assert.match(w.jurisdictionId, /^[a-z]{2}$/, `${l.id}: a seat is filed under '${w.jurisdictionId}'`);

@@ -29,6 +29,8 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../../db/index.ts";
+import { superseded } from "../../core/epochs.ts";
+import { JURISDICTIONS } from "../india.ts";
 import type { BlockReport, PersonRec } from "./block.ts";
 import { blockPairs, loadPersons } from "./block.ts";
 import type { Features } from "./score.ts";
@@ -575,6 +577,15 @@ export type AuditReport = {
 };
 
 /**
+ * `(jurisdiction, epoch, the epoch in force there)` for every epoch that has been superseded, as a VALUES list.
+ * The epoch table (core/epochs.ts) answers `successor`, and SQL cannot call it: an epoch is superseded in one
+ * jurisdiction and not another, so no column on `boundary_epoch` could. Every id is one of this repo's own.
+ */
+const SUPERSEDED = superseded(JURISDICTIONS.map((j) => j.id))
+  .map((s) => `('${s.jurisdictionId}', '${s.epochId}', '${s.currentId}')`)
+  .join(", ");
+
+/**
  * ADR 0001's "what is still not enforced by the schema" list, verbatim, as SQL. Every query counts
  * VIOLATIONS, so 0 rows == invariant holds. Two are D2's: the party_version overlap view the dropped
  * Postgres EXCLUDE was replaced by, and the open-ended-duplicate case a reviewer proved reachable
@@ -616,23 +627,48 @@ export const INVARIANTS: ReadonlyArray<{ name: string; sql: string }> = [
                 WHERE r2.contest_id = r.contest_id AND r2.revision = r.revision AND r2.rank = 2)`,
   },
   {
+    // `is_winner` is NOT NULL and `rank` is nullable, and nothing in the schema ties them together. Seat
+    // results (repo/seat-results.ts) read the winner by `is_winner = 1` and the runner-up by `rank = 2`, which
+    // names the contest's second candidate only if the winner is its rank 1. Both directions are counted, and a
+    // winner with no rank is a violation: it is a winner nothing can be second to.
+    name: "winner_is_rank1",
+    sql: `SELECT COUNT(*) AS n FROM result r
+           WHERE (r.is_winner = 1 AND (r."rank" IS NULL OR r."rank" <> 1))
+              OR (r.is_winner = 0 AND r."rank" = 1)`,
+  },
+  {
     name: "contest_epoch_matches_election_epoch",
     sql: `SELECT COUNT(*) AS n FROM contest c
             JOIN election e       ON e.id = c.election_id
             JOIN place_version pv ON pv.id = c.place_version_id
            WHERE pv.epoch_id <> e.epoch_id`,
   },
+  // ADR 0001's form is unconditional: every contested seat in a superseded epoch has a crosswalk to the epoch
+  // now in force. It was also vacuous, because it asked which epochs were closed of `effective_to`, which no
+  // writer sets and which cannot be set for a national order (DPACO 2008 is superseded in Assam and not in
+  // Bihar). "Superseded" now comes from the epoch table. But place_crosswalk holds 0 rows
+  // (docs/model/electoral-geography.md), so the unconditional form would be red for every contested seat in a
+  // superseded epoch, and an invariant that is red by construction gates nothing. So this asks the half that
+  // is checkable: once a crosswalk has been begun from a jurisdiction's epoch to the epoch now in force, it
+  // covers every contested seat of that epoch.
+  // ponytail: restore the unconditional form when place_crosswalk is populated.
   {
     name: "contested_place_version_has_crosswalk_to_current_epoch",
-    sql: `SELECT COUNT(DISTINCT pv.id) AS n FROM contest c
-            JOIN place_version pv  ON pv.id = c.place_version_id
-            JOIN boundary_epoch be ON be.id = pv.epoch_id
-           WHERE be.effective_to IS NOT NULL
-             AND NOT EXISTS (
-               SELECT 1 FROM place_crosswalk x
-                 JOIN place_version t   ON t.id = x.to_place_version_id
-                 JOIN boundary_epoch tb ON tb.id = t.epoch_id
-                WHERE x.from_place_version_id = pv.id AND tb.effective_to IS NULL)`,
+    sql: `WITH superseded(jurisdiction_id, epoch_id, current_id) AS (VALUES ${SUPERSEDED}),
+               begun AS (
+                 SELECT DISTINCT f.jurisdiction_id AS jurisdiction_id, f.epoch_id AS epoch_id, t.epoch_id AS current_id
+                   FROM place_crosswalk x
+                   JOIN place_version f ON f.id = x.from_place_version_id
+                   JOIN place_version t ON t.id = x.to_place_version_id)
+          SELECT COUNT(DISTINCT pv.id) AS n FROM contest c
+            JOIN place_version pv ON pv.id = c.place_version_id
+            JOIN superseded s     ON s.jurisdiction_id = pv.jurisdiction_id AND s.epoch_id = pv.epoch_id
+            JOIN begun b          ON b.jurisdiction_id = s.jurisdiction_id AND b.epoch_id = s.epoch_id
+                                 AND b.current_id = s.current_id
+           WHERE NOT EXISTS (
+             SELECT 1 FROM place_crosswalk x
+               JOIN place_version t ON t.id = x.to_place_version_id
+              WHERE x.from_place_version_id = pv.id AND t.epoch_id = s.current_id)`,
   },
   {
     name: "booth_votes_not_more_than_result_votes",

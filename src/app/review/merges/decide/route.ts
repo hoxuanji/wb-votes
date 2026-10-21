@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import { open } from '../../../../../packages/mandate/src/db/open.ts';
 import { recordDecision } from '../../../../../packages/mandate/src/repo/review.ts';
 import type { Decision } from '../../../../../packages/mandate/src/repo/review.ts';
+import { writeRegistry } from '../../../../../packages/mandate/src/repo/session.ts';
 
 /**
  * POST target for the merge review form.
@@ -36,14 +36,17 @@ export async function POST(request: Request): Promise<Response> {
     return NextResponse.redirect(back, 303);
   }
 
-  try {
-    const db = open();
-    const wrote = recordDecision(db, a, b, decision as Decision, reviewer, new Date().toISOString());
-    db.close();
-    // `wrote` is false when the pair was already decided — two tabs, or a replay. Not an error, and
+  // The registry is closed on every way out. An outage (absent, unmigrated, read-only, busy) is the redirect
+  // that says nothing was recorded; a defect in the write is thrown, where it used to be caught here and
+  // reported as the same outage.
+  const outcome = writeRegistry((db) =>
+    recordDecision(db, a, b, decision as Decision, reviewer, new Date().toISOString()),
+  );
+  if (outcome.ok) {
+    // `outcome.value` is false when the pair was already decided — two tabs, or a replay. Not an error, and
     // not something to silently claim as saved either.
-    back.searchParams.set(wrote ? 'saved' : 'already', decision);
-  } catch {
+    back.searchParams.set(outcome.value ? 'saved' : 'already', decision);
+  } else {
     back.searchParams.set('error', 'unavailable');
   }
   return NextResponse.redirect(back, 303);

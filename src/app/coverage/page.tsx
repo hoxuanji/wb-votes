@@ -1,9 +1,11 @@
 import Link from 'next/link';
-import { openRead } from '../../../packages/mandate/src/db/open.ts';
 import { getCoverage, INDIA } from '../../../packages/mandate/src/repo/coverage.ts';
 import type { Coverage, VerticalState } from '../../../packages/mandate/src/repo/coverage.ts';
 import { electionCoverageView } from '../../../packages/mandate/src/repo/home.ts';
 import type { ElectionChoice, ElectionCoverage } from '../../../packages/mandate/src/repo/home.ts';
+import { coverageHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { readAsk } from '../../../packages/mandate/src/repo/map-selection.ts';
+import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
 import { Shell } from '../../components/iei/Shell.tsx';
 import {
   CoverageChip,
@@ -58,10 +60,6 @@ const STATUS: Record<VerticalState['status'], { word: string; state: 'complete' 
   'no-model': { word: 'Not modelled', state: 'unavailable' },
 };
 
-function first(v: string | string[] | undefined): string | undefined {
-  return Array.isArray(v) ? v[0] : v;
-}
-
 /**
  * How completely one election is represented.
  *
@@ -88,7 +86,7 @@ function Election({
         choices={choices.map((e) => ({
           key: e.id,
           label: e.short,
-          href: `/coverage?election=${e.id}#election`,
+          href: coverageHref(e.id),
         }))}
       />
 
@@ -366,23 +364,20 @@ export default function CoveragePage({
 }: {
   searchParams?: Record<string, string | string[] | undefined>;
 }) {
-  let c: Coverage | null = null;
-  let election: ElectionCoverage | null = null;
-  let choices: ElectionChoice[] = [];
-  let db: ReturnType<typeof openRead> | null = null;
-  try {
-    db = openRead();
-    c = getCoverage(db);
-    const view = electionCoverageView(db, first(searchParams?.['election']));
-    election = view.chosen;
-    choices = view.choices;
-  } catch {
-    c = null;
-  } finally {
-    db?.close();
-  }
+  // An outage reads as "registry not built"; a defect in a coverage query is thrown rather than shown as one.
+  const read = readRegistry((db) => {
+    const c = getCoverage(db);
+    const view = electionCoverageView(db, readAsk(searchParams).get('election'));
+    return { c, election: view.chosen, choices: view.choices };
+  });
 
   return (
-    <Shell here="coverage">{c === null ? <RegistryMissing /> : <Body c={c} election={election} choices={choices} />}</Shell>
+    <Shell here="coverage">
+      {read.ok ? (
+        <Body c={read.value.c} election={read.value.election} choices={read.value.choices} />
+      ) : (
+        <RegistryMissing />
+      )}
+    </Shell>
   );
 }

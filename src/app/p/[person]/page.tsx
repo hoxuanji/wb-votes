@@ -1,5 +1,4 @@
 import { notFound } from "next/navigation";
-import { constituencyHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import Link from "next/link";
 import type { PersonBrief } from "../../../../packages/mandate/src/repo/index.ts";
 import type { Problem } from "../../../../packages/mandate/src/repo/envelope.ts";
@@ -35,11 +34,11 @@ export const dynamic = "force-dynamic";
  * `/p/<person>` — one person, and everything the registry holds about them.
  *
  * The page reads through `personReply` — the same function `/v1/entity/person/[slug]` answers with — so there
- * is exactly ONE place that opens the registry, and it is the one webpack survives: envelope.ts loads it with
- * an `import(/* webpackIgnore: true *\/ ...)` of an absolute file URL, which webpack leaves alone. The
- * previous cwd-relative CommonJS loader here was not statically analysable, so webpack compiled the binding
- * to `undefined` and every slug 500'd in a production build (the guard test in brief.test.ts keeps it from
- * coming back). Sharing personReply also means the HTML and the JSON can never disagree about a figure.
+ * is exactly ONE place that opens the registry, and it is one webpack can follow: envelope.ts imports the
+ * repo layer statically. The previous cwd-relative CommonJS loader here was not statically analysable, so
+ * webpack compiled the binding to `undefined` and every slug 500'd in a production build (the guard test in
+ * brief.test.ts keeps it from coming back). Sharing personReply also means the HTML and the JSON can never
+ * disagree about a figure.
  *
  * WHAT PHASE 2.5 CHANGED. It wears the product's chrome, uses the product's primitives, and its provenance is
  * a drawer. It used to open with an eyebrow reading "Mandate · person brief" — the internal name of a build
@@ -54,7 +53,7 @@ export default async function PersonBriefPage({ params }: { params: { person: st
   const reply = await personReply(slug);
   if (reply.status === 404) notFound();
   // Any other non-200 is a problem document whose `detail` is written to be shown verbatim: a missing
-  // database, a server that shipped without packages/mandate, or an uncited record.
+  // database or an uncited record.
   if ("code" in reply.body) return <Unavailable problem={reply.body} />;
   const brief: PersonBrief = reply.body.data;
 
@@ -80,23 +79,12 @@ export default async function PersonBriefPage({ params }: { params: { person: st
            *
            * No migration was needed and none was made: the jurisdiction and the body come from
            * `place_version` through candidacy -> contest, which is where a contest's seat is recorded. The
-           * crumb is unlinked only when that relation is genuinely absent, never guessed from the name.
+           * crumb is unlinked only when that relation is genuinely absent, never guessed from the name. The
+           * address is the brief's `placeHref`, so a seat whose name another seat shares opens that seat.
            */
           ...(latest === undefined || latest.placeName === null
             ? []
-            : [
-                {
-                  label: latest.placeName,
-                  href:
-                    latest.jurisdictionId === null || latest.placeKind === null
-                      ? undefined
-                      : constituencyHref({
-                          jurisdictionId: latest.jurisdictionId,
-                          kind: latest.placeKind,
-                          canonicalName: latest.placeName,
-                        }),
-                },
-              ]),
+            : [{ label: latest.placeName, href: latest.placeHref ?? undefined }]),
           { label: brief.person.canonicalName },
         ]}
       />

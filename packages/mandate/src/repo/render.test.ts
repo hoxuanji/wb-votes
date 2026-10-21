@@ -18,10 +18,14 @@ import test from "node:test";
 import { execFileSync, spawnSync } from "node:child_process";
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
-import * as stateMap from "./state-map.ts";
 import * as electionMap from "./election-map.ts";
+import { readSelection, tally } from "./map-selection.ts";
+import type { ElectionSeat } from "./election-map.ts";
+import { kindOfBody } from "./routes.ts";
+import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
+import { currentSeat } from "./testkit.ts";
 import { all } from "../db/index.ts";
 import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey } from "../viz/party-ink.ts";
 import { deltaE } from "../viz/colour.ts";
@@ -240,7 +244,18 @@ test("the front page reaches a constituency, not just a state", live, () => {
   const t = text(html);
   assert.match(t, /Closest contests/, "the closest-contests module is missing");
   const seats = [...html.matchAll(/href="\/constituency\/[a-z]{2}\/(?:assembly|lok-sabha)\/[^"]+"/g)];
-  assert.ok(seats.length >= 3, `the front page offers ${seats.length} links to a seat; the module renders five`);
+  // WHICH SEATS ARE CLOSE is the registry's to say: a seat of an election whose votes polled nothing corroborates
+  // has no margin share, so it is not close, it is unknown. West Bengal 2026 is such an election, and on a
+  // registry whose only assembly is that one there is nothing to rank and the module says so instead.
+  const fights = home.homeView(db, { thisYear: 2026 }).fights;
+  if (fights.length === 0) {
+    assert.equal(seats.length, 0, "the closest-contests module links to seats it was not given");
+    return;
+  }
+  assert.ok(
+    seats.length >= Math.min(3, fights.length),
+    `the front page offers ${seats.length} links to a seat; the module renders five`,
+  );
   // Each row states the margin as votes AND as a share, so "closest" is arguable rather than asserted.
   assert.match(t, /\d+ votes/, "a close fight does not state its margin in votes");
   assert.match(t, /% of votes polled/, "a close fight does not state its margin as a share");
@@ -296,7 +311,10 @@ test("URL state survives, so a view can be sent to someone", live, () => {
   const html = render("/", "layer=turnout");
   assert.match(text(html), /Turnout/, "the layer parameter was ignored");
   const links = [...html.matchAll(/href="\/\?([^"]*)#map"/g)].map((m) => m[1] as string);
-  assert.ok(links.length >= 5, "the layer strip did not render links");
+  // Three, not five: a layer with nothing to shade is offered as unavailable rather than as a link. Vote share
+  // already was on a registry whose only latest assembly is West Bengal 2026, which published no counts, and
+  // turnout and margin now are too, because nothing corroborates its turnout (turnout-trust.ts).
+  assert.ok(links.length >= 3, "the layer strip did not render links");
   for (const q of links) {
     assert.match(q, /^layer=[a-z]+$/, `a layer link carries state the page no longer has: ${q}`);
   }
@@ -571,19 +589,30 @@ test("a map draws polygons from one coordinate space, and says how many it withh
   // invariant that survives either way: every path the map receives is in the frame it declares, and anything
   // in another frame is counted rather than drawn.
   for (const j of ["wb", "ka", "up"]) {
-    const v = stateMap.stateMapView(db, j);
-    assert.ok(v.geometry.viewBox !== null, `${j} declares no frame`);
-    assert.equal(v.seats.filter((x) => x.path !== null).length, v.geometry.drawable);
-    assert.equal(v.geometry.drawable + v.geometry.otherFrames <= v.geometry.total, true);
+    const v = stateView(db, j);
+    assert.ok(v.kind === "ready", `${j} has nothing to open on`);
+    const { geometry, seats } = v.map;
+    assert.ok(geometry.viewBox !== "", `${j} declares no frame`);
+    assert.equal(seats.filter((x) => x.path !== null).length, geometry.drawable);
+    assert.equal(geometry.drawable + geometry.otherFrames <= geometry.total, true);
   }
-  // And the count is real rather than hardcoded to zero: it is the number of held polygons the map refused.
-  const frames = all<{ n: number }>(db, `SELECT COUNT(DISTINCT view_box) AS n FROM place_geometry`)[0]?.n ?? 0;
-  const wb = stateMap.stateMapView(db, "wb");
-  if (frames > 1) {
-    assert.ok(wb.geometry.otherFrames >= 0, "the guard reports nothing while two frames exist");
-  } else {
-    assert.equal(wb.geometry.otherFrames, 0, "one frame in the table, so nothing may be withheld");
-  }
+  // And the count is real rather than hardcoded to zero: it is the number of held polygons the map refused, which
+  // is every one of this election's that is not in the shared frame.
+  const wb = stateView(db, "wb");
+  assert.ok(wb.kind === "ready", "wb has nothing to open on");
+  const refused =
+    all<{ n: number }>(
+      db,
+      `SELECT COUNT(*) AS n
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN place_geometry g ON g.place_version_id = pv.id
+        WHERE c.election_id = ? AND pv.jurisdiction_id = 'wb' AND g.path IS NOT NULL
+          AND COALESCE(g.view_box, '') <> ?`,
+      wb.map.election?.id ?? "",
+      electionMap.SHARED_FRAME,
+    )[0]?.n ?? 0;
+  assert.equal(wb.map.geometry.otherFrames, refused, "the guard does not count what it withheld");
 });
 
 
@@ -593,9 +622,11 @@ test("the state page opens on the state's own house, not the newest election", l
   // Madhya Pradesh's newest assembly is 2018 and ls-2024 is newer. Offering the Lok Sabha here made
   // "newest full election" open a state page on the parliamentary map, which is not what a reader came for.
   for (const j of ["mp", "rj", "wb", "ka"]) {
-    const v = stateMap.stateMapView(db, j);
-    assert.equal(v.election?.house, "ac", `${j} opens on ${v.election?.id}`);
-    assert.notEqual(v.election?.kind, "bypoll", `${j} opens on a by-election`);
+    const v = stateView(db, j);
+    assert.ok(v.kind === "ready", `${j} has nothing to open on`);
+    assert.equal(v.house, "assembly", `${j} opens on the ${v.house}`);
+    assert.equal(v.map.election?.body, "assembly", `${j} opens on ${v.map.election?.id}`);
+    assert.notEqual(v.map.election?.fill, "bypoll", `${j} opens on a by-election`);
   }
 });
 
@@ -874,19 +905,60 @@ test("a district both navigates and focuses, and is never given a winner", live,
   }
 });
 
-test("focusing a district scopes the seats every figure describes", live, () => {
-  const v = electionMap.electionMapView(db, "ka-assembly-2023", "ka");
-  const group = electionMap.districtGroups(v.seats)[0];
-  assert.ok(group !== undefined);
-  const inside = electionMap.seatsInDistrict(v.seats, group.id);
-  assert.equal(inside.length, group.seats, "the focused set is not the district's seats");
-  assert.ok(inside.length < v.seats.length, "focusing a district selected the whole state");
-  // The competitiveness bands are computed over the SAME subset, which is what makes the page one instrument.
-  const bands = electionMap.marginBandCounts(inside);
-  assert.ok(
-    bands.reduce((n, b) => n + b.n, 0) <= inside.length,
-    "the bands count more seats than the district holds",
+test("focusing a district scopes the seats every figure describes", () => {
+  // Literal seats, so this needs no registry: two districts, a seat outside both, one with no margin, and a seat in each
+  // of the five bands. What it pins is that the figures of the page and the seats of its links are one subset.
+  const at = (placeId: string, districtId: string | null, winner: string | null, marginPct: number | null): ElectionSeat =>
+    ({
+      placeId,
+      districtId,
+      districtName: districtId === null ? null : districtId.toUpperCase(),
+      partyKey: winner,
+      partyLabel: winner,
+      runnerUpKey: null,
+      runnerUpLabel: null,
+      marginPct,
+      marginBin: electionMap.binOf(marginPct),
+    }) as ElectionSeat;
+  const seats = [
+    at("s1", "x.a", "P", 0.5),
+    at("s2", "x.a", "Q", 1.5),
+    at("s3", "x.a", "P", 3),
+    at("s4", "x.b", "P", 7),
+    at("s5", "x.b", "Q", 15),
+    at("s6", "x.b", null, null),
+    at("s7", null, "Q", 0.2),
+  ];
+  const choices = electionMap.stateChoicesOf({ legend: [{ key: "P" }, { key: "Q" }], voteSeat: [], seats, flips: null });
+  const read = (query: string) => readSelection(new URLSearchParams(query), choices, { base: "/state/x" });
+  const ids = (xs: readonly ElectionSeat[]): string[] => xs.map((x) => x.placeId);
+
+  const groups = electionMap.districtGroups(seats);
+  assert.deepEqual(
+    groups.map((g) => [g.id, g.seats]),
+    [["x.a", 3], ["x.b", 3]],
+    "a seat in no district is in no group",
   );
+  const group = groups[0] as (typeof groups)[number];
+  const inside = read(`district=${group.id}`).inDistrict(seats);
+  assert.deepEqual(ids(inside), ["s1", "s2", "s3"], "the focused set is not the district's seats");
+  assert.equal(inside.length, group.seats);
+  assert.ok(inside.length < seats.length, "focusing a district selected the whole state");
+
+  // The competitiveness bands are computed over the SAME subset, which is what makes the page one instrument.
+  const counts = (xs: readonly ElectionSeat[]): number[] => electionMap.marginBandCounts(xs).map((b) => b.n);
+  assert.deepEqual(counts(inside), [1, 1, 1, 0, 0]);
+  assert.deepEqual(counts(seats), [2, 1, 1, 1, 1], "a seat with no margin is in no band");
+  // And a band's link selects exactly the seats its segment counts, in the district and out of it.
+  for (const query of ["", `district=${group.id}`, "district=x.b"]) {
+    const subset = read(query).inDistrict(seats);
+    electionMap.marginBandCounts(subset).forEach((b) => {
+      assert.equal(read(`${query}&band=${b.key}`).narrow(seats).length, b.n, `${query} ${b.key}`);
+    });
+  }
+  // The legend of a focused district tallies the district's winners only.
+  assert.deepEqual(groups[0]?.parties, [{ key: "P", label: "P", n: 2 }, { key: "Q", label: "Q", n: 1 }]);
+  assert.deepEqual(tally(inside, "winner"), groups[0]?.parties);
 });
 
 test("every selection the state page offers is in the URL and moves the map", live, () => {
@@ -915,6 +987,77 @@ test("a selection actually dims the map rather than only changing the list", liv
   const dimmedAfter = (isolated.match(/opacity="0\.18"/g) ?? []).length;
   assert.equal(dimmedBefore, 0, "the map dims something before anything is selected");
   assert.ok(dimmedAfter > 50, `isolating a party dimmed only ${dimmedAfter} polygons`);
+});
+
+test("the election page reads a margin bin only if it is one", live, () => {
+  // `Number("")` is 0, so a hand-edited `?bin=` used to isolate the 0 to 2 bin, as did `?bin=%20`, and `4.0` or `0x4`
+  // were read as the bin 4. A bin is a whole number the distribution holds, and nothing else selects one.
+  const found = electionMap
+    .electionChoices(db)
+    .map((c) => ({ id: c.id, bin: electionMap.electionMapView(db, c.id).marginBins.find((b) => b.n > 0) }))
+    .find((c) => c.bin !== undefined);
+  assert.ok(found !== undefined, "no election in the registry has a margin distribution");
+  const lo = (found.bin as { lo: number }).lo;
+  assert.match(
+    render("/election", `bin=${lo}`, found.id),
+    new RegExp(`aria-label="Seats decided by ${lo} to ${lo + 2} percent"`),
+    "a real bin did not isolate its seats",
+  );
+  for (const odd of ["", "%20", "4.0", "0x4", "1e1"]) {
+    const html = render("/election", `bin=${odd}`, found.id);
+    assert.ok(!html.includes("Seats decided by"), `?bin=${odd} isolated a bin`);
+    assert.ok(html.includes('aria-label="The closest contests of this election"'), `?bin=${odd} changed the list`);
+  }
+});
+
+test("every party the runner-up legend lists can be isolated from it", live, (t) => {
+  // That legend counts the parties that came second, and the page validated a party against the ones that won or
+  // have a row in the vote-to-seat plot, so a party that only ever came second was offered a link that led nowhere.
+  const found = electionMap
+    .electionChoices(db)
+    .map((c) => {
+      const v = electionMap.electionMapView(db, c.id);
+      const offered = new Set([...v.legend.map((l) => l.key), ...v.voteSeat.map((r) => r.party.key)]);
+      const dead = tally(v.seats, "runnerUp")
+        .slice(0, 10)
+        .find((l) => !offered.has(l.key));
+      return { id: c.id, dead };
+    })
+    .find((c) => c.dead !== undefined);
+  if (found === undefined) return t.skip("no election has a party in its runner-up legend that only came second");
+  const key = (found.dead as { key: string }).key;
+  const html = render("/election", new URLSearchParams({ mode: "runnerup", party: key }).toString(), found.id);
+  assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.id}: the link for ${key} did not isolate it`);
+  assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.id}: ${key} listed no seats`);
+});
+
+test("every party the state page's runner-up legend lists can be isolated from it", live, (t) => {
+  // The same defect as the election page's: the legend counts the parties that came second, and the page validated a
+  // party against the winners' legend and the vote-to-seat plot, so a party that only ever came second was offered a link
+  // that led nowhere.
+  let found: { state: string; election: string; house: string; key: string } | undefined;
+  for (const j of all<{ id: string }>(db, `SELECT id FROM place WHERE kind IN ('state', 'ut') ORDER BY id`)) {
+    const first = stateView(db, j.id);
+    if (first.kind !== "ready") continue;
+    for (const house of first.houses) {
+      const opened = stateView(db, j.id, { house: kindOfBody(house) });
+      if (opened.kind !== "ready") continue;
+      for (const c of opened.choices) {
+        const s = stateView(db, j.id, { house: kindOfBody(house), election: c.id });
+        if (s.kind !== "ready" || found !== undefined) continue;
+        const offered = new Set([...s.map.legend.map((l) => l.key), ...s.map.voteSeat.map((r) => r.party.key)]);
+        const dead = tally(s.map.seats, "runnerUp")
+          .slice(0, 10)
+          .find((l) => !offered.has(l.key));
+        if (dead !== undefined) found = { state: j.id, election: c.id, house: kindOfBody(house), key: dead.key };
+      }
+    }
+  }
+  if (found === undefined) return t.skip("no state's election has a party in its runner-up legend that only came second");
+  const query = new URLSearchParams({ house: found.house, election: found.election, mode: "runnerup", party: found.key });
+  const html = render("/state", query.toString(), found.state);
+  assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.state} ${found.election}: the link for ${found.key} did not isolate it`);
+  assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.state} ${found.election}: ${found.key} listed no seats`);
 });
 
 test("a comparison across a redrawn map is refused on the page, not just in the data", live, () => {
@@ -1146,9 +1289,9 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
 
   /**
    * AND A PARLIAMENTARY SEAT MUST NOT PRETEND TO HAVE A PAGE. Place pages are `pv.kind = 'ac'`; a pc
-   * version has no district parent, so routing one through `placeHref` returns "/pl" — the India page. That
-   * regression was live for the length of one command: all 543 of Lok Sabha 2024's seats linked to the front
-   * page. A pc seat goes to the state whose page holds its result.
+   * version has no district parent, so a link builder that took the state from the district returned "/pl" —
+   * the India page. That regression was live for the length of one command: all 543 of Lok Sabha 2024's seats
+   * linked to the front page. A pc seat goes to the state whose page holds its result.
    */
   const ls = render("/election", "", "ls-2024");
   const lsLinks = [...ls.matchAll(/href="(\/(?:state|district|constituency)[^"?#]*)"/g)].map((m) => m[1] as string);
@@ -1173,27 +1316,16 @@ test("INDIA -> STATE -> DISTRICT -> SEAT: every hop is a link that resolves", li
 
 /* ─────────────────── canonical routes and the compatibility layer ─────────────────── */
 
-test("every /pl URL redirects to its canonical route, resolved and not guessed", live, () => {
+test("a /pl URL is redirected to its canonical route, with its query, end to end", live, () => {
   /**
-   * `/pl/[...path]` served three entity types and decided which by COUNTING SEGMENTS. So the type of a thing
-   * was a property of how long its URL happened to be, and a malformed path resolved to a different KIND of
-   * entity rather than to nothing.
+   * `/pl/[...path]` is `legacyTarget` behind a page. legacy.test.ts holds what each request is answered with, on a
+   * registry built in memory with two states, so this is the one render that proves the page, `follow` and Next's
+   * redirect error are wired to it.
    *
-   * It is a redirect now. `permanentRedirect` throws a Next control-flow error rather than returning markup,
-   * so a successful redirect is a FAILED render whose stderr names the destination — which is what this reads.
-   * A route that renders markup has stopped redirecting, and that is a failure here.
+   * `permanentRedirect` throws a Next control-flow error rather than returning markup, so a successful redirect is
+   * a FAILED render whose stderr names the destination — which is what this reads. A route that renders markup has
+   * stopped redirecting, and that is a failure here.
    */
-  const redirectOf = (segments: string): { to: string | null; notFound: boolean } => {
-    const r = spawnSync(
-      process.execPath,
-      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/pl", "", segments],
-      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-    );
-    const err = `${r.stderr ?? ""}${r.stdout ?? ""}`;
-    const m = /NEXT_REDIRECT[;,]?\s*(?:replace|push)?[;,]?\s*(\/[^\s;"']*)/.exec(err) ?? /"(\/(?:state|district|constituency)\/[^"]*)"/.exec(err);
-    return { to: m?.[1] ?? null, notFound: /NEXT_NOT_FOUND|NEXT_HTTP_ERROR_FALLBACK/.test(err) };
-  };
-
   // Fixtures discovered from the registry, so this is not five states hand-picked.
   /**
    * ONE QUERY FOR THE WHOLE CHAIN, so the fixtures are guaranteed to be an actual state / district / seat
@@ -1217,34 +1349,101 @@ test("every /pl URL redirects to its canonical route, resolved and not guessed",
     : seat.district;
   const seatSlug = seat.name.trim().toLowerCase().replace(/\s+/g, "-");
 
-  // 1 — A STATE, A DISTRICT AND A CONSTITUENCY each reach their own entity route, and the constituency
-  //     drops the district because the canonical form carries the jurisdiction instead.
-  for (const [path, want] of [
-    [state, `/state/${state}`],
-    [`${state}/${districtSeg}`, `/district/${state}/${districtSeg}`],
-    [`${state}/${districtSeg}/${seatSlug}`, `/constituency/${state}/assembly/${seatSlug}`],
-  ] as const) {
-    const r = redirectOf(path);
-    assert.ok(!r.notFound, `/pl/${path} 404s instead of redirecting`);
-    assert.equal(r.to, want, `/pl/${path} redirected to ${r.to}`);
-  }
-
-  // 2 — THE QUERY SURVIVES. `?election=`, `?district=`, `?party=`, `?mode=` and `?seat=` mean the same thing
-  //     on the canonical route, so dropping them would silently change what a shared link shows.
-  const withQuery = spawnSync(
+  // A CONSTITUENCY reaches its own entity route, which drops the district because the canonical form carries the
+  // jurisdiction instead, and THE QUERY SURVIVES: `?election=`, `?district=`, `?party=`, `?mode=` and `?seat=` mean the
+  // same thing on the canonical route, so dropping them would silently change what a shared link shows.
+  const r = spawnSync(
     process.execPath,
-    ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/pl", "party=INC&mode=flips", state],
+    [
+      "--import",
+      "./ops/probe/render/register.mjs",
+      "./ops/probe/render/render.mjs",
+      "/pl",
+      "party=INC&mode=flips",
+      `${state}/${districtSeg}/${seatSlug}`,
+    ],
     { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
   );
-  const q = `${withQuery.stderr ?? ""}${withQuery.stdout ?? ""}`;
-  assert.match(q, /party=INC/, "the redirect dropped the query string");
-  assert.match(q, /mode=flips/, "the redirect dropped part of the query string");
+  const out = `${r.stderr ?? ""}${r.stdout ?? ""}`;
+  assert.doesNotMatch(out, /NEXT_NOT_FOUND|NEXT_HTTP_ERROR_FALLBACK/, `/pl/${state}/${districtSeg}/${seatSlug} 404s instead of redirecting`);
+  const to = /NEXT_REDIRECT[;,]?\s*(?:replace|push)?[;,]?\s*(\/[^\s;"']*)/.exec(out)?.[1] ?? null;
+  assert.equal(to, `/constituency/${state}/assembly/${seatSlug}?party=INC&mode=flips`);
+});
 
-  // 3 — AN UNKNOWN ENTITY IS A 404, NEVER A REDIRECT UP THE TREE. Answering a constituency request with a
-  //     state page is the silent substitution this phase exists to end.
-  for (const bad of ["zz", `${state}/no-such-district`, `${state}/${districtSeg}/no-such-seat`]) {
-    const r = redirectOf(bad);
-    assert.ok(r.notFound || r.to === null, `/pl/${bad} redirected to ${r.to} instead of 404ing`);
+test("the pre-body URL answers to a name and matches its state exactly", live, () => {
+  // Every route that names a body ignores the state's case and reads a registry id or a number, and this one never has: the
+  // name must still answer (a redirect, or a page that asks which) while `WB`, a number and an id must not.
+  const seat = all<{ state: string; name: string; id: string }>(
+    db,
+    `SELECT pv.jurisdiction_id AS state, pv.canonical_name AS name, pv.place_id AS id
+       FROM place_version pv
+      WHERE pv.kind = 'ac' AND pv.canonical_name NOT GLOB '*[^A-Za-z ]*' AND ${currentSeat(db, "pv")}
+      ORDER BY pv.id LIMIT 1`,
+  )[0];
+  assert.ok(seat, "no current assembly seat with a plain name in the registry");
+  const slug = seat.name.trim().toLowerCase().replace(/\s+/g, "-");
+  const notFound = (state: string, name: string): boolean => {
+    const r = spawnSync(
+      process.execPath,
+      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/constituency/legacy", "", `${state}/${name}`],
+      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+    return /NEXT_NOT_FOUND|NEXT_HTTP_ERROR_FALLBACK/.test(`${r.stderr ?? ""}${r.stdout ?? ""}`);
+  };
+  assert.equal(notFound(seat.state, slug), false, `/constituency/${seat.state}/${slug} is a 404`);
+  assert.equal(notFound(seat.state.toUpperCase(), slug), true, `/constituency/${seat.state.toUpperCase()}/${slug} is not a 404`);
+  for (const written of [seat.id, String(Number(seat.id.split(".").at(-1)))]) {
+    assert.equal(notFound(seat.state, written), true, `/constituency/${seat.state}/${written} is read as more than a name`);
+  }
+});
+
+test("two seats that share a name are each reached by their registry id, from the page that asks and from their district", live, (t) => {
+  // Found in the registry, not named: the seed's Bishnupur in Bankura and in South 24 Parganas is the case that made the
+  // choose page link twice to itself, and any registry that holds such a pair is held to it.
+  const current = all<{ state: string; id: string; name: string; number: number; district: string }>(
+    db,
+    `SELECT pv.jurisdiction_id AS state, pv.place_id AS id, pv.canonical_name AS name, pv.number AS number,
+            pv.district_place_id AS district
+       FROM place_version pv
+      WHERE pv.kind = 'ac' AND pv.district_place_id IS NOT NULL AND pv.number IS NOT NULL AND ${currentSeat(db, "pv")}
+      ORDER BY pv.id`,
+  );
+  const words = (name: string): string => name.toLowerCase().split(/[^\p{L}\p{M}\p{N}]+/u).filter(Boolean).join(" ");
+  const groups = new Map<string, typeof current>();
+  for (const s of current) {
+    const key = `${s.state} ${words(s.name)}`;
+    groups.set(key, [...(groups.get(key) ?? []), s]);
+  }
+  const pair = [...groups.values()].find((g) => g.length > 1);
+  const first = pair?.[0];
+  if (pair === undefined || first === undefined) return t.skip("no two current assembly seats of a state share a name here");
+  const nameHref = `/constituency/${first.state}/assembly/${first.name.trim().toLowerCase().replace(/\s+/g, "-")}`;
+  const idHref = (id: string): string => `/constituency/${first.state}/assembly/${id}`;
+
+  // The page that asks: a link to each seat by its id, and none back to itself.
+  const asks = render("/constituency", "", `${first.state}/assembly/${nameHref.split("/").at(-1)}`);
+  const seatLinks = [...asks.matchAll(/href="(\/constituency\/[^"]*)"/g)].map((m) => m[1]);
+  assert.deepEqual(seatLinks.sort(), pair.map((s) => idHref(s.id)).sort());
+  assert.ok(!asks.includes(`href="${nameHref}"`), "the page that asks which links back to itself");
+
+  for (const seat of pair) {
+    // each address opens its own seat, and not the page that asks
+    const opened = text(render("/constituency", "", `${seat.state}/assembly/${seat.id}`));
+    assert.doesNotMatch(opened, /Which did you mean/, idHref(seat.id));
+    assert.ok(opened.includes(`No. ${seat.number}`), `${idHref(seat.id)} did not open seat no. ${seat.number}`);
+    // and its district's page links its row there
+    const listing = render("/district", "", `${seat.state}/${seat.district.split(".").slice(1).join(".")}`);
+    assert.ok(listing.includes(`href="${idHref(seat.id)}"`), `${seat.district} does not link ${seat.id} by its id`);
+    assert.ok(!listing.includes(`href="${nameHref}"`), `${seat.district} links a name that asks which`);
+    // and the old /pl path, which names the district, is sent to the same address
+    const slug = seat.name.trim().toLowerCase().replace(/\s+/g, "-");
+    const old = spawnSync(
+      process.execPath,
+      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/pl", "", `${seat.state}/${seat.district.split(".").slice(1).join(".")}/${slug}`],
+      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
+    );
+    const redirect = `${old.stderr ?? ""}${old.stdout ?? ""}`;
+    assert.ok(redirect.includes(idHref(seat.id)), `/pl/${seat.state}/${seat.district}/${slug} is not sent to ${idHref(seat.id)}`);
   }
 });
 

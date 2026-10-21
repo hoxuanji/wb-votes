@@ -17,7 +17,7 @@ import { DatabaseSync } from "node:sqlite";
 import { openRead, DEV_DB_PATH } from "../db/open.ts";
 import { migrate } from "../db/migrate.ts";
 import { get } from "../db/index.ts";
-import { INDIA, VERTICALS, getCoverage, verticals } from "./coverage.ts";
+import { INDIA, VERTICALS, geography, getCoverage, verticals } from "./coverage.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
@@ -100,6 +100,34 @@ test("a probe naming a table that no longer exists degrades instead of 500ing", 
   const coalitions = rows.find((v) => v.key === "coalitions");
   assert.equal(coalitions?.status, "no-model", "a broken probe must not take the page down");
   assert.equal(rows.length, 18, "a broken probe dropped a vertical from the ledger");
+  db.close();
+});
+
+test("geography counts the seats of a jurisdiction's newest election by chronology, not by id", () => {
+  const db = new DatabaseSync(":memory:");
+  migrate(db, "2026-08-10T00:00:00.000Z");
+  // Two elections in one year whose months were never sourced, so the occurrence says which was later. By id
+  // `-a9` sorts above `-a10`, so ordering by id counted the EARLIER election's one seat, not the later's two.
+  db.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('e1','Delimitation','2008-02-19');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('br','state','Bihar');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('br.ac.001','ac','SEAT A','br');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('br.ac.002','ac','SEAT B','br');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+      VALUES (1,'br.ac.001','br','ac','e1',1,'SEAT A','general');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+      VALUES (2,'br.ac.002','br','ac','e1',2,'SEAT B','general');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year,
+                          house_ordinal, occurrence)
+      VALUES ('br-assembly-2005-a9','assembly','state','br','e1','BR 2005 (9th)','declared','ac',2005,9,1);
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year,
+                          house_ordinal, occurrence)
+      VALUES ('br-assembly-2005-a10','assembly','state','br','e1','BR 2005 (10th)','declared','ac',2005,10,2);
+    INSERT INTO contest (id, election_id, place_version_id, lifecycle)
+      VALUES ('c1','br-assembly-2005-a9',1,'declared'), ('c2','br-assembly-2005-a10',1,'declared'),
+             ('c3','br-assembly-2005-a10',2,'declared');
+  `);
+  assert.equal(geography(db).assemblySeatsLoaded, 2, "counted the seats of the earlier election");
   db.close();
 });
 
