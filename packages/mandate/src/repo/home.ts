@@ -18,7 +18,7 @@
 //     never be one: importing Kerala's next assembly makes it appear on the front page with no code change.
 
 import type { DatabaseSync } from "node:sqlite";
-import { constituencyHref, districtHref, stateHref } from "./routes.ts";
+import { stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { read, type SourceRef } from "./index.ts";
 import {

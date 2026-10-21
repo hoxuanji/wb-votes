@@ -59,7 +59,7 @@ ops/probe/                   test scaffolding: render a route, and screenshot it
 ## Checks
 
 ```bash
-npm test                     # 405 tests, including a real-registry smoke suite
+npm test                     # the unit tests, and the smoke and render suites against .data/registry.db
 npm run type-check           # tsc over the app
 npm run registry:typecheck   # tsc over packages/mandate
 npm run lint                 # next lint
@@ -67,8 +67,11 @@ npm run build                # production build
 npm run registry:audit       # export round-trip and provenance report
 ```
 
-One test fails and is classified: `searchPersons` ranking/order-independence, in
-`packages/mandate/src/repo/person.test.ts`.
+The registry a fresh clone builds from the committed seed (`registry:migrate`, `registry:ingest`,
+`registry:resolve`) is small, and 52 tests fail against it, each on data only the full registry holds: Bihar's and
+Karnataka's elections, the Lok Sabha seats of other states, the 1976 delimitation, drawn polygons, and the people
+`searchPersons` ranks. CI asserts that at most one test fails, the classified `searchPersons`
+ranking/order-independence one in `packages/mandate/src/repo/person.test.ts` (`.github/workflows/ci.yml`).
 
 Three suites are worth knowing about, because between them they cover what `tsc` cannot see:
 

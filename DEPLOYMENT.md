@@ -19,7 +19,7 @@ a SQLite file, runs its `SELECT`s and closes the handle.
                             .data/registry.db  (SQLite, gitignored)
                                       ▲
                        ┌──────────────┴───────────────┐
-                       │  src/app — 18 routes         │
+                       │  src/app — the routes        │
                        │  runtime: nodejs             │
                        │  dynamic: force-dynamic      │
                        └──────────────────────────────┘
@@ -68,7 +68,7 @@ MANDATE_DIST=.next-verify npx next build
 npm run type-check           # tsc over the app
 npm run registry:typecheck   # tsc over packages/mandate
 npm run lint                 # next lint, via .eslintrc.json
-npm test                     # 465 tests; one classified failure (searchPersons ranking)
+npm test                     # needs the full registry: 52 fail on the seed one; CI allows at most one failure
 MANDATE_DIST=.next-verify npx next build
 npm run mandate -- geography validate   # constituency identity
 npm run mandate -- elections validate   # election-event identity
@@ -242,10 +242,12 @@ Stated here so nobody discovers them from a reader:
   relationship and none was invented.
 * **A registry built before migration 017 has no `voting_epoch` view, and every page still renders from it.** Without
   the view a seat is current when it is the newest version of its place, and place pages and search ask that one
-  question. It is the same answer wherever a seat number has one version; the view is what makes it exact, because
-  without it a version of an order nobody has voted under yet is current, and so is the last version of a seat number
-  that a later order abolished. `npm run registry:migrate` applies it. `npm run mandate -- release` and the seat-name
-  checks of `geography validate` still read the view, so they need it.
+  question. It is the view's answer for a seat number whose newest version is in the epoch its house votes under; the
+  view is what makes it exact, because without it a version of an order nobody has voted under yet is current, so is
+  the last version of a seat number that a later order abolished, and so is every seat of a house that has held no
+  full-house election. `npm run registry:migrate` applies it. `npm run mandate -- release`, `geography coverage`,
+  `geography missing` and checks 5 and 6 of `geography validate` (the seat-name checks, which run only with the cached
+  source files) still read the view, so they need it.
 
 ### What `vercel.json` still does
 

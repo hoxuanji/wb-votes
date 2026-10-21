@@ -25,7 +25,6 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import { seatHref, seatTies } from "./place-resolve.ts";
-import { districtHref, stateHref } from "./routes.ts";
 import { all, get } from "../db/index.ts";
 import { read } from "./index.ts";
 import type { SourceRef } from "./index.ts";

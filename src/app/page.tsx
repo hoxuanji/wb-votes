@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { constituencyHref, districtHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
+import { stateHref } from '../../packages/mandate/src/repo/routes.ts';
 import { homeView, layerChoices, leaderOf } from '../../packages/mandate/src/repo/home.ts';
 import { bodyWord } from '../../packages/mandate/src/core/election-kind.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';

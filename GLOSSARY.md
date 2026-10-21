@@ -96,7 +96,7 @@ Every state, union territory, district and seat version in the registry, held as
 _Avoid_: Place table
 
 **Place query**:
-What a URL's segments or a reader's words ask for: a state by its id, a district by its state and its id or its name, or a seat by its state and its name, its registry id or the number in that id, optionally narrowed to a body or a district. The narrowing is applied before any name or id is compared, so a query answers only inside the state, body and district it names; the API names no state, so it asks for a seat by its registry id or by a bare name, which can tie across states. A seat's name is compared as the registry spells it, reservation marker included, and only when no seat answers to it as written is it compared without the marker, and then with its words joined, unless the caller asks for the name exactly, as the API and the old two-segment constituency address do.
+What a URL's segments or a reader's words ask for: a state by its id, a district by its state and its id or its name, or a seat by its state and its name, its registry id or the number in that id, optionally narrowed to a body or a district. The narrowing is applied before any name or id is compared, so a query answers only inside the state, body and district it names; the API names no state, so it asks for a seat by its registry id or by a bare name, which seats of several states can answer together; the answer asks which was meant, as a Tie's does, but those seats are not a Tie. A seat's name is compared as the registry spells it, reservation marker included, and only when no seat answers to it as written is it compared without the marker, and then with its words joined, unless the caller asks for the name exactly, as the API and the old two-segment constituency address do.
 _Avoid_: Place lookup, slug
 
 **Found**:
@@ -112,7 +112,7 @@ The id the registry gives a place, such as `wb.ac.266` for an assembly seat of W
 _Avoid_: Slug
 
 **Tie**:
-Two or more current seats of one state and body whose names, read as words, are the same, such as West Bengal's two assembly seats named Bishnupur. A name cannot choose between them, so a query for the name alone is answered with all of them, each addressed by its registry id, while a query that also names a district is answered with the seats in that district, which is one seat where the districts tell them apart. The page that asks which was meant says each seat's district, and its seat number only where two share a district.
+Two or more current seats of one state and body whose names, read as words, are the same, such as `wb.ac.154` in South 24 Parganas and `wb.ac.266` in Bankura, which the registry built from the committed seed names alike, Bishnupur. A name cannot choose between them, so a query for the name alone is answered with all of them, each addressed by its registry id, while a query that also names a district is answered with the seats in that district, which is one seat where the districts tell them apart. The page that asks which was meant says each seat's district, and its seat number only where two share a district.
 _Avoid_: Duplicate seats, namesakes
 
 **Current seat**:
@@ -124,7 +124,7 @@ A name a seat number carried under an earlier epoch, or the name of a seat the c
 _Avoid_: Old name, former name, historical name
 
 **Reservation marker**:
-The "(SC)" or "(ST)" the source appends to a seat's name, as in "BISHNUPUR(SC)". The registry keeps the name as the source wrote it, so the marker stays in the seat's canonical href; the seat's reservation is recorded separately and is not read from the name.
+The "(SC)" or "(ST)" the source appends to a seat's name, as in "BISHNUPUR(SC)", the full registry's name for `wb.ac.146` (the registry built from the committed seed holds no name with a marker). The registry keeps the name as the source wrote it, so the marker stays in the seat's canonical href; the seat's reservation is recorded separately and is not read from the name.
 _Avoid_: Reservation suffix
 
 **Legacy target**:

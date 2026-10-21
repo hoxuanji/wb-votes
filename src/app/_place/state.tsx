@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { constituencyHref, districtHref, electionHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { districtHref, electionHref } from '../../../packages/mandate/src/repo/routes.ts';
 import type { ElectionChoice, ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
 import { MARGIN_BANDS, districtGroups, marginBandCounts } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';

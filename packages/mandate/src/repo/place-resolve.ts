@@ -33,8 +33,9 @@
 // district is `none`, not a seat from elsewhere. `none` is never answered with a different kind of place.
 //
 // A SEAT WITH NO STATE. The v1 API names a seat by the registry's own id (`wb.ac.001`) or by a bare name, and neither
-// carries a state. A bare name asks every state at once, so it can tie across states, which is `many` like any other
-// tie.
+// carries a state. A bare name asks every state at once, so seats of different states can answer it together: that is
+// `many` like any other, but it is not a tie in the sense of `tiedVersions`, which is of one state and body, so each
+// of those seats keeps the address of its name.
 //
 // WHAT IS NOT HERE. Strings arrive already decoded from the URL (a stray percent is the caller's to survive). The
 // canonical address is built by routes.ts and nothing here assembles a path. Two things differ from the SQL
@@ -131,8 +132,9 @@ export type SeatPlace = SeatRow & {
  * `one` is a destination, `many` is a question for the reader, `none` is a 404.
  *
  * `many` holds at least two places in a fixed order: assembly before Lok Sabha, then by seat number, then by name.
- * Two seats of one body that tie on name cannot be told apart by that name, so each is addressed by its registry id
- * (`seatHref`) and a page that lists them has a distinct link for each.
+ * Two seats of one state and body that tie on name cannot be told apart by that name, so each is addressed by its
+ * registry id (`seatHref`) and a page that lists them has a distinct link for each. Seats of different states that
+ * share a name are `many` as well, and are told apart by their state in the address of their name.
  */
 export type Found =
   | { found: "one"; place: Place }
@@ -365,10 +367,11 @@ type SeatSql = Omit<SeatRow, "current">;
  *
  * A registry built before the view DEGRADES instead of failing: a version is current when it is the newest of its place
  * id, by its epoch's start and then its id, which is how search chose a seat's version before it asked this. That is
- * the same answer wherever a seat number has one version, and it does not tie a seat with its own earlier delimitation,
- * as every version being current would. It cannot say which epoch a house votes under, so migration 017 is what makes
- * D26 exact: without it a newest order nobody has voted under is current, and so is the last version of a seat number
- * that a later order abolished.
+ * the view's answer for a seat number whose newest version is in the epoch its house votes under, and it does not tie
+ * a seat with its own earlier delimitation, as every version being current would. It cannot say which epoch a house
+ * votes under, so migration 017 is what makes D26 exact: without it a newest order nobody has voted under is current,
+ * so is the last version of a seat number that a later order abolished, and so is every seat of a house that has held
+ * no full-house election.
  */
 function currentSeats(db: DatabaseSync): (s: { versionId: number; stateId: string; kind: string; epochId: string }) => boolean {
   if (get(db, `SELECT 1 FROM sqlite_master WHERE type = 'view' AND name = 'voting_epoch'`) !== undefined) {

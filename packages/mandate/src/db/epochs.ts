@@ -33,8 +33,8 @@ export function ensureEpochs(db: DatabaseSync, epochIds: Iterable<string>): void
  * The epoch each (jurisdiction, house) votes under, keyed `"<jurisdiction> <ac|pc>"`: the epoch its newest
  * full-house election's seats sit in. Read from the `voting_epoch` view (migration 017), which holds the rule.
  *
- * Not `inForce`. That asks what the law was on a date; this asks what the results say, and the two differ
- * whenever an order has taken effect that no election has yet been held under.
+ * Not `inForce`. That asks which epoch the table of orders gives for a date; this asks what the results say, and the
+ * two differ whenever an order has taken effect that no election has yet been held under.
  */
 export function votingEpochs(db: DatabaseSync): Map<string, string> {
   const rows = all<{ jurisdiction_id: string; house: string; epoch_id: string }>(

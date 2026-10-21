@@ -18,7 +18,7 @@
 
 import type { DatabaseSync } from "node:sqlite";
 import { placeIndex, seatHref, seatTies } from "./place-resolve.ts";
-import { districtHref, electionHref, stateHref } from "./routes.ts";
+import { electionHref, stateHref } from "./routes.ts";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
 import { searchPersons, type PersonRow } from "./person.ts";
@@ -128,11 +128,16 @@ function elections(db: DatabaseSync, pattern: string, prefix: string): Hit[] {
  *
  * A seat has one `place_version` per delimitation it survived, so the naive query matches every version and
  * returns the same seat three times. It keeps the CURRENT one, which is the version the place resolver answers and
- * `placeIndex` names. The newest is not always that: Assam's assembly votes under delim-2008 although delim-2023-as
- * holds the seat in force, and a hit on the newest version linked to a page that 404s. A place with no current
- * version, such as a seat of a house that has held no full-house election, is not offered. Which versions are
- * current is the index's to say and is not worked out here a second time, so a hit and the page it opens cannot
- * name different seats.
+ * `placeIndex` names. The newest is not always that, and a hit on a newest version that is not current linked to a
+ * page that 404s. Two shapes do it: a seat number that the order its house votes under left out, which keeps only
+ * its older versions (search.test.ts builds Karnataka's seat 300, under delim-1976 only), and a seat that an order
+ * nobody has voted under yet redraws (the test's Assam assembly, under delim-2023-as). The second is the fixture's and
+ * not the registry's: delim-2023-as holds 14 parliamentary seats and no assembly seats (docs/geo/audit.md), so Assam's
+ * newest assembly versions are delim-2008, which is where its house votes. A place with no current version is not
+ * offered. With migration 017 that is a seat of a house that has held no full-house election, or a seat number with no
+ * version in the epoch its house votes under; a registry without it takes the newest version of every place as
+ * current, so every place is offered. Which versions are current is the index's to say and is not worked out here a
+ * second time, so a hit and the page it opens cannot name different seats.
  *
  * IT DELIBERATELY DOES NOT MATCH HISTORICAL NAMES, and that is the interesting decision here. The first
  * version of this did: it matched any version and displayed the current one, with "· was BADAMI" where they
@@ -196,8 +201,8 @@ function constituencies(db: DatabaseSync, pattern: string, prefix: string): Hit[
     PER_GROUP,
   )
     .map((r): Hit | null => {
-      // No district or no state means no four-segment path, and a link to /pl// resolves to nothing. A seat
-      // that cannot be addressed is left out rather than offered as a dead row.
+      // A seat with no state has no address, since /constituency/<state>/<body>/<name> needs one. A seat that cannot
+      // be addressed is left out rather than offered as a dead row.
       // A PARLIAMENTARY SEAT HAS NO DISTRICT, and this used to require one — so every pc hit was dropped and
       // search could not reach a Lok Sabha constituency at all. The canonical URL carries the body and the
       // jurisdiction now, so the district is not part of the identity and its absence is not a reason to hide
