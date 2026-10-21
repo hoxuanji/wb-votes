@@ -40,7 +40,6 @@ one field answers for every kind of thing, and every group it offers is navigabl
 searchPersons: a person is the FIRST answer to their own name
 searchPersons: every exactly-named person is REACHABLE, not merely ranked
 searchPersons: exactness outranks prominence, never the reverse
-the declared datasets exist, are hashed, and their bytes are on disk unaltered
 the discovered matrix covers every election type the registry holds
 the homepage never prints a fabricated figure
 the navigation graph walks all the way down, in five jurisdictions
