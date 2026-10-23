@@ -36,6 +36,7 @@ import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../db/index.ts";
 import { all, insertMany } from "../../db/index.ts";
+import { atomically, putRows } from "../../db/write.ts";
 import { ensureEpochs } from "../../db/epochs.ts";
 import { epochOfDelimId } from "../../core/epochs.ts";
 import { slug } from "../../core/ids.ts";
@@ -300,14 +301,6 @@ export type ImportReport = {
   adoptedPlaces: number;
   skipped: { reason: string; count: number }[];
 };
-
-function upsert(table: string, cols: readonly string[], key: readonly string[]): string {
-  const set = cols.filter((c) => !key.includes(c)).map((c) => `${c}=excluded.${c}`);
-  return (
-    `INSERT INTO ${table} (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})` +
-    ` ON CONFLICT (${key.join(",")}) DO ${set.length ? `UPDATE SET ${set.join(",")}` : "NOTHING"}`
-  );
-}
 
 /**
  * Load one state's election file into the registry.
@@ -767,19 +760,9 @@ export function importLokdhaba(
   // reservation value the schema had never seen — and left the source, epoch and place rows behind,
   // because every insertMany owned its own transaction and nothing owned the import. A half-imported
   // state is worse than an unimported one: it looks loaded.
-  const w = (table: string, cols: readonly string[], key: readonly string[], rows: Iterable<Param[]>): number => {
-    const list = [...rows];
-    return list.length === 0 ? 0 : insertMany(db, upsert(table, cols, key), list);
-  };
-  db.exec("SAVEPOINT import_lokdhaba");
-  try {
-    writeAll();
-    db.exec("RELEASE import_lokdhaba");
-  } catch (cause) {
-    db.exec("ROLLBACK TO import_lokdhaba");
-    db.exec("RELEASE import_lokdhaba");
-    throw cause;
-  }
+  const w = (table: string, cols: readonly string[], key: readonly string[], rows: Iterable<Param[]>): number =>
+    putRows(db, table, cols, key, rows);
+  atomically(db, "import_lokdhaba", writeAll);
 
   function writeAll(): void {
     w("source", ["id", "kind", "publisher", "title", "url", "archived_url", "retrieved_at", "published_on", "doc_hash", "hash_kind", "retrieval_kind"], ["id"], sourceRows);

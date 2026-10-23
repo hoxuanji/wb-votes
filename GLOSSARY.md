@@ -75,6 +75,14 @@ _Avoid_: outage, unavailable, bug (when it is shown to a reader)
 What a registry session reports: either the value it produced, or that the registry was in an outage, with a sentence for the reader and the underlying cause for the log.
 _Avoid_: result (a result is an election result)
 
+### Writing the registry
+
+**Write path**:
+How rows get into the registry: an importer turns one source into rows and upserts them table by table, parents before children, each row on its table's own key. The seed and Lokdhaba importers check each batch against the table catalog before writing it; the other importers do not.
+
+**Table catalog**:
+What the migrations say about each table: its columns, which of them must be given a value, which column sets identify a row (the primary key and each UNIQUE constraint) and which values a CHECK allows. A batch written through it is refused before anything is written if it names a column the table lacks, leaves out a required one, upserts on a set that identifies no row, or has a row of the wrong length.
+
 ### Delimitation
 
 **Epoch**:

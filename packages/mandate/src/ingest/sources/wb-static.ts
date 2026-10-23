@@ -28,6 +28,7 @@ import { DISTRICT_ALIAS } from "../districts.ts";
 import { JURISDICTIONS } from "../india.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
 import { ensureEpochs } from "../../db/epochs.ts";
+import { putRows } from "../../db/write.ts";
 import { sha256Hex } from "../raw/index.ts";
 import { coverageFailures, fieldCoverage, formatCoverage, seedShapeFailures, type CoverageRow } from "../field-coverage.ts";
 
@@ -319,16 +320,6 @@ export type IngestOptions = {
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-/** `INSERT ... ON CONFLICT (key) DO UPDATE SET <every non-key column>`. One generator instead of
- *  twenty hand-written statements that drift from the DDL. */
-function upsert(table: string, cols: readonly string[], key: readonly string[]): string {
-  const set = cols.filter((c) => !key.includes(c)).map((c) => `${c}=excluded.${c}`);
-  return (
-    `INSERT INTO ${table} (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})` +
-    ` ON CONFLICT (${key.join(",")}) DO ${set.length ? `UPDATE SET ${set.join(",")}` : "NOTHING"}`
-  );
-}
-
 const acPlaceId = (n: number): string => `${STATE_PLACE}.ac.${String(n).padStart(3, "0")}`;
 /** Seat slug for a contest id. The number is always appended because WB has two Bishnupurs. */
 const seatSlug = (name: string, n: number): string => `${slug(name)}-${String(n).padStart(3, "0")}`;
@@ -599,10 +590,11 @@ function ingest(
   const resultRows: Param[][] = [];
   const turnoutRows: Param[][] = [];
 
-  /** `INSERT ... ON CONFLICT DO UPDATE` for one table. Defined here because party rows are
-   *  written mid-build: candidacy needs the party_version ids the database assigns. */
+  /** `INSERT ... ON CONFLICT DO UPDATE` for one table, after `putRows` has checked the columns, the key
+   *  and every row's length against the DDL. Defined here because party rows are written mid-build:
+   *  candidacy needs the party_version ids the database assigns. */
   const w = (table: string, cols: readonly string[], key: readonly string[], rows: readonly Param[][]): number =>
-    rows.length === 0 ? 0 : insertMany(db, upsert(table, cols, key), rows);
+    putRows(db, table, cols, key, rows);
 
   // Every citation this pipeline writes anchors at page_no 0 ("the whole document") with a null
   // rect: we hold module bytes and affidavit URLs, never a page. A value whose citation cannot
@@ -1289,7 +1281,7 @@ function ingest(
       if (match && isWinner) {
         // Upgrade the nomination row we joined onto: this person was declared elected. Edit the
         // status on the row that is already there — cycle 1 pushed a SECOND row for the same id
-        // with age_declared and education_declared null, and since upsert() SETs every non-key
+        // with age_declared and education_declared null, and since upsertSql() SETs every non-key
         // column the later row wiped the affidavit-declared age and education off all 293
         // declared winners. A later, thinner row must never overwrite a richer one.
         const nomination = candidacyRows.get(candId);

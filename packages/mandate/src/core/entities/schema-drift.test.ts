@@ -3,8 +3,8 @@
 // Types are erased at runtime, so each entity contributes one Shape<T> literal to MAP below: TS
 // forces it to name every property exactly once and to label it "req" or "null" exactly as the type
 // does (write the wrong label and this file will not compile). The test then reads the live columns
-// with PRAGMA table_info and compares. Two ways to go green: fix the type, or fix the label — and
-// the label cannot lie, so it is always the type.
+// through the table catalog (db/catalog.ts, PRAGMA table_info underneath) and compares. Two ways to
+// go green: fix the type, or fix the label — and the label cannot lie, so it is always the type.
 //
 // Rules asserted, per §19 and the DDL header:
 //   * NOT NULL column, or an INTEGER PRIMARY KEY (rowid alias, table_info reports notnull=0) -> req
@@ -17,7 +17,8 @@
 
 import test from "node:test";
 import assert from "node:assert/strict";
-import { all, get, open } from "../../db/index.ts";
+import { checkedValues, describeTable } from "../../db/catalog.ts";
+import { open } from "../../db/index.ts";
 import { migrate } from "../../db/migrate.ts";
 import {
   BIRTH_YEAR_CONFIDENCES,
@@ -393,32 +394,18 @@ const VOCAB: Record<string, readonly string[]> = {
   "ingest_run.status": INGEST_RUN_STATUSES,
 };
 
-type Col = { name: string; notnull: number; pk: number };
-
 const snake = (prop: string): string => prop.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
 const camel = (col: string): string => col.replace(/_(.)/g, (_, c: string) => c.toUpperCase());
-
-/** The quoted literals of `CHECK (<column> IN (...))`, or [] when there is no such CHECK.
- *  ponytail: only quoted lists — result.is_winner's CHECK (is_winner IN (0,1)) has no strings to
- *  compare and is covered by typing isWinner as 0 | 1. */
-function checkedValues(sql: string, column: string): string[] {
-  const body = new RegExp(`CHECK\\s*\\(\\s*${column}\\s+IN\\s*\\(([^)]*)\\)`).exec(sql)?.[1] ?? "";
-  return [...body.matchAll(/'([^']*)'/g)].map((m) => String(m[1]));
-}
 
 const db = open(":memory:");
 migrate(db, "2026-08-07T00:00:00.000Z"); // globs ops/migrations/*.sql; 004+ arrive for free
 
 for (const [table, shape] of Object.entries(MAP)) {
   test(`${table} matches its DDL`, () => {
-    const cols = all<Col>(db, `PRAGMA table_info(${table})`);
-    assert.ok(cols.length > 0, `no table '${table}' — MAP names a table no migration creates`);
-    // `--` comments are kept verbatim in sqlite_master.sql and contain apostrophes ("cycle 1's"),
-    // which would otherwise be read as CHECK literals.
-    const ddl = String(get<{ sql: string }>(db, "SELECT sql FROM sqlite_master WHERE name = ?", table)?.sql).replace(
-      /--[^\n]*/g,
-      "",
-    );
+    const described = describeTable(db, table);
+    assert.ok(described !== undefined, `no table '${table}' — MAP names a table no migration creates`);
+    const cols = described.columns;
+    const ddl = described.sql;
 
     const props = new Map(Object.entries(shape).map(([prop, want]) => [snake(prop), { prop, want }]));
     const drift: string[] = [];
@@ -426,7 +413,7 @@ for (const [table, shape] of Object.entries(MAP)) {
     for (const col of cols) {
       // An INTEGER PRIMARY KEY is a rowid alias: table_info says notnull=0, SQLite never returns
       // NULL for it, and Postgres has it as bigserial NOT NULL.
-      const want = col.notnull === 1 || col.pk > 0 ? "req" : "null";
+      const want = col.notnull || col.pk > 0 ? "req" : "null";
       const p = props.get(col.name);
       if (p === undefined) {
         drift.push(`${table}.${col.name} (${want}) has no property — add \`${camel(col.name)}\``);
@@ -463,6 +450,6 @@ for (const [table, shape] of Object.entries(MAP)) {
 test("the map covers a table it does not own without failing", () => {
   // person_merge, person_identifier, alliance_member, source_page and schema_migration are real
   // tables with no type. That is allowed: the loop above only walks MAP.
-  assert.ok(all<Col>(db, "PRAGMA table_info(person_merge)").length > 0);
+  assert.ok((describeTable(db, "person_merge")?.columns.length ?? 0) > 0);
   assert.equal(Object.keys(MAP).includes("person_merge"), false);
 });

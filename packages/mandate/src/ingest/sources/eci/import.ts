@@ -28,6 +28,7 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../../db/index.ts";
 import { all, get } from "../../../db/index.ts";
 import { ensureEpochs } from "../../../db/epochs.ts";
+import { upsertSql } from "../../../db/write.ts";
 import { epochById } from "../../../core/epochs.ts";
 import { candidacyId, contestId, slug } from "../../../core/ids.ts";
 import { blockingKeys, detectScript } from "../../../core/indic/index.ts";
@@ -66,14 +67,6 @@ export type ImportReport = {
   warnings: string[];
 };
 
-const upsert = (table: string, cols: readonly string[], key: readonly string[]): string => {
-  const set = cols.filter((c) => !key.includes(c)).map((c) => `${c}=excluded.${c}`);
-  return (
-    `INSERT INTO ${table} (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})` +
-    ` ON CONFLICT (${key.join(",")}) DO ${set.length > 0 ? `UPDATE SET ${set.join(",")}` : "NOTHING"}`
-  );
-};
-
 /**
  * Write the staged election.
  *
@@ -107,7 +100,7 @@ export function importStaged(
     const runId = Number(get<{ id: number }>(db, "SELECT MAX(id) AS id FROM ingest_run")?.id ?? 0);
 
     // ── sources: one row per artefact, with ECI's own caveat attached ────────────────────────────
-    const sourceSql = upsert(
+    const sourceSql = upsertSql(
       "source",
       ["id", "kind", "publisher", "title", "url", "retrieved_at", "doc_hash", "hash_kind", "retrieval_kind", "publisher_note"],
       ["id"],
@@ -138,8 +131,8 @@ export function importStaged(
     // ── place_version for the seats the registry has never held ─────────────────────────────────
     let placesCreated = 0;
     let versionsCreated = 0;
-    const placeSql = upsert("place", ["id", "kind", "parent_id", "canonical_name", "eci_code"], ["id"]);
-    const versionSql = upsert(
+    const placeSql = upsertSql("place", ["id", "kind", "parent_id", "canonical_name", "eci_code"], ["id"]);
+    const versionSql = upsertSql(
       "place_version",
       ["id", "place_id", "jurisdiction_id", "kind", "epoch_id", "number", "canonical_name", "reservation",
        "source_constituency_key", "name_source_id"],
@@ -217,23 +210,23 @@ export function importStaged(
     let partiesMatched = 0;
     let partiesUnresolved = 0;
 
-    const symbolSql = upsert("symbol", ["id", "name"], ["id"]);
+    const symbolSql = upsertSql("symbol", ["id", "name"], ["id"]);
     const symbols = new Set(all<{ id: string }>(db, "SELECT id FROM symbol").map((r) => r.id));
 
     // ── contests, candidacies, results, turnout ─────────────────────────────────────────────────
-    const contestSql = upsert("contest", ["id", "election_id", "place_version_id", "seats_available", "lifecycle"], ["id"]);
-    const candidacySql = upsert(
+    const contestSql = upsertSql("contest", ["id", "election_id", "place_version_id", "seats_available", "lifecycle"], ["id"]);
+    const candidacySql = upsertSql(
       "candidacy",
       ["id", "contest_id", "person_id", "party_version_id", "symbol_id", "status", "age_declared", "party_raw"],
       ["id"],
     );
-    const resultSql = upsert(
+    const resultSql = upsertSql(
       "result",
       ["contest_id", "candidacy_id", "revision", "votes", "postal_votes", "evm_votes", "vote_share", "rank",
        "is_winner", "margin", "source_id", "ingested_at"],
       ["contest_id", "candidacy_id", "revision"],
     );
-    const turnoutSql = upsert(
+    const turnoutSql = upsertSql(
       "turnout",
       ["contest_id", "scope", "electors", "voters", "male", "female", "third_gender", "postal", "nota", "source_id"],
       ["contest_id", "scope"],
@@ -548,13 +541,13 @@ function personResolver(
   }
   const taken = new Set(all<{ id: string }>(db, "SELECT id FROM person").map((r) => r.id));
 
-  const personSql = upsert("person", ["id", "canonical_name", "canonical_name_script", "names", "sex", "review_state", "created_at"], ["id"]);
+  const personSql = upsertSql("person", ["id", "canonical_name", "canonical_name_script", "names", "sex", "review_state", "created_at"], ["id"]);
   // Repoints on conflict rather than doing nothing: the identifier is this pipeline's own key, so when a
   // re-run resolves an ECI candidate to a different person the mapping must follow, not stick.
   const identifierSql =
     "INSERT INTO person_identifier (person_id, scheme, value, source_id) VALUES (?, 'eci_candidate_id', ?, ?)" +
     " ON CONFLICT (scheme, value) DO UPDATE SET person_id = excluded.person_id, source_id = excluded.source_id";
-  const aliasSql = upsert("person_alias", ["person_id", "name", "script", "norm_key", "kind", "first_seen", "source_id"],
+  const aliasSql = upsertSql("person_alias", ["person_id", "name", "script", "norm_key", "kind", "first_seen", "source_id"],
     ["person_id", "name", "script", "norm_key"]);
 
   /**
