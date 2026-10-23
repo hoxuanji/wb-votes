@@ -227,8 +227,8 @@ export function StateSurface({
         {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
           <p className="iei-caveat">
             No candidate vote counts were published for this election. Winners and turnout are on record;
-            margins, competitiveness and vote-to-seat conversion are not, so those figures read as dashes
-            and their sections are absent rather than shown as zero.
+            margins, competitiveness and vote-to-seat conversion are not, so those figures read as dashes, and
+            a chart that would need them is left out or replaced by a sentence, never drawn as zero.
           </p>
         ) : null}
 

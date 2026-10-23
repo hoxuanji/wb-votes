@@ -217,9 +217,8 @@ export default function ElectionPage({
           }))}
         />
 
-        {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. The list below is the closest
-            contests, not every result, and is empty where no margin is known, so the notice does not point at it. */}
-        <NoMap view={v} listed={false} />
+        {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
+        <NoMap view={v} />
 
         <div className="iei-linked iei-map-split">
           <ElectionMap view={v} selection={sel} />

@@ -147,24 +147,25 @@ const BASEMAP: readonly { name: string; path: string }[] = INDIA_SHAPES.map((s) 
  * the 2008 order and nothing about them was redrawn: the registry simply holds no outline for it, and blaming a redraw
  * there was false. An election with no seats has nothing to explain.
  *
- * `listed` is whether the page has a seat list under the notice to point at. The state page does, and it can be narrowed
- * to any district, party or band; the election page lists only its twelve closest contests, and none at all where no
- * margin is known, so there "every result is in the list below" would be false and the sentence ends before it.
+ * It says why and nothing about where the results are. It used to add "Every result is in the list below", which was false on
+ * both pages: the state page lists twelve seats unless the reader narrows it ("First 12 of 294" sits right under the
+ * sentence) and the election page lists its closest contests, which is none where no margin is known.
  */
-export function NoMap({ view, listed = true }: { view: ElectionMapView; listed?: boolean }) {
+export function NoMap({ view }: { view: ElectionMapView }) {
   const { status } = view.geometry;
   const n = view.seats.length;
   if (status === 'drawn' || n === 0) return null;
-  // A by-election can fill a single seat. A redrawn map keeps its sentence as it was written.
-  const single = status === 'no-geometry' && n === 1;
+  // A by-election can fill a single seat.
+  const one = n === 1;
   return (
     <p className="iei-absent">
       {status === 'redrawn'
-        ? `No boundary map is available for these ${n} constituencies — they were redrawn and the new boundaries are not on record.`
-        : single
+        ? one
+          ? 'No boundary map is available for this constituency — it was redrawn and the new boundary is not on record.'
+          : `No boundary map is available for these ${n} constituencies — they were redrawn and the new boundaries are not on record.`
+        : one
           ? 'No boundary map is loaded for this constituency.'
           : `No boundary map is loaded for these ${n} constituencies.`}
-      {listed ? (single ? ' Its result is in the list below.' : ' Every result is in the list below.') : null}
     </p>
   );
 }

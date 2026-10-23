@@ -282,16 +282,12 @@ function text(html: string): string {
     .join("\n");
 }
 
-/**
- * The notice, as one line of the page's text. The state page points at its seat list below the notice; the election page
- * does not, because its list is the closest contests and is empty where no margin is known.
- */
-const NO_GEOMETRY = (n: number, below: boolean) =>
-  `No boundary map is loaded for ${n === 1 ? "this constituency" : `these ${n} constituencies`}.` +
-  (below ? (n === 1 ? " Its result is in the list below." : " Every result is in the list below.") : "");
-const REDRAWN = (n: number, below: boolean) =>
-  `No boundary map is available for these ${n} constituencies — they were redrawn and the new boundaries are not on record.` +
-  (below ? " Every result is in the list below." : "");
+/** The notice, as one line of the page's text. It says why there is no map and nothing about where the results are. */
+const NO_GEOMETRY = (n: number) => `No boundary map is loaded for ${n === 1 ? "this constituency" : `these ${n} constituencies`}.`;
+const REDRAWN = (n: number) =>
+  n === 1
+    ? "No boundary map is available for this constituency — it was redrawn and the new boundary is not on record."
+    : `No boundary map is available for these ${n} constituencies — they were redrawn and the new boundaries are not on record.`;
 
 const lines = (t: string): string[] => t.split("\n");
 /** The page's text without the notice, so everything else on it can be read for what it says about a map. */
@@ -300,31 +296,37 @@ const withoutNotice = (t: string): string =>
     .filter((l) => !l.startsWith("No boundary map"))
     .join("\n");
 
-test("each reason says its own thing on the state page, and the redrawn one is the sentence it always was", () => {
+test("each reason says its own thing on the state page, and neither claims the results are in a list below", () => {
   const none = lines(text(render("/state", "", "bb")));
-  assert.ok(none.includes(NO_GEOMETRY(2, true)), none.join("\n"));
+  assert.ok(none.includes(NO_GEOMETRY(2)), none.join("\n"));
   assert.doesNotMatch(none.join("\n"), /redrawn/, "a registry with no outline blames no redraw");
 
   const redrawn = lines(text(render("/state", "", "cc")));
-  assert.ok(redrawn.includes(REDRAWN(2, true)), redrawn.join("\n"));
+  assert.ok(redrawn.includes(REDRAWN(2)), redrawn.join("\n"));
   assert.doesNotMatch(redrawn.join("\n"), /No boundary map is loaded/);
+
+  // The list under the notice is capped ("First 12 of 294"), so the notice never says every result is in it.
+  assert.doesNotMatch(none.join("\n") + redrawn.join("\n"), /in the list below/);
 
   const drawn = text(render("/state", "", "aa"));
   assert.doesNotMatch(drawn, /No boundary map/);
 });
 
-test("the election page says why too, without pointing at a list that is not every result, and says nothing when it draws a map", () => {
-  assert.ok(lines(text(render("/election", "", "bb-assembly-2021"))).includes(NO_GEOMETRY(2, false)));
-  assert.ok(lines(text(render("/election", "", "cc-assembly-2023"))).includes(REDRAWN(2, false)));
+test("the election page says why too, and says nothing when it draws a map", () => {
+  assert.ok(lines(text(render("/election", "", "bb-assembly-2021"))).includes(NO_GEOMETRY(2)));
+  assert.ok(lines(text(render("/election", "", "cc-assembly-2023"))).includes(REDRAWN(2)));
   // One seat is "this constituency", not "these 1 constituencies".
-  assert.ok(lines(text(render("/election", "", "bb-bypoll-2018"))).includes(NO_GEOMETRY(1, false)));
+  assert.ok(lines(text(render("/election", "", "bb-bypoll-2018"))).includes(NO_GEOMETRY(1)));
   assert.doesNotMatch(text(render("/election", "", "aa-assembly-2021")), /No boundary map/);
   // An election with no seats has nothing to explain.
   assert.doesNotMatch(text(render("/election", "", "gg-assembly-2021")), /No boundary map/);
 });
 
-test("a one-seat election on the state page says this constituency and points at its result", () => {
-  assert.ok(lines(text(render("/state", "election=bb-bypoll-2018", "bb"))).includes(NO_GEOMETRY(1, true)));
+test("a one-seat election on the state page says this constituency, for either reason", () => {
+  assert.ok(lines(text(render("/state", "election=bb-bypoll-2018", "bb"))).includes(NO_GEOMETRY(1)));
+  // cc has one Lok Sabha seat, and it was redrawn: "this constituency", not "these 1 constituencies".
+  const one = lines(text(render("/state", "house=pc", "cc")));
+  assert.ok(one.includes(REDRAWN(1)), one.join("\n"));
 });
 
 test("a drawn map keeps every control and caption that refers to it", () => {

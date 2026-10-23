@@ -40,7 +40,8 @@ function Nothing({ children }: { children: string }) {
  * counts. Every surface in this product showed the five smallest. The five smallest cannot tell you whether
  * an election was close everywhere or a landslide with five accidents, and that is the question.
  *
- * INTERACTION IS THE POINT, not an ornament: each bar is a link that isolates its own seats on the map above.
+ * INTERACTION IS THE POINT, not an ornament: each bar is a link that isolates its own seats on the map above, or
+ * in the seat list where the page draws no map.
  * So "45 seats were decided by under 2 points" becomes "and here is where they are", which is the drill-down
  * the brief asks for and the thing a histogram alone cannot do.
  *
@@ -164,7 +165,7 @@ function distLabel(bins: readonly MarginBin[], total: number): string {
  *
  * None of those six figures appears anywhere else in this product.
  *
- * Each marker is a link that isolates that party on the map, so "BJP converts votes to seats well" leads
+ * Each marker is a link that isolates that party on the map (or in the seat list where there is no map), so "BJP converts votes to seats well" leads
  * straight to "and here is where".
  */
 export function VoteSeatPlot({
@@ -367,7 +368,7 @@ export function FlipMatrix({
  * stacked bar and not a histogram: the bands are deliberately unequal (under 1%, 1–2%, 2–5%, 5–10%, safe)
  * and a histogram of unequal bins lies about area.
  *
- * Every segment is a link that isolates its seats on the map, so "11 seats under a point" becomes "and here
+ * Every segment is a link that isolates its seats on the map (or in the seat list where there is no map), so "11 seats under a point" becomes "and here
  * they are".
  */
 export function MarginBands({
