@@ -360,6 +360,29 @@ test("an already-drawn version is skipped, and only --replace overwrites it", ()
   db.close();
 });
 
+test("an applied import is one run, a dry run is none, and a write that stops leaves a failed run and no geometry", () => {
+  const db = fixture();
+  const runs = () => db.prepare("SELECT pipeline, status, rows_in, rows_out, finished_at AS fin FROM ingest_run ORDER BY id").all()
+    .map((r) => ({ ...r }));
+  const retrievedAt = () => db.prepare("SELECT retrieved_at AS t FROM source WHERE kind = 'boundary_geometry'").get()?.["t"];
+  const FIRST = "2026-08-12T00:00:00.000Z";
+  const LATER = "2026-09-01T00:00:00.000Z";
+
+  importGeometry(db, AC, feats(), { apply: false, nowIso: FIRST });
+  assert.deepEqual(runs(), []);
+
+  importGeometry(db, AC, feats(), { apply: true, nowIso: FIRST });
+  assert.deepEqual(runs(), [{ pipeline: "geo:test-ac", status: "ok", rows_in: 3, rows_out: 3, fin: FIRST }]);
+
+  db.exec("DELETE FROM place_geometry");
+  db.exec("CREATE TRIGGER disk_on_fire BEFORE INSERT ON place_geometry BEGIN SELECT RAISE(ABORT, 'disk on fire'); END");
+  assert.throws(() => importGeometry(db, AC, feats(), { apply: true, nowIso: LATER }), /disk on fire/);
+  assert.equal(db.prepare("SELECT COUNT(*) AS n FROM place_geometry").get()?.["n"], 0);
+  assert.equal(retrievedAt(), FIRST, "the source row's update was rolled back with the rest");
+  assert.deepEqual(runs().map((r) => [r["status"], r["fin"]]), [["ok", FIRST], ["failed", LATER]]);
+  db.close();
+});
+
 test("every row lands in one coordinate space, declared per row", () => {
   const db = fixture();
   importGeometry(db, AC, feats(), { apply: true, nowIso: "2026-08-12T00:00:00.000Z" });

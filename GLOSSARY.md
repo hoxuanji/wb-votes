@@ -91,6 +91,9 @@ _Avoid_: Current party version, active party version
 The person an id stands for now: the id itself, or the person it was merged into, followed through any chain of merges that have not been reverted. The seed and Lokdhaba importers write what they derive for an id onto its live person, so a later run does not bring a merged person back.
 _Avoid_: Current person, canonical person
 
+**Ingest run**:
+One `ingest_run` row for one import call. The Lokdhaba, 2024 Lok Sabha, geometry and delimitation imports open it before they write and close it with the rows they counted, and when one stops its writes are undone and the run is left as failed; the seed ingest records a run too, but keeps the rows it had written. The finish time of the newest finished run is the data version the API reports, so a failed run never moves it.
+
 ### Delimitation
 
 **Epoch**:

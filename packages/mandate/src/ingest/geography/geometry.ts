@@ -55,6 +55,7 @@ import { fileURLToPath } from "node:url";
 import { all, get, insertMany } from "../../db/index.ts";
 import { phoneticKey } from "../../core/indic/index.ts";
 import { sha256Hex } from "../raw/index.ts";
+import { ingestRun } from "../run.ts";
 import { boxOfRings, pathOfRings, project, ringArea, ringsOf, simplifyRing } from "./project.ts";
 
 /** Half the detail of the national basemap: a constituency is drawn at state scale, not country scale. */
@@ -702,6 +703,8 @@ function within(box: readonly number[], outer: readonly number[]): boolean {
 
 // ── import ────────────────────────────────────────────────────────────────────
 
+const PARSER_VERSION = "geometry-v1";
+
 export type ImportResult = {
   report: InspectReport;
   sourceId: string;
@@ -714,8 +717,9 @@ export type ImportResult = {
 /**
  * Write what the report decided, and only that.
  *
- * One savepoint around the whole dataset: a geometry import that half-succeeded would leave a state with
- * some constituencies drawn and some not, which is indistinguishable from a source that is missing seats.
+ * One atomic block, the run's, around the whole dataset: a geometry import that half-succeeded would leave a
+ * state with some constituencies drawn and some not, which is indistinguishable from a source that is missing
+ * seats. A dry run writes nothing, so it is not a run.
  */
 export function importGeometry(
   db: DatabaseSync,
@@ -747,8 +751,7 @@ export function importGeometry(
     return { report, sourceId, written: fresh.length, restatedWritten, replaced: opts.replace === true ? clash.length : 0, skipped: opts.replace === true ? 0 : clash.length };
   }
 
-  db.exec("SAVEPOINT geometry_import");
-  try {
+  ingestRun(db, { pipeline: `geo:${dataset.id}`, parserVersion: PARSER_VERSION, nowIso: opts.nowIso, rowsIn: rows.length }, (run) => {
     db.prepare(
       `INSERT INTO source (id, kind, publisher, title, url, retrieved_at, published_on, doc_hash, hash_kind, retrieval_kind, licence, publisher_note)
          VALUES (?, 'boundary_geometry', ?, ?, ?, ?, ?, ?, 'document_bytes', 'fetched', ?, ?)
@@ -774,12 +777,8 @@ export function importGeometry(
       `INSERT INTO place_geometry (place_version_id, path, centroid_x, centroid_y, view_box, source_id) VALUES (?, ?, ?, ?, ?, ?)`,
       write,
     );
-    db.exec("RELEASE geometry_import");
-  } catch (cause) {
-    db.exec("ROLLBACK TO geometry_import");
-    db.exec("RELEASE geometry_import");
-    throw cause;
-  }
+    run.finish({ rowsOut: write.length, anomalies: [] });
+  });
 
   return {
     report,

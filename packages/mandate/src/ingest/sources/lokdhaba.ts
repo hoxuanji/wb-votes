@@ -36,7 +36,7 @@ import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../db/index.ts";
 import { all } from "../../db/index.ts";
-import { atomically, putRows } from "../../db/write.ts";
+import { putRows } from "../../db/write.ts";
 import { ensureEpochs } from "../../db/epochs.ts";
 import { epochOfDelimId } from "../../core/epochs.ts";
 import { slug } from "../../core/ids.ts";
@@ -47,11 +47,13 @@ import { ensureJurisdictions } from "../jurisdictions.ts";
 import { mergeRoutes } from "../live-person.ts";
 import { partyVersion } from "../party-version.ts";
 import { eventJurisdiction, eventKey, int, planFromRows } from "../elections/event.ts";
+import { ingestRun } from "../run.ts";
 
 export type ElectionType = "AE" | "GE";
 
 const BASE = "https://lokdhaba.ashoka.edu.in/downloads";
 const CACHE_DIR = ".data/cache/lokdhaba";
+const PARSER_VERSION = "lokdhaba-v1";
 
 /** The name Lokdhaba publishes a state's files under, where it differs from this project's. */
 const LOKDHABA_NAME: Record<string, string> = {
@@ -778,13 +780,21 @@ export function importLokdhaba(
   }
 
   // ── write, parents before children ─────────────────────────────────────────────────────────
-  // One savepoint around all thirteen tables. Sikkim's first import failed on place_version — a
-  // reservation value the schema had never seen — and left the source, epoch and place rows behind,
-  // because every insertMany owned its own transaction and nothing owned the import. A half-imported
-  // state is worse than an unimported one: it looks loaded.
+  // One atomic block around all thirteen tables, which is the run's. Sikkim's first import failed on
+  // place_version — a reservation value the schema had never seen — and left the source, epoch and place
+  // rows behind, because every insertMany owned its own transaction and nothing owned the import. A
+  // half-imported state is worse than an unimported one: it looks loaded. The run is also what moves the
+  // registry's dataVersion, and where the load stops it is the one row left behind.
   const w = (table: string, cols: readonly string[], key: readonly string[], rows: Iterable<Param[]>): number =>
     putRows(db, table, cols, key, rows);
-  atomically(db, "import_lokdhaba", writeAll);
+  const pipeline = `lokdhaba:${j.id}:${input.type}`;
+  ingestRun(db, { pipeline, parserVersion: PARSER_VERSION, nowIso: input.nowIso, rowsIn: rows.length }, (run) => {
+    writeAll();
+    run.finish({
+      rowsOut: resultRows.size,
+      anomalies: [...skipped].map(([reason, count]) => ({ kind: "rows_skipped", ref: pipeline, detail: `${count}: ${reason}` })),
+    });
+  });
 
   function writeAll(): void {
     // India and the 36 jurisdictions: every place, epoch and election below points at one, and a registry

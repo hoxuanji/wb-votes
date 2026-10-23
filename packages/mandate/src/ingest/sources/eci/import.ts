@@ -14,8 +14,9 @@
  * So a second run UPSERTs the identical values over themselves. There is no "have I run before?" check to
  * get wrong, and a half-finished run is completed rather than duplicated by re-running it.
  *
- * ATOMICITY. One BEGIN, one COMMIT, ROLLBACK on any throw. A failure leaves the registry exactly as it
- * was — asserted by a test that injects a failure mid-import and then counts rows.
+ * ATOMICITY. `ingestRun` makes the import one atomic block and rolls it back on any throw. A failure leaves the
+ * registry exactly as it was, except for the `failed` ingest_run row it writes after the rollback — asserted by
+ * a test that injects a failure mid-import and then counts rows.
  *
  * PERSON RESOLUTION NEVER BLOCKS A RESULT. Every candidate gets a person immediately. Resolution against
  * the registry's existing 448,035 people is attempted, and where it is not certain a NEW person is created
@@ -33,6 +34,7 @@ import { epochById } from "../../../core/epochs.ts";
 import { candidacyId, contestId, slug } from "../../../core/ids.ts";
 import { blockingKeys, detectScript } from "../../../core/indic/index.ts";
 import { JURISDICTIONS } from "../../india.ts";
+import { ingestRun } from "../../run.ts";
 import { versionId } from "../lokdhaba.ts";
 import { ECI_STATISTICAL_DISCLAIMER, type RawArtefact } from "./acquire.ts";
 import { LS2024_EPOCH_ID, type Staged, type StagedCandidate, type StagedContest } from "./stage.ts";
@@ -71,7 +73,7 @@ export type ImportReport = {
  * Write the staged election.
  *
  * `hook` exists for one test: it is called once, mid-import, so a thrown error can prove the rollback
- * leaves the registry untouched. Nothing in production passes it.
+ * leaves the registry untouched but for the failed run. Nothing in production passes it.
  */
 export function importStaged(
   db: DatabaseSync,
@@ -87,17 +89,16 @@ export function importStaged(
     .filter((c) => c.resolution === "UNRESOLVED")
     .map((c) => ({ seat: `${c.jurisdictionId} pc${c.number} ${c.rawName}`, why: c.resolutionNote }));
 
-  db.exec("BEGIN");
-  try {
+  const opened = {
+    pipeline: `eci:${s.electionId}`,
+    parserVersion: PARSER_VERSION,
+    nowIso: now,
+    rowsIn: s.counts.report33Rows,
+  };
+  return ingestRun(db, opened, (run) => {
     // The epochs these seats sit in, from the table and inside the transaction, so no other command has to
     // have registered them first and a rollback leaves none behind.
     ensureEpochs(db, importable.map((c) => c.epochId));
-
-    // ── ingest_run, opened first so anything that follows can be attributed ──────────────────────
-    db.prepare(
-      "INSERT INTO ingest_run (pipeline, parser_version, started_at, status, rows_in) VALUES (?, ?, ?, 'running', ?)",
-    ).run(`eci:${s.electionId}`, PARSER_VERSION, now, s.counts.report33Rows);
-    const runId = Number(get<{ id: number }>(db, "SELECT MAX(id) AS id FROM ingest_run")?.id ?? 0);
 
     // ── sources: one row per artefact, with ECI's own caveat attached ────────────────────────────
     const sourceSql = upsertSql(
@@ -413,7 +414,7 @@ export function importStaged(
     }
 
     /**
-     * Count what is actually in the registry, before COMMIT, and refuse to commit if it disagrees.
+     * Count what is actually in the registry, before the import commits, and refuse to commit if it disagrees.
      *
      * The importer counted 8,116 results and the registry held 8,110: three constituencies had lost their
      * winner to a UNIQUE constraint that overwrites rather than errors. An upsert cannot fail loudly by
@@ -436,20 +437,14 @@ export function importStaged(
       );
     }
 
-    db.prepare(
-      "UPDATE ingest_run SET finished_at = ?, status = ?, rows_out = ?, anomalies = ? WHERE id = ?",
-    ).run(
-      now,
-      unresolvedContests.length === 0 && warnings.length === 0 ? "ok" : "partial",
-      results,
-      JSON.stringify([...unresolvedContests.map((u) => `${u.seat}: ${u.why}`), ...warnings]),
-      runId,
-    );
-    db.exec("COMMIT");
+    run.finish({
+      rowsOut: results,
+      anomalies: [...unresolvedContests.map((u) => `${u.seat}: ${u.why}`), ...warnings],
+    });
 
     return {
       electionId: s.electionId,
-      ingestRunId: runId,
+      ingestRunId: run.id,
       sources: s.sources.length,
       sourceHashes: s.sources.filter((a) => a.sha256.length === 64).length,
       placeVersionsCreated: versionsCreated,
@@ -470,10 +465,7 @@ export function importStaged(
       unresolvedContests,
       warnings,
     };
-  } catch (cause) {
-    db.exec("ROLLBACK");
-    throw cause instanceof Error ? cause : new Error(String(cause));
-  }
+  });
 }
 
 const seatKey = (c: StagedContest): string => `${c.jurisdictionId}|${c.number}`;

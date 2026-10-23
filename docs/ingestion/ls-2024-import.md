@@ -220,9 +220,13 @@ Every id is derived from content, so a second run upserts identical values over 
 snapshotting eleven tables, re-running, and diffing: **every count identical.** There is no "have I run
 before?" flag to get wrong, and a half-finished run is completed rather than duplicated.
 
-One `BEGIN`, one `COMMIT`, `ROLLBACK` on any throw. Proven twice, not asserted: the first `--apply` died on
-`citation.page_no` and left the registry byte-for-byte as it was (42 results, 0 corrections), and a test
-injects a failure mid-import and counts rows afterwards.
+The import is one atomic block, run by `ingestRun` (ingest/run.ts), which undoes every row the import wrote if
+anything throws. A failed import leaves exactly one thing behind: its own `ingest_run` row, written after the
+rollback and marked `failed` with the first line of the error, so a failure is on record and the data version
+(which ignores a failed run) does not move. Proven twice, not asserted: the first `--apply`, when the import was
+a bare `BEGIN`/`ROLLBACK`, died on `citation.page_no` and left the registry byte-for-byte as it was (42
+results, 0 corrections), and a test injects a failure mid-import, counts rows afterwards and finds the same
+counts in the tables it lists plus one `failed` run.
 
 ## Field classification
 

@@ -32,8 +32,10 @@ import { all, get } from "../../db/index.ts";
 import { EPOCHS, inForce } from "../../core/epochs.ts";
 import { ECI_CACHE_DIR } from "../sources/eci/acquire.ts";
 import { sha256Hex } from "../raw/index.ts";
+import { ingestRun } from "../run.ts";
 
 export const DELIMITATION_DIR = join(ECI_CACHE_DIR, "delimitation");
+const PARSER_VERSION = "delimitation-v1";
 
 /**
  * The authoritative documents, acquired 2026-08-11 from the ECI's own
@@ -388,8 +390,7 @@ export function applyDelimitation(
     return report;
   }
 
-  db.exec("BEGIN");
-  try {
+  return ingestRun(db, { pipeline: "delimitation", parserVersion: PARSER_VERSION, nowIso: opts.nowIso, rowsIn: DELIM_DOCS.length }, (run) => {
     const srcSql =
       `INSERT INTO source (id, kind, publisher, title, url, retrieved_at, published_on, doc_hash,
          hash_kind, retrieval_kind, publisher_note)
@@ -468,18 +469,18 @@ export function applyDelimitation(
       if (id !== undefined) {
         db.prepare(
           `INSERT INTO citation (claim_id, source_id, page_no, parser_version, extracted_at)
-             VALUES (?, ?, 0, 'delimitation-v1', ?) ON CONFLICT DO NOTHING`,
-        ).run(id, c.sourceId, opts.nowIso);
+             VALUES (?, ?, 0, ?, ?) ON CONFLICT DO NOTHING`,
+        ).run(id, c.sourceId, PARSER_VERSION, opts.nowIso);
         report.chainClaims += 1;
       }
     }
 
-    db.exec("COMMIT");
+    run.finish({
+      rowsOut: report.sources + report.epochsCreated + report.epochsUpdated + report.derivationLinks + report.chainClaims,
+      anomalies: [],
+    });
     return report;
-  } catch (cause) {
-    db.exec("ROLLBACK");
-    throw cause instanceof Error ? cause : new Error(String(cause));
-  }
+  });
 }
 
 function countPairs(db: DatabaseSync, d: Derivation, kind: "ac" | "pc"): number {
