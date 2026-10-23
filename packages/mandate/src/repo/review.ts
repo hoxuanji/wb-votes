@@ -247,6 +247,18 @@ export function nextForReview(db: DatabaseSync): Pair | null {
 }
 
 /**
+ * Whether this process may record decisions: only when MANDATE_REVIEW_WRITES is exactly "1".
+ *
+ * The decide route has no auth, so recording is an opt-in for a maintainer's own checkout. It is its own variable
+ * and not NODE_ENV, because `next start` on a laptop is production mode and still has to be asked, and because a
+ * production setting then has to be put there on purpose. Anything but "1" is off (unset, empty, "0", "true"), so
+ * a misspelt opt-in fails closed.
+ */
+export function reviewWritesEnabled(env: Readonly<Record<string, string | undefined>>): boolean {
+  return env["MANDATE_REVIEW_WRITES"] === "1";
+}
+
+/**
  * Record a human judgement. **This does not merge anything.**
  *
  * The separation is deliberate: measuring recall needs recorded judgements, and mutating 6,167 person

@@ -14,8 +14,9 @@
  * So a second run UPSERTs the identical values over themselves. There is no "have I run before?" check to
  * get wrong, and a half-finished run is completed rather than duplicated by re-running it.
  *
- * ATOMICITY. One BEGIN, one COMMIT, ROLLBACK on any throw. A failure leaves the registry exactly as it
- * was — asserted by a test that injects a failure mid-import and then counts rows.
+ * ATOMICITY. `ingestRun` makes the import one atomic block and rolls it back on any throw. A failure leaves the
+ * registry exactly as it was, except for the `failed` ingest_run row it writes after the rollback — asserted by
+ * a test that injects a failure mid-import and then counts rows.
  *
  * PERSON RESOLUTION NEVER BLOCKS A RESULT. Every candidate gets a person immediately. Resolution against
  * the registry's existing 448,035 people is attempted, and where it is not certain a NEW person is created
@@ -28,10 +29,12 @@ import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../../db/index.ts";
 import { all, get } from "../../../db/index.ts";
 import { ensureEpochs } from "../../../db/epochs.ts";
+import { upsertSql } from "../../../db/write.ts";
 import { epochById } from "../../../core/epochs.ts";
 import { candidacyId, contestId, slug } from "../../../core/ids.ts";
 import { blockingKeys, detectScript } from "../../../core/indic/index.ts";
 import { JURISDICTIONS } from "../../india.ts";
+import { ingestRun } from "../../run.ts";
 import { versionId } from "../lokdhaba.ts";
 import { ECI_STATISTICAL_DISCLAIMER, type RawArtefact } from "./acquire.ts";
 import { LS2024_EPOCH_ID, type Staged, type StagedCandidate, type StagedContest } from "./stage.ts";
@@ -66,19 +69,11 @@ export type ImportReport = {
   warnings: string[];
 };
 
-const upsert = (table: string, cols: readonly string[], key: readonly string[]): string => {
-  const set = cols.filter((c) => !key.includes(c)).map((c) => `${c}=excluded.${c}`);
-  return (
-    `INSERT INTO ${table} (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})` +
-    ` ON CONFLICT (${key.join(",")}) DO ${set.length > 0 ? `UPDATE SET ${set.join(",")}` : "NOTHING"}`
-  );
-};
-
 /**
  * Write the staged election.
  *
  * `hook` exists for one test: it is called once, mid-import, so a thrown error can prove the rollback
- * leaves the registry untouched. Nothing in production passes it.
+ * leaves the registry untouched but for the failed run. Nothing in production passes it.
  */
 export function importStaged(
   db: DatabaseSync,
@@ -94,20 +89,19 @@ export function importStaged(
     .filter((c) => c.resolution === "UNRESOLVED")
     .map((c) => ({ seat: `${c.jurisdictionId} pc${c.number} ${c.rawName}`, why: c.resolutionNote }));
 
-  db.exec("BEGIN");
-  try {
+  const opened = {
+    pipeline: `eci:${s.electionId}`,
+    parserVersion: PARSER_VERSION,
+    nowIso: now,
+    rowsIn: s.counts.report33Rows,
+  };
+  return ingestRun(db, opened, (run) => {
     // The epochs these seats sit in, from the table and inside the transaction, so no other command has to
     // have registered them first and a rollback leaves none behind.
     ensureEpochs(db, importable.map((c) => c.epochId));
 
-    // ── ingest_run, opened first so anything that follows can be attributed ──────────────────────
-    db.prepare(
-      "INSERT INTO ingest_run (pipeline, parser_version, started_at, status, rows_in) VALUES (?, ?, ?, 'running', ?)",
-    ).run(`eci:${s.electionId}`, PARSER_VERSION, now, s.counts.report33Rows);
-    const runId = Number(get<{ id: number }>(db, "SELECT MAX(id) AS id FROM ingest_run")?.id ?? 0);
-
     // ── sources: one row per artefact, with ECI's own caveat attached ────────────────────────────
-    const sourceSql = upsert(
+    const sourceSql = upsertSql(
       "source",
       ["id", "kind", "publisher", "title", "url", "retrieved_at", "doc_hash", "hash_kind", "retrieval_kind", "publisher_note"],
       ["id"],
@@ -138,8 +132,8 @@ export function importStaged(
     // ── place_version for the seats the registry has never held ─────────────────────────────────
     let placesCreated = 0;
     let versionsCreated = 0;
-    const placeSql = upsert("place", ["id", "kind", "parent_id", "canonical_name", "eci_code"], ["id"]);
-    const versionSql = upsert(
+    const placeSql = upsertSql("place", ["id", "kind", "parent_id", "canonical_name", "eci_code"], ["id"]);
+    const versionSql = upsertSql(
       "place_version",
       ["id", "place_id", "jurisdiction_id", "kind", "epoch_id", "number", "canonical_name", "reservation",
        "source_constituency_key", "name_source_id"],
@@ -217,23 +211,23 @@ export function importStaged(
     let partiesMatched = 0;
     let partiesUnresolved = 0;
 
-    const symbolSql = upsert("symbol", ["id", "name"], ["id"]);
+    const symbolSql = upsertSql("symbol", ["id", "name"], ["id"]);
     const symbols = new Set(all<{ id: string }>(db, "SELECT id FROM symbol").map((r) => r.id));
 
     // ── contests, candidacies, results, turnout ─────────────────────────────────────────────────
-    const contestSql = upsert("contest", ["id", "election_id", "place_version_id", "seats_available", "lifecycle"], ["id"]);
-    const candidacySql = upsert(
+    const contestSql = upsertSql("contest", ["id", "election_id", "place_version_id", "seats_available", "lifecycle"], ["id"]);
+    const candidacySql = upsertSql(
       "candidacy",
       ["id", "contest_id", "person_id", "party_version_id", "symbol_id", "status", "age_declared", "party_raw"],
       ["id"],
     );
-    const resultSql = upsert(
+    const resultSql = upsertSql(
       "result",
       ["contest_id", "candidacy_id", "revision", "votes", "postal_votes", "evm_votes", "vote_share", "rank",
        "is_winner", "margin", "source_id", "ingested_at"],
       ["contest_id", "candidacy_id", "revision"],
     );
-    const turnoutSql = upsert(
+    const turnoutSql = upsertSql(
       "turnout",
       ["contest_id", "scope", "electors", "voters", "male", "female", "third_gender", "postal", "nota", "source_id"],
       ["contest_id", "scope"],
@@ -420,7 +414,7 @@ export function importStaged(
     }
 
     /**
-     * Count what is actually in the registry, before COMMIT, and refuse to commit if it disagrees.
+     * Count what is actually in the registry, before the import commits, and refuse to commit if it disagrees.
      *
      * The importer counted 8,116 results and the registry held 8,110: three constituencies had lost their
      * winner to a UNIQUE constraint that overwrites rather than errors. An upsert cannot fail loudly by
@@ -443,20 +437,14 @@ export function importStaged(
       );
     }
 
-    db.prepare(
-      "UPDATE ingest_run SET finished_at = ?, status = ?, rows_out = ?, anomalies = ? WHERE id = ?",
-    ).run(
-      now,
-      unresolvedContests.length === 0 && warnings.length === 0 ? "ok" : "partial",
-      results,
-      JSON.stringify([...unresolvedContests.map((u) => `${u.seat}: ${u.why}`), ...warnings]),
-      runId,
-    );
-    db.exec("COMMIT");
+    run.finish({
+      rowsOut: results,
+      anomalies: [...unresolvedContests.map((u) => `${u.seat}: ${u.why}`), ...warnings],
+    });
 
     return {
       electionId: s.electionId,
-      ingestRunId: runId,
+      ingestRunId: run.id,
       sources: s.sources.length,
       sourceHashes: s.sources.filter((a) => a.sha256.length === 64).length,
       placeVersionsCreated: versionsCreated,
@@ -477,10 +465,7 @@ export function importStaged(
       unresolvedContests,
       warnings,
     };
-  } catch (cause) {
-    db.exec("ROLLBACK");
-    throw cause instanceof Error ? cause : new Error(String(cause));
-  }
+  });
 }
 
 const seatKey = (c: StagedContest): string => `${c.jurisdictionId}|${c.number}`;
@@ -548,13 +533,13 @@ function personResolver(
   }
   const taken = new Set(all<{ id: string }>(db, "SELECT id FROM person").map((r) => r.id));
 
-  const personSql = upsert("person", ["id", "canonical_name", "canonical_name_script", "names", "sex", "review_state", "created_at"], ["id"]);
+  const personSql = upsertSql("person", ["id", "canonical_name", "canonical_name_script", "names", "sex", "review_state", "created_at"], ["id"]);
   // Repoints on conflict rather than doing nothing: the identifier is this pipeline's own key, so when a
   // re-run resolves an ECI candidate to a different person the mapping must follow, not stick.
   const identifierSql =
     "INSERT INTO person_identifier (person_id, scheme, value, source_id) VALUES (?, 'eci_candidate_id', ?, ?)" +
     " ON CONFLICT (scheme, value) DO UPDATE SET person_id = excluded.person_id, source_id = excluded.source_id";
-  const aliasSql = upsert("person_alias", ["person_id", "name", "script", "norm_key", "kind", "first_seen", "source_id"],
+  const aliasSql = upsertSql("person_alias", ["person_id", "name", "script", "norm_key", "kind", "first_seen", "source_id"],
     ["person_id", "name", "script", "norm_key"]);
 
   /**

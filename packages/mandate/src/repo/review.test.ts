@@ -22,6 +22,7 @@ import {
   progress,
   recallEstimate,
   recordDecision,
+  reviewWritesEnabled,
 } from "./review.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
@@ -185,6 +186,21 @@ test("a decision is idempotent and order-independent", () => {
     .get() as { a: string; b: string };
   assert.equal(recordDecision(db, s.b, s.a, "rejected", "t", NOW), true);
   db.close();
+});
+
+test("decisions are recorded only when MANDATE_REVIEW_WRITES is exactly 1", () => {
+  const on = reviewWritesEnabled;
+  assert.equal(on({}), false, "unset");
+  assert.equal(on({ MANDATE_REVIEW_WRITES: undefined }), false, "present and undefined");
+  assert.equal(on({ MANDATE_REVIEW_WRITES: "" }), false, "empty");
+  assert.equal(on({ MANDATE_REVIEW_WRITES: "0" }), false, "0");
+  assert.equal(on({ MANDATE_REVIEW_WRITES: "true" }), false, "true is not 1: an opt-in is spelled one way");
+  assert.equal(on({ MANDATE_REVIEW_WRITES: " 1" }), false, "padded");
+  assert.equal(on({ MANDATE_REVIEW_WRITES: "1" }), true, "1");
+  // The switch is its own variable. NODE_ENV neither turns it on (a development server) nor off (`next start`
+  // on a laptop is production mode and is still a local checkout).
+  assert.equal(on({ NODE_ENV: "development" }), false, "development alone");
+  assert.equal(on({ NODE_ENV: "production", MANDATE_REVIEW_WRITES: "1" }), true, "production with the switch");
 });
 
 test("the queue serves the band with the largest shortfall, and never repeats a decided pair", () => {

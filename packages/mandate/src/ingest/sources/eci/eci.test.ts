@@ -371,11 +371,11 @@ test("importing twice changes nothing", () => {
   db.close();
 });
 
-test("a failure mid-import leaves the registry exactly as it was", () => {
+test("a failure mid-import leaves the registry as it was, and a failed run", () => {
   const db = fixtureRegistry();
   const count = (t: string): number =>
     Number((db.prepare(`SELECT COUNT(*) AS n FROM ${t}`).get() as { n: number }).n);
-  const before = ["contest", "candidacy", "result", "person", "source", "turnout", "claim", "ingest_run"]
+  const before = ["contest", "candidacy", "result", "person", "source", "turnout", "claim"]
     .map((t) => [t, count(t)] as const);
 
   assert.throws(
@@ -383,6 +383,26 @@ test("a failure mid-import leaves the registry exactly as it was", () => {
     /disk on fire/,
   );
   for (const [t, n] of before) assert.equal(count(t), n, `${t} survived the rollback with ${count(t)} rows, expected ${n}`);
+  // The run is written after the rollback, so it is the one thing the failed import leaves behind.
+  const runs = db.prepare("SELECT pipeline, status, finished_at AS fin, anomalies FROM ingest_run").all() as
+    { pipeline: string; status: string; fin: string; anomalies: string }[];
+  assert.equal(runs.length, 1);
+  assert.equal(runs[0]?.pipeline, "eci:ls-2024");
+  assert.equal(runs[0]?.status, "failed");
+  assert.equal(runs[0]?.fin, NOW);
+  assert.match(String(runs[0]?.anomalies), /ingest_failed.*disk on fire/);
+  db.close();
+});
+
+test("an import leaves one finished run, which the report names, and a second import is a second run", () => {
+  const db = fixtureRegistry();
+  const runs = () => db.prepare("SELECT id, status, rows_in, rows_out, finished_at AS fin FROM ingest_run ORDER BY id").all()
+    .map((r) => ({ ...r }));
+  const first = importStaged(db, fixtureStaged(), { nowIso: NOW });
+  assert.deepEqual(runs(), [{ id: first.ingestRunId, status: "ok", rows_in: 3, rows_out: first.results, fin: NOW }]);
+  const second = importStaged(db, fixtureStaged(), { nowIso: NOW });
+  assert.deepEqual(runs().map((r) => r["id"]), [first.ingestRunId, second.ingestRunId]);
+  assert.notEqual(second.ingestRunId, first.ingestRunId);
   db.close();
 });
 

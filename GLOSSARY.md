@@ -75,6 +75,25 @@ _Avoid_: outage, unavailable, bug (when it is shown to a reader)
 What a registry session reports: either the value it produced, or that the registry was in an outage, with a sentence for the reader and the underlying cause for the log.
 _Avoid_: result (a result is an election result)
 
+### Writing the registry
+
+**Write path**:
+How rows get into the registry: an importer turns one source into rows and upserts them table by table, parents before children, each row on its table's own key. The seed and Lokdhaba importers check each batch against the table catalog before writing it; the other importers do not. The same two each write the places for India and for the 36 states and union territories before the rows that point at them, so either can run first on an empty registry.
+
+**Table catalog**:
+What the migrations say about each table: its columns, which of them must be given a value, which column sets identify a row (the primary key and each UNIQUE constraint) and which values a CHECK allows. A batch written through it is refused before anything is written if it names a column the table lacks, leaves out a required one, upserts on a set that identifies no row, or has a row of the wrong length.
+
+**Open-ended party version**:
+A party's version that has no end date, the one in force now. The registry's invariants allow at most one per party, so an importer that needs a party's version uses the open-ended one the party already has and makes its own only for a party that has none. The Lokdhaba import does so.
+_Avoid_: Current party version, active party version
+
+**Live person**:
+The person an id stands for now: the id itself, or the person it was merged into, followed through any chain of merges that have not been reverted. The seed and Lokdhaba importers write what they derive for an id onto its live person, so a later run does not bring a merged person back.
+_Avoid_: Current person, canonical person
+
+**Ingest run**:
+One `ingest_run` row for one import call. The Lokdhaba, 2024 Lok Sabha, geometry and delimitation imports open it before they write and close it with the rows they counted, and when one stops its writes are undone and the run is left as failed; the seed ingest records a run too, but keeps the rows it had written. The finish time of the newest finished run is the data version the API reports, so a failed run never moves it.
+
 ### Delimitation
 
 **Epoch**:

@@ -35,19 +35,25 @@ import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../../db/index.ts";
-import { all, insertMany } from "../../db/index.ts";
+import { all } from "../../db/index.ts";
+import { putRows } from "../../db/write.ts";
 import { ensureEpochs } from "../../db/epochs.ts";
 import { epochOfDelimId } from "../../core/epochs.ts";
 import { slug } from "../../core/ids.ts";
 import { httpGet, sha256Hex, type Fetcher } from "../raw/index.ts";
 import { DISTRICT_ALIAS } from "../districts.ts";
 import { JURISDICTIONS } from "../india.ts";
+import { ensureJurisdictions } from "../jurisdictions.ts";
+import { mergeRoutes } from "../live-person.ts";
+import { partyVersion } from "../party-version.ts";
 import { eventJurisdiction, eventKey, int, planFromRows } from "../elections/event.ts";
+import { ingestRun } from "../run.ts";
 
 export type ElectionType = "AE" | "GE";
 
 const BASE = "https://lokdhaba.ashoka.edu.in/downloads";
 const CACHE_DIR = ".data/cache/lokdhaba";
+const PARSER_VERSION = "lokdhaba-v1";
 
 /** The name Lokdhaba publishes a state's files under, where it differs from this project's. */
 const LOKDHABA_NAME: Record<string, string> = {
@@ -301,14 +307,6 @@ export type ImportReport = {
   skipped: { reason: string; count: number }[];
 };
 
-function upsert(table: string, cols: readonly string[], key: readonly string[]): string {
-  const set = cols.filter((c) => !key.includes(c)).map((c) => `${c}=excluded.${c}`);
-  return (
-    `INSERT INTO ${table} (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})` +
-    ` ON CONFLICT (${key.join(",")}) DO ${set.length ? `UPDATE SET ${set.join(",")}` : "NOTHING"}`
-  );
-}
-
 /**
  * Load one state's election file into the registry.
  *
@@ -362,7 +360,7 @@ export function importLokdhaba(
   const identifierRows = new Map<string, Param[]>();
   const aliasRows = new Map<string, Param[]>();
   const partyRows = new Map<string, Param[]>();
-  const partyVersionRows = new Map<string, Param[]>();
+  const partyLabels = new Map<string, string>();
   const candidacyRows = new Map<string, Param[]>();
   const resultRows = new Map<string, Param[]>();
   const turnoutRows = new Map<string, Param[]>();
@@ -703,7 +701,7 @@ export function importLokdhaba(
         ]);
       }
       partyVersionKey = partyKey;
-      partyVersionRows.set(partyKey, [partyKey, "1900-01-01", null, partyLabel, null]);
+      partyLabels.set(partyKey, partyLabel);
     }
 
     // ── candidacy and result ─────────────────────────────────────────────────────────────────
@@ -762,26 +760,46 @@ export function importLokdhaba(
     }
   }
 
-  // ── write, parents before children ─────────────────────────────────────────────────────────
-  // One savepoint around all thirteen tables. Sikkim's first import failed on place_version — a
-  // reservation value the schema had never seen — and left the source, epoch and place rows behind,
-  // because every insertMany owned its own transaction and nothing owned the import. A half-imported
-  // state is worse than an unimported one: it looks loaded.
-  const w = (table: string, cols: readonly string[], key: readonly string[], rows: Iterable<Param[]>): number => {
-    const list = [...rows];
-    return list.length === 0 ? 0 : insertMany(db, upsert(table, cols, key), list);
-  };
-  db.exec("SAVEPOINT import_lokdhaba");
-  try {
-    writeAll();
-    db.exec("RELEASE import_lokdhaba");
-  } catch (cause) {
-    db.exec("ROLLBACK TO import_lokdhaba");
-    db.exec("RELEASE import_lokdhaba");
-    throw cause;
+  // ── merge-aware: nothing here may bring back a person `mandate resolve` has absorbed ────────
+  // A pid is stable, so a later release that adds an election for a person already merged into another derives
+  // the absorbed person's id again. Writing that person back moved its TCPD id off the survivor while
+  // person_merge still said the merge held. The aliases, identifier and candidacy go to the live person instead.
+  // The candidacy KEEPS the id built from the raw one: mergeOne moved only its person_id, and every result row
+  // cites the id, so the upsert has to land on the row a merge already moved.
+  const merges = mergeRoutes(db);
+  if (merges.size > 0) {
+    const absorbed = [...personRows.keys()].filter((id) => merges.livePerson(id) !== id);
+    for (const rows of [identifierRows, aliasRows]) {
+      for (const row of rows.values()) row[0] = merges.livePerson(String(row[0]));
+    }
+    for (const row of candidacyRows.values()) row[2] = merges.livePerson(String(row[2]));
+    for (const id of absorbed) personRows.delete(id);
+    if (absorbed.length > 0) {
+      skipped.set("person absorbed by a merge — its rows went onto the person that holds it, and none was re-created", absorbed.length);
+    }
   }
 
+  // ── write, parents before children ─────────────────────────────────────────────────────────
+  // One atomic block around all thirteen tables, which is the run's. Sikkim's first import failed on
+  // place_version — a reservation value the schema had never seen — and left the source, epoch and place
+  // rows behind, because every insertMany owned its own transaction and nothing owned the import. A
+  // half-imported state is worse than an unimported one: it looks loaded. The run is also what moves the
+  // registry's dataVersion, and where the load stops it is the one row left behind.
+  const w = (table: string, cols: readonly string[], key: readonly string[], rows: Iterable<Param[]>): number =>
+    putRows(db, table, cols, key, rows);
+  const pipeline = `lokdhaba:${j.id}:${input.type}`;
+  ingestRun(db, { pipeline, parserVersion: PARSER_VERSION, nowIso: input.nowIso, rowsIn: rows.length }, (run) => {
+    writeAll();
+    run.finish({
+      rowsOut: resultRows.size,
+      anomalies: [...skipped].map(([reason, count]) => ({ kind: "rows_skipped", ref: pipeline, detail: `${count}: ${reason}` })),
+    });
+  });
+
   function writeAll(): void {
+    // India and the 36 jurisdictions: every place, epoch and election below points at one, and a registry
+    // wb-static has not filled does not have them.
+    ensureJurisdictions(db);
     w("source", ["id", "kind", "publisher", "title", "url", "archived_url", "retrieved_at", "published_on", "doc_hash", "hash_kind", "retrieval_kind"], ["id"], sourceRows);
     ensureEpochs(db, epochsSeen);
     w("place", ["id", "kind", "parent_id", "canonical_name", "names", "lgd_code", "eci_code"], ["id"], placeRows.values());
@@ -807,21 +825,12 @@ export function importLokdhaba(
     w("person_alias", ["person_id", "name", "script", "norm_key", "kind", "first_seen", "source_id"], ["person_id", "name", "script", "norm_key"], aliasRows.values());
     w("party", ["id", "name", "names", "short_name", "kind", "registered_on", "dissolved_on"], ["id"], partyRows.values());
 
-    // party_version has an autoincrement id, so it is inserted then read back to resolve candidacies.
-    for (const [partyId, row] of partyVersionRows) {
-      insertMany(
-        db,
-        `INSERT INTO party_version (party_id, valid_from, valid_to, name, symbol_id)
-           VALUES (?,?,?,?,?)
-           ON CONFLICT DO NOTHING`,
-        [[partyId, row[1] ?? null, row[2] ?? null, row[3] ?? null, row[4] ?? null]],
-      );
-    }
+    // party_version has an autoincrement id, so the version is resolved here to bind the candidacies to it. A party
+    // the registry already holds keeps its open-ended version; the 1900 start is for a party that has none, so that
+    // the version this file makes covers every election in it.
     const pvByParty = new Map<string, number>();
-    for (const r of db
-      .prepare(`SELECT id, party_id FROM party_version`)
-      .all() as { id: number; party_id: string }[]) {
-      if (!pvByParty.has(r.party_id)) pvByParty.set(r.party_id, r.id);
+    for (const [partyId, label] of partyLabels) {
+      pvByParty.set(partyId, partyVersion(db, partyId, { validFrom: "1900-01-01", name: label }));
     }
     for (const row of candidacyRows.values()) {
       const raw = row[10];

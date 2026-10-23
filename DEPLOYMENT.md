@@ -52,8 +52,15 @@ boundary map is available, which is a working product with no electoral map rath
 Add `--replace` to overwrite geometry an earlier run wrote. Run `geography inspect` first to see what would
 happen — it is the same decision, printed, with nothing written.
 
-`.env.local` is optional and nothing in `src/` reads it. A fresh clone with no `.data/registry.db` renders
-every page with the command above on it rather than a 500 — `RegistryMissing`, and there is one wording of it.
+`.env.local` is optional and nothing in `src/` needs it, apart from the merge review switch below. A fresh clone
+with no `.data/registry.db` renders every page with the command above on it rather than a 500 —
+`RegistryMissing`, and there is one wording of it.
+
+The merge review queue, `/review/merges`, records decisions only when `MANDATE_REVIEW_WRITES=1` is set:
+`MANDATE_REVIEW_WRITES=1 npm run dev`, or `MANDATE_REVIEW_WRITES=1` as a line of `.env.local`, which `next dev` and
+`next start` both load. Without it the page shows the pending pair read-only and `POST /review/merges/decide`
+answers 403 before it reads the form or opens the registry. It is its own variable and not `NODE_ENV`:
+`next start` on a laptop is production mode and needs it too.
 
 Run a production build somewhere other than `.next` if a dev server is up, or the two will fight over the
 directory:
@@ -210,7 +217,8 @@ by-election result cached for a day is the staleness this product exists to avoi
 
 ### Updating the registry
 
-The database is a build artefact. Nothing writes to it in production.
+The database is a build artefact. Nothing writes to it in production: the one route that could, the merge
+decision, is local only (see below).
 
 ```sh
 npm run registry:ingest
@@ -226,6 +234,19 @@ fly machine restart -a india-election-intelligence
 
 Upload beside the live file and move it into place, so a failed transfer cannot leave a truncated database
 where a working one was. The volume is sized for both copies.
+
+### The merge decision is local only
+
+`POST /review/merges/decide` records a merge decision in the registry, and the app has no auth, so it writes only
+where `MANDATE_REVIEW_WRITES=1` is set. Neither `fly.toml` nor the `Dockerfile` sets it, and
+`repo/review-writes.test.ts` fails if either does; in production the route answers 403 and `/review/merges` shows
+the pending pair without buttons. Do not add it to `[env]` or to `fly secrets`.
+
+That switch, not the file system, is what keeps a request from writing. The Dockerfile calls the registry
+read-only, but that describes what the application does: the volume is mounted read-write (the update procedure
+above writes to it), the image sets no `USER` so the process is root, and `openRead()` does not open the file
+read-only either. A decision records a judgement and merges nothing: all it can change is a pending queued pair,
+to merged, rejected or deferred, and the next registry upload replaces any decision made on the volume.
 
 ### One machine, on purpose
 

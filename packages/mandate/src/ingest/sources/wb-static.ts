@@ -23,11 +23,11 @@ import { candidacyId, contentId, contestId, slug } from "../../core/ids.ts";
 // One table for both directions of the district name disagreement; a leaf module, because
 // defining it here and importing it in the exporter made a cycle that left it undefined.
 import { DISTRICT_ALIAS } from "../districts.ts";
-// India's 36 jurisdictions as reference data. Written so the place tree is national in fact and
-// not only in shape: "1 of 36 states" was a hardcoded denominator with nothing behind it.
-import { JURISDICTIONS } from "../india.ts";
+import { NATION_PLACE, ensureJurisdictions } from "../jurisdictions.ts";
+import { mergeRoutes } from "../live-person.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
 import { ensureEpochs } from "../../db/epochs.ts";
+import { putRows } from "../../db/write.ts";
 import { sha256Hex } from "../raw/index.ts";
 import { coverageFailures, fieldCoverage, formatCoverage, seedShapeFailures, type CoverageRow } from "../field-coverage.ts";
 
@@ -39,10 +39,6 @@ const PARSER_VERSION = "wb-static@1";
 // date are the epoch table's (core/epochs.ts).
 const EPOCH_ID = "delim-2008";
 const STATE_PLACE = "wb";
-/** India. The registry had no `nation` row: `wb` was a root with no parent, which made "national
- *  platform" true of the DDL and false of the data. A Lok Sabha election's jurisdiction is the union,
- *  so it needs somewhere to point. */
-const NATION_PLACE = "in";
 /** place_version.id is the seat NUMBER, unique only within one kind and one epoch (see the note by the
  *  assembly rows). Parliamentary constituencies are numbered 1-42 in this state and would collide head
  *  on with assembly seats 1-42, so they are offset. A second epoch needs the same treatment. */
@@ -319,16 +315,6 @@ export type IngestOptions = {
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
 
-/** `INSERT ... ON CONFLICT (key) DO UPDATE SET <every non-key column>`. One generator instead of
- *  twenty hand-written statements that drift from the DDL. */
-function upsert(table: string, cols: readonly string[], key: readonly string[]): string {
-  const set = cols.filter((c) => !key.includes(c)).map((c) => `${c}=excluded.${c}`);
-  return (
-    `INSERT INTO ${table} (${cols.join(",")}) VALUES (${cols.map(() => "?").join(",")})` +
-    ` ON CONFLICT (${key.join(",")}) DO ${set.length ? `UPDATE SET ${set.join(",")}` : "NOTHING"}`
-  );
-}
-
 const acPlaceId = (n: number): string => `${STATE_PLACE}.ac.${String(n).padStart(3, "0")}`;
 /** Seat slug for a contest id. The number is always appended because WB has two Bishnupurs. */
 const seatSlug = (name: string, n: number): string => `${slug(name)}-${String(n).padStart(3, "0")}`;
@@ -599,10 +585,11 @@ function ingest(
   const resultRows: Param[][] = [];
   const turnoutRows: Param[][] = [];
 
-  /** `INSERT ... ON CONFLICT DO UPDATE` for one table. Defined here because party rows are
-   *  written mid-build: candidacy needs the party_version ids the database assigns. */
+  /** `INSERT ... ON CONFLICT DO UPDATE` for one table, after `putRows` has checked the columns, the key
+   *  and every row's length against the DDL. Defined here because party rows are written mid-build:
+   *  candidacy needs the party_version ids the database assigns. */
   const w = (table: string, cols: readonly string[], key: readonly string[], rows: readonly Param[][]): number =>
-    rows.length === 0 ? 0 : insertMany(db, upsert(table, cols, key), rows);
+    putRows(db, table, cols, key, rows);
 
   // Every citation this pipeline writes anchors at page_no 0 ("the whole document") with a null
   // rect: we hold module bytes and affidavit URLs, never a page. A value whose citation cannot
@@ -649,16 +636,7 @@ function ingest(
   }
 
   // ── boundary epoch, places, place versions ─────────────────────────────────
-  // A nation, and a state that hangs off it. `place.kind` has permitted 'nation' and 'pc' since 001 —
-  // the DDL was national from the start and nothing had ever exercised it.
-  placeRows.push([NATION_PLACE, "nation", null, "India", '{"hi":"भारत"}', null, null]);
-  // All 36 jurisdictions, not just the one with data. A state with no results is still a real place and
-  // an honest denominator; loading only West Bengal is what made "1 of 36" unverifiable. lgd_code is the
-  // key every Indian government dataset joins on, so it is stored now rather than backfilled later.
-  for (const j of JURISDICTIONS) {
-    const names = j.id === STATE_PLACE ? '{"bn":"পশ্চিমবঙ্গ"}' : "{}";
-    placeRows.push([j.id, j.kind, NATION_PLACE, j.name, names, j.lgd, null]);
-  }
+  // India and the 36 jurisdictions are not built here: ensureJurisdictions writes them, ahead of these rows.
   const districtPlace = new Map<string, string>();
   for (const c of b.constituencies) {
     const dId = `${STATE_PLACE}.${slug(c.district)}`;
@@ -1289,7 +1267,7 @@ function ingest(
       if (match && isWinner) {
         // Upgrade the nomination row we joined onto: this person was declared elected. Edit the
         // status on the row that is already there — cycle 1 pushed a SECOND row for the same id
-        // with age_declared and education_declared null, and since upsert() SETs every non-key
+        // with age_declared and education_declared null, and since upsertSql() SETs every non-key
         // column the later row wiped the affidavit-declared age and education off all 293
         // declared winners. A later, thinner row must never overwrite a richer one.
         const nomination = candidacyRows.get(candId);
@@ -1708,25 +1686,9 @@ function ingest(
   // person_id — the id is cited from result / affidavit / claim rows) and claim.content_key
   // (mergeOne rewrites subject_ref and not content_key, so keeping the raw key is exactly what
   // makes the upsert land on the row the merge already moved instead of inserting a duplicate).
-  const survivorOf = new Map<string, string>();
-  for (const r of all<{ merged_id: string; surviving_id: string }>(
-    db,
-    "SELECT merged_id, surviving_id FROM person_merge WHERE reverted_at IS NULL",
-  )) {
-    survivorOf.set(r.merged_id, r.surviving_id);
-  }
-  /** Chains: a survivor can itself be absorbed on a later pass. */
-  const livePerson = (id: string): string => {
-    let cur = id;
-    for (let hops = 0; hops < 64; hops += 1) {
-      const next = survivorOf.get(cur);
-      if (next === undefined || next === cur) break;
-      cur = next;
-    }
-    return cur;
-  };
+  const { size: absorbedIds, livePerson } = mergeRoutes(db);
   let reroutedPersons = 0;
-  if (survivorOf.size > 0) {
+  if (absorbedIds > 0) {
     const absorbed = new Set<string>();
     for (const row of personRows) {
       const id = String(row[0]);
@@ -1762,6 +1724,7 @@ function ingest(
   // The epoch row is the table's; the seed attaches the source that cites its seats.
   ensureEpochs(db, [EPOCH_ID]);
   db.prepare("UPDATE boundary_epoch SET source_id = ? WHERE id = ?").run(src("constituencies"), EPOCH_ID);
+  const jurisdictionRows = ensureJurisdictions(db);
   w("place", ["id","kind","parent_id","canonical_name","names","lgd_code","eci_code"], ["id"], placeRows);
   w("place_version", ["id","place_id","jurisdiction_id","kind","epoch_id","number","canonical_name","district_place_id","reservation","geometry_ref","electors_at_creation","source_constituency_key","name_source_id","name_conflict","name_variants"], ["id"], placeVersionRows);
   // After place_version: place_geometry references it, and writing first failed the foreign key.
@@ -1990,7 +1953,7 @@ function ingest(
   const rowsIn =
     b.constituencies.length + b.parties.length + b.candidates.length + b.historicalResults.length +
     b.currentMLAs.length + b.demographics.length + b.cabinet.length + b.mps.length;  const rowsOut =
-    sourceRows.size + placeRows.length + placeVersionRows.length + symbolRows.length + partyRows.length +
+    sourceRows.size + jurisdictionRows + placeRows.length + placeVersionRows.length + symbolRows.length + partyRows.length +
     partyVersionRows.length + electionRows.length + contestRows.length + personRows.length +
     aliasRows.length + identifierRows.length + candidacyRows.size + affidavitRows.length +
     affidavitFieldRows.length + resultRows.length + turnoutRows.length + claimRows.length +

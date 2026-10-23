@@ -4,6 +4,7 @@ import {
   QUEUE_AT,
   nextForReview,
   recallEstimate,
+  reviewWritesEnabled,
 } from '../../../../packages/mandate/src/repo/review.ts';
 import type { Candidate, Pair } from '../../../../packages/mandate/src/repo/review.ts';
 import { personHref } from '../../../../packages/mandate/src/repo/routes.ts';
@@ -25,6 +26,9 @@ import './review.css';
  *
  * Deciding here does NOT merge. It records a judgement. Mutating person rows needs the undo tape and
  * the claim moves, and that lives in `mandate resolve --apply-reviewed`.
+ *
+ * The buttons are there only where MANDATE_REVIEW_WRITES=1 is set, the same switch the POST behind them checks:
+ * the app has no auth, so a deployment shows the pending pair read-only and says where decisions are recorded.
  *
  * IT IS AN INTERNAL TOOL AND IT IS ON THE PRODUCT'S SHELL ANYWAY. The audit classified it LEGACY-isolated
  * because it is a maintainer's queue with a mutating POST, not a reader's surface — nothing in the shell
@@ -141,6 +145,7 @@ export default function MergeReview({
   const saved = one(searchParams?.['saved']);
   const already = one(searchParams?.['already']);
   const error = one(searchParams?.['error']);
+  const writes = reviewWritesEnabled(process.env);
   // An outage shows the registry notice under the heading; a defect in either query is thrown, not shown as one.
   const read = readRegistry((db) => ({ pair: nextForReview(db), est: recallEstimate(db) }));
   const unavailable = !read.ok;
@@ -278,24 +283,33 @@ export default function MergeReview({
 
             <Evidence p={pair} />
 
-            <form className="rv-actions" method="post" action="/review/merges/decide">
-              <input type="hidden" name="a" value={pair.aId} />
-              <input type="hidden" name="b" value={pair.bId} />
-              <button type="submit" name="decision" value="merged" className="rv-same">
-                Same person
-              </button>
-              <button type="submit" name="decision" value="rejected" className="rv-diff">
-                Different people
-              </button>
-              <button type="submit" name="decision" value="deferred" className="rv-skip">
-                Cannot tell from this
-              </button>
-            </form>
-            <p className="iei-rule">
-              &ldquo;Cannot tell&rdquo; is a real answer and is recorded as one — the pair leaves the
-              queue and is excluded from the rate, because a forced guess would corrupt the very number
-              this page exists to produce.
-            </p>
+            {writes ? (
+              <>
+                <form className="rv-actions" method="post" action="/review/merges/decide">
+                  <input type="hidden" name="a" value={pair.aId} />
+                  <input type="hidden" name="b" value={pair.bId} />
+                  <button type="submit" name="decision" value="merged" className="rv-same">
+                    Same person
+                  </button>
+                  <button type="submit" name="decision" value="rejected" className="rv-diff">
+                    Different people
+                  </button>
+                  <button type="submit" name="decision" value="deferred" className="rv-skip">
+                    Cannot tell from this
+                  </button>
+                </form>
+                <p className="iei-rule">
+                  &ldquo;Cannot tell&rdquo; is a real answer and is recorded as one — the pair leaves the
+                  queue and is excluded from the rate, because a forced guess would corrupt the very number
+                  this page exists to produce.
+                </p>
+              </>
+            ) : (
+              <p className="iei-note">
+                Decisions are recorded only on a local checkout with <code>MANDATE_REVIEW_WRITES=1</code>{' '}
+                set, so this pair is shown read-only.
+              </p>
+            )}
           </>
         )}
     </Shell>
