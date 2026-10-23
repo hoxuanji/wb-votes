@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { recordDecision } from '../../../../../packages/mandate/src/repo/review.ts';
+import { recordDecision, reviewWritesEnabled } from '../../../../../packages/mandate/src/repo/review.ts';
 import type { Decision } from '../../../../../packages/mandate/src/repo/review.ts';
 import { writeRegistry } from '../../../../../packages/mandate/src/repo/session.ts';
 
@@ -11,10 +11,12 @@ import { writeRegistry } from '../../../../../packages/mandate/src/repo/session.
  * decision — and `recordDecision` only updates rows still in `pending`, so a replayed POST changes
  * nothing rather than overwriting a considered judgement with a stale one.
  *
- * There is no auth in this app, so attribution is nominal: decisions are recorded as
- * `user:<?as= or local>`. That is honest rather than useful, and it is enough for the measurement,
- * which needs the decision and not the decider. A real reviewer identity has to arrive with real
- * accounts.
+ * There is no auth in this app, so the route records a decision only where MANDATE_REVIEW_WRITES=1 is set: an
+ * opt-in for a maintainer's own checkout. It is its own variable and not NODE_ENV, so a local `next start` has to
+ * be asked too and nothing in production turns it on by accident (fly.toml does not set it). Without it the
+ * answer is a 403, before the form is read or the registry opened. With it, attribution is nominal: decisions are
+ * recorded as `user:<?as= or local>`. That is honest rather than useful, and it is enough for the measurement,
+ * which needs the decision and not the decider. A real reviewer identity has to arrive with real accounts.
  */
 
 export const runtime = 'nodejs';
@@ -23,6 +25,15 @@ export const dynamic = 'force-dynamic';
 const VALID: ReadonlySet<string> = new Set<Decision>(['merged', 'rejected', 'deferred']);
 
 export async function POST(request: Request): Promise<Response> {
+  // First, so that a deployment without the switch answers the same way whatever the request holds, and never
+  // reads the form or opens the registry to do it.
+  if (!reviewWritesEnabled(process.env)) {
+    return new Response('Merge decisions are recorded only on a local checkout with MANDATE_REVIEW_WRITES=1.\n', {
+      status: 403,
+      headers: { 'content-type': 'text/plain; charset=utf-8' },
+    });
+  }
+
   const form = await request.formData();
   const a = String(form.get('a') ?? '');
   const b = String(form.get('b') ?? '');

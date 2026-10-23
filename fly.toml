@@ -31,6 +31,8 @@ primary_region = 'sin'
   # The REAL hostname. `fly launch` named the app india-election-intelligence, not iei, and left this pointing
   # at a domain that does not exist. Change it to https://wbvotes.in once Cloudflare fronts it.
   NEXT_PUBLIC_SITE_URL = 'https://india-election-intelligence.fly.dev'
+  # MANDATE_REVIEW_WRITES is absent on purpose and must stay so: it switches on the merge-decision route, which
+  # has no auth and would write to this volume. Without it the route answers 403. See DEPLOYMENT.md.
 
 [[mounts]]
   source = 'registry'

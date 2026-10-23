@@ -39,6 +39,10 @@ npm run dev                  # http://localhost:3000
 `.data/` is gitignored, so a fresh clone has no registry. Every page says so, with the command above, rather
 than returning a 500.
 
+The merge review queue at `/review/merges` records decisions only when the server is started with
+`MANDATE_REVIEW_WRITES=1` (`MANDATE_REVIEW_WRITES=1 npm run dev`, or that line in `.env.local`). Without it
+the page shows the pending pair read-only and the decision route answers 403. The deployment does not set it.
+
 ## Layout
 
 ```text

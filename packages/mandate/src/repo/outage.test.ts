@@ -30,12 +30,18 @@ async function render(
   route: string,
   query = "",
   segments = "",
+  writes = false,
 ): Promise<{ out: string; err: string; failed: boolean }> {
+  // The merge decision answers 403 before it reads the registry unless MANDATE_REVIEW_WRITES=1, and these tests
+  // are about what it does once it does read it. The switch comes from the caller, never from the shell.
+  const env: NodeJS.ProcessEnv = { ...process.env, MANDATE_DB_PATH: dbPath };
+  if (writes) env["MANDATE_REVIEW_WRITES"] = "1";
+  else delete env["MANDATE_REVIEW_WRITES"];
   try {
     const { stdout, stderr } = await run(
       process.execPath,
       ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", route, query, segments],
-      { cwd: ROOT, env: { ...process.env, MANDATE_DB_PATH: dbPath }, maxBuffer: 64 * 1024 * 1024 },
+      { cwd: ROOT, env, maxBuffer: 64 * 1024 * 1024 },
     );
     return { out: stdout, err: stderr, failed: false };
   } catch (e) {
@@ -93,7 +99,7 @@ for (const [route, query, segments] of REDIRECTS) {
 
 test("the merge decision with no registry records nothing and says so", { skip }, async () => {
   // open() creates the file, so this is an empty database rather than an absent one: it has no schema.
-  const r = await render(nowhere(), "/review/merges/decide", "a=p1&b=p2&decision=merged");
+  const r = await render(nowhere(), "/review/merges/decide", "a=p1&b=p2&decision=merged", "", true);
   assert.equal(r.failed, false, r.err);
   assert.equal(r.out, "303 http://localhost/review/merges?error=unavailable");
 });
@@ -163,7 +169,7 @@ for (const [route, query, segments, broken] of DEFECTS) {
 }
 
 test("the merge decision on a registry with a defect in the write is thrown, not reported as an outage", { skip }, async () => {
-  const r = await render(registry("person_merge_candidate"), "/review/merges/decide", "a=p1&b=p2&decision=merged");
+  const r = await render(registry("person_merge_candidate"), "/review/merges/decide", "a=p1&b=p2&decision=merged", "", true);
   assert.equal(r.failed, true, "the route answered instead of failing");
   assert.match(r.err, /no such function/);
 });
