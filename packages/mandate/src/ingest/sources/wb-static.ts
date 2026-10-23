@@ -24,6 +24,7 @@ import { candidacyId, contentId, contestId, slug } from "../../core/ids.ts";
 // defining it here and importing it in the exporter made a cycle that left it undefined.
 import { DISTRICT_ALIAS } from "../districts.ts";
 import { NATION_PLACE, ensureJurisdictions } from "../jurisdictions.ts";
+import { mergeRoutes } from "../live-person.ts";
 import { all, insertMany, type Param } from "../../db/index.ts";
 import { ensureEpochs } from "../../db/epochs.ts";
 import { putRows } from "../../db/write.ts";
@@ -1685,25 +1686,9 @@ function ingest(
   // person_id — the id is cited from result / affidavit / claim rows) and claim.content_key
   // (mergeOne rewrites subject_ref and not content_key, so keeping the raw key is exactly what
   // makes the upsert land on the row the merge already moved instead of inserting a duplicate).
-  const survivorOf = new Map<string, string>();
-  for (const r of all<{ merged_id: string; surviving_id: string }>(
-    db,
-    "SELECT merged_id, surviving_id FROM person_merge WHERE reverted_at IS NULL",
-  )) {
-    survivorOf.set(r.merged_id, r.surviving_id);
-  }
-  /** Chains: a survivor can itself be absorbed on a later pass. */
-  const livePerson = (id: string): string => {
-    let cur = id;
-    for (let hops = 0; hops < 64; hops += 1) {
-      const next = survivorOf.get(cur);
-      if (next === undefined || next === cur) break;
-      cur = next;
-    }
-    return cur;
-  };
+  const { size: absorbedIds, livePerson } = mergeRoutes(db);
   let reroutedPersons = 0;
-  if (survivorOf.size > 0) {
+  if (absorbedIds > 0) {
     const absorbed = new Set<string>();
     for (const row of personRows) {
       const id = String(row[0]);

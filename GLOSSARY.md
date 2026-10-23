@@ -83,6 +83,14 @@ How rows get into the registry: an importer turns one source into rows and upser
 **Table catalog**:
 What the migrations say about each table: its columns, which of them must be given a value, which column sets identify a row (the primary key and each UNIQUE constraint) and which values a CHECK allows. A batch written through it is refused before anything is written if it names a column the table lacks, leaves out a required one, upserts on a set that identifies no row, or has a row of the wrong length.
 
+**Open-ended party version**:
+A party's version that has no end date, the one in force now. The registry's invariants allow at most one per party, so an importer that needs a party's version uses the open-ended one the party already has and makes its own only for a party that has none. The Lokdhaba import does so.
+_Avoid_: Current party version, active party version
+
+**Live person**:
+The person an id stands for now: the id itself, or the person it was merged into, followed through any chain of merges that have not been reverted. The seed and Lokdhaba importers write what they derive for an id onto its live person, so a later run does not bring a merged person back.
+_Avoid_: Current person, canonical person
+
 ### Delimitation
 
 **Epoch**:
