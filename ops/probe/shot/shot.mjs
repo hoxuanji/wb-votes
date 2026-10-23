@@ -25,7 +25,7 @@
  */
 
 import { execFileSync } from "node:child_process";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -41,15 +41,19 @@ export const VIEWPORTS = [
   [390, 844],
 ];
 
-/** Chromium, in order of preference. chrome-headless-shell has no ProcessSingleton to bind. */
+/** Chromium, in order of preference: the newest chrome-headless-shell Playwright has installed, then Chrome. */
 function browser() {
-  const candidates = [
-    path.join(
-      homedir(),
-      "Library/Caches/ms-playwright/chromium_headless_shell-1208/chrome-headless-shell-mac-arm64/chrome-headless-shell",
-    ),
-    "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
-  ];
+  const cache = path.join(homedir(), "Library/Caches/ms-playwright");
+  let shells = [];
+  try {
+    shells = readdirSync(cache)
+      .filter((d) => d.startsWith("chromium_headless_shell-"))
+      .sort((x, y) => Number(y.split("-")[1]) - Number(x.split("-")[1]))
+      .map((d) => path.join(cache, d, "chrome-headless-shell-mac-arm64/chrome-headless-shell"));
+  } catch {
+    /* no cache: fall through to Chrome */
+  }
+  const candidates = [...shells, "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome"];
   for (const c of candidates) {
     try {
       readFileSync(c, { encoding: null, flag: "r" });
@@ -109,7 +113,9 @@ export function shoot(label, route, query = "", segments = "") {
         "--force-device-scale-factor=1",
         `--window-size=${w},${h}`,
         `--screenshot=${png}`,
-        "--virtual-time-budget=3000",
+        // Not --virtual-time-budget: on chrome-headless-shell it makes every capture wait ~48s and changes nothing in the
+        // image, because the page is static (no hydration, no network). --timeout only bounds a page that never loads.
+        "--timeout=3000",
         `file://${file}`,
       ],
       { stdio: ["ignore", "ignore", "pipe"] },
