@@ -6,7 +6,8 @@
 // a different date, left every such party with two open-ended rows that overlap, and bound its candidacies to
 // whichever one a read-back without an ORDER BY returned first.
 //
-// Not exported through db/index.ts, which the Next bundle imports and the app never writes through.
+// Not exported through db/index.ts, which the Next bundle imports. The app's one write, the merge decision, goes
+// through repo/review.ts and does not use this.
 
 import type { DatabaseSync } from "node:sqlite";
 import { get } from "../db/index.ts";

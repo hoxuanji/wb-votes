@@ -6,7 +6,8 @@
 // pair into a second ledger row that cannot be reverted. An importer routes the ids it derives through here and
 // writes onto the person this returns.
 //
-// Not exported through db/index.ts, which the Next bundle imports and the app never writes through.
+// Not exported through db/index.ts, which the Next bundle imports. The app's one write, the merge decision, goes
+// through repo/review.ts and does not use this.
 
 import type { DatabaseSync } from "node:sqlite";
 import { all } from "../db/index.ts";

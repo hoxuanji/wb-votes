@@ -3,7 +3,8 @@
 // Every other place, epoch and election points at one of these rows, so an importer that writes seats or
 // elections needs them first. wb-static was their only writer, which made it a hidden prerequisite of every
 // other importer: Lokdhaba on a migrated database it had not filled failed on `place.parent_id`. They are
-// reference data (ingest/india.ts), so this writes them from that table and any importer may call it.
+// reference data (ingest/india.ts), so this writes them from that table. The seed ingest and Lokdhaba call it; the ECI
+// import points its place rows at a state, so it still expects one of them to have run.
 
 import type { DatabaseSync } from "node:sqlite";
 import type { Param } from "../db/index.ts";

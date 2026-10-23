@@ -14,3 +14,9 @@ docs
 ops/probe
 *.tmp.mjs
 .DS_Store
+
+# Local env files hold secrets. .gitignore keeps them out of git; this keeps them out of the build context, which
+# `COPY . .` and a remote builder would otherwise take whole.
+.env
+.env.local
+.env.*.local

@@ -1,7 +1,8 @@
 // Writing rows into the registry: the upsert statement, an atomic block, and a batch writer that checks its rows
 // against the table catalog before it writes any of them.
 //
-// Not exported through db/index.ts, which the Next bundle imports and the app never writes through.
+// Not exported through db/index.ts, which the Next bundle imports. The app's one write, the merge decision, goes
+// through repo/review.ts and does not use this.
 
 import type { DatabaseSync } from "node:sqlite";
 import { checkWrite, describeTable } from "./catalog.ts";
