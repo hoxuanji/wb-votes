@@ -43,6 +43,7 @@ import { slug } from "../../core/ids.ts";
 import { httpGet, sha256Hex, type Fetcher } from "../raw/index.ts";
 import { DISTRICT_ALIAS } from "../districts.ts";
 import { JURISDICTIONS } from "../india.ts";
+import { ensureJurisdictions } from "../jurisdictions.ts";
 import { eventJurisdiction, eventKey, int, planFromRows } from "../elections/event.ts";
 
 export type ElectionType = "AE" | "GE";
@@ -765,6 +766,9 @@ export function importLokdhaba(
   atomically(db, "import_lokdhaba", writeAll);
 
   function writeAll(): void {
+    // India and the 36 jurisdictions: every place, epoch and election below points at one, and a registry
+    // wb-static has not filled does not have them.
+    ensureJurisdictions(db);
     w("source", ["id", "kind", "publisher", "title", "url", "archived_url", "retrieved_at", "published_on", "doc_hash", "hash_kind", "retrieval_kind"], ["id"], sourceRows);
     ensureEpochs(db, epochsSeen);
     w("place", ["id", "kind", "parent_id", "canonical_name", "names", "lgd_code", "eci_code"], ["id"], placeRows.values());

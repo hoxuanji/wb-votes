@@ -43,7 +43,6 @@ const CSV = [
 function imported() {
   const d = open(":memory:");
   migrate(d, NOW);
-  d.exec("INSERT INTO place (id, kind, canonical_name) VALUES ('in','nation','India'), ('ka','state','Karnataka')");
   const bytes = gzipSync(Buffer.from(CSV, "utf8"));
   const report = importLokdhaba(d, {
     jurisdictionId: "ka",
