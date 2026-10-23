@@ -11,7 +11,7 @@ import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/re
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
 import { bodyWord } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
-import { ElectionMap, MODES } from '../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, NoMap } from '../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginBands,
@@ -89,6 +89,8 @@ export function StateSurface({
 }) {
   const e = view.election;
   if (e === null) return null;
+  // Whether a map is drawn. Every control and caption below that sends the reader to the map is printed only when it is.
+  const mapped = view.geometry.status === 'drawn';
 
   const { mode, district, seat, isolation } = selection;
   const party = isolation?.by === 'party' ? isolation.key : null;
@@ -203,7 +205,7 @@ export function StateSurface({
           </p>
         )}
         <Tabs
-          label="What the map shows"
+          label={mapped ? 'What the map shows' : 'What this page shows'}
           current={mode}
           choices={MODES.map((m) => ({
             key: m.key,
@@ -213,15 +215,8 @@ export function StateSurface({
           }))}
         />
 
-        {/* WHY THERE IS NO MAP, where there is none — stated once, beside the thing it is about, and only
-            when it is true. Assam's and J&K's 2024 parliamentary seats were drawn by delimitations the
-            registry holds no boundaries for, so there is nothing this map may legally draw them on. */}
-        {view.geometry.drawable === 0 ? (
-          <p className="iei-absent">
-            No boundary map is available for these {view.seats.length} constituencies — they were redrawn and
-            the new boundaries are not on record. Every result is in the list below.
-          </p>
-        ) : null}
+        {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
+        <NoMap view={view} />
         {/* NO VOTE COUNTS — SAID WHERE THE READER MEETS IT.
             West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat's margin is
             a dash, the competitiveness section is absent and the vote-vs-seat plot is a sentence. This line
@@ -260,7 +255,7 @@ export function StateSurface({
                     Not comparable <b>{view.incomparableSeats}</b>
                   </li>
                 )}
-                <li className="iei-legend-note">A flipped seat wears the colour of the party that gained it.</li>
+                {mapped ? <li className="iei-legend-note">A flipped seat wears the colour of the party that gained it.</li> : null}
               </ul>
             ) : (
               <ul className="iei-legend">
@@ -371,11 +366,15 @@ export function StateSurface({
                       )}
                       {' · '}
                       {pct(s.marginPct, 2)}
-                      {/* Focus this seat on the map, without leaving the page. */}
-                      {' · '}
-                      <Link className="iei-body-link" href={selection.href({ seat: s.placeId })}>
-                        {seat === s.placeId ? 'unfocus' : 'find on map'}
-                      </Link>
+                      {/* Focus this seat on the map, without leaving the page. There is nothing to focus it on without one. */}
+                      {mapped ? (
+                        <>
+                          {' · '}
+                          <Link className="iei-body-link" href={selection.href({ seat: s.placeId })}>
+                            {seat === s.placeId ? 'unfocus' : 'find on map'}
+                          </Link>
+                        </>
+                      ) : null}
                     </>
                   }
                 />
@@ -427,9 +426,11 @@ export function StateSurface({
                   </li>
                 )}
               </ul>
-              <p className="iei-note">
-                <Link href={selection.href({ mode: 'flips' })}>Show this on the map</Link>
-              </p>
+              {mapped ? (
+                <p className="iei-note">
+                  <Link href={selection.href({ mode: 'flips' })}>Show this on the map</Link>
+                </p>
+              ) : null}
             </div>
             <FlipMatrix
               pairs={view.flips.pairs}
@@ -450,7 +451,9 @@ export function StateSurface({
             }
           />
           <p className="iei-note">
-            Margin over votes polled, winner against runner-up. Select a band to find those seats on the map.
+            {mapped
+              ? 'Margin over votes polled, winner against runner-up. Select a band to find those seats on the map.'
+              : 'Margin over votes polled, winner against runner-up.'}
           </p>
         </Panel>
       )}
@@ -470,6 +473,7 @@ export function StateSurface({
               rows={view.voteSeat}
               selected={party}
               hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
+              mapped={mapped}
             />
             <ul
               className="iei-partyrows"

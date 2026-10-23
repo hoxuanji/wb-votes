@@ -168,6 +168,22 @@ export function choiceOf(r: ChoiceRow): ElectionChoice {
   return { id: r.id, name: r.name, year: r.year, body, fill, seats: r.seats };
 }
 
+/**
+ * Whether an election's map is drawn and, where it is not, why. Decided here from the data, so a page does not have to
+ * guess a reason from a count of zero.
+ *
+ *   drawn        at least one seat has an outline in the shared frame.
+ *   redrawn      none does, and the registry holds outlines of this house's seats, in the jurisdictions these seats lie in,
+ *                for older epochs only: the seats' own epoch is newer than every epoch that has any. They were redrawn
+ *                since, and the new boundaries are not on record. It is the only case in which saying so is true.
+ *   no-geometry  none does and that is not so: the registry holds no outline for these seats' epoch or any older one, so
+ *                nothing was redrawn and there is simply nothing to draw.
+ *
+ * An outline in another projection is withheld rather than drawn, but it is still a boundary on record, so it counts as
+ * an epoch that has boundaries.
+ */
+export type MapStatus = "drawn" | "no-geometry" | "redrawn";
+
 export type ElectionMapView = {
   election: (ElectionChoice & { jurisdictionId: string; jurisdictionName: string }) | null;
   /**
@@ -223,6 +239,8 @@ export type ElectionMapView = {
     undrawableEpochs: string[];
     otherFrames: number;
     pathBytes: number;
+    /** Whether the map is drawn and, if not, why. A page decides what it says and offers from this, not from `drawable`. */
+    status: MapStatus;
   };
 };
 
@@ -332,6 +350,7 @@ export function electionMapView(
         undrawableEpochs: [],
         otherFrames: 0,
         pathBytes: 0,
+        status: "no-geometry",
       },
     };
 
@@ -609,6 +628,40 @@ export function electionMapView(
 
     const sources = sourcesFor(db, { elections: [electionId], ...within }, { geometry: true });
 
+    /**
+     * WHETHER SEATS WITH NO OUTLINE WERE REDRAWN, asked only when no seat has one.
+     *
+     * The newest epoch in which this house's seats have an outline, in the jurisdictions these seats lie in, against the
+     * oldest epoch the seats are under: redrawn only if the first is strictly the earlier. Registry-wide would blame a
+     * redraw on West Bengal because Karnataka has an older outline; a district's outline is not a constituency's, and
+     * `gv.kind` leaves it out. Epochs are compared by `effective_from`, as `place-resolve.ts` ranks them. With no outline
+     * at all `held` is null and nothing was redrawn.
+     */
+    const redrawn = (): boolean => {
+      const span = get<{ held: string | null; seated: string | null }>(
+        db,
+        `SELECT (SELECT MAX(be.effective_from)
+                   FROM place_version gv
+                   JOIN place_geometry pg ON pg.place_version_id = gv.id
+                   JOIN boundary_epoch be ON be.id = gv.epoch_id
+                  WHERE gv.kind = ?
+                    AND gv.jurisdiction_id IN (SELECT pv.jurisdiction_id
+                                                 FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
+                                                WHERE c.election_id = ?${scope})) AS held,
+                (SELECT MIN(be.effective_from)
+                   FROM contest c
+                   JOIN place_version pv ON pv.id = c.place_version_id
+                   JOIN boundary_epoch be ON be.id = pv.epoch_id
+                  WHERE c.election_id = ?${scope}) AS seated`,
+        e.house,
+        electionId,
+        ...scopeBind,
+        electionId,
+        ...scopeBind,
+      );
+      return span !== undefined && span.held !== null && span.seated !== null && span.held < span.seated;
+    };
+
     const siblings = all<ChoiceRow>(
       db,
       `SELECT e.id AS id, e.name AS name, e.year AS year, e.house AS house, e.kind AS kind,
@@ -663,6 +716,7 @@ export function electionMapView(
         undrawableEpochs: [...undrawable].sort(),
         otherFrames,
         pathBytes,
+        status: kept.length > 0 ? "drawn" : seats.length > 0 && redrawn() ? "redrawn" : "no-geometry",
       },
     };
   });

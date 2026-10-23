@@ -52,6 +52,7 @@ export function MarginDistribution({
   selected,
   hrefFor,
   total,
+  mapped = true,
 }: {
   bins: readonly MarginBin[];
   /** The bin currently isolating the map, or null. */
@@ -59,6 +60,8 @@ export function MarginDistribution({
   hrefFor: (bin: number | null) => string;
   /** Seats with a computable margin, for the accessible summary. */
   total: number;
+  /** Whether a map is drawn on this page. A caption that sends the reader to the map is printed only when it is. */
+  mapped?: boolean;
 }) {
   const peak = peakBin(bins);
   // No seat with a margin would otherwise be a row of invisible bars under an axis and a caption saying to select
@@ -123,7 +126,7 @@ export function MarginDistribution({
       </div>
       <figcaption>
         {selected === null ? (
-          <>Margin over votes polled. Select a bar to find those seats on the map.</>
+          <>{mapped ? 'Margin over votes polled. Select a bar to find those seats on the map.' : 'Margin over votes polled.'}</>
         ) : (
           <>
             Showing seats decided by {selected}–{selected + 2}%.{' '}
@@ -169,12 +172,15 @@ export function VoteSeatPlot({
   selected,
   hrefFor,
   max = 60,
+  mapped = true,
 }: {
   rows: readonly VoteSeatEfficiency[];
   selected: string | null;
   hrefFor: (party: string | null) => string;
   /** The axis ceiling. Both axes share it, or the diagonal would not mean parity. */
   max?: number;
+  /** Whether a map is drawn on this page. A caption that sends the reader to the map is printed only when it is. */
+  mapped?: boolean;
 }) {
   // A party is placed by its vote share, so with none known there is no point to put on the plot. The sentence
   // reuses the state page's own wording for the same absence.
@@ -275,7 +281,11 @@ export function VoteSeatPlot({
       </svg>
       <figcaption>
         Above the line, a party won a larger share of seats than of votes.{' '}
-        {selected === null ? 'Select a party to find its seats on the map.' : <Link href={hrefFor(null)}>Show every party</Link>}
+        {selected === null ? (
+          mapped ? 'Select a party to find its seats on the map.' : null
+        ) : (
+          <Link href={hrefFor(null)}>Show every party</Link>
+        )}
       </figcaption>
     </figure>
   );
