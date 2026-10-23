@@ -17,6 +17,7 @@ import {
   MarginBands,
   Trajectory,
   VoteSeatPlot,
+  anyVoteShare,
 } from '../../components/iei/Distribution.tsx';
 import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
 
@@ -102,6 +103,11 @@ export function StateSurface({
   const SEATS: ElectionSeat[] = selection.narrow(view.seats);
 
   const bands = marginBandCounts(inDistrict);
+  // Whether the party landscape has any vote share to set beside the seat share, and the order of its rows. They
+  // arrive ranked by vote share, which with none known is a tie everywhere: the eight shown would be the first
+  // eight by party key, not the eight with the most seats.
+  const voted = anyVoteShare(view.voteSeat);
+  const landscape = voted ? view.voteSeat : [...view.voteSeat].sort((a, b) => b.seats - a.seats);
   const narrowed = band !== null || party !== null || focused !== null;
   /**
    * HOW MANY ROWS THE LIST SHOWS, and it is the difference between a contextual list and a table.
@@ -218,7 +224,7 @@ export function StateSurface({
         ) : null}
         {/* NO VOTE COUNTS — SAID WHERE THE READER MEETS IT.
             West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat's margin is
-            a dash and the competitiveness and vote-vs-seat sections are absent rather than zeroed. This line
+            a dash, the competitiveness section is absent and the vote-vs-seat plot is a sentence. This line
             used to sit a hundred rendered lines further down, after the flip matrix, where it explained
             dashes the reader had already stopped asking about. It says what is missing AND what that costs,
             because a column of dashes with no reason beside it reads as a broken page rather than as an
@@ -456,14 +462,20 @@ export function StateSurface({
           title="Party landscape"
           question="Which parties turned votes into seats, and which did not?"
         >
+          {/* With no vote share known, the plot is a sentence (VoteSeatPlot says so), and the rows keep what IS
+              known: each party's seats and the seat-share bar. A pale vote bar would be a zero, and the note
+              beneath them explains a comparison that is not there. */}
           <div className="iei-two iei-two-wide">
             <VoteSeatPlot
               rows={view.voteSeat}
               selected={party}
               hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
             />
-            <ul className="iei-partyrows" aria-label="Vote share, seat share and the gap between them">
-              {view.voteSeat.slice(0, 8).map((r) => {
+            <ul
+              className="iei-partyrows"
+              aria-label={voted ? 'Vote share, seat share and the gap between them' : 'Seat share by party'}
+            >
+              {landscape.slice(0, 8).map((r) => {
                 const before = trajectory.parties
                   .find((p) => p.key === r.party.key)
                   ?.points.at(-2);
@@ -479,7 +491,9 @@ export function StateSurface({
                       </span>
                     </Link>
                     <span className="iei-partyrows-bars" aria-hidden="true">
-                      <span className="iei-partyrows-vote" style={{ width: `${Math.min(r.votePct ?? 0, 100)}%` }} />
+                      {voted ? (
+                        <span className="iei-partyrows-vote" style={{ width: `${Math.min(r.votePct ?? 0, 100)}%` }} />
+                      ) : null}
                       <span
                         className="iei-partyrows-seat"
                         style={{ width: `${Math.min(r.seatPct, 100)}%`, background: fillFor(r.party.key) }}
@@ -499,10 +513,12 @@ export function StateSurface({
               })}
             </ul>
           </div>
-          <p className="iei-note">
-            The pale bar is vote share; the solid bar is seat share. A solid bar longer than its pale one is a
-            party the system rewarded.
-          </p>
+          {voted ? (
+            <p className="iei-note">
+              The pale bar is vote share; the solid bar is seat share. A solid bar longer than its pale one is a
+              party the system rewarded.
+            </p>
+          ) : null}
         </Panel>
       )}
 
