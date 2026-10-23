@@ -170,6 +170,13 @@ export function Value({
 }
 
 /**
+ * The longest string the numeral line carries. A tile is at least 200px wide (`.iei-metrics`) and the numeral is
+ * 24px mono, whose 0.6em advance less 0.02em of tracking is 0.58em a glyph: 14 glyphs is 195px. Anything longer
+ * is a sentence, not a figure, and `Metric` sets it as words.
+ */
+const NUMERAL_GLYPHS = 14;
+
+/**
  * A headline figure with its label and, where one exists, its denominator.
  *
  * `text` is the door for a figure the repo layer has already formatted — `Tile.value` from brief.ts is a
@@ -186,6 +193,13 @@ export function Value({
  * NO `sources`, AND NO INLINE ⓘ. It had both, and six tiles beside each other produced six drawers over the
  * same three sources — thirty on a seat page once the panels were counted. The module's one drawer covers the
  * module's figures; a repeated source indicator is the thing that made this product look defensive.
+ *
+ * A VALUE THAT IS WORDS IS NOT SET AS A NUMERAL. "verification pending" and its unit, "not reconciled against
+ * votes cast", were set in the 24px numeral style and wrapped to four lines, which broke the row they sat in.
+ * The test is LENGTH — can the numeral line carry it? — and not whether the string holds a digit, for the reason
+ * above: "once" and "twice" are real counts and keep the numeral's size. And a unit of several words is a
+ * phrase that must not be split across the numeral's line pitch ("2,24,413 roll of / 2026"), so it drops to a
+ * line of its own when it does not fit beside the figure, and stays beside it when it does.
  */
 export function Metric({
   label,
@@ -207,10 +221,12 @@ export function Metric({
   hint?: React.ReactNode;
   decimals?: number;
 }) {
+  const words = text !== undefined && text !== ABSENT && text.length > NUMERAL_GLYPHS;
+  const phrase = text !== undefined && text !== ABSENT && unit !== undefined && /\s/.test(unit.trim());
   return (
     <div className="iei-metric">
       <dt>{label}</dt>
-      <dd>
+      <dd className={words ? 'iei-metric-words' : phrase ? 'iei-metric-phrase' : undefined}>
         {text === undefined ? (
           <Value value={value ?? null} of={of} unit={unit} absent={absent} decimals={decimals} />
         ) : text === ABSENT ? (

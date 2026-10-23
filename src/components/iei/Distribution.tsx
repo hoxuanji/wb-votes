@@ -328,12 +328,12 @@ export function FlipMatrix({
         <li key={`${p.from.key}>${p.to.key}`}>
           <span className="iei-flipmx-pair">
             <span className="iei-sw" style={{ background: fillFor(p.from.key) }} aria-hidden="true" />
-            <Link href={hrefFor(p.from.key)}>{p.from.label}</Link>
+            <Link className="iei-body-link" href={hrefFor(p.from.key)}>{p.from.label}</Link>
             <span className="iei-flipmx-arrow" aria-hidden="true">
               →
             </span>
             <span className="iei-sw" style={{ background: fillFor(p.to.key) }} aria-hidden="true" />
-            <Link href={hrefFor(p.to.key)}>{p.to.label}</Link>
+            <Link className="iei-body-link" href={hrefFor(p.to.key)}>{p.to.label}</Link>
           </span>
           <span className="iei-flipmx-bar" aria-hidden="true">
             <span style={{ width: `${(p.count / peak) * 100}%`, background: fillFor(p.to.key) }} />
