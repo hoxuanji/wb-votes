@@ -15,7 +15,7 @@ import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
-import { ElectionMap, MODES } from '../../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, NoMap } from '../../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginDistribution,
@@ -99,6 +99,8 @@ export default function ElectionPage({
 
   const e = v.election;
   const ctx = v.ctx;
+  // Whether a map is drawn. Every caption below that sends the reader to the map is printed only when it is.
+  const mapped = v.geometry.status === 'drawn';
 
   // WHAT THE READER ASKED FOR, validated by membership against what this election offers, never parsed: a party has to
   // be one this election returned, ran or came second for, and a bin has to be one the distribution actually has. And
@@ -204,7 +206,7 @@ export default function ElectionPage({
         }
       >
         <Tabs
-          label="What the map shows"
+          label={mapped ? 'What the map shows' : 'What this page shows'}
           current={mode}
           choices={MODES.map((m) => ({
             key: m.key,
@@ -215,6 +217,9 @@ export default function ElectionPage({
           }))}
         />
 
+        {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
+        <NoMap view={v} />
+
         <div className="iei-linked iei-map-split">
           <ElectionMap view={v} selection={sel} />
 
@@ -222,8 +227,8 @@ export default function ElectionPage({
             {/* THE LEGEND CHANGES WITH THE MODE, because the mode changes what a colour means. */}
             {mode === 'margin' ? (
               <p className="iei-note">
-                Brightest where the margin was smallest. {IN.format(marginTotal)} of {IN.format(e.seats)} seats
-                have a computable margin.
+                {mapped ? 'Brightest where the margin was smallest. ' : ''}
+                {IN.format(marginTotal)} of {IN.format(e.seats)} seats have a computable margin.
               </p>
             ) : mode === 'flips' ? (
               <ul className="iei-legend">
@@ -235,7 +240,7 @@ export default function ElectionPage({
                   <span className="iei-sw iei-sw-none" aria-hidden="true" />
                   Not comparable <b>{v.incomparableSeats}</b>
                 </li>
-                <li className="iei-legend-note">Flipped seats wear the colour of the party that gained them.</li>
+                {mapped ? <li className="iei-legend-note">Flipped seats wear the colour of the party that gained them.</li> : null}
               </ul>
             ) : (
               <ul className="iei-legend">
@@ -322,6 +327,7 @@ export default function ElectionPage({
             selected={bin}
             total={marginTotal}
             hrefFor={(b) => (b === null ? sel.href('release') : sel.href({ bin: b }))}
+            mapped={mapped}
           />
         </Panel>
       )}
@@ -337,6 +343,7 @@ export default function ElectionPage({
             rows={v.voteSeat}
             selected={party}
             hrefFor={(p) => (p === null ? sel.href('release') : sel.href({ party: p }))}
+            mapped={mapped}
           />
         </Panel>
       )}
@@ -379,10 +386,12 @@ export default function ElectionPage({
                   </li>
                 )}
               </ul>
-              <p className="iei-note">
-                <Link href={sel.href({ mode: 'flips' })}>Show this on the map</Link> — flipped seats wear the
-                colour of the party that gained them.
-              </p>
+              {mapped ? (
+                <p className="iei-note">
+                  <Link href={sel.href({ mode: 'flips' })}>Show this on the map</Link> — flipped seats wear the
+                  colour of the party that gained them.
+                </p>
+              ) : null}
             </div>
             <FlipMatrix
               pairs={v.flips.pairs}

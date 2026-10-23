@@ -223,6 +223,10 @@ _Avoid_: Transition matrix
 
 ### Reading a map
 
+**Map status**:
+Whether an election's map is drawn, which it is when any seat has an outline the page can place; when it is not, the status says why. Redrawn: the registry holds outlines of that house's seats in those states only from epochs older than the seats' own, so the new boundaries are not on record. No geometry: anything else, such as no outline at all or one only for a newer epoch, so nothing was redrawn and there is simply nothing to draw. A page that draws no map says which, and offers no way to find a seat on one.
+_Avoid_: Map availability
+
 **Selection**:
 What the reader has narrowed a loaded map to: its mode, an isolation, a district focus and a seat focus. It is carried in the link, so a reading can be shared and survives the back button.
 _Avoid_: Map state

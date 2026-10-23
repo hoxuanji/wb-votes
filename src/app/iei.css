@@ -196,6 +196,7 @@ html {
   padding: var(--iei-1) var(--iei-3);
   background: var(--iei-ink);
   color: var(--iei-bg);
+  text-decoration: none;
   font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   border-radius: var(--iei-r);
@@ -374,7 +375,9 @@ html {
 /* ONE LINK TREATMENT FOR EVERY LINK IN PROSE, and the list is exhaustive on purpose.
    It covered the dateline and the footer, and nothing else — so a link inside a section's note, a caveat, a
    table caption, a data row's detail or the sub-line under an answer fell through to the browser default and
-   rendered as blue, underlined, on a page whose one stated rule is that hue is spent on data alone. */
+   rendered as blue, underlined, on a page whose one stated rule is that hue is spent on data alone. It
+   missed two more: the year strip on a state page (`.iei-sibs`, listed below), and the party names in the
+   flip matrix, which take `.iei-body-link` because they sit in no container named here. */
 .iei-foot a,
 .iei-note a,
 .iei-caveat a,
@@ -382,6 +385,7 @@ html {
 .iei-empty a,
 .iei-row-d a,
 .iei-t caption a,
+.iei-sibs a,
 .iei-body-link {
   color: var(--iei-ink-2);
   text-decoration: none;
@@ -395,6 +399,7 @@ html {
 .iei-empty a:hover,
 .iei-row-d a:hover,
 .iei-t caption a:hover,
+.iei-sibs a:hover,
 .iei-body-link:hover {
   color: var(--iei-ink);
 }
@@ -406,6 +411,7 @@ html {
 .iei-empty a:focus-visible,
 .iei-row-d a:focus-visible,
 .iei-t caption a:focus-visible,
+.iei-sibs a:focus-visible,
 .iei-body-link:focus-visible {
   outline: none;
   color: var(--iei-ink);
@@ -928,6 +934,45 @@ html {
   font-size: 0.66em;
   font-weight: 400;
   letter-spacing: 0;
+}
+
+/* A VALUE THAT IS WORDS. Metric sets this on a value too long for the numeral line ("verification pending"),
+   which at 24px wrapped to four lines with its unit and broke the row. It is a status, not a quantity: title
+   size, the unit under it at meta size on a line of its own, and the numeral's colour and weight unchanged.
+   The line is the numeral's own line box, so the unit and the note begin where they do under a neighbour's
+   numeral. The unit's size is a token rather than 0.66em because 0.66 of a 15px value is under the smallest
+   type size there is. */
+.iei-metric .iei-metric-words {
+  font-size: var(--iei-f-title);
+  letter-spacing: 0;
+  line-height: calc(var(--iei-f-lead) * 1.15);
+}
+
+.iei-metric-words .iei-of {
+  display: block;
+  font-size: var(--iei-f-meta);
+  line-height: 1.35;
+  margin-top: var(--iei-1);
+}
+
+/* A UNIT OF SEVERAL WORDS stays whole. Inline, "of 3,000 electors" split after "of" and set its second line a
+   full numeral line-height below the first. As flex items the numeral and the unit sit on one line exactly as
+   before when they fit and, when they do not, the unit moves under the numeral entire. The gap is the space
+   the unit's own leading space used to be, which a flex item drops: 0.66 of a character cell, as the unit is
+   0.66 of the numeral's size. */
+.iei-metric-phrase {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 0.66ch;
+}
+
+.iei-metric-phrase .iei-of {
+  line-height: 1.35;
+}
+
+.iei-metric-phrase small {
+  flex-basis: 100%;
 }
 
 /* ══════════════════════════ marks ══════════════════════════ */
@@ -2723,6 +2768,7 @@ html {
   .iei-empty a:focus-visible,
   .iei-row-d a:focus-visible,
   .iei-t caption a:focus-visible,
+  .iei-sibs a:focus-visible,
   .iei-foot a:focus-visible {
     outline: 2px solid CanvasText;
     outline-offset: 2px;

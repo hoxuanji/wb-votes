@@ -16,6 +16,21 @@ import type { VoteSeatEfficiency } from '../../../packages/mandate/src/repo/find
 
 const IN = new Intl.NumberFormat('en-IN');
 
+/**
+ * WHAT A FIGURE WITH NOTHING TO PLOT BECOMES: one sentence, and nothing else.
+ *
+ * Not a frame, not axes, not a caption. West Bengal 2026 published no candidate vote counts, so every party's
+ * vote share is unknown, and the vote-against-seat-share plot drew its two axes, its parity line and the
+ * caption explaining what lies above the line, with no marker anywhere. An empty frame under an explanation of
+ * how to read it looks like a page that failed to load; a sentence saying what is missing is a page that did
+ * not. That is product principle P6 (docs/mandate/01-product.md) and what `viz/charts.ts` already does for the
+ * constituency analysis (`nothing()`). Each figure below decides for itself when it has nothing, so no page
+ * has to remember to ask.
+ */
+function Nothing({ children }: { children: string }) {
+  return <p className="iei-absent">{children}</p>;
+}
+
 /* ───────────────────────────── the margin distribution ───────────────────────────── */
 
 /**
@@ -25,7 +40,8 @@ const IN = new Intl.NumberFormat('en-IN');
  * counts. Every surface in this product showed the five smallest. The five smallest cannot tell you whether
  * an election was close everywhere or a landslide with five accidents, and that is the question.
  *
- * INTERACTION IS THE POINT, not an ornament: each bar is a link that isolates its own seats on the map above.
+ * INTERACTION IS THE POINT, not an ornament: each bar is a link that isolates its own seats on the map above, or
+ * in the seat list where the page draws no map.
  * So "45 seats were decided by under 2 points" becomes "and here is where they are", which is the drill-down
  * the brief asks for and the thing a histogram alone cannot do.
  *
@@ -37,6 +53,7 @@ export function MarginDistribution({
   selected,
   hrefFor,
   total,
+  mapped = true,
 }: {
   bins: readonly MarginBin[];
   /** The bin currently isolating the map, or null. */
@@ -44,8 +61,15 @@ export function MarginDistribution({
   hrefFor: (bin: number | null) => string;
   /** Seats with a computable margin, for the accessible summary. */
   total: number;
+  /** Whether a map is drawn on this page. A caption that sends the reader to the map is printed only when it is. */
+  mapped?: boolean;
 }) {
-  const peak = Math.max(peakBin(bins), 1);
+  const peak = peakBin(bins);
+  // No seat with a margin would otherwise be a row of invisible bars under an axis and a caption saying to select
+  // one, with `peak` held at 1 to keep the division finite. `bins: []` is the same nothing.
+  if (peak === 0) {
+    return <Nothing>No seat has a known margin over votes polled, so there is no distribution of margins to draw.</Nothing>;
+  }
   const W = 100;
   const H = 34;
   const slot = W / bins.length;
@@ -103,7 +127,7 @@ export function MarginDistribution({
       </div>
       <figcaption>
         {selected === null ? (
-          <>Margin over votes polled. Select a bar to find those seats on the map.</>
+          <>{mapped ? 'Margin over votes polled. Select a bar to find those seats on the map.' : 'Margin over votes polled.'}</>
         ) : (
           <>
             Showing seats decided by {selected}–{selected + 2}%.{' '}
@@ -141,7 +165,7 @@ function distLabel(bins: readonly MarginBin[], total: number): string {
  *
  * None of those six figures appears anywhere else in this product.
  *
- * Each marker is a link that isolates that party on the map, so "BJP converts votes to seats well" leads
+ * Each marker is a link that isolates that party on the map (or in the seat list where there is no map), so "BJP converts votes to seats well" leads
  * straight to "and here is where".
  */
 export function VoteSeatPlot({
@@ -149,13 +173,26 @@ export function VoteSeatPlot({
   selected,
   hrefFor,
   max = 60,
+  mapped = true,
 }: {
   rows: readonly VoteSeatEfficiency[];
   selected: string | null;
   hrefFor: (party: string | null) => string;
   /** The axis ceiling. Both axes share it, or the diagonal would not mean parity. */
   max?: number;
+  /** Whether a map is drawn on this page. A caption that sends the reader to the map is printed only when it is. */
+  mapped?: boolean;
 }) {
+  // A party is placed by its vote share, so with none known there is no point to put on the plot. The sentence
+  // reuses the state page's own wording for the same absence.
+  if (!anyVoteShare(rows)) {
+    return (
+      <Nothing>
+        No candidate vote counts were published for this election, so no party&rsquo;s vote share is known to set
+        against its seat share.
+      </Nothing>
+    );
+  }
   // A 400-UNIT FRAME, not 100. The figure renders at about 420px, so one user unit is about one device
   // pixel and a 13-unit label is 13px — the size the stylesheet intends. At 100 units every glyph was
   // scaled 4.2x and the party names lay across each other and across the parity line. Same trap the maps
@@ -245,10 +282,19 @@ export function VoteSeatPlot({
       </svg>
       <figcaption>
         Above the line, a party won a larger share of seats than of votes.{' '}
-        {selected === null ? 'Select a party to find its seats on the map.' : <Link href={hrefFor(null)}>Show every party</Link>}
+        {selected === null ? (
+          mapped ? 'Select a party to find its seats on the map.' : null
+        ) : (
+          <Link href={hrefFor(null)}>Show every party</Link>
+        )}
       </figcaption>
     </figure>
   );
+}
+
+/** Whether any party's vote share is known: the plot's one precondition, and the page's test for its pale bars. */
+export function anyVoteShare(rows: readonly VoteSeatEfficiency[]): boolean {
+  return rows.some((r) => r.votePct !== null);
 }
 
 function vsLabel(rows: readonly VoteSeatEfficiency[]): string {
@@ -281,6 +327,10 @@ export function FlipMatrix({
   pairs: readonly { from: { key: string; label: string }; to: { key: string; label: string }; count: number }[];
   hrefFor: (party: string | null) => string;
 }) {
+  // No pair is a list with no items, which a screen reader announces as an empty list.
+  if (pairs.length === 0) {
+    return <Nothing>No seat changed hands, so there is no movement between parties to draw.</Nothing>;
+  }
   const top = pairs.slice(0, 8);
   const peak = Math.max(...top.map((p) => p.count), 1);
   return (
@@ -289,12 +339,12 @@ export function FlipMatrix({
         <li key={`${p.from.key}>${p.to.key}`}>
           <span className="iei-flipmx-pair">
             <span className="iei-sw" style={{ background: fillFor(p.from.key) }} aria-hidden="true" />
-            <Link href={hrefFor(p.from.key)}>{p.from.label}</Link>
+            <Link className="iei-body-link" href={hrefFor(p.from.key)}>{p.from.label}</Link>
             <span className="iei-flipmx-arrow" aria-hidden="true">
               →
             </span>
             <span className="iei-sw" style={{ background: fillFor(p.to.key) }} aria-hidden="true" />
-            <Link href={hrefFor(p.to.key)}>{p.to.label}</Link>
+            <Link className="iei-body-link" href={hrefFor(p.to.key)}>{p.to.label}</Link>
           </span>
           <span className="iei-flipmx-bar" aria-hidden="true">
             <span style={{ width: `${(p.count / peak) * 100}%`, background: fillFor(p.to.key) }} />
@@ -318,7 +368,7 @@ export function FlipMatrix({
  * stacked bar and not a histogram: the bands are deliberately unequal (under 1%, 1–2%, 2–5%, 5–10%, safe)
  * and a histogram of unequal bins lies about area.
  *
- * Every segment is a link that isolates its seats on the map, so "11 seats under a point" becomes "and here
+ * Every segment is a link that isolates its seats on the map (or in the seat list where there is no map), so "11 seats under a point" becomes "and here
  * they are".
  */
 export function MarginBands({
@@ -331,7 +381,7 @@ export function MarginBands({
   hrefFor: (band: string | null) => string;
 }) {
   const total = bands.reduce((t, b) => t + b.n, 0);
-  if (total === 0) return null;
+  if (total === 0) return <Nothing>No seat has a known margin over votes polled, so there are no bands to draw.</Nothing>;
   return (
     <div className="iei-bands">
       <div className="iei-bands-bar" role="img" aria-label={bandLabel(bands, total)}>
@@ -424,7 +474,22 @@ export function Trajectory({
   selected: string | null;
 }) {
   const years = data.elections.map((e) => e.year);
-  if (years.length < 2) return null;
+  // NOTHING TO DRAW IS A SENTENCE, NOT AN AXIS. Without two elections there is no run; without a party there are
+  // no rows (the axis footer would be printed under nothing); and without one known figure every row would be an
+  // empty strip beside a dash.
+  if (years.length < 2) return <Nothing>Fewer than two elections are on record, so there is no run to draw.</Nothing>;
+  if (data.parties.length === 0) {
+    return <Nothing>No party has a long enough record across these elections to draw a run.</Nothing>;
+  }
+  if (!data.parties.some((p) => p.points.some((pt) => (metric === 'seatPct' ? pt.seatPct : pt.votePct) !== null))) {
+    return (
+      <Nothing>
+        {metric === 'seatPct'
+          ? 'No seat counts are on record for these elections, so there is no seat share to draw.'
+          : 'No candidate vote counts were published for these elections, so there is no vote share to draw.'}
+      </Nothing>
+    );
+  }
   const minY = Math.min(...years);
   const maxY = Math.max(...years);
   const W = 320;

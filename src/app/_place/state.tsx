@@ -11,12 +11,13 @@ import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/re
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
 import { bodyWord } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
-import { ElectionMap, MODES } from '../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, NoMap } from '../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginBands,
   Trajectory,
   VoteSeatPlot,
+  anyVoteShare,
 } from '../../components/iei/Distribution.tsx';
 import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
 
@@ -88,6 +89,8 @@ export function StateSurface({
 }) {
   const e = view.election;
   if (e === null) return null;
+  // Whether a map is drawn. Every control and caption below that sends the reader to the map is printed only when it is.
+  const mapped = view.geometry.status === 'drawn';
 
   const { mode, district, seat, isolation } = selection;
   const party = isolation?.by === 'party' ? isolation.key : null;
@@ -102,6 +105,11 @@ export function StateSurface({
   const SEATS: ElectionSeat[] = selection.narrow(view.seats);
 
   const bands = marginBandCounts(inDistrict);
+  // Whether the party landscape has any vote share to set beside the seat share, and the order of its rows. They
+  // arrive ranked by vote share, which with none known is a tie everywhere: the eight shown would be the first
+  // eight by party key, not the eight with the most seats.
+  const voted = anyVoteShare(view.voteSeat);
+  const landscape = voted ? view.voteSeat : [...view.voteSeat].sort((a, b) => b.seats - a.seats);
   const narrowed = band !== null || party !== null || focused !== null;
   /**
    * HOW MANY ROWS THE LIST SHOWS, and it is the difference between a contextual list and a table.
@@ -197,7 +205,7 @@ export function StateSurface({
           </p>
         )}
         <Tabs
-          label="What the map shows"
+          label={mapped ? 'What the map shows' : 'What this page shows'}
           current={mode}
           choices={MODES.map((m) => ({
             key: m.key,
@@ -207,18 +215,11 @@ export function StateSurface({
           }))}
         />
 
-        {/* WHY THERE IS NO MAP, where there is none — stated once, beside the thing it is about, and only
-            when it is true. Assam's and J&K's 2024 parliamentary seats were drawn by delimitations the
-            registry holds no boundaries for, so there is nothing this map may legally draw them on. */}
-        {view.geometry.drawable === 0 ? (
-          <p className="iei-absent">
-            No boundary map is available for these {view.seats.length} constituencies — they were redrawn and
-            the new boundaries are not on record. Every result is in the list below.
-          </p>
-        ) : null}
+        {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
+        <NoMap view={view} />
         {/* NO VOTE COUNTS — SAID WHERE THE READER MEETS IT.
             West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat's margin is
-            a dash and the competitiveness and vote-vs-seat sections are absent rather than zeroed. This line
+            a dash, the competitiveness section is absent and the vote-vs-seat plot is a sentence. This line
             used to sit a hundred rendered lines further down, after the flip matrix, where it explained
             dashes the reader had already stopped asking about. It says what is missing AND what that costs,
             because a column of dashes with no reason beside it reads as a broken page rather than as an
@@ -226,8 +227,8 @@ export function StateSurface({
         {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
           <p className="iei-caveat">
             No candidate vote counts were published for this election. Winners and turnout are on record;
-            margins, competitiveness and vote-to-seat conversion are not, so those figures read as dashes
-            and their sections are absent rather than shown as zero.
+            margins, competitiveness and vote-to-seat conversion are not, so those figures read as dashes, and
+            a chart that would need them is left out or replaced by a sentence, never drawn as zero.
           </p>
         ) : null}
 
@@ -254,7 +255,7 @@ export function StateSurface({
                     Not comparable <b>{view.incomparableSeats}</b>
                   </li>
                 )}
-                <li className="iei-legend-note">A flipped seat wears the colour of the party that gained it.</li>
+                {mapped ? <li className="iei-legend-note">A flipped seat wears the colour of the party that gained it.</li> : null}
               </ul>
             ) : (
               <ul className="iei-legend">
@@ -365,11 +366,15 @@ export function StateSurface({
                       )}
                       {' · '}
                       {pct(s.marginPct, 2)}
-                      {/* Focus this seat on the map, without leaving the page. */}
-                      {' · '}
-                      <Link className="iei-body-link" href={selection.href({ seat: s.placeId })}>
-                        {seat === s.placeId ? 'unfocus' : 'find on map'}
-                      </Link>
+                      {/* Focus this seat on the map, without leaving the page. There is nothing to focus it on without one. */}
+                      {mapped ? (
+                        <>
+                          {' · '}
+                          <Link className="iei-body-link" href={selection.href({ seat: s.placeId })}>
+                            {seat === s.placeId ? 'unfocus' : 'find on map'}
+                          </Link>
+                        </>
+                      ) : null}
                     </>
                   }
                 />
@@ -421,9 +426,11 @@ export function StateSurface({
                   </li>
                 )}
               </ul>
-              <p className="iei-note">
-                <Link href={selection.href({ mode: 'flips' })}>Show this on the map</Link>
-              </p>
+              {mapped ? (
+                <p className="iei-note">
+                  <Link href={selection.href({ mode: 'flips' })}>Show this on the map</Link>
+                </p>
+              ) : null}
             </div>
             <FlipMatrix
               pairs={view.flips.pairs}
@@ -444,7 +451,9 @@ export function StateSurface({
             }
           />
           <p className="iei-note">
-            Margin over votes polled, winner against runner-up. Select a band to find those seats on the map.
+            {mapped
+              ? 'Margin over votes polled, winner against runner-up. Select a band to find those seats on the map.'
+              : 'Margin over votes polled, winner against runner-up.'}
           </p>
         </Panel>
       )}
@@ -456,14 +465,21 @@ export function StateSurface({
           title="Party landscape"
           question="Which parties turned votes into seats, and which did not?"
         >
+          {/* With no vote share known, the plot is a sentence (VoteSeatPlot says so), and the rows keep what IS
+              known: each party's seats and the seat-share bar. A pale vote bar would be a zero, and the note
+              beneath them explains a comparison that is not there. */}
           <div className="iei-two iei-two-wide">
             <VoteSeatPlot
               rows={view.voteSeat}
               selected={party}
               hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
+              mapped={mapped}
             />
-            <ul className="iei-partyrows" aria-label="Vote share, seat share and the gap between them">
-              {view.voteSeat.slice(0, 8).map((r) => {
+            <ul
+              className="iei-partyrows"
+              aria-label={voted ? 'Vote share, seat share and the gap between them' : 'Seat share by party'}
+            >
+              {landscape.slice(0, 8).map((r) => {
                 const before = trajectory.parties
                   .find((p) => p.key === r.party.key)
                   ?.points.at(-2);
@@ -479,7 +495,9 @@ export function StateSurface({
                       </span>
                     </Link>
                     <span className="iei-partyrows-bars" aria-hidden="true">
-                      <span className="iei-partyrows-vote" style={{ width: `${Math.min(r.votePct ?? 0, 100)}%` }} />
+                      {voted ? (
+                        <span className="iei-partyrows-vote" style={{ width: `${Math.min(r.votePct ?? 0, 100)}%` }} />
+                      ) : null}
                       <span
                         className="iei-partyrows-seat"
                         style={{ width: `${Math.min(r.seatPct, 100)}%`, background: fillFor(r.party.key) }}
@@ -499,10 +517,12 @@ export function StateSurface({
               })}
             </ul>
           </div>
-          <p className="iei-note">
-            The pale bar is vote share; the solid bar is seat share. A solid bar longer than its pale one is a
-            party the system rewarded.
-          </p>
+          {voted ? (
+            <p className="iei-note">
+              The pale bar is vote share; the solid bar is seat share. A solid bar longer than its pale one is a
+              party the system rewarded.
+            </p>
+          ) : null}
         </Panel>
       )}
 

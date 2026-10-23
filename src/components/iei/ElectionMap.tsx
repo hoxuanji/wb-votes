@@ -138,6 +138,38 @@ const BASEMAP: readonly { name: string; path: string }[] = INDIA_SHAPES.map((s) 
   path: simplified(s.path, NATIONAL),
 }));
 
+/**
+ * WHY THERE IS NO MAP, where there is none — stated once, beside the thing it is about, and only when it is true.
+ *
+ * `ElectionMap` draws nothing when no seat has an outline, and the view says which of two things that is
+ * (`geometry.status`). Assam's and J&K's 2024 parliamentary seats were drawn by delimitations the registry holds no
+ * boundaries for: those were redrawn, and only that case may say so. West Bengal's four assembly elections are all under
+ * the 2008 order and nothing about them was redrawn: the registry simply holds no outline for it, and blaming a redraw
+ * there was false. An election with no seats has nothing to explain.
+ *
+ * It says why and nothing about where the results are. It used to add "Every result is in the list below", which was false on
+ * both pages: the state page lists twelve seats unless the reader narrows it ("First 12 of 294" sits right under the
+ * sentence) and the election page lists its closest contests, which is none where no margin is known.
+ */
+export function NoMap({ view }: { view: ElectionMapView }) {
+  const { status } = view.geometry;
+  const n = view.seats.length;
+  if (status === 'drawn' || n === 0) return null;
+  // A by-election can fill a single seat.
+  const one = n === 1;
+  return (
+    <p className="iei-absent">
+      {status === 'redrawn'
+        ? one
+          ? 'No boundary map is available for this constituency — it was redrawn and the new boundary is not on record.'
+          : `No boundary map is available for these ${n} constituencies — they were redrawn and the new boundaries are not on record.`
+        : one
+          ? 'No boundary map is loaded for this constituency.'
+          : `No boundary map is loaded for these ${n} constituencies.`}
+    </p>
+  );
+}
+
 export function ElectionMap({
   view,
   selection,
@@ -173,7 +205,7 @@ export function ElectionMap({
    * Assam's and Jammu & Kashmir's 2024 parliamentary seats sit under boundaries the registry holds no
    * geometry for, so a scoped view of them has zero polygons. Rendering the figure anyway framed to the
    * whole country — which is what `frameOf([])` falls back to — put an empty outline of India on a page
-   * about fourteen Assamese seats. The caller says why instead, and the seat list still carries every result.
+   * about fourteen Assamese seats. The caller says why instead (`NoMap`), and the seat list still carries every result.
    */
   if (drawable.length === 0) return null;
 
