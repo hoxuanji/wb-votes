@@ -47,7 +47,7 @@ Read from screenshots of the real routes, not from the code.
 ## Decisions, as made
 
 1. **Map-first composition (my call).** A compact header band (name, result line and the one-sentence context in one block), one control row (year, then mode), then a two-column atlas: the map on the left, large; legend, district chooser and seat list on the right. The no-vote-counts caveat moves into the right column above the list, shortened. On wide screens the map column is `position: sticky`, so the list scrolls past a map that stays in view (untestable here, stated as such).
-2. **Every list is headed (my call).** "Closest contests, 12 of 294" or "First 12 of 294, in seat order", whichever is true; the district chooser is separated from it.
+2. **Every list is headed (my call).** "Closest contests, 12 of 294" or "In seat order, 12 of 294", whichever is true of how the list was ordered (a narrowed list says its narrowing and its order, "Seats in Kolkata, closest first"); the district chooser is separated from it.
 3. **Plot labels are placed, not printed where they fall (my call).** Pure placement logic with tests on literal coordinates; parties under 1% of both shares are listed as one labelled group; axes get ticks at round values.
 4. **Histogram counts (my call).** The tallest bar's count is printed, a hairline gridline marks half of it, each bar's `<title>` carries its count and range.
 5. **Seat page (batch 2).** A locator (the seat's outline in its state, drawn from the geometry the page already can read), the contest per election (winner, runner-up, margin as a bar, turnout), and neighbouring seats.

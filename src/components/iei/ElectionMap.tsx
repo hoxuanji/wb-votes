@@ -149,8 +149,8 @@ const BASEMAP: readonly { name: string; path: string }[] = INDIA_SHAPES.map((s) 
  * there was false. An election with no seats has nothing to explain.
  *
  * It says why and nothing about where the results are. It used to add "Every result is in the list below", which was false on
- * both pages: the state page lists twelve seats unless the reader narrows it ("First 12 of 294" sits right under the
- * sentence) and the election page lists its closest contests, which is none where no margin is known.
+ * both pages: the state page lists twelve seats unless the reader narrows it (its heading says "12 of 294") and the election
+ * page lists its closest contests, which is none where no margin is known.
  */
 export function NoMap({ view }: { view: ElectionMapView }) {
   const { status } = view.geometry;

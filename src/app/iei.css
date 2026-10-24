@@ -1603,6 +1603,41 @@ html {
   color: var(--iei-ink-3);
 }
 
+/* THE HEADING OF A SEAT LIST: what the list is and how much of it is shown. The hairline and the step of space above it are
+   the boundary between the list and the district chooser or the legend before it, which used to run straight into the first
+   seat. The space is the column's own gap plus --iei-3 (the column zeroes its children's margins, so the margin is set on a
+   selector as specific as that rule), and the title and the count share a line while there is room. */
+.iei-atlas .iei-atlas-side > .iei-list-head {
+  margin-top: var(--iei-3);
+}
+
+.iei-list-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--iei-1) var(--iei-4);
+  border-top: 1px solid var(--iei-line);
+  padding-top: var(--iei-4);
+}
+
+.iei-list-title {
+  margin: 0;
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-title);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--iei-ink);
+}
+
+.iei-list-count {
+  margin: 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink-3);
+}
+
 /* THE MAP STAYS IN VIEW while the list beside it scrolls past. It sticks 16px below the page bar, which is itself
    sticky and 48px tall: stuck at 16px from the top of the window, the map's top 32px would be under the bar. A single
    column has no list beside the map, so this is for the two-column widths only. */

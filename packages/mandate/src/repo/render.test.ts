@@ -997,16 +997,16 @@ test("the election page reads a margin bin only if it is one", live, () => {
     .map((c) => ({ id: c.id, bin: electionMap.electionMapView(db, c.id).marginBins.find((b) => b.n > 0) }))
     .find((c) => c.bin !== undefined);
   assert.ok(found !== undefined, "no election in the registry has a margin distribution");
-  const lo = (found.bin as { lo: number }).lo;
+  const { lo, hi } = found.bin as { lo: number; hi: number | null };
   assert.match(
     render("/election", `bin=${lo}`, found.id),
-    new RegExp(`aria-label="Seats decided by ${lo} to ${lo + 2} percent"`),
+    new RegExp(`aria-label="Seats decided by ${hi === null ? `${lo} percent or more` : `${lo} to ${hi} percent`}, in seat order"`),
     "a real bin did not isolate its seats",
   );
   for (const odd of ["", "%20", "4.0", "0x4", "1e1"]) {
     const html = render("/election", `bin=${odd}`, found.id);
     assert.ok(!html.includes("Seats decided by"), `?bin=${odd} isolated a bin`);
-    assert.ok(html.includes('aria-label="The closest contests of this election"'), `?bin=${odd} changed the list`);
+    assert.ok(html.includes('aria-label="Closest contests"'), `?bin=${odd} changed the list`);
   }
 });
 
@@ -1028,7 +1028,7 @@ test("every party the runner-up legend lists can be isolated from it", live, (t)
   const key = (found.dead as { key: string }).key;
   const html = render("/election", new URLSearchParams({ mode: "runnerup", party: key }).toString(), found.id);
   assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.id}: the link for ${key} did not isolate it`);
-  assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.id}: ${key} listed no seats`);
+  assert.match(html, /aria-label="Seats where [^"]+ came second, in seat order"/, `${found.id}: ${key} listed no seats`);
 });
 
 test("every party the state page's runner-up legend lists can be isolated from it", live, (t) => {
@@ -1057,7 +1057,7 @@ test("every party the state page's runner-up legend lists can be isolated from i
   const query = new URLSearchParams({ house: found.house, election: found.election, mode: "runnerup", party: found.key });
   const html = render("/state", query.toString(), found.state);
   assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.state} ${found.election}: the link for ${found.key} did not isolate it`);
-  assert.ok(html.includes('aria-label="Seats for the selected party"'), `${found.state} ${found.election}: ${found.key} listed no seats`);
+  assert.match(html, /aria-label="Seats where [^"]+ came second, (closest first|in seat order)/, `${found.state} ${found.election}: ${found.key} listed no seats`);
 });
 
 test("a comparison across a redrawn map is refused on the page, not just in the data", live, () => {

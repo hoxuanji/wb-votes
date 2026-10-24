@@ -6,6 +6,13 @@ import type { StateTrajectory } from '../../../packages/mandate/src/repo/traject
 import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
 import { tally } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
+import {
+  bandPhrase,
+  closestFirst,
+  listHead,
+  partyLabelIn,
+  partyPhrase,
+} from '../../../packages/mandate/src/repo/seat-list.ts';
 import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
@@ -20,6 +27,7 @@ import {
   anyVoteShare,
 } from '../../components/iei/Distribution.tsx';
 import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
+import { ListHead, RowContest, RowMargin } from '../../components/iei/SeatList.tsx';
 
 /**
  * The state surface: what is happening politically inside one state.
@@ -62,12 +70,6 @@ import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
  */
 
 const IN = new Intl.NumberFormat('en-IN');
-
-function pct(v: number | null, dp = 1): string {
-  if (v === null) return '—';
-  if (v !== 0 && Number(v.toFixed(dp)) === 0) return '<0.1%';
-  return `${v.toFixed(dp)}%`;
-}
 
 export function StateSurface({
   name,
@@ -121,9 +123,22 @@ export function StateSurface({
    * The first draft showed 60 rows unconditionally. On Karnataka that put 60 constituencies between the map
    * and every analytical section, which is the giant table this surface exists to replace.
    */
-  const listed = [...SEATS]
-    .sort((a, b) => (a.marginPct ?? 999) - (b.marginPct ?? 999))
-    .slice(0, narrowed ? 60 : 12);
+  const list = closestFirst(SEATS, narrowed ? 60 : 12);
+  // WHAT THE LIST IS CALLED is read from the order `closestFirst` built it in and from what the reader narrowed it to, so a
+  // list of an election with no vote counts is headed as the seat order it is, and not as the closest contests it is not.
+  // An isolation names its party or band; a party is the runner-up's on the runner-up tab, as the selection reads it.
+  const head = listHead(
+    {
+      isolation:
+        band !== null
+          ? bandPhrase(MARGIN_BANDS.find((b) => b.key === band)?.label ?? band)
+          : party !== null
+            ? partyPhrase(partyLabelIn(view.seats, party, mode), mode)
+            : null,
+      district: focused?.name ?? null,
+    },
+    list,
+  );
   // What names the map section for a screen reader, and the evidence drawer beside the page's name.
   const mapTitle = `${focused?.name ?? name} · ${MODES.find((m) => m.key === mode)?.label ?? ''}`;
 
@@ -232,18 +247,18 @@ export function StateSurface({
             {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
             <NoMap view={view} />
             {/* NO VOTE COUNTS — SAID WHERE THE READER MEETS IT.
-                West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat's margin is
-                a dash, the competitiveness section is absent and the vote-vs-seat plot is a sentence. This line
-                used to sit a hundred rendered lines further down, after the flip matrix, where it explained
-                dashes the reader had already stopped asking about. It says what is missing AND what that costs,
-                because a column of dashes with no reason beside it reads as a broken page rather than as an
+                West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat has no runner-up
+                and no share of its margin, the competitiveness section is absent and the vote-vs-seat plot is a
+                sentence. This line used to sit a hundred rendered lines further down, after the flip matrix, where it
+                explained rows the reader had already stopped asking about. It says what is missing AND what that costs,
+                because a column of "not reported" with no reason beside it reads as a broken page rather than as an
                 honest one. Only when true, and never a coverage panel. It sits in the column with the list, above
-                the dashes it explains, and not over the map. */}
+                the rows it explains, and not over the map. */}
             {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
               <p className="iei-caveat">
                 No candidate vote counts were published for this election. Winners and turnout are on record;
-                margins, competitiveness and vote-to-seat conversion are not, so they read as dashes, and a chart
-                that needs them is left out or replaced by a sentence, never drawn as zero.
+                margins over votes polled, competitiveness and vote-to-seat conversion are not, so a row says what is
+                not reported, and a chart that needs them is left out or replaced by a sentence, never drawn as zero.
               </p>
             ) : null}
 
@@ -295,11 +310,12 @@ export function StateSurface({
                  with the entire list folded inside `iei-ev` — the evidence-drawer class — so the route to
                  thirty district pages was disguised as a citation. A reader looking for a district found a
                  provenance affordance and reasonably assumed there was nothing behind it.
-                 Now: its own control, open by default, and "open →" is a legible link with a hit area. */
+                 Now: its own control, open by default, and "open →" is a legible link with a hit area. The heading says
+                 what choosing a name does and nothing about "open": every row already says it, in words. */
               <details className="iei-districts" open>
                 <summary>
                   {focused === null
-                    ? `${districts.length} districts — select to filter, or open one`
+                    ? `${districts.length} districts — select one to ${mapped ? 'zoom the map and ' : ''}narrow the list`
                     : `District: ${focused.name}`}
                 </summary>
                 {focused === null ? null : (
@@ -335,48 +351,20 @@ export function StateSurface({
               </details>
             )}
 
-            {/* ══ 7 · THE SEAT LIST — the current selection, and the map's accessible form ══ */}
-            <DataList
-              label={
-                band !== null
-                  ? `Seats decided by ${MARGIN_BANDS.find((b) => b.key === band)?.label ?? band}`
-                  : party !== null
-                    ? 'Seats for the selected party'
-                    : focused !== null
-                      ? `Seats in ${focused.name}`
-                      : 'The closest contests'
-              }
-              tight
-            >
-              {listed.map((s) => (
+            {/* ══ 7 · THE SEAT LIST — the current selection, and the map's accessible form ══
+                Headed with what it is and how much of it is shown, which is also where "12 of 294" is said: it used to be a
+                note under the last row, and the rows had no name. */}
+            <ListHead head={head} />
+            <DataList label={head.title} tight>
+              {list.seats.map((s) => (
                 <DataRow
                   key={s.versionId}
                   title={s.name}
                   href={s.href ?? undefined}
-                  aside={
-                    <b>
-                      {s.marginVotes === null
-                        ? '—'
-                        : `${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`}
-                    </b>
-                  }
+                  aside={<RowMargin seat={s} />}
                   detail={
                     <>
-                      <span className="iei-mark">
-                        <span className="iei-sw" style={{ background: fillFor(s.partyKey ?? '') }} aria-hidden="true" />
-                        {s.partyLabel ?? 'no winner recorded'}
-                      </span>
-                      {s.runnerUpLabel === null ? null : (
-                        <>
-                          {' over '}
-                          <span className="iei-mark">
-                            <span className="iei-sw" style={{ background: fillFor(s.runnerUpKey ?? '') }} aria-hidden="true" />
-                            {s.runnerUpLabel}
-                          </span>
-                        </>
-                      )}
-                      {' · '}
-                      {pct(s.marginPct, 2)}
+                      <RowContest seat={s} />
                       {/* Focus this seat on the map, without leaving the page. There is nothing to focus it on without one. */}
                       {mapped ? (
                         <>
@@ -391,11 +379,6 @@ export function StateSurface({
                 />
               ))}
             </DataList>
-            {SEATS.length > listed.length ? (
-              <p className="iei-note">
-                First {listed.length} of {IN.format(SEATS.length)}.
-              </p>
-            ) : null}
             {narrowed ? (
               <p className="iei-note">
                 <Link href={selection.href('clear')}>Clear the selection</Link>

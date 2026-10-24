@@ -251,6 +251,10 @@ _Avoid_: Hide, grey out
 To reduce the seats a map and its figures describe to those the selection includes: the district first, then the isolation inside it. A place query and a read's scope are also said to be narrowed, to a state, body or district, which is not this Narrow.
 _Avoid_: Filter
 
+**Seat order**:
+The order a map page holds the seats of an election in: by state, then by seat number. A list that no margin put in order is in seat order, and its heading says so.
+_Avoid_: Natural order, default order
+
 **Subject params**:
 The parts of a link that choose which data a page shows, such as the front page's layer, an election or a house, as against the selection, which narrows data already chosen.
 _Avoid_: Scope, which already names the elections a read covers

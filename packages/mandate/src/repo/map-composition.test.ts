@@ -218,8 +218,8 @@ test("the column beside the map opens with what the map answers, in the mode's o
 const CAVEAT_FACTS = [
   /No candidate vote counts were published for this election\./,
   /Winners and turnout are on record;/,
-  /margins, competitiveness and vote-to-seat conversion are not,/,
-  /so they read as dashes,/,
+  /margins over votes polled, competitiveness and vote-to-seat conversion are not,/,
+  /so a row says what is not reported,/,
   /a chart that needs them is left out or replaced by a sentence, never drawn as zero\./,
 ];
 

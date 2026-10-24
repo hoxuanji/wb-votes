@@ -1,14 +1,21 @@
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import {
+  BIN_WIDTH,
   choicesOf,
   electionMapView,
-  tightest,
 } from '../../../../packages/mandate/src/repo/election-map.ts';
-import type { ElectionSeat } from '../../../../packages/mandate/src/repo/election-map.ts';
 import { summarise } from '../../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
+import {
+  binPhrase,
+  closestRanked,
+  inSeatOrder,
+  listHead,
+  partyLabelIn,
+  partyPhrase,
+} from '../../../../packages/mandate/src/repo/seat-list.ts';
 import { readSelection, tally } from '../../../../packages/mandate/src/repo/map-selection.ts';
 import { electionHref, stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
@@ -29,6 +36,7 @@ import {
   RegistryMissing,
   Tabs,
 } from '../../../components/iei/parts.tsx';
+import { ListHead, RowContest, RowMargin } from '../../../components/iei/SeatList.tsx';
 import '../../iei.css';
 
 /**
@@ -72,12 +80,6 @@ export const dynamic = 'force-dynamic';
 
 const IN = new Intl.NumberFormat('en-IN');
 
-function pct(v: number | null, dp = 1): string {
-  if (v === null) return '—';
-  if (v !== 0 && Number(v.toFixed(dp)) === 0) return '<0.1%';
-  return `${v.toFixed(dp)}%`;
-}
-
 export default function ElectionPage({
   params,
   searchParams,
@@ -114,8 +116,18 @@ export default function ElectionPage({
   const top = v.legend[0];
   const marginTotal = v.seats.filter((s) => s.marginPct !== null).length;
   // The list beside the map: the selection when there is one, the closest contests otherwise. It is the map's
-  // accessible representation, which is why the full result lives here and not in 492 hover cards.
-  const listed: ElectionSeat[] = sel.isolation === null ? tightest(v, 12) : sel.narrow(v.seats).slice(0, 40);
+  // accessible representation, which is why the full result lives here and not in 492 hover cards. Each builder returns the
+  // order it applied (the closest contests are ranked by margin; a selection is in seat order), and the heading says that.
+  const list = sel.isolation === null ? closestRanked(v.seats, 12) : inSeatOrder(sel.narrow(v.seats), 40);
+  const binned = bin === null ? null : (v.marginBins.find((b) => b.lo === bin) ?? { lo: bin, hi: bin + BIN_WIDTH });
+  const head = listHead(
+    {
+      isolation:
+        binned !== null ? binPhrase(binned) : party !== null ? partyPhrase(partyLabelIn(v.seats, party, mode), mode) : null,
+      district: null,
+    },
+    list,
+  );
   // What names the map section for a screen reader, and the evidence drawer beside the page's name.
   const mapTitle = `${e.body === 'lok-sabha' ? 'India' : e.jurisdictionName} · ${
     MODES.find((m) => m.key === mode)?.label ?? ''
@@ -267,46 +279,19 @@ export default function ElectionPage({
             )}
 
             {/* ── 7 · THE LIST. The selection, or the closest contests. Also the map's accessible form, which
-                   is why the full result is here once instead of in 492 hover cards. ── */}
-            <DataList
-              label={
-                bin !== null
-                  ? `Seats decided by ${bin} to ${bin + 2} percent`
-                  : party !== null
-                    ? `Seats for the selected party`
-                    : 'The closest contests of this election'
-              }
-              tight
-            >
-              {listed.map((s) => (
+                   is why the full result is here once instead of in 492 hover cards. Headed with what it is and how much
+                   of it is shown, which is where "12 of 294" is said. ── */}
+            <ListHead head={head} />
+            <DataList label={head.title} tight>
+              {list.seats.map((s) => (
                 <DataRow
                   key={s.versionId}
                   title={s.name}
                   href={s.href ?? undefined}
-                  aside={
-                    <b>
-                      {s.marginVotes === null
-                        ? '—'
-                        : `${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`}
-                    </b>
-                  }
+                  aside={<RowMargin seat={s} />}
                   detail={
                     <>
-                      <span className="iei-mark">
-                        <span className="iei-sw" style={{ background: fillFor(s.partyKey ?? '') }} aria-hidden="true" />
-                        {s.partyLabel ?? 'no winner recorded'}
-                      </span>
-                      {s.runnerUpLabel === null ? null : (
-                        <>
-                          {' over '}
-                          <span className="iei-mark">
-                            <span className="iei-sw" style={{ background: fillFor(s.runnerUpKey ?? '') }} aria-hidden="true" />
-                            {s.runnerUpLabel}
-                          </span>
-                        </>
-                      )}
-                      {' · '}
-                      {pct(s.marginPct, 2)}
+                      <RowContest seat={s} />
                       {turnoutHeadline(s.turnout) === null ? null : <> · {turnoutHeadline(s.turnout)}</>}
                       {e.body === 'lok-sabha' && s.jurisdictionName !== null ? <> · {s.jurisdictionName}</> : null}
                     </>
@@ -314,9 +299,6 @@ export default function ElectionPage({
                 />
               ))}
             </DataList>
-            {(bin !== null || party !== null) && listed.length === 40 ? (
-              <p className="iei-note">First 40 of the selection.</p>
-            ) : null}
           </div>
         </div>
       </MapSection>
