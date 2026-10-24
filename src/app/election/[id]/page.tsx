@@ -15,7 +15,7 @@ import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
-import { ElectionMap, MODES, NoMap } from '../../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, MapHead, MapSection, NoMap } from '../../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginDistribution,
@@ -116,6 +116,10 @@ export default function ElectionPage({
   // The list beside the map: the selection when there is one, the closest contests otherwise. It is the map's
   // accessible representation, which is why the full result lives here and not in 492 hover cards.
   const listed: ElectionSeat[] = sel.isolation === null ? tightest(v, 12) : sel.narrow(v.seats).slice(0, 40);
+  // What names the map section for a screen reader, and the evidence drawer beside the page's name.
+  const mapTitle = `${e.body === 'lok-sabha' ? 'India' : e.jurisdictionName} · ${
+    MODES.find((m) => m.key === mode)?.label ?? ''
+  }`;
 
   return (
     <Shell here="india">
@@ -129,15 +133,29 @@ export default function ElectionPage({
         ]}
       />
 
-      {/* ── 1 · HEADER. One sentence of result, then the five figures that frame it. Not a tile grid. ── */}
-      <div className="iei-head">
-        {/* THE TYPE, FROM ElectionContext. The body alone says "Lok Sabha" for a Lok Sabha by-election, which
-            would describe 829 elections as something they are not. */}
-        <p className="iei-eyebrow">
-          {ctx === null
+      {/* ── 1 · HEADER. One sentence of result, then the five figures that frame it. Not a tile grid. The page's
+             sources share the eyebrow's line, so nothing between this and the map is a heading. ── */}
+      <MapHead
+        eyebrow={
+          /* THE TYPE, FROM ElectionContext. The body alone says "Lok Sabha" for a Lok Sabha by-election, which
+             would describe 829 elections as something they are not. */
+          ctx === null
             ? null
-            : `${ctx.scope === null && ctx.body === 'lok-sabha' ? 'India' : ctx.jurisdictionName} · ${typeLabel(ctx.body, ctx.kind)} · ${ctx.year}`}
-        </p>
+            : `${ctx.scope === null && ctx.body === 'lok-sabha' ? 'India' : ctx.jurisdictionName} · ${typeLabel(ctx.body, ctx.kind)} · ${ctx.year}`
+        }
+        sources={v.sources}
+        label={mapTitle}
+        caveat={
+          // The turnout figure this product declines to print. Undefined unless the reading is
+          // unverified, so a healthy election shows no caveat at all.
+          turnoutCaveat(v.turnout) === null ? undefined : (
+            <>
+              <b>Turnout — verification pending.</b>{' '}
+              {turnoutCaveat(v.turnout)?.join(' ')}
+            </>
+          )
+        }
+      >
         <h1 className="iei-answer">
           {top === undefined ? (
             'No winner is on record for this election.'
@@ -184,46 +202,34 @@ export default function ElectionPage({
             </li>
           ))}
         </ul>
-      </div>
+      </MapHead>
 
       {/* ── 2 and 3 · THE MAP, and the four ways of reading it ── */}
-      <Panel
-        id="map"
-        title={`${e.body === 'lok-sabha' ? 'India' : e.jurisdictionName} · ${
-          MODES.find((m) => m.key === mode)?.label ?? ''
-        }`}
-        question={MODES.find((m) => m.key === mode)?.question ?? ''}
-        sources={v.sources}
-        caveat={
-          // The turnout figure this product declines to print. Undefined unless the reading is
-          // unverified, so a healthy election shows no caveat at all.
-          turnoutCaveat(v.turnout) === null ? undefined : (
-            <>
-              <b>Turnout — verification pending.</b>{' '}
-              {turnoutCaveat(v.turnout)?.join(' ')}
-            </>
-          )
+      <MapSection
+        title={mapTitle}
+        controls={
+          <Tabs
+            label={mapped ? 'What the map shows' : 'What this page shows'}
+            current={mode}
+            choices={MODES.map((m) => ({
+              key: m.key,
+              label: m.label,
+              href: sel.href({ mode: m.key }),
+              // Flips need a previous election of the same house under the same boundaries.
+              available: m.key === 'flips' ? v.flips !== null : true,
+            }))}
+          />
         }
       >
-        <Tabs
-          label={mapped ? 'What the map shows' : 'What this page shows'}
-          current={mode}
-          choices={MODES.map((m) => ({
-            key: m.key,
-            label: m.label,
-            href: sel.href({ mode: m.key }),
-            // Flips need a previous election of the same house under the same boundaries.
-            available: m.key === 'flips' ? v.flips !== null : true,
-          }))}
-        />
-
         {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
         <NoMap view={v} />
 
-        <div className="iei-linked iei-map-split">
+        <div className="iei-linked iei-map-split iei-atlas">
           <ElectionMap view={v} selection={sel} />
 
-          <div>
+          <div className="iei-atlas-side">
+            {/* WHAT THE MAP ANSWERS. It was the section heading's second half. */}
+            <p className="iei-atlas-q">{MODES.find((m) => m.key === mode)?.question ?? ''}</p>
             {/* THE LEGEND CHANGES WITH THE MODE, because the mode changes what a colour means. */}
             {mode === 'margin' ? (
               <p className="iei-note">
@@ -313,7 +319,7 @@ export default function ElectionPage({
             ) : null}
           </div>
         </div>
-      </Panel>
+      </MapSection>
 
       {/* ── 4 · COMPETITIVENESS ── */}
       {marginTotal === 0 ? null : (

@@ -1533,6 +1533,86 @@ html {
   max-width: 100%;
 }
 
+/* ══ THE MAP PAGES: a header band, ONE control row, then the atlas ══
+   /state and /election are pages about a map, and on /state/wb the map's top edge was at 484px: under a title, a
+   headline sentence, a section heading that said the state's name again, two rows of tabs and a three-line caveat. A
+   900px window showed 416 of its 620px, an 800px one 316, a phone 236 of 523.
+
+   Now the header is one band (the evidence drawer shares the eyebrow's line), the year strip and the mode tabs are one
+   row, and what the page cannot show is said in the column beside the list it explains. Everything the old composition
+   said is still on the page. It is composed differently, and it is the map that comes first. */
+
+.iei-head-map {
+  padding: var(--iei-4) 0;
+}
+
+.iei-head-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--iei-1) var(--iei-4);
+  margin: 0 0 var(--iei-2);
+}
+
+.iei-head-top .iei-eyebrow {
+  margin: 0;
+}
+
+.iei-sec-atlas {
+  padding-top: var(--iei-4);
+}
+
+/* Each strip is a unit: when the row is too narrow the mode tabs drop under the years whole, instead of one tab
+   stranded on a line of its own. */
+.iei-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--iei-2) var(--iei-6);
+  margin: 0 0 var(--iei-4);
+}
+
+.iei-controls .iei-tabs {
+  margin: 0;
+}
+
+/* The right-hand column of the atlas: what the map shows, what is missing, the legend, the district chooser, the list.
+   A grid with one gap, so the blocks keep their distance whichever of them a page prints. */
+.iei-atlas-side {
+  min-width: 0;
+  display: grid;
+  gap: var(--iei-3);
+  align-content: start;
+}
+
+.iei-atlas .iei-atlas-side > * {
+  margin: 0;
+}
+
+/* NO MAP, NO SECOND COLUMN. The column is then the only child of the grid: it takes the row, to a measure a list can
+   be read at. (Left as the grid's first track, which is sized to its content, it was 280px wide.) */
+.iei-atlas-side:only-child {
+  grid-column: 1 / -1;
+  max-width: 88ch;
+}
+
+/* What the colours and the list answer: the mode's question, which used to be the section heading's second half. */
+.iei-atlas-q {
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-3);
+}
+
+/* THE MAP STAYS IN VIEW while the list beside it scrolls past. It sticks 16px below the page bar, which is itself
+   sticky and 48px tall: stuck at 16px from the top of the window, the map's top 32px would be under the bar. A single
+   column has no list beside the map, so this is for the two-column widths only. */
+@media (min-width: 1024px) {
+  .iei-atlas .iei-map-col {
+    position: sticky;
+    top: calc(var(--iei-12) + var(--iei-4));
+  }
+}
+
 .iei-map {
   margin: 0;
   min-width: 0;
@@ -2128,7 +2208,11 @@ html {
   align-items: baseline;
   flex-wrap: wrap;
   gap: var(--iei-2) var(--iei-4);
-  margin-top: var(--iei-3);
+}
+
+/* The name leads the same line as the result, so the two are one block rather than a title and a strip under it. */
+.iei-hero-result .iei-answer {
+  margin-right: var(--iei-4);
 }
 
 .iei-hero-party {
