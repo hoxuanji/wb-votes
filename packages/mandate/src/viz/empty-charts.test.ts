@@ -224,7 +224,7 @@ test("the state page for an election with no vote share keeps its seat bars and 
   assert.ok(at > 0, "the party landscape section is gone");
   const parties = html.slice(at, html.indexOf("</section>", at));
   assert.match(parties, /No candidate vote counts were published for this election, so no party/);
-  assert.doesNotMatch(parties, /<svg|<figure|<figcaption|iei-vs|seat share →|Above the line/);
+  assert.doesNotMatch(parties, /<svg|<figure|<figcaption|iei-vs|seat share [→↑]|Above the line/);
   assert.match(parties, /iei-partyrows-seat/, "the seat-share bars are kept");
   assert.doesNotMatch(parties, /iei-partyrows-vote|The pale bar is vote share/, "a vote bar would be a zero");
   assert.match(parties, /aria-label="Seat share by party"/);

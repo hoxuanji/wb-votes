@@ -1,7 +1,14 @@
 import Link from 'next/link';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { SEQUENTIAL } from '../../../packages/mandate/src/repo/home.ts';
-import { spread } from '../../../packages/mandate/src/viz/marks.ts';
+import {
+  axisTicks,
+  encloseDiscs,
+  labelWidth,
+  othersLabel,
+  placeLabels,
+  splitMinor,
+} from '../../../packages/mandate/src/viz/plot-labels.ts';
 import { peakBin } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { MarginBin } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { VoteSeatEfficiency } from '../../../packages/mandate/src/repo/findings.ts';
@@ -74,6 +81,7 @@ export function MarginDistribution({
   const H = 34;
   const slot = W / bins.length;
   const gap = slot * 0.16;
+  const edge = bins.findIndex((b) => b.lo === 20);
 
   return (
     <figure className="iei-fig iei-dist">
@@ -89,6 +97,9 @@ export function MarginDistribution({
         aria-label={distLabel(bins, total)}
         preserveAspectRatio="none"
       >
+        {/* HALF THE TALLEST BAR, as a hairline behind the bars, so a bar's height can be read against a number
+            rather than only against its neighbours. Not drawn for a peak of one seat: half a seat is not a count. */}
+        {peak < 2 ? null : <line x1={0} y1={H / 2} x2={W} y2={H / 2} className="iei-dist-half" />}
         {bins.map((b, i) => {
           const h = (b.n / peak) * H;
           const on = selected === b.lo;
@@ -119,10 +130,19 @@ export function MarginDistribution({
           );
         })}
       </svg>
-      {/* Three ticks, not twenty-one. The axis makes the shape readable; it is not itself read. */}
+      {/* THE COUNTS ARE HTML FOR THE REASON THE AXIS IS: a glyph in the band above would be stretched with it.
+          They sit in a gutter to the left of the bars, the tallest bar's count level with its top and half of it
+          level with the hairline. */}
+      <span className="iei-dist-unit" aria-hidden="true">seats</span>
+      <span className="iei-dist-count iei-dist-count-top" aria-hidden="true">{IN.format(peak)}</span>
+      {peak < 2 ? null : (
+        <span className="iei-dist-count iei-dist-count-half" aria-hidden="true">{IN.format(peak / 2)}</span>
+      )}
+      {/* Three ticks, not twenty-one. The axis makes the shape readable; it is not itself read. The middle one sits
+          on the edge of the bar that starts at 20%, which is not the middle of the band. */}
       <div className="iei-dist-axis" aria-hidden="true">
         <span>0%</span>
-        <span>20%</span>
+        <span style={{ left: `${edge < 0 ? 50 : (edge / bins.length) * 100}%` }}>20%</span>
         <span>40%+</span>
       </div>
       <figcaption>
@@ -206,51 +226,94 @@ export function VoteSeatPlot({
   const y = (v: number) => S - pad - (v / ceiling) * inner;
 
   /**
-   * Label baselines, pushed apart so two clustered parties do not print over each other.
+   * Where each name goes (`viz/plot-labels.ts`), worked out before anything is drawn.
    *
-   * `spread()` is the mechanism the line charts already use for exactly this — it takes the ideal
-   * baselines and returns ones at least `gap` apart, in the input's index order. Small parties bunch near
-   * the origin (Karnataka 2023 puts four inside six points of vote share), and without this their names
-   * overlapped into an unreadable stack.
+   * Names used to be printed beside their markers and pushed apart in one dimension. Small parties bunch at the
+   * origin (West Bengal 2021 puts four inside five points of vote share and one of seat share), and their names
+   * overprinted each other and the axis. Now a name is a box one line tall that may not leave the plot, touch a
+   * marker, or come within a line of another name; one that cannot sit beside its marker gets a leader line, and
+   * the placement prefers a layout in which no leader runs through another name, marker or leader.
+   * Parties under 1% of both shares have no name of their own: they are one group, named once.
    *
-   * Sorted by y before spreading is NOT needed — `spread` sorts internally and un-sorts on the way out —
-   * but the labels must be drawn in the SAME index order as `shown`, which is why the array is indexed
-   * rather than zipped.
+   * THE MARKER'S RADIUS HERE IS THE SELECTED ONE (7), for every party, so choosing a party never moves a name.
    */
-  const labelY = spread(
-    shown.map((r) => y(r.seatPct) - 6),
-    15,
+  const { named, minor } = splitMinor(shown);
+  const at = (r: VoteSeatEfficiency) => ({ x: x(r.votePct as number), y: y(r.seatPct), r: 7 });
+  const nameOf = (r: VoteSeatEfficiency) => (r.party.label.length > 12 ? `${r.party.label.slice(0, 11)}…` : r.party.label);
+  const group = minor.length === 0 ? null : encloseDiscs(minor.map(at));
+  const groupName = othersLabel(minor.map(nameOf), Math.floor((0.85 * inner) / labelWidth('x')));
+  const GROUP = '*others';
+  const { placed } = placeLabels(
+    [
+      ...named.map((r) => ({
+        ...at(r),
+        key: r.party.key,
+        width: labelWidth(nameOf(r)),
+        weight: Math.max(r.votePct as number, r.seatPct),
+      })),
+      ...(group === null ? [] : [{ ...group, key: GROUP, width: labelWidth(groupName), weight: -1 }]),
+    ],
+    [...shown.map(at), ...(group === null ? [] : [group])],
+    { x0: pad + 4, y0: pad + 4, x1: S - pad - 4, y1: S - pad - 4 },
+    16,
+    // The figure's own rules, which a name may cross but only when nowhere near is free: the parity diagonal and each
+    // party's drop to it (the `iei-vs-gap` lines below), where a name would read as belonging to the wrong marker.
+    [
+      { x1: x(0), y1: y(0), x2: x(ceiling), y2: y(ceiling) },
+      ...shown.map((r) => ({
+        x1: x(r.votePct as number),
+        y1: y(r.seatPct),
+        x2: x(r.votePct as number),
+        y2: y(r.votePct as number),
+      })),
+    ],
   );
+  const nameAt = new Map(placed.map((p) => [p.key, p]));
+  const others = nameAt.get(GROUP);
 
   return (
     <figure className="iei-fig iei-vs">
       <svg viewBox={`0 0 ${S} ${S}`} role="img" aria-label={vsLabel(shown)}>
         {/* PARITY, as a line. Everything in this figure is read against it.
-            NO LABEL ON IT: the caption below already says what the line means, and the leading party's
-            marker lands exactly on its top end — so an in-plot label was both a duplicate and a collision.
-            Deleting it fixes the overlap and removes a sentence the reader was told twice. */}
+            It is named where it ends, in the margin above the frame: inside the plot the leading party's marker
+            lands on its top end, which is why the first version of this label collided with it. */}
         <line x1={x(0)} y1={y(0)} x2={x(ceiling)} y2={y(ceiling)} className="iei-vs-parity" />
+        <text x={x(ceiling)} y={pad - 14} textAnchor="end" className="iei-vs-parity-label" aria-hidden="true">
+          seats = votes
+        </text>
 
-        {/* Axes, minimal: two lines and two labels. */}
+        {/* Axes: two lines, a tick and a number at each round value, and a title each. The origin is numbered once,
+            on the bottom axis. The seat axis's title is horizontal above it, because the margin to its left is
+            taken by the numbers. */}
         <g className="iei-vs-axis" aria-hidden="true">
           <line x1={pad} y1={S - pad} x2={S - pad} y2={S - pad} />
           <line x1={pad} y1={pad} x2={pad} y2={S - pad} />
-          <text x={S - pad} y={S - pad + 22} textAnchor="end">
+          {axisTicks(ceiling).map((v) => (
+            <g key={v}>
+              <line x1={x(v)} y1={S - pad} x2={x(v)} y2={S - pad + 4} className="iei-vs-tick" />
+              <text x={x(v)} y={S - pad + 16} textAnchor="middle" className="iei-vs-tick-label">
+                {v}%
+              </text>
+              <line x1={pad - 4} y1={y(v)} x2={pad} y2={y(v)} className="iei-vs-tick" />
+              {v === 0 ? null : (
+                <text x={pad - 7} y={y(v)} dy="0.35em" textAnchor="end" className="iei-vs-tick-label">
+                  {v}%
+                </text>
+              )}
+            </g>
+          ))}
+          <text x={S - pad} y={S - 6} textAnchor="end">
             vote share →
           </text>
-          <text
-            x={pad - 12}
-            y={S - pad}
-            transform={`rotate(-90 ${pad - 12} ${S - pad})`}
-          >
-            seat share →
+          <text x={pad} y={pad - 14}>
+            seat share ↑
           </text>
         </g>
 
-        {shown.map((r, i) => {
+        {shown.map((r) => {
           const cx = x(r.votePct as number);
           const cy = y(r.seatPct);
-          const ly = labelY[i] as number;
+          const name = nameAt.get(r.party.key);
           const on = selected === r.party.key;
           const dim = selected !== null && !on;
           return (
@@ -258,15 +321,17 @@ export function VoteSeatPlot({
               <g opacity={dim ? 0.3 : 1}>
                 {/* The gap to parity, drawn. The marker says where the party is; this says how far from fair. */}
                 <line x1={cx} y1={cy} x2={cx} y2={y(r.votePct as number)} className="iei-vs-gap" />
-                {/* A LEADER LINE, only where the label had to move. Without it a pushed label looks like it
-                    belongs to whichever marker it drifted next to. */}
-                {Math.abs(ly - (cy - 6)) < 1.5 ? null : (
-                  <line x1={cx + 6} y1={cy} x2={cx + 9} y2={ly - 3} className="iei-vs-lead" />
+                {/* A LEADER LINE, only where the name could not sit beside its marker. Without it a pushed name
+                    looks like it belongs to whichever marker it drifted next to. */}
+                {name?.leader == null ? null : (
+                  <line x1={name.leader.x1} y1={name.leader.y1} x2={name.leader.x2} y2={name.leader.y2} className="iei-vs-lead" />
                 )}
                 <circle cx={cx} cy={cy} r={on ? 7 : 5} fill={fillFor(r.party.key)} className="iei-vs-dot" />
-                <text x={cx + 9} y={ly} className="iei-vs-tag">
-                  {r.party.label.length > 12 ? `${r.party.label.slice(0, 11)}…` : r.party.label}
-                </text>
+                {name === undefined ? null : (
+                  <text x={name.x} y={name.y} dy="0.35em" textAnchor={name.anchor} className="iei-vs-tag">
+                    {nameOf(r)}
+                  </text>
+                )}
                 {/* One text node — see the histogram's title above for what an array does here. */}
                 <title>
                   {`${r.party.label}: ${(r.votePct as number).toFixed(1)}% of the vote, ` +
@@ -279,6 +344,17 @@ export function VoteSeatPlot({
             </Link>
           );
         })}
+        {/* THE GROUP'S ONE NAME. Not a link: it names several parties, and each of their markers is one. */}
+        {others === undefined ? null : (
+          <g opacity={selected === null || minor.some((r) => r.party.key === selected) ? 1 : 0.3} aria-hidden="true">
+            {others.leader === null ? null : (
+              <line x1={others.leader.x1} y1={others.leader.y1} x2={others.leader.x2} y2={others.leader.y2} className="iei-vs-lead" />
+            )}
+            <text x={others.x} y={others.y} dy="0.35em" textAnchor={others.anchor} className="iei-vs-tag iei-vs-tag-group">
+              {groupName}
+            </text>
+          </g>
+        )}
       </svg>
       <figcaption>
         Above the line, a party won a larger share of seats than of votes.{' '}

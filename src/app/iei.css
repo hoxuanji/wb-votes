@@ -1982,7 +1982,22 @@ html {
    bars carry no glyphs and no circles, so non-uniform scaling distorts nothing a reader measures. The axis
    labels are drawn OUTSIDE the scaled band, in their own group at a fixed size. */
 .iei-dist svg {
+  grid-column: 2;
+  grid-row: 2;
   height: var(--iei-dist-h);
+}
+
+/* THE PLOT HAS A GUTTER FOR ITS COUNTS, and the figure is a grid so the bars, their axis and the counts agree on
+   where the bars are. The bars are capped at 640px by `.iei-fig svg`; the axis used to span the whole figure, so on a
+   wide page "20%" and "40%+" sat under nothing. Column 2 is the bars' own width, and the axis is in it. */
+.iei-dist {
+  display: grid;
+  grid-template-columns: var(--iei-8) minmax(0, 640px) 1fr;
+}
+
+.iei-dist figcaption {
+  grid-column: 1 / -1;
+  grid-row: 4;
 }
 
 .iei-dist a {
@@ -1999,13 +2014,80 @@ html {
   vector-effect: non-scaling-stroke;
 }
 
+/* Half the tallest bar. Behind the bars, so it shows in the gaps and above the short ones; a device pixel wide at
+   any width (the band is stretched), and dotted so it reads as a scale and not as a data edge. */
+.iei-dist-half {
+  stroke: var(--iei-ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 1 3;
+  vector-effect: non-scaling-stroke;
+  opacity: 0.7;
+}
+
+/* The counts: the tallest bar's, level with its top, and half of it, level with the hairline. HTML and not SVG text
+   because the band is stretched (see `preserveAspectRatio` in Distribution.tsx). */
+.iei-dist-unit,
+.iei-dist-count {
+  grid-column: 1;
+  padding-right: var(--iei-1);
+  justify-self: end;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1;
+  color: var(--iei-ink-3);
+  white-space: nowrap;
+}
+
+/* The unit starts at the figure's own left edge and runs over the bars' column: it is wider than the gutter, and
+   the figure scrolls rather than overflows (`.iei-fig`), so a word right-aligned in 32px lost its first letter. */
+.iei-dist-unit {
+  grid-column: 1 / 3;
+  grid-row: 1;
+  padding-right: 0;
+  padding-bottom: var(--iei-1);
+  justify-self: start;
+}
+
+.iei-dist-count {
+  grid-row: 2;
+}
+
+.iei-dist-count-top {
+  align-self: start;
+}
+
+.iei-dist-count-half {
+  align-self: center;
+}
+
 .iei-dist-axis {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  grid-column: 2;
+  grid-row: 3;
+  height: var(--iei-4);
   margin-top: var(--iei-1);
   font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
+}
+
+/* The ends sit flush with the bars' ends; the middle one is placed by the component, on the edge of the bar that
+   starts at 20%, and centred there. */
+.iei-dist-axis span {
+  position: absolute;
+  top: 0;
+}
+
+.iei-dist-axis span:first-child {
+  left: 0;
+}
+
+.iei-dist-axis span:nth-child(2) {
+  transform: translateX(-50%);
+}
+
+.iei-dist-axis span:last-child {
+  right: 0;
 }
 
 /* ── vote share against seat share ── */
@@ -2030,7 +2112,7 @@ html {
   opacity: 0.65;
 }
 
-/* A leader line, drawn only where `spread()` had to move a label off its marker. Quieter than the gap it
+/* A leader line, drawn only where a name could not sit beside its marker (`placeLabels`). Quieter than the gap it
    sits beside, because it carries no measurement — it is only saying "this name belongs to that dot". */
 .iei-vs-lead {
   stroke: var(--iei-ink-3);
@@ -2039,24 +2121,42 @@ html {
 }
 
 .iei-vs-axis line {
-  stroke: var(--iei-line);
+  stroke: var(--iei-line-2);
   stroke-width: 1.4;
 }
 
-.iei-vs-axis text {
+/* A tick is a measurement, so it is drawn in the ink the numbers are, not in the quiet of the axis it crosses. */
+.iei-vs-axis .iei-vs-tick {
+  stroke: var(--iei-ink-3);
+  stroke-width: 1;
+}
+
+/* In user units, which are pixels in this frame (see `S` in Distribution.tsx). These were bare numbers, which a
+   stylesheet does not accept as a length, so the axis text had been inheriting the page's 14px. */
+.iei-vs-axis text,
+.iei-vs-parity-label {
   font-family: var(--iei-mono);
-  font-size: 13;
+  font-size: var(--iei-f-data);
   fill: var(--iei-ink-3);
+}
+
+.iei-vs-axis .iei-vs-tick-label {
+  font-size: var(--iei-f-meta);
 }
 
 .iei-vs-tag {
   font-family: var(--iei-mono);
-  font-size: 14;
+  font-size: var(--iei-f-body);
   fill: var(--iei-ink);
   /* A halo, so a label crossing the parity line or another marker stays readable without a box. */
   paint-order: stroke;
   stroke: var(--iei-bg);
   stroke-width: 3.5;
+}
+
+/* The one name for the parties too small to have their own: a step quieter than a party's. */
+.iei-vs-tag-group {
+  fill: var(--iei-ink-2);
 }
 
 .iei-vs-dot {
