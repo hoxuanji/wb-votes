@@ -6,12 +6,19 @@ import type { StateTrajectory } from '../../../packages/mandate/src/repo/traject
 import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
 import { tally } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
+import {
+  bandPhrase,
+  closestFirst,
+  listHead,
+  partyLabelIn,
+  partyPhrase,
+} from '../../../packages/mandate/src/repo/seat-list.ts';
 import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
 import { bodyWord } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
-import { ElectionMap, MODES, NoMap } from '../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, MapHead, MapSection, NoMap } from '../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginBands,
@@ -20,6 +27,7 @@ import {
   anyVoteShare,
 } from '../../components/iei/Distribution.tsx';
 import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
+import { ListHead, RowContest, RowMargin } from '../../components/iei/SeatList.tsx';
 
 /**
  * The state surface: what is happening politically inside one state.
@@ -62,12 +70,6 @@ import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
  */
 
 const IN = new Intl.NumberFormat('en-IN');
-
-function pct(v: number | null, dp = 1): string {
-  if (v === null) return '—';
-  if (v !== 0 && Number(v.toFixed(dp)) === 0) return '<0.1%';
-  return `${v.toFixed(dp)}%`;
-}
 
 export function StateSurface({
   name,
@@ -121,39 +123,70 @@ export function StateSurface({
    * The first draft showed 60 rows unconditionally. On Karnataka that put 60 constituencies between the map
    * and every analytical section, which is the giant table this surface exists to replace.
    */
-  const listed = [...SEATS]
-    .sort((a, b) => (a.marginPct ?? 999) - (b.marginPct ?? 999))
-    .slice(0, narrowed ? 60 : 12);
+  const list = closestFirst(SEATS, narrowed ? 60 : 12);
+  // WHAT THE LIST IS CALLED is read from the order `closestFirst` built it in and from what the reader narrowed it to, so a
+  // list of an election with no vote counts is headed as the seat order it is, and not as the closest contests it is not.
+  // An isolation names its party or band; a party is the runner-up's on the runner-up tab, as the selection reads it.
+  const head = listHead(
+    {
+      isolation:
+        band !== null
+          ? bandPhrase(MARGIN_BANDS.find((b) => b.key === band)?.label ?? band)
+          : party !== null
+            ? partyPhrase(partyLabelIn(view.seats, party, mode), mode)
+            : null,
+      district: focused?.name ?? null,
+    },
+    list,
+  );
+  // What names the map section for a screen reader, and the evidence drawer beside the page's name.
+  const mapTitle = `${focused?.name ?? name} · ${MODES.find((m) => m.key === mode)?.label ?? ''}`;
 
   return (
     <>
       {/* ══ 1 · WHO CONTROLS THE STATE ═════════════════════════════════════════════════════════
           A compact editorial hero: the party, the seats, the bar it had to clear, and one statement the
-          registry actually supports. Not a tile grid. */}
-      <div className="iei-head">
-        <p className="iei-eyebrow">State or union territory</p>
-        <h1 className="iei-answer">{name}</h1>
-        {lead === null ? null : (
-          <div className="iei-hero-result">
-            <span className="iei-hero-party">
-              <span className="iei-sw" style={{ background: fillFor(lead.key) }} aria-hidden="true" />
-              {lead.label}
-            </span>
-            <span className="iei-hero-seats">
-              <b>{IN.format(lead.n)}</b>
-              <span className="iei-of"> / {IN.format(view.seats.length)}</span>
-            </span>
-            <span className="iei-hero-meta">
-              {/* THE TYPE AND THE SCALE, both from ElectionContext: "majority N" is a claim only a full house
-                  can support, and a by-election is not one. */}
-              {view.ctx === null ? `${bodyWord(e.body)} ${e.year}` : `${scaleLabel(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
-              {/* NOT a number when the registry cannot corroborate one. West Bengal 2026's 93.0% used to
-                  sit right here, in the same type as a real majority count, and a first-time reader had no
-                  way to discount it. `turnoutHeadline` cannot return a figure for an unverified reading. */}
-              {turnoutHeadline(view.turnout) === null ? null : ` · ${turnoutHeadline(view.turnout)}`}
-            </span>
-          </div>
-        )}
+          registry actually supports. Not a tile grid. The name leads the same line as the result and the page's
+          sources share the eyebrow's line, so nothing between the top of the page and the map is a heading. */}
+      <MapHead
+        eyebrow="State or union territory"
+        sources={view.sources}
+        label={mapTitle}
+        caveat={
+          // The turnout figure this product declines to print. Undefined unless the reading is
+          // unverified, so a healthy election shows no caveat at all.
+          turnoutCaveat(view.turnout) === null ? undefined : (
+            <>
+              <b>Turnout — verification pending.</b>{' '}
+              {turnoutCaveat(view.turnout)?.join(' ')}
+            </>
+          )
+        }
+      >
+        <div className="iei-hero-result">
+          <h1 className="iei-answer">{name}</h1>
+          {lead === null ? null : (
+            <>
+              <span className="iei-hero-party">
+                <span className="iei-sw" style={{ background: fillFor(lead.key) }} aria-hidden="true" />
+                {lead.label}
+              </span>
+              <span className="iei-hero-seats">
+                <b>{IN.format(lead.n)}</b>
+                <span className="iei-of"> / {IN.format(view.seats.length)}</span>
+              </span>
+              <span className="iei-hero-meta">
+                {/* THE TYPE AND THE SCALE, both from ElectionContext: "majority N" is a claim only a full house
+                    can support, and a by-election is not one. */}
+                {view.ctx === null ? `${bodyWord(e.body)} ${e.year}` : `${scaleLabel(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
+                {/* NOT a number when the registry cannot corroborate one. West Bengal 2026's 93.0% used to
+                    sit right here, in the same type as a real majority count, and a first-time reader had no
+                    way to discount it. `turnoutHeadline` cannot return a figure for an unverified reading. */}
+                {turnoutHeadline(view.turnout) === null ? null : ` · ${turnoutHeadline(view.turnout)}`}
+              </span>
+            </>
+          )}
+        </div>
         {/* ONE analytical statement, from the findings the data layer already produced — never authored
             here, so it cannot claim something the registry does not hold. */}
         {view.flips === null ? null : <p className="iei-sub">{summarise(view.flips)}</p>}
@@ -166,76 +199,69 @@ export function StateSurface({
             {typeLabel(e.body, e.fill)} {e.year}.
           </p>
         )}
-      </div>
+      </MapHead>
 
       {/* ══ 2 · THE ELECTORAL MAP — constituency winners, never a state filled with its government ══ */}
-      <Panel
-        id="map"
-        title={`${focused?.name ?? name} · ${MODES.find((m) => m.key === mode)?.label ?? ''}`}
-        question={MODES.find((m) => m.key === mode)?.question ?? ''}
-        sources={view.sources}
-        caveat={
-          // The turnout figure this product declines to print. Undefined unless the reading is
-          // unverified, so a healthy election shows no caveat at all.
-          turnoutCaveat(view.turnout) === null ? undefined : (
-            <>
-              <b>Turnout — verification pending.</b>{' '}
-              {turnoutCaveat(view.turnout)?.join(' ')}
-            </>
-          )
+      <MapSection
+        title={mapTitle}
+        controls={
+          <>
+            <Tabs
+              label="Election"
+              current={e.id}
+              choices={choices.slice(0, 8).map((s) => ({
+                key: s.id,
+                label: String(s.year),
+                // Changing election drops every selection: a party's seats, a margin band and a district focus
+                // are all statements about ONE election and mean nothing carried to another.
+                href: selection.href({ election: s.id }),
+              }))}
+            />
+            <Tabs
+              label={mapped ? 'What the map shows' : 'What this page shows'}
+              current={mode}
+              choices={MODES.map((m) => ({
+                key: m.key,
+                label: m.label,
+                href: selection.href({ mode: m.key }),
+                available: m.key === 'flips' ? view.flips !== null : true,
+              }))}
+            />
+          </>
         }
       >
-        <Tabs
-          label="Election"
-          current={e.id}
-          choices={choices.slice(0, 8).map((s) => ({
-            key: s.id,
-            label: String(s.year),
-            // Changing election drops every selection: a party's seats, a margin band and a district focus
-            // are all statements about ONE election and mean nothing carried to another.
-            href: selection.href({ election: s.id }),
-          }))}
-        />
-        {/* A STATE'S LOK SABHA VIEW IS A NATIONAL ELECTION NARROWED TO ONE STATE, and the election's own page is the
-            only place that shows the rest of it. */}
-        {e.body !== 'lok-sabha' ? null : (
-          <p className="iei-note">
-            The {e.year} Lok Sabha election, narrowed to the seats in {name}.{' '}
-            <Link href={electionHref(e.id)}>See the whole country</Link>.
-          </p>
-        )}
-        <Tabs
-          label={mapped ? 'What the map shows' : 'What this page shows'}
-          current={mode}
-          choices={MODES.map((m) => ({
-            key: m.key,
-            label: m.label,
-            href: selection.href({ mode: m.key }),
-            available: m.key === 'flips' ? view.flips !== null : true,
-          }))}
-        />
-
-        {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
-        <NoMap view={view} />
-        {/* NO VOTE COUNTS — SAID WHERE THE READER MEETS IT.
-            West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat's margin is
-            a dash, the competitiveness section is absent and the vote-vs-seat plot is a sentence. This line
-            used to sit a hundred rendered lines further down, after the flip matrix, where it explained
-            dashes the reader had already stopped asking about. It says what is missing AND what that costs,
-            because a column of dashes with no reason beside it reads as a broken page rather than as an
-            honest one. Only when true, and never a coverage panel. */}
-        {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
-          <p className="iei-caveat">
-            No candidate vote counts were published for this election. Winners and turnout are on record;
-            margins, competitiveness and vote-to-seat conversion are not, so those figures read as dashes, and
-            a chart that would need them is left out or replaced by a sentence, never drawn as zero.
-          </p>
-        ) : null}
-
-        <div className="iei-linked iei-map-split">
+        <div className="iei-linked iei-map-split iei-atlas">
           <ElectionMap view={view} selection={selection} />
 
-          <div>
+          <div className="iei-atlas-side">
+            {/* WHAT THE MAP ANSWERS. It was the section heading's second half. */}
+            <p className="iei-atlas-q">{MODES.find((m) => m.key === mode)?.question ?? ''}</p>
+            {/* A STATE'S LOK SABHA VIEW IS A NATIONAL ELECTION NARROWED TO ONE STATE, and the election's own page is the
+                only place that shows the rest of it. */}
+            {e.body !== 'lok-sabha' ? null : (
+              <p className="iei-note">
+                The {e.year} Lok Sabha election, narrowed to the seats in {name}.{' '}
+                <Link href={electionHref(e.id)}>See the whole country</Link>.
+              </p>
+            )}
+            {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
+            <NoMap view={view} />
+            {/* NO VOTE COUNTS — SAID WHERE THE READER MEETS IT.
+                West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat has no runner-up
+                and no share of its margin, the competitiveness section is absent and the vote-vs-seat plot is a
+                sentence. This line used to sit a hundred rendered lines further down, after the flip matrix, where it
+                explained rows the reader had already stopped asking about. It says what is missing AND what that costs,
+                because a column of "not reported" with no reason beside it reads as a broken page rather than as an
+                honest one. Only when true, and never a coverage panel. It sits in the column with the list, above
+                the rows it explains, and not over the map. */}
+            {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
+              <p className="iei-caveat">
+                No candidate vote counts were published for this election. Winners and turnout are on record;
+                margins over votes polled, competitiveness and vote-to-seat conversion are not, so a row says what is
+                not reported, and a chart that needs them is left out or replaced by a sentence, never drawn as zero.
+              </p>
+            ) : null}
+
             {/* The legend answers to the mode, because the mode decides what a colour means. */}
             {mode === 'margin' ? (
               <MarginBands
@@ -284,11 +310,12 @@ export function StateSurface({
                  with the entire list folded inside `iei-ev` — the evidence-drawer class — so the route to
                  thirty district pages was disguised as a citation. A reader looking for a district found a
                  provenance affordance and reasonably assumed there was nothing behind it.
-                 Now: its own control, open by default, and "open →" is a legible link with a hit area. */
+                 Now: its own control, open by default, and "open →" is a legible link with a hit area. The heading says
+                 what choosing a name does and nothing about "open": every row already says it, in words. */
               <details className="iei-districts" open>
                 <summary>
                   {focused === null
-                    ? `${districts.length} districts — select to filter, or open one`
+                    ? `${districts.length} districts — select one to ${mapped ? 'zoom the map and ' : ''}narrow the list`
                     : `District: ${focused.name}`}
                 </summary>
                 {focused === null ? null : (
@@ -324,48 +351,20 @@ export function StateSurface({
               </details>
             )}
 
-            {/* ══ 7 · THE SEAT LIST — the current selection, and the map's accessible form ══ */}
-            <DataList
-              label={
-                band !== null
-                  ? `Seats decided by ${MARGIN_BANDS.find((b) => b.key === band)?.label ?? band}`
-                  : party !== null
-                    ? 'Seats for the selected party'
-                    : focused !== null
-                      ? `Seats in ${focused.name}`
-                      : 'The closest contests'
-              }
-              tight
-            >
-              {listed.map((s) => (
+            {/* ══ 7 · THE SEAT LIST — the current selection, and the map's accessible form ══
+                Headed with what it is and how much of it is shown, which is also where "12 of 294" is said: it used to be a
+                note under the last row, and the rows had no name. */}
+            <ListHead head={head} />
+            <DataList label={head.title} tight>
+              {list.seats.map((s) => (
                 <DataRow
                   key={s.versionId}
                   title={s.name}
                   href={s.href ?? undefined}
-                  aside={
-                    <b>
-                      {s.marginVotes === null
-                        ? '—'
-                        : `${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`}
-                    </b>
-                  }
+                  aside={<RowMargin seat={s} />}
                   detail={
                     <>
-                      <span className="iei-mark">
-                        <span className="iei-sw" style={{ background: fillFor(s.partyKey ?? '') }} aria-hidden="true" />
-                        {s.partyLabel ?? 'no winner recorded'}
-                      </span>
-                      {s.runnerUpLabel === null ? null : (
-                        <>
-                          {' over '}
-                          <span className="iei-mark">
-                            <span className="iei-sw" style={{ background: fillFor(s.runnerUpKey ?? '') }} aria-hidden="true" />
-                            {s.runnerUpLabel}
-                          </span>
-                        </>
-                      )}
-                      {' · '}
-                      {pct(s.marginPct, 2)}
+                      <RowContest seat={s} />
                       {/* Focus this seat on the map, without leaving the page. There is nothing to focus it on without one. */}
                       {mapped ? (
                         <>
@@ -380,11 +379,6 @@ export function StateSurface({
                 />
               ))}
             </DataList>
-            {SEATS.length > listed.length ? (
-              <p className="iei-note">
-                First {listed.length} of {IN.format(SEATS.length)}.
-              </p>
-            ) : null}
             {narrowed ? (
               <p className="iei-note">
                 <Link href={selection.href('clear')}>Clear the selection</Link>
@@ -392,7 +386,7 @@ export function StateSurface({
             ) : null}
           </div>
         </div>
-      </Panel>
+      </MapSection>
 
       {/* ══ 3 · WHAT CHANGED ══════════════════════════════════════════════════════════════════ */}
       {view.flips === null ? (

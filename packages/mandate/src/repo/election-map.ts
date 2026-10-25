@@ -878,11 +878,3 @@ export function stateChoicesOf(v: {
     flips: v.flips !== null,
   };
 }
-
-/** The closest contests, by margin over votes polled. */
-export function tightest(v: ElectionMapView, n = 8): ElectionSeat[] {
-  return v.seats
-    .filter((s) => s.marginPct !== null && s.partyLabel !== null)
-    .sort((a, b) => (a.marginPct as number) - (b.marginPct as number))
-    .slice(0, n);
-}

@@ -236,6 +236,7 @@ test("every length in the stylesheet comes from the scale", () => {
     "460px", // the three scroll-region heights, which are viewport decisions
     "900px",
     "1080px", // the two breakpoints
+    "1024px", // the width from which the map stays in view beside a list that scrolls
     "21px", // the answer at the narrow breakpoint, declared as a token override
     "420px", // the command bar's maximum width
     "12px", // the result strip's swatch: a mark whose size IS its meaning, beside 24px type

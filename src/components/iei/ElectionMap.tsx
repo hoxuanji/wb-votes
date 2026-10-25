@@ -7,6 +7,7 @@ import { SEQUENTIAL } from '../../../packages/mandate/src/repo/home.ts';
 import { MODES } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { MapMode, MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
+import { Evidence } from './parts.tsx';
 
 /**
  * The election map: one polygon per constituency, and four ways of reading the same 500 shapes.
@@ -148,8 +149,8 @@ const BASEMAP: readonly { name: string; path: string }[] = INDIA_SHAPES.map((s) 
  * there was false. An election with no seats has nothing to explain.
  *
  * It says why and nothing about where the results are. It used to add "Every result is in the list below", which was false on
- * both pages: the state page lists twelve seats unless the reader narrows it ("First 12 of 294" sits right under the
- * sentence) and the election page lists its closest contests, which is none where no margin is known.
+ * both pages: the state page lists twelve seats unless the reader narrows it (its heading says "12 of 294") and the election
+ * page lists its closest contests, which is none where no margin is known.
  */
 export function NoMap({ view }: { view: ElectionMapView }) {
   const { status } = view.geometry;
@@ -167,6 +168,70 @@ export function NoMap({ view }: { view: ElectionMapView }) {
           ? 'No boundary map is loaded for this constituency.'
           : `No boundary map is loaded for these ${n} constituencies.`}
     </p>
+  );
+}
+
+/**
+ * THE HEADER OF A MAP PAGE, as one band: the eyebrow with the page's evidence drawer at the other end of its line, then
+ * whatever the page leads with.
+ *
+ * The drawer used to sit in a section heading of its own, under the page's name and over the controls, which said the
+ * name a second time and pushed the map down by a heading's height. The sources back the whole page, so they sit with
+ * its name now; the turnout caveat that rides in the drawer reaches a reader who opens it exactly as before.
+ */
+export function MapHead({
+  eyebrow,
+  sources,
+  label,
+  caveat,
+  children,
+}: {
+  eyebrow: React.ReactNode;
+  sources: ElectionMapView['sources'];
+  /** What the sources are evidence FOR, for the screen reader: the drawer's visible text has no room for it. */
+  label: string;
+  /** A known problem with the figures these sources back, stated first inside the drawer. */
+  caveat?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="iei-head iei-head-map">
+      <div className="iei-head-top">
+        <p className="iei-eyebrow">{eyebrow}</p>
+        {sources.length === 0 ? null : <Evidence sources={sources} label={label} caveat={caveat} />}
+      </div>
+      {children}
+    </div>
+  );
+}
+
+/**
+ * THE SECTION UNDER THE HEADER: one control row, then whatever atlas the page lays out in it.
+ *
+ * The heading is there for a screen reader and for nobody else. The page's own name is the heading a sighted reader
+ * has, and a second one that repeated it ("West Bengal · Winners" under "West Bengal") is what put the controls a
+ * heading's height further from the top. Dropping it from the outline too would leave the section without a name, so
+ * it stays, hidden, and the outline is the one the page had.
+ *
+ * `controls` are the strips of choices (the elections, then the modes): the section lays them on a single row.
+ */
+export function MapSection({
+  title,
+  controls,
+  children,
+}: {
+  title: string;
+  controls: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="iei-sec iei-sec-atlas" id="map" aria-labelledby="map-h">
+      <h2 id="map-h" className="iei-sr">
+        {title}
+      </h2>
+      <div className="iei-controls">{controls}</div>
+      {children}
+    </section>
   );
 }
 

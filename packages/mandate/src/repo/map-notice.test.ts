@@ -305,7 +305,7 @@ test("each reason says its own thing on the state page, and neither claims the r
   assert.ok(redrawn.includes(REDRAWN(2)), redrawn.join("\n"));
   assert.doesNotMatch(redrawn.join("\n"), /No boundary map is loaded/);
 
-  // The list under the notice is capped ("First 12 of 294"), so the notice never says every result is in it.
+  // The list under the notice is capped (its heading says "12 of 294"), so the notice never says every result is in it.
   assert.doesNotMatch(none.join("\n") + redrawn.join("\n"), /in the list below/);
 
   const drawn = text(render("/state", "", "aa"));
