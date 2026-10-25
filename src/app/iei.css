@@ -125,6 +125,9 @@
      of the mark rather than of the layout — same argument as --iei-map-h, and redeclared at the breakpoint
      below rather than overridden rule by rule. */
   --iei-dist-h: 128px;
+  /* The seat locator's box: a square this wide, beside the page header where there is room and under it where there is
+     not. SeatLocator.tsx draws in a box of this many units, so the two are one number. */
+  --iei-locator-w: 320px;
   --iei-cell-y: var(--iei-2);
   --iei-cell-y-tight: var(--iei-1);
   --iei-cell-x: var(--iei-3);
@@ -2696,6 +2699,116 @@ html {
   vector-effect: non-scaling-stroke;
 }
 
+/* ══════════════════════════ the seat locator ══════════════════════════
+   WHERE A SEAT IS, on its own page: its outline among the other seats of its house in its state. The neighbours are in the
+   void ink, the ink that means "no result drawn here", so the only colour on the figure is the seat's: the party that won
+   it at its latest election. Everything else is the interface's own ink.
+
+   Strokes are device pixels (`non-scaling-stroke`), as inside every map, because the outlines go through a transform that
+   fits a state to a 320-unit box and a user-unit hairline would be whatever that scale made it. */
+
+/* BELOW 900px THE LOCATOR IS UNDER THE HEADER'S TEXT, at the width it has, left-aligned with it. */
+.iei-loc {
+  margin: var(--iei-4) 0 0;
+  width: min(100%, var(--iei-locator-w));
+}
+
+.iei-loc svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/* From 900px it sits beside the text. The header becomes two columns, the text in the first and the locator spanning the
+   three rows the text takes and a fourth of nothing, so the height it adds goes to the empty row and the eyebrow, the title
+   and the sentence stay together at the top. The header's own hairline runs under both. */
+@media (min-width: 900px) {
+  .iei-head-seat {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--iei-locator-w);
+    grid-template-rows: repeat(3, auto) 1fr;
+    column-gap: var(--iei-8);
+    align-items: start;
+  }
+
+  .iei-head-seat .iei-loc {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin: 0;
+  }
+}
+
+.iei-loc-hood path {
+  fill: var(--iei-void);
+  stroke: var(--iei-bg);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* A neighbour comes forward under the pointer and on focus, as a seat on the maps does: the stroke brightens and the
+   fill steps up one surface. Never a hue, which is the party's. */
+.iei-loc a:hover path {
+  fill: var(--iei-line-2);
+  stroke: var(--iei-ink-3);
+}
+
+.iei-loc a:focus-visible {
+  outline: none;
+}
+
+.iei-loc a:focus-visible path {
+  fill: var(--iei-line-2);
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+}
+
+/* The seat. The neutral ink is for a seat with no winner declared at its latest election; a party's ink arrives inline.
+   Round joins, because a miter on the sharp corners of a simplified outline throws spikes out of a shape this small. */
+.iei-loc-seat {
+  fill: var(--iei-ink-3);
+  stroke: var(--iei-ink);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.iei-loc-ring {
+  fill: none;
+  stroke: var(--iei-ink-2);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The name sits over the neighbours, so it ignores the pointer (a neighbour under it is still reachable) and carries a halo. */
+.iei-loc-label {
+  pointer-events: none;
+}
+
+.iei-loc-label text {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  fill: var(--iei-ink);
+  paint-order: stroke;
+  stroke: var(--iei-bg);
+  stroke-width: 3.5;
+}
+
+.iei-loc-label line {
+  stroke: var(--iei-ink-3);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.iei-loc figcaption {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+  margin-top: var(--iei-2);
+}
+
 @media (max-width: 900px) {
   .iei-partyrows li {
     grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
@@ -3003,7 +3116,8 @@ html {
     outline-offset: 1px;
   }
 
-  .iei-map a:focus-visible path {
+  .iei-map a:focus-visible path,
+  .iei-loc a:focus-visible path {
     outline: 2px solid CanvasText;
   }
 
