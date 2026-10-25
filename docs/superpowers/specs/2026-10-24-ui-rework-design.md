@@ -88,3 +88,29 @@ Not met, or not tested:
 - The no-map pages (Karnataka fixture) are better, but the list is a 776px column with the right 40% of the first screen empty.
 - The state page and the election page still order a narrowed list differently (closest first, 60 rows, against seat order, 40 rows). The headings say so; the pages should agree.
 - Twelve identical "no runner-up recorded" lines on an election with no vote counts are honest and noisy; a note on the heading would say it once.
+
+## Direction added 2026-10-25: more visualisation, and motion that carries information
+
+The request: the product should feel like an intelligence platform, with more visualisation and a little animation, taking
+the look of electionmanager.in as a reference. **That site could not be read from this environment** (the sandbox blocks
+the host), so nothing below copies it; the motion and look pass waits for it.
+
+What is decided now, as the builder's calls:
+
+1. **Visualisation first, on the pages that are mostly text.** The seat page is four numbers and a table; its Analysis tab
+   has line charts 460px wide in a 1000px column with end labels printed over each other, each followed by a table that
+   repeats them. Batch 2 gives the seat page a locator (the seat's outline among its neighbours), a strip of who held the
+   seat at each election, and a result bar per election, and makes the Analysis charts the width of their column with
+   labels that do not collide. Tables stay, as the exact and accessible form.
+2. **Later visualisations, in order of value:** a parliament arc of every seat for a state or election (a standard,
+   instantly read picture of a house); a seat-tile cartogram (one equal tile per constituency, placed from the outlines'
+   centroids), which also solves the unreadable Kolkata cluster; a flow of seats between parties across two elections.
+3. **Motion carries information or does not exist.** CSS only: no client JavaScript, because none can be tested here. Bars
+   grow from zero, map seats fade in by party, figures count up with `@property`, an outline draws; each once, on load,
+   in under 700ms, with durations and easing declared as tokens beside the spacing scale. Nothing loops except one
+   status indicator if the data has a live concept (it does not). Every animation is disabled under
+   `prefers-reduced-motion: reduce`, and the end state is the state the screenshots judge. **Motion itself cannot be seen
+   in this environment**: only the first and last frames can be checked, and the document says so wherever it claims motion.
+4. **The look of the reference** is applied as a separate pass once it can be read; the structure and data work above does
+   not depend on it.
+
