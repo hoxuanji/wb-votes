@@ -407,6 +407,51 @@ test("a group label is placed beside the cluster and clear of every member", () 
   assertLegible(requests, placed, [...discs(named), ...discs(members), blob], FRAME, "group");
 });
 
+/* ───────────────────────────── a pinned side, and a finer step ───────────────────────────── */
+
+test("a name pinned to the right of its marker is never put on the left, even where the left is free", () => {
+  // The marker is 18 from the frame's right edge, and a four-character name is 35 wide.
+  const q = req("A", 340, 200, 4);
+  const free = placeLabels([q], discs([q]), FRAME, LINE).placed[0] as PlacedLabel;
+  assert.equal(free.anchor, "end", "unpinned, it goes to the left because the right has no room");
+  const pinned = placeLabels([{ ...q, side: "start" }], discs([q]), FRAME, LINE);
+  assert.deepEqual(pinned.unplaced, ["A"], "pinned, it is not placed rather than put where it reads as another marker's");
+  const roomy = { ...req("B", 100, 200, 4), side: "start" as const };
+  const b = placeLabels([roomy], discs([roomy]), FRAME, LINE).placed[0] as PlacedLabel;
+  assert.equal(b.anchor, "start");
+  assert.equal(b.box.x0, 100 + R + 4, "beside the marker, a gap of four from its edge");
+  const left = { ...req("C", 200, 200, 4), side: "end" as const };
+  const c = placeLabels([left], discs([left]), FRAME, LINE).placed[0] as PlacedLabel;
+  assert.equal(c.anchor, "end");
+});
+
+/** The later-election names of a swing chart as it draws them at 380 wide: seven markers in one column, four of them within 15. */
+const COLUMN: LabelRequest[] = (
+  [
+    ["BJP", 123.2, 19.3],
+    ["CPM", 70.1, 35.1],
+    ["INC", 185.6, 0.7],
+    ["IND", 40.5, 43.9],
+    ["AISF", 184.6, 1],
+    ["SUCI", 180.9, 2.1],
+    ["x", 175.2, 3.8],
+  ] as const
+).map(([key, y, weight]) => ({ key, x: 287, y, r: 5, width: 70, weight, side: "start" as const }));
+const COLUMN_FRAME: Box = { x0: 293, y0: 12, x1: 378, y1: 192 };
+
+test("seven names in a column with four crowded at the bottom: half-line steps leave one with no gap, a finer step finds it", () => {
+  const coarse = placeLabels(COLUMN, discs(COLUMN), COLUMN_FRAME, LINE);
+  assert.deepEqual(coarse.unplaced, ["INC"], "every candidate line is a multiple of 8 from its own marker, and none falls in the gaps left");
+  const fine = placeLabels(COLUMN, discs(COLUMN), COLUMN_FRAME, LINE, [], 2);
+  assert.deepEqual(fine.unplaced, []);
+  assertLegible(COLUMN, fine.placed, discs(COLUMN), COLUMN_FRAME, "fine");
+  assert.deepEqual(
+    placeLabels(COLUMN, discs(COLUMN), COLUMN_FRAME, LINE, [], LINE / 2),
+    coarse,
+    "and a step of half a line is what it was before the parameter",
+  );
+});
+
 /* ───────────────────────────── the axes ───────────────────────────── */
 
 test("axis ticks are round values inside the range, from zero", () => {

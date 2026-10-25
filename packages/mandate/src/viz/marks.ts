@@ -95,26 +95,6 @@ export function labelIndices(values: readonly (number | null)[]): number[] {
 }
 
 /**
- * De-overlap a column of text baselines. Turnout for a seat, its district and the state sit within
- * half a point of each other, so their direct labels land on top of one another and become
- * unreadable — which defeats the whole reason §24.7 asks for direct labels. Returns adjusted
- * baselines in the input's index order.
- *
- * ponytail: pushes down only, so a dense column drifts downward — centre-balance it if a column ever
- * carries more than the three series the cap allows.
- */
-export function spread(ys: readonly number[], gap = 12): number[] {
-  const out = ys.slice();
-  let prev = -Infinity;
-  for (const o of ys.map((y, i) => ({ y, i })).sort((a, b) => a.y - b.y || a.i - b.i)) {
-    const y = Math.max(o.y, prev + gap);
-    out[o.i] = y;
-    prev = y;
-  }
-  return out;
-}
-
-/**
  * §24.5, enforced rather than documented: the first three distinct keys get hues 1–3 in order, and
  * every key after that gets the neutral. Hand it twenty parties and you get three hues and a grey —
  * never a fourth hue, never a repeated hue, and never silently.

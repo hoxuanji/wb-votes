@@ -1489,10 +1489,11 @@ html {
   box-shadow: inset 0 -2px 0 0 var(--iei-ink);
 }
 
-/* A server-rendered chart. charts.ts emits a complete <svg> with a 640-unit viewBox and no width, so
-   `width: 100%` scaled it to the container and took its 11px axis labels with it: at 1,040px of reading
-   measure every tick and legend rendered at 17.9px, which made a chart legend louder than the section
-   heading above it. Capping the box at its authored width keeps the type at the size it was chosen at. */
+/* A server-rendered figure. Its <svg> has a viewBox and no width, so `width: 100%` scaled it to the container and
+   took its 11px axis labels with it: at 1,040px of reading measure every tick and legend rendered at 17.9px, which
+   made a chart legend louder than the section heading above it. Capping the box at its authored width keeps the type
+   at the size it was chosen at. (The Analysis charts are the exception, and draw themselves at several widths: see
+   `.iei-chart`.) */
 .iei-fig {
   margin: 0 0 var(--iei-4);
   overflow-x: auto;
@@ -2011,6 +2012,63 @@ html {
   margin-top: var(--iei-2);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
+}
+
+/* ── the Analysis charts ──
+
+   charts.ts draws each chart three times, 380, 640 and 920 units wide, and the figure shows the one nearest its
+   column. One drawing cannot serve a column that runs from 336px on a phone to 1,008px on a laptop: scaled, it reads
+   11px type at 4px or at 17px; capped at 640px, it left a third of the laptop's column empty. A frame is close to a
+   pixel per unit in the column it serves, so type, markers and the gaps between names keep the size they were written
+   at. 460px and 760px are where the next frame's units come closer to pixels than the last's. Without container
+   queries the narrow frame shows, which is small on a laptop and still complete. */
+.iei-fig.iei-chart {
+  container-type: inline-size;
+}
+
+.iei-fig.iei-chart svg {
+  display: none;
+  max-width: none;
+}
+
+.iei-fig.iei-chart svg[data-frame="narrow"] {
+  display: block;
+}
+
+@container (min-width: 460px) {
+  .iei-fig.iei-chart svg[data-frame="narrow"] {
+    display: none;
+  }
+
+  .iei-fig.iei-chart svg[data-frame="mid"] {
+    display: block;
+  }
+}
+
+@container (min-width: 760px) {
+  .iei-fig.iei-chart svg[data-frame="mid"] {
+    display: none;
+  }
+
+  .iei-fig.iei-chart svg[data-frame="wide"] {
+    display: block;
+  }
+}
+
+/* A line, its markers, its leader and its name are one group. Hovering any of them strengthens that line and dims the
+   rest, so a line can be followed across a crowded chart. `.iei-line-hit` is an invisible stroke wider than the line,
+   so the target is not 2px. A browser without :has() shows no emphasis and loses nothing. Untested here: hover is
+   not something a capture can show. */
+.iei-chart svg:has(.iei-line:hover) .iei-line:not(:hover) {
+  opacity: 0.28;
+}
+
+.iei-chart .iei-line:hover .iei-line-ink {
+  stroke-width: 3.5;
+}
+
+.iei-chart .iei-line:hover .iei-line-lead {
+  stroke-width: 1.5;
 }
 
 /* ── margin distribution ── */

@@ -1,15 +1,20 @@
 // Where the names on the vote-against-seat plot go, and which parties are too small to have one.
 //
 // Pure: numbers in, numbers out, no JSX and no DOM. The figure draws in a 400-unit frame whose units are about a
-// pixel, so a layout here is a table of literal coordinates in a test rather than a screenshot. Distribution.tsx is
-// the only caller. A name is a box one line tall and as wide as its characters; a marker is a disc.
+// pixel, so a layout here is a table of literal coordinates in a test rather than a screenshot. Distribution.tsx
+// (the vote-against-seat plot) and viz/charts.ts (the ends of the Analysis lines) are the callers. A name is a box
+// one line tall and as wide as its characters; a marker is a disc.
 
 import { ticks } from "./marks.ts";
 
 export type Box = { x0: number; y0: number; x1: number; y1: number };
 export type Disc = { x: number; y: number; r: number };
-/** A name to place: the marker it belongs to, how wide it prints, and how much it matters (bigger is placed first). */
-export type LabelRequest = Disc & { key: string; width: number; weight: number };
+/**
+ * A name to place: the marker it belongs to, how wide it prints, and how much it matters (bigger is placed first).
+ * `side` pins it to one side of its marker, `"start"` being the right: a name at the end of a line is read as that
+ * line's only to the right of it. Unset, it may sit on any side.
+ */
+export type LabelRequest = Disc & { key: string; width: number; weight: number; side?: "start" | "end" };
 export type Leader = { x1: number; y1: number; x2: number; y2: number };
 export type PlacedLabel = {
   key: string;
@@ -58,12 +63,12 @@ export function labelWidth(text: string, fontSize = 14): number {
 }
 
 /** The nearest distance from a point to a box, zero inside it. */
-function reach(x: number, y: number, b: Box): number {
+export function reach(x: number, y: number, b: Box): number {
   return Math.hypot(Math.max(b.x0 - x, 0, x - b.x1), Math.max(b.y0 - y, 0, y - b.y1));
 }
 
 /** Whether a box overlaps another once the first is widened by `pad` either side, so two names on one row stay `pad` apart. */
-function overlaps(a: Box, b: Box, pad: number): boolean {
+export function overlaps(a: Box, b: Box, pad: number): boolean {
   return a.x0 - pad < b.x1 && b.x0 < a.x1 + pad && a.y0 < b.y1 && b.y0 < a.y1;
 }
 
@@ -82,7 +87,7 @@ function meets(a: Leader, b: Leader): boolean {
 }
 
 /** Whether the segment passes through the inside of the box (Liang–Barsky). */
-function crosses(s: Leader, b: Box): boolean {
+export function crosses(s: Leader, b: Box): boolean {
   let t0 = 0;
   let t1 = 1;
   const dx = s.x2 - s.x1;
@@ -122,6 +127,10 @@ function crosses(s: Leader, b: Box): boolean {
  *
  * Then every name is offered a better place, twice over, now that all the others are down (see `PASSES`).
  *
+ * `step` is how far apart the candidate lines are, a half line unless given. A column of names that must stack in a
+ * narrow band (the shares of six parties all under 4%) can be left with one that fits no gap between the others at
+ * half-line steps; a finer `step` finds the gap.
+ *
  * A name with no position at all comes back in `unplaced` instead of being printed over something. Results are in
  * the order the requests came in.
  */
@@ -131,10 +140,11 @@ export function placeLabels(
   frame: Box,
   lineHeight: number,
   avoid: readonly Leader[] = [],
+  step = lineHeight / 2,
 ): { placed: PlacedLabel[]; unplaced: string[] } {
   const half = lineHeight / 2;
   const runs = Math.ceil((frame.x1 - frame.x0) / RUN);
-  const rows = Math.ceil((frame.y1 - frame.y0) / half);
+  const rows = Math.ceil((frame.y1 - frame.y0) / step);
   const order = requests
     .map((q, i) => ({ q, i }))
     .sort((a, b) => b.q.weight - a.q.weight || (a.q.key < b.q.key ? -1 : a.q.key > b.q.key ? 1 : 0) || a.i - b.i);
@@ -143,12 +153,12 @@ export function placeLabels(
     const near = q.r + GAP;
     let best: PlacedLabel | null = null;
     let bestCost = Infinity;
-    for (const side of ["start", "end", "middle"] as const) {
+    for (const side of q.side === undefined ? (["start", "end", "middle"] as const) : [q.side]) {
       const bias = side === "start" ? 0 : side === "end" ? 3 : 6;
       for (let t = 0; t <= (side === "middle" ? 0 : runs); t += 1) {
         for (let m = 0; m <= rows; m += 1) {
           for (const sign of m === 0 ? [1] : [-1, 1]) {
-            const yc = q.y + sign * m * half;
+            const yc = q.y + sign * m * step;
             const x0 =
               side === "start" ? q.x + near + t * RUN : side === "end" ? q.x - near - t * RUN - q.width : q.x - q.width / 2;
             const box: Box = { x0, y0: yc - half, x1: x0 + q.width, y1: yc + half };

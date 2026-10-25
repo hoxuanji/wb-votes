@@ -2,10 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { percent, percentagePoints } from "../semantic/index.ts";
 import { bars, lines, slope } from "./charts.ts";
-import { barPath, escapeXml, hueMap, labelIndices, spread, ticks } from "./marks.ts";
+import { barPath, escapeXml, hueMap, labelIndices, ticks } from "./marks.ts";
 import { CATEGORICAL, DIVERGING, LINE_SUBTLE, OTHERS, SURFACE, TEXT_MUTED, TEXT_PRIMARY } from "./palette.ts";
 
 const ELECTIONS = ["2011", "2016", "2021", "2026"] as const;
+
+/** A chart is drawn once per column width; the claims about its marks are made on one of them. */
+function frame(svg: string, name = "wide"): string {
+  const m = new RegExp(`<svg [^>]*data-frame="${name}"[\\s\\S]*?</svg>`).exec(svg);
+  assert.ok(m !== null, `no ${name} frame`);
+  return m[0];
+}
 
 function share(label: string, value: number | null, key = label) {
   return { label, value, key };
@@ -76,7 +83,7 @@ test("a hostile party name cannot inject markup, and Bengali survives verbatim",
   assert.ok(c.svg.includes("A &amp; B &lt;i&gt;&quot;x&quot;&lt;/i&gt;"), "text escaped in element context");
   // the aria-label is attribute context: its quotes must be escaped too, or the attribute closes early
   assert.ok(c.svg.includes(`aria-label="Vote share &amp; &quot;turnout&quot;.`), "attribute escaped");
-  assert.equal(c.svg.match(/aria-label="/g)?.length, 1, "exactly one aria-label attribute");
+  assert.equal(c.svg.match(/aria-label="/g)?.length, 3, "one aria-label attribute per frame, and no more");
   assert.ok(c.svg.includes(bengali), "Bengali passes through unmangled");
   // a long hostile name is clipped for the mark but never for the table
   const long = bars({
@@ -197,7 +204,7 @@ test("bars paints a keyless aggregate row with the neutral, never the top party'
     ],
     format: (v) => (v === null ? "—" : String(v)),
   });
-  assert.deepEqual(fills(c.svg), [CATEGORICAL[0], CATEGORICAL[1], CATEGORICAL[2], OTHERS]);
+  assert.deepEqual(fills(frame(c.svg)), [CATEGORICAL[0], CATEGORICAL[1], CATEGORICAL[2], OTHERS]);
 });
 
 // ── mark specs ───────────────────────────────────────────────────────────────────────────────────
@@ -222,7 +229,7 @@ test("bars emits the rounded data end and a square zero in real markup", () => {
     points: [{ label: "2021", value: 10.1 }, { label: "2016", value: 4.2 }],
     format: percent,
   });
-  const paths = [...c.svg.matchAll(/<path d="([^"]+)"/g)].map((m) => m[1] ?? "");
+  const paths = [...frame(c.svg).matchAll(/<path d="([^"]+)"/g)].map((m) => m[1] ?? "");
   assert.equal(paths.length, 2);
   for (const d of paths) {
     assert.equal(d.match(/A4 4/g)?.length, 2);
@@ -239,7 +246,7 @@ test("line markers are >= 8px and carry a 2px surface ring", () => {
     series: [{ key: "ac", label: "This seat", values: [80, 81, 82, 83] }],
     format: percent,
   });
-  assert.equal([...c.svg.matchAll(/<circle /g)].length, 4);
+  assert.equal([...frame(c.svg).matchAll(/<circle /g)].length, 4);
   // SURFACE, not a literal: the halo around a data point is the page's own panel colour, and hard-coding it
   // is how a chart kept drawing itself on a surface the stylesheet had stopped painting.
   assert.ok(c.svg.includes(`r="4" fill="${CATEGORICAL[0]}" stroke="${SURFACE}" stroke-width="2"`));
@@ -273,7 +280,7 @@ test("direct labels land on the first, last and extreme values only", () => {
   assert.deepEqual(labelIndices([10, 20, 30, 40, 25, 15]), [0, 3, 5]);
   assert.deepEqual(labelIndices([null, 20, 30, null]), [1, 2]);
   assert.deepEqual(labelIndices([null, null]), []);
-  // six points, three labels — not a number on every point
+  // six points, at most three values — not a number on every point
   const c = lines({
     title: "Turnout",
     finding: "peaked mid-decade",
@@ -282,10 +289,15 @@ test("direct labels land on the first, last and extreme values only", () => {
     series: [{ key: "ac", label: "This seat", values: [10, 20, 30, 40, 25, 15] }],
     format: percent,
   });
-  assert.equal([...c.svg.matchAll(/<circle /g)].length, 6);
+  assert.equal([...frame(c.svg).matchAll(/<circle /g)].length, 6);
   // The TOKEN, not its value. Three of these assertions restated the hexes, so they failed the moment the
   // palette was pointed at the stylesheet's own tokens — which is the palette being right, not wrong.
-  assert.equal([...c.svg.matchAll(new RegExp(`fill="${TEXT_PRIMARY}"`, "g"))].length, 3, "three direct value labels");
+  // Two are printed: the peak, and the end label (which carries the line's name too). The first, 10.0%, is the lowest
+  // value and sits on the axis with the line rising out of it, so there is nowhere for it to go and it is left to the table.
+  for (const name of ["narrow", "mid", "wide"]) {
+    const printed = [...frame(c.svg, name).matchAll(new RegExp(`fill="${TEXT_PRIMARY}"`, "g"))].length;
+    assert.equal(printed, 2, `${name}: the peak and the end label`);
+  }
 });
 
 test("grid lines are line-subtle and drawn before the marks", () => {
@@ -303,9 +315,6 @@ test("grid lines are line-subtle and drawn before the marks", () => {
 });
 
 test("direct labels never stack on one baseline", () => {
-  assert.deepEqual(spread([100, 100, 100]), [100, 112, 124]);
-  assert.deepEqual(spread([50, 10]), [50, 10], "already clear, so untouched");
-  assert.deepEqual(spread([10, 12, 50]), [10, 22, 50]);
   // a seat, its district and the state sit within half a point of each other
   const c = lines({
     title: "Turnout",
@@ -319,19 +328,23 @@ test("direct labels never stack on one baseline", () => {
     ],
     format: percent,
   });
-  const valueYs = [
-    ...c.svg.matchAll(new RegExp(`<text x="56" y="([\\d.]+)" fill="${TEXT_PRIMARY}"`, "g")),
-  ].map((m) => Number(m[1]));
-  assert.equal(valueYs.length, 3, "three 2011 values, one per series");
-  const sortedYs = valueYs.slice().sort((a, b) => a - b);
-  for (let n = 1; n < sortedYs.length; n += 1) {
-    assert.ok((sortedYs[n] ?? 0) - (sortedYs[n - 1] ?? 0) >= 12, `labels ${n - 1} and ${n} collide`);
+  for (const name of ["narrow", "mid", "wide"]) {
+    const texts = [...frame(c.svg, name).matchAll(new RegExp(`<text (?:class="iei-tag" )?x="([\\d.]+)" y="([\\d.]+)" fill="${TEXT_PRIMARY}"`, "g"))].map(
+      (m) => ({ x: Number(m[1]), y: Number(m[2]) }),
+    );
+    assert.ok(texts.length >= 3, `${name}: the three end labels at least`);
+    for (const a of texts) {
+      for (const b of texts) {
+        if (a === b || Math.abs(a.x - b.x) > 60) continue;
+        assert.ok(Math.abs(a.y - b.y) >= 12, `${name}: two labels at x=${a.x} are ${Math.abs(a.y - b.y)} apart`);
+      }
+    }
   }
 });
 
 // ── legend ───────────────────────────────────────────────────────────────────────────────────────
 
-test("one series emits no legend; two do", () => {
+test("a line chart has no legend: each line is named at its end, once per frame", () => {
   const base = { title: "Turnout", finding: "steady", x: [...ELECTIONS], xHeader: "Election", format: percent };
   const one = lines({ ...base, series: [{ key: "ac", label: "This seat", values: [80, 81, 82, 83] }] });
   assert.ok(!one.svg.includes("<rect"), "no swatch, so no legend");
@@ -342,8 +355,9 @@ test("one series emits no legend; two do", () => {
       { key: "wb", label: "West Bengal", values: [79, 80, 81, 82] },
     ],
   });
-  assert.equal([...two.svg.matchAll(/<rect /g)].length, 2);
-  assert.ok(two.svg.includes(">West Bengal</text>"));
+  assert.ok(!two.svg.includes("<rect"), "two series are told apart by their names, not by a key above the plot");
+  assert.equal([...two.svg.matchAll(/>West Bengal<\/tspan>/g)].length, 3, "named at the end of its line in each frame");
+  assert.deepEqual(two.table.headers, ["Election", "This seat", "West Bengal"], "and still a column each in the table");
 });
 
 test("bars never emits a legend: it is one series and its labels are direct", () => {
@@ -373,7 +387,7 @@ test("slope legends the polarities present, not the entities", () => {
     ...s,
     rows: [{ label: "BJP", from: 9.6, to: 38.0 }, { label: "CPI(M)", from: 26.3, to: 5.6 }],
   });
-  assert.equal([...mixed.svg.matchAll(/<rect /g)].length, 2);
+  assert.equal([...frame(mixed.svg).matchAll(/<rect /g)].length, 2);
   assert.ok(mixed.svg.includes(">rose</text>") && mixed.svg.includes(">fell</text>"));
   assert.ok(mixed.svg.includes(DIVERGING.up) && mixed.svg.includes(DIVERGING.down));
   const oneWay = slope({ ...s, rows: [{ label: "BJP", from: 9.6, to: 38.0 }] });
@@ -382,8 +396,12 @@ test("slope legends the polarities present, not the entities", () => {
 
 // ── the frame contains everything it draws ──────────────────────────────────────────────────────
 
-/** Every coordinate and every estimated text extent, against the viewBox. */
-function outOfFrame(svg: string): string[] {
+/** Every coordinate and every estimated text extent, against the viewBox of each frame the chart is drawn in. */
+function outOfFrame(all: string): string[] {
+  return all.split(/(?=<svg )/).flatMap((svg) => outOfOne(svg));
+}
+
+function outOfOne(svg: string): string[] {
   const box = svg.match(/viewBox="0 0 (\d+) ([\d.]+)"/);
   const w = Number(box?.[1] ?? 0);
   const h = Number(box?.[2] ?? 0);
@@ -408,20 +426,21 @@ function outOfFrame(svg: string): string[] {
     check("bar start", Number(m[1]), Number(m[2]));
     check("bar end", Number(m[3]) + 4, Number(m[2]));
   }
-  for (const m of svg.matchAll(/<text x="([\d.-]+)" y="([\d.-]+)"([^>]*)>([^<]*)<\/text>/g)) {
+  for (const m of svg.matchAll(/<text (?:class="iei-tag" )?x="([\d.-]+)" y="([\d.-]+)"([^>]*)>(.*?)<\/text>/g)) {
     const x = Number(m[1]);
     const y = Number(m[2]);
-    const run = [...(m[4] ?? "")].length * 7.4; // generous per-glyph estimate
+    const shown = (m[4] ?? "").replace(/<[^>]*>/g, "");
+    const run = [...shown].length * 7.4; // generous per-glyph estimate
     const anchor = (m[3] ?? "").match(/text-anchor="(\w+)"/)?.[1] ?? "start";
     const x0 = anchor === "end" ? x - run : anchor === "middle" ? x - run / 2 : x;
-    check(`text "${m[4]}"`, x0, y - 9);
-    check(`text "${m[4]}"`, x0 + run, y + 4);
+    check(`text "${shown}"`, x0, y - 9);
+    check(`text "${shown}"`, x0 + run, y + 4);
   }
   return bad;
 }
 
 test("nothing a chart draws escapes its own viewBox", () => {
-  // long Bengali labels (the legend-overflow case) and clustered values (the spread case)
+  // long Bengali labels (the legend-overflow case) and clustered values (the fan-out case)
   const bengali = ["সর্বভারতীয় তৃণমূল কংগ্রেস", "ভারতীয় জনতা পার্টি", "সিপিআই(এম)"];
   assert.deepEqual(
     outOfFrame(
@@ -463,7 +482,7 @@ test("nothing a chart draws escapes its own viewBox", () => {
     ),
     [],
   );
-  // four parties inside one point of each other at both ends — spread() pushes hard here
+  // four parties inside one point of each other at both ends — the names fan out furthest here
   assert.deepEqual(
     outOfFrame(
       slope({
@@ -568,7 +587,9 @@ test("the table row count matches the data point count", () => {
   assert.equal(s.table.rows.length, 3, "a half-null row is table-only, never dropped");
   assert.deepEqual(s.table.rows[0], ["BJP", "9.6%", "38.0%", "+28.4 pp"]);
   assert.deepEqual(s.table.rows[2], ["New entrant", "—", "4.1%", "—"]);
-  assert.equal([...s.svg.matchAll(/<line /g)].filter((m) => m.index !== undefined).length, 4, "2 axes + 2 slopes");
+  const one = frame(s.svg);
+  assert.equal([...one.matchAll(/stroke="#1e1e28"/g)].length, 2, "2 axes");
+  assert.equal([...one.matchAll(/class="iei-line-ink"/g)].length, 2, "and 2 slopes");
 });
 
 // ── nothing to say ───────────────────────────────────────────────────────────────────────────────
