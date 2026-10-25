@@ -10,6 +10,7 @@ import { turnoutCaveat, turnoutHeadline } from '../../../../packages/mandate/src
 import { scaleLabel, typeLabel } from '../../../../packages/mandate/src/repo/election-context.ts';
 import {
   binPhrase,
+  closestFirst,
   closestRanked,
   inSeatOrder,
   listHead,
@@ -118,7 +119,14 @@ export default function ElectionPage({
   // The list beside the map: the selection when there is one, the closest contests otherwise. It is the map's
   // accessible representation, which is why the full result lives here and not in 492 hover cards. Each builder returns the
   // order it applied (the closest contests are ranked by margin; a selection is in seat order), and the heading says that.
-  const list = sel.isolation === null ? closestRanked(v.seats, 12) : inSeatOrder(sel.narrow(v.seats), 40);
+  // With no margin on any seat there is nothing to rank, and an empty list under 294 seats is no answer: the page lists
+  // the first of them in seat order, as the state page does, and the heading says so.
+  const list =
+    sel.isolation !== null
+      ? inSeatOrder(sel.narrow(v.seats), 40)
+      : marginTotal > 0
+        ? closestRanked(v.seats, 12)
+        : closestFirst(v.seats, 12);
   const binned = bin === null ? null : (v.marginBins.find((b) => b.lo === bin) ?? { lo: bin, hi: bin + BIN_WIDTH });
   const head = listHead(
     {

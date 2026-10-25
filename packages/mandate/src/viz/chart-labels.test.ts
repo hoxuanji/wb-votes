@@ -319,6 +319,17 @@ test("no bar moves, and each bar's tooltip carries its range and its count", () 
   assert.match(html, /<title>38–40% — 0 seats<\/title>/);
 });
 
+test("the caption of a selected bin says its range, and the open-ended one says it has no top", () => {
+  const props = { bins: bins({ 4: 5, 40: 3 }), total: 8 };
+  const [two, last] = renderAll([
+    { component: "MarginDistribution", props: { ...props, selected: 4 } },
+    { component: "MarginDistribution", props: { ...props, selected: 40 } },
+  ]) as [string, string];
+  assert.match(two, /Showing seats decided by 4–6%\./);
+  assert.match(last, /Showing seats decided by 40% and wider\./);
+  assert.doesNotMatch(last, /40–42%/);
+});
+
 test("the middle tick sits on the edge of the bar that starts at 20%", () => {
   const [html] = renderAll([{ component: "MarginDistribution", props: { bins: bins({ 4: 5 }), total: 5 } }]) as [string];
   const m = /<span style="left:([0-9.]+)%">20%<\/span>/.exec(html);

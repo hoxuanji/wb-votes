@@ -150,7 +150,7 @@ export function MarginDistribution({
           <>{mapped ? 'Margin over votes polled. Select a bar to find those seats on the map.' : 'Margin over votes polled.'}</>
         ) : (
           <>
-            Showing seats decided by {selected}–{selected + 2}%.{' '}
+            Showing seats decided by {bins.find((b) => b.lo === selected)?.overflow ? `${selected}% and wider` : `${selected}–${selected + 2}%`}.{' '}
             <Link href={hrefFor(null)}>Show every seat</Link>
           </>
         )}

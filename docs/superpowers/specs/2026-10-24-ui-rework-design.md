@@ -46,7 +46,7 @@ Read from screenshots of the real routes, not from the code.
 
 ## Decisions, as made
 
-1. **Map-first composition (my call).** A compact header band (name, result line and the one-sentence context in one block), one control row (year, then mode), then a two-column atlas: the map on the left, large; legend, district chooser and seat list on the right. The no-vote-counts caveat moves into the right column above the list, shortened. On wide screens the map column is `position: sticky`, so the list scrolls past a map that stays in view (untestable here, stated as such).
+1. **Map-first composition (my call).** A compact header band (name, result line and the one-sentence context in one block), one control row (year, then mode), then a two-column atlas: the map on the left, large; legend, district chooser and seat list on the right. The no-vote-counts caveat moves into the right column above the list. (Batch 1 reworded it rather than shortening it: 297 characters against 281, because it now says what a row prints in place of a figure it does not have.) On wide screens the map column is `position: sticky`, so the list scrolls past a map that stays in view (untestable here, stated as such).
 2. **Every list is headed (my call).** "Closest contests, 12 of 294" or "In seat order, 12 of 294", whichever is true of how the list was ordered (a narrowed list says its narrowing and its order, "Seats in Kolkata, closest first"); the district chooser is separated from it.
 3. **Plot labels are placed, not printed where they fall (my call).** Pure placement logic with tests on literal coordinates; parties under 1% of both shares are listed as one labelled group; axes get ticks at round values.
 4. **Histogram counts (my call).** The tallest bar's count is printed, a hairline gridline marks half of it, each bar's `<title>` carries its count and range.
@@ -66,3 +66,25 @@ Exact spacings within the token scale, the wording of headings, which parts of t
 ## What could not be verified here
 
 Interaction of any kind; sticky positioning; real-browser font rendering (system fonts only); any state other than West Bengal on real data (the dev registry holds nothing else).
+
+## Batch 1 results
+
+Measured at the tip of `ui-composition-1` with `ops/probe/shot/measure.sh`, against the start of the batch (`6274b66`). "Visible" is the part of the 620px map (523px at 390 wide) inside the window.
+
+| Route | 1440x900 visible | 1280x800 visible | 390x844 map top |
+|---|---|---|---|
+| `/state/wb` | 416 -> 620 | 316 -> 533 | 608 -> 368 |
+| `/state/wb?election=wb-assembly-2021` | 486 -> 620 | 386 -> 533 | 479 -> 368 |
+| `/state/wb?house=pc` | 429 -> 620 | 329 -> 562 | 594 -> 288 |
+| `/election/wb-assembly-2021` | 550 -> 611 | 450 -> 511 | 394 -> 352 |
+
+Every measured goal is met; no route overflows horizontally at any of five widths; the map SVG is byte-identical (288 paths, 41 for the parliamentary view). The goals "every list says what it is" and "legible charts" are met for the seat lists beside the maps and for the two charts. The district chooser, party rows and flip lists carry no count.
+
+Not met, or not tested:
+
+- The phone goal is met with little room: with an eight-election year strip, the map's top edge on `/state` is at about 397px at 390 wide and 439px at 360 wide. Only a four-election state could be measured.
+- `position: sticky` on the map column exists in the stylesheet and cannot be tested here. A viewport shorter than about 684px cannot keep the 620px map and its offset in view.
+- Hover, focus order and any client behaviour were not tested.
+- The no-map pages (Karnataka fixture) are better, but the list is a 776px column with the right 40% of the first screen empty.
+- The state page and the election page still order a narrowed list differently (closest first, 60 rows, against seat order, 40 rows). The headings say so; the pages should agree.
+- Twelve identical "no runner-up recorded" lines on an election with no vote counts are honest and noisy; a note on the heading would say it once.

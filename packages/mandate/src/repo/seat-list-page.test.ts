@@ -185,12 +185,12 @@ test("the election page heads its closest contests, and a selection in the seat 
   assert.deepEqual(headed(bin), { title: "Seats decided by 0 to 2 percent, in seat order", count: "1 of 1", label: "Seats decided by 0 to 2 percent, in seat order" });
 });
 
-test("an election that ranks nothing says why where the list would be, and not that it is a list of something", () => {
+test("an election with no margin on any seat lists its first seats in seat order, as the state page does, and says so", () => {
   const html = render("/election", "", "uu-assembly-2021");
-  assert.match(
-    html,
-    /<h3 class="iei-list-title">Closest contests<\/h3><p class="iei-list-count">0 of 2<\/p><\/div><p class="iei-absent">None of the 2 seats has a margin over votes polled, so none can be ranked\.<\/p><ul class="iei-list iei-list-tight" aria-label="Closest contests"><\/ul>/,
-  );
+  assert.equal(headed(html).title, "In seat order");
+  assert.equal(headed(html).count, "2 of 2");
+  assert.equal(rows(html).length, 2, "the seats are listed, not an empty list under a sentence about why");
+  assert.doesNotMatch(html, /none can be ranked/);
 });
 
 test("the count is said once: there is no second note under the list", () => {
