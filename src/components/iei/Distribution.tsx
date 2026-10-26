@@ -113,6 +113,7 @@ export function MarginDistribution({
                 {/* A full-height hit area, so a bar with two seats in it is still clickable. */}
                 <rect x={i * slot} y={0} width={slot} height={H} fill="transparent" />
                 <rect
+                  className="iei-dist-bar"
                   x={i * slot + gap / 2}
                   y={H - h}
                   width={slot - gap}

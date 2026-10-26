@@ -3471,6 +3471,87 @@ html {
   vector-effect: non-scaling-stroke;
 }
 
+/* ══════════════════════════ motion that carries information ══════════════════════════
+   Each of these happens once, on load, in under 700ms, and says something: a bar growing from its baseline says "this is a quantity",
+   a wedge arriving says "these seats are one party's", an outline drawn round a small seat says "here it is". Nothing loops, and
+   nothing animates unless the reader has not asked for reduced motion: the whole section is inside `no-preference`, so the default
+   is a page that does not move (motion.test.ts holds that, and the 700ms ceiling, and that a @keyframes names only where it starts).
+
+   EVERY KEYFRAMES NAMES ONLY ITS START, so the end of an animation is the element's own style and a page at rest is the page the
+   screenshots judge. Where the start and the rest are different kinds of value, the element states its rest explicitly so the two can
+   be interpolated: a clip-path wipes from `inset(0 100% 0 0)` to `inset(0)`, not to `none`.
+
+   Only the first and last frames can be seen where this was made (no browser window, no clock): the animations were counted and timed
+   in a browser, not watched. */
+
+@media (prefers-reduced-motion: no-preference) {
+  /* Bars that are a share wipe in from their zero. */
+  .iei-res-bar {
+    clip-path: inset(0);
+    animation: iei-wipe var(--iei-t-2) var(--iei-ease) backwards;
+  }
+
+  .iei-partyrows-seat,
+  .iei-partyrows-vote {
+    transform-origin: 0 50%;
+    animation: iei-grow var(--iei-t-2) var(--iei-ease) backwards;
+  }
+
+  /* The margin histogram's bars rise from their baseline. */
+  .iei-dist-bar {
+    transform-box: fill-box;
+    transform-origin: 50% 100%;
+    animation: iei-rise var(--iei-t-2) var(--iei-ease) backwards;
+  }
+
+  /* The arc's wedges arrive in the order of the key, largest party first, 60ms apart and never later than 300ms in, so the last of a
+     long row of parties finishes inside the same 700ms as the first. */
+  .iei-arc-p {
+    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i) * 60ms), 300ms);
+  }
+
+  /* The located seat arrives, and the ring round a small one is drawn: its length is 1 (pathLength), so one dash and one gap. */
+  .iei-loc-seat {
+    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
+  }
+
+  .iei-loc-ring {
+    stroke-dasharray: 1;
+    animation: iei-draw var(--iei-t-3) var(--iei-ease) backwards;
+  }
+
+  @keyframes iei-wipe {
+    from {
+      clip-path: inset(0 100% 0 0);
+    }
+  }
+
+  @keyframes iei-grow {
+    from {
+      transform: scaleX(0);
+    }
+  }
+
+  @keyframes iei-rise {
+    from {
+      transform: scaleY(0);
+    }
+  }
+
+  @keyframes iei-arrive {
+    from {
+      opacity: 0;
+    }
+  }
+
+  @keyframes iei-draw {
+    from {
+      stroke-dashoffset: 1;
+    }
+  }
+}
+
 @media (max-width: 900px) {
   .iei-partyrows li {
     grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
