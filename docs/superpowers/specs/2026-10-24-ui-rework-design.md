@@ -155,3 +155,53 @@ Not met, or not tested:
 - At 390 the election table is 605px wide in a 390px column, as it was before this batch.
 - No motion has been added: the "Direction added 2026-10-25" list still has it all to do, and the look of the reference site waits
   until the site can be read.
+
+## Batch 3 results
+
+The request in "Direction added 2026-10-25" that was still open after batch 2: more visualisation, and motion that carries information. Measured
+at the tip of `ui-batch-3` against `main` (`abd6cee`), in-process pages through `ops/probe/shot/shot.mjs` and `measure.sh` on the dev registry
+(West Bengal, boundaries loaded), and with Chromium's own account of the animations it creates.
+
+| Measured | Before | After |
+|---|---|---|
+| The house as a parliament arc (`/state/wb`, `/election/*`) | none | 720 wide at 1440, 1280 and 1024, 744 at 768, 366 at 390; 383, 395 and 194 tall |
+| How power moved as a flow (West Bengal 2026 against 2021) | a tally and a list of 7 flips | 287 of 294 seats drawn from previous holder to winner; the stage is 260 tall; its ribbons are 1084, 768 and 142 wide at 1440, 1024 and 390 |
+| Kolkata's 16 seats, on the 620px-tall map | median 7 px² (2 to 21), against 216 for the state and 2,392 for its largest seat | as tiles, about 708 px² each (a 26.6px square in a 29.5px cell) |
+| `/state/wb` map top edge at 1440 and 390 | 267 and 368 | 267 and 368 |
+| `/election/wb-assembly-2021` map top edge at 1440 and 390 | 289 and 352 | 289 and 385 |
+| `/state/wb` markup, against the 340,000 bytes a page may have | 123,789 bytes | 149,111 as the map, 108,744 as tiles (`/election/wb-assembly-2021`: 122,335 to 148,240) |
+| Animations Chromium creates (Mekliganj, `/state/wb`, 2021 election) | 0 | 5, 14 and 25; the longest ends at 640, 660 and 540ms; with reduced motion, 0 on all three |
+| Horizontal overflow at 390 and 360, every mode and shape on `/state/wb` and on three elections | Flips overflowed (451 against 390), on `main` too | none |
+| Tests | 1146 | 1254; the same 51 environment failures as `main` |
+
+What the direction asked, and where it stands:
+
+- **A parliament arc of every seat for a state or election:** met. One dot per seat in the party's ink, the leader's seats and distance from a
+  majority at its centre, a key and a table twin; a wedge links to the party isolation the page already had. A by-election, which decides no
+  house, has none. Parties run largest first and the caption says that means nothing about left, right or alliances.
+- **A flow of seats between parties across two elections:** met. Held and moved seats are told apart (fainter and brighter ribbons) and the
+  seats it cannot compare are counted in the sentence under it, with the reason, and agree with `findings.ts` on every election in the registry.
+- **A seat-tile cartogram:** met as a Map / Tiles control on both pages. Tiles are placed from the outlines' centroids by closest pair first, then
+  settled by swaps; no seat moves more than three cells on a uniform cloud. A tile and a polygon are the same colour and say the same thing.
+- **Motion that carries information:** met for what is listed below, as CSS only, inside `no-preference`, once, under 700ms, with tokens.
+  *Dropped:* the numeral count-up (a figure counting up from 0 can be caught showing a wrong number, and a browser without `@property` would jump
+  from 0 to the answer) and a fade of 492 map polygons by party (a stagger index on every polygon, for an effect that cannot be seen here).
+
+What was found on the way: `/state/wb?mode=flips` scrolled sideways on a phone on `main` (the legend's one sentence inherited `nowrap`), which
+the batch 1 audit missed because it measured the default mode only; it is fixed and tested. A first guess at the cause was wrong and was
+reverted when the browser measurement did not change.
+
+Not met, or not tested:
+
+- **The reference's look** (glow, heavier type, mono stat cards, dossier framing) is not in this batch. The stylesheet's own header says the
+  interface is monochrome and has no gradients, glass or shadows, so changing that is a decision for the person who owns the product.
+- **The arc sits under the map**, below the 1212px atlas on `/state/wb` (its top edge is at 1422px at 1440): the first screen is still the map. A compact
+  arc in the header band was not tried.
+- **Interaction on the new pictures** (hover, the pick-out, focus and keyboard on a wedge, a ribbon or a tile), forced-colors and a screen reader
+  were not tested; the captures have no pointer, no focus and no accessibility tree.
+- **Motion was counted and timed, not watched.** Only a first and a last frame can be judged here, and the screenshots have animation switched off.
+- **A comparison with more than seven parties on a side**, or an arc key with more than eight parties, was seen only on test fixtures; the dev
+  registry has none.
+- **On a phone** the arc's dots are about 6px across for 294 seats, and `/election` is one row of tabs lower (352 to 385) because the new control has no
+  year strip to share a row with.
+- **The Task 8 commit message calls the 29.5px cell "a 29px tile":** the tile inside it is 26.6px.

@@ -3583,6 +3583,11 @@ html {
   white-space: nowrap;
 }
 
+/* The one item that is a sentence, not a swatch and its label: it may wrap, or on a phone it is wider than the list it is in. */
+.iei-legend .iei-legend-note {
+  white-space: normal;
+}
+
 .iei-legend b {
   color: var(--iei-ink-3);
   font-weight: 400;

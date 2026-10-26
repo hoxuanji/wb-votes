@@ -306,3 +306,13 @@ test("radius is one token and it does not grow", () => {
     .filter((v) => !v.includes("var(--iei-r)") && v !== "50%" && v !== "1px");
   assert.deepEqual(radii, [], `border-radius values that are not the token: ${radii.join(", ")}`);
 });
+
+test("a legend's note may wrap, though its swatch-and-label items may not, so a sentence in a legend cannot widen the page", () => {
+  // `.iei-legend li` is nowrap because a swatch must stay with its label. The note in the flips legend is a sentence, not a label, and
+  // inherited that: on a phone it was 439px in a 366px list and the page scrolled sideways. The declaration is checked here; the pixels
+  // were measured in a browser.
+  const rule = /\.iei-legend \.iei-legend-note \{([^}]*)\}/.exec(CSS);
+  assert.ok(rule !== null, "the note has no rule of its own that beats `.iei-legend li`");
+  assert.match(rule[1] as string, /white-space:\s*normal/);
+  assert.match(CSS, /\.iei-legend li \{[^}]*white-space:\s*nowrap/, "the items keep their swatch with their label");
+});
