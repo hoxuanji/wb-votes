@@ -37,6 +37,7 @@ import {
   RegistryMissing,
   Tabs,
 } from '../../../components/iei/parts.tsx';
+import { HousePanel } from '../../../components/iei/SeatArc.tsx';
 import { ListHead, RowContest, RowMargin } from '../../../components/iei/SeatList.tsx';
 import '../../iei.css';
 
@@ -310,6 +311,9 @@ export default function ElectionPage({
           </div>
         </div>
       </MapSection>
+
+      {/* ── 3b · THE HOUSE, as an arc. Only for an election that decides one. ── */}
+      <HousePanel seats={v.seats} majority={v.majority} selection={sel} />
 
       {/* ── 4 · COMPETITIVENESS ── */}
       {marginTotal === 0 ? null : (

@@ -27,6 +27,7 @@ import {
   anyVoteShare,
 } from '../../components/iei/Distribution.tsx';
 import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
+import { HousePanel } from '../../components/iei/SeatArc.tsx';
 import { ListHead, RowContest, RowMargin } from '../../components/iei/SeatList.tsx';
 
 /**
@@ -387,6 +388,9 @@ export function StateSurface({
           </div>
         </div>
       </MapSection>
+
+      {/* ══ 2b · THE HOUSE, as an arc: all of it, whatever the list is narrowed to. ═════════════════════ */}
+      <HousePanel seats={view.seats} majority={view.majority} selection={selection} />
 
       {/* ══ 3 · WHAT CHANGED ══════════════════════════════════════════════════════════════════ */}
       {view.flips === null ? (

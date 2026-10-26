@@ -4,11 +4,13 @@
 // function of the number of seats alone, so it is held on literal numbers (arc-layout.test.ts): one dot per seat, none outside
 // the frame, none overlapping another, and an order along the arc from its left end, so that a party's seats are a slice of it.
 //
-// HOW THE ROWS ARE CHOSEN. Seats per row are proportional to the row's radius, which keeps the spacing along a row about equal
-// to the spacing between rows. For each possible number of rows the dot radius is the largest that still leaves a gap of GAP units
-// between neighbours in a row and between rows (a binary search: a larger dot only makes both harder), and the number of rows
-// with the largest dot wins, fewer rows on a tie. A dot is capped at MAX_R so that a union territory with a handful of seats is
-// not drawn as a handful of balloons.
+// HOW THE ROWS ARE CHOSEN. Rows sit as close as the dots allow (a dot's diameter plus GAP), the outermost at the edge of the frame
+// and the rest inside it, so a small house is a thin ring and a large one a thick ring with the same hollow. Seats per row are
+// proportional to the row's radius, which keeps the spacing along a row about equal to the spacing between rows. For each number
+// of rows the dot radius is the largest that still fits (a binary search: a larger dot only makes the fit harder), and the number
+// of rows with the largest dot wins, fewer rows on a tie. A dot is capped at MAX_R so that a union territory with a handful of
+// seats is not drawn as a handful of balloons; where the cap binds, fewer rows mean a thinner ring and a bigger hollow, which is
+// where the leader's number is printed.
 //
 // Units are those of the frame ARC_BOX. The picture scales with its column, so on a phone the Lok Sabha's dots are under 4px across;
 // the colour of a wedge still reads, and the numbers are in the key and the table beside it.
@@ -30,8 +32,8 @@ const GAP = 2;
 /** Between a dot and the edge of the frame. */
 const MARGIN = 2;
 const MAX_R = 14;
-/** The innermost row's radius, as a fraction of the outermost's. */
-const INNER = 0.35;
+/** The innermost row's radius may not fall below this fraction of the outermost's: the hollow holds the leader's number. */
+const MIN_INNER = 0.3;
 const MAX_ROWS = 18;
 
 type Plan = { r: number; radii: number[]; counts: number[] };
@@ -54,9 +56,9 @@ function apportion(total: number, radii: readonly number[]): number[] | null {
 /** The rows for a dot of radius `r`, or null if `r` does not fit. */
 function fit(total: number, rows: number, r: number): Plan | null {
   const outer = ARC_BOX.w / 2 - r - MARGIN;
-  const inner = rows === 1 ? outer : INNER * outer;
-  const radii = Array.from({ length: rows }, (_, i) => (rows === 1 ? outer : outer - (i * (outer - inner)) / (rows - 1)));
-  if (rows > 1 && (outer - inner) / (rows - 1) < 2 * r + GAP) return null;
+  const step = 2 * r + GAP;
+  if (outer - (rows - 1) * step < MIN_INNER * outer) return null;
+  const radii = Array.from({ length: rows }, (_, i) => outer - i * step);
   const counts = apportion(total, radii);
   if (counts === null) return null;
   for (let i = 0; i < rows; i++) {

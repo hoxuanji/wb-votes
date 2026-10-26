@@ -139,6 +139,8 @@
   /* The seat locator's box: a square this wide, beside the page header where there is room and under it where there is
      not. SeatLocator.tsx draws in a box of this many units, so the two are one number. */
   --iei-locator-w: 320px;
+  /* The parliament arc's widest box. SeatArc draws in a frame of 640 units; the picture scales with its column up to this. */
+  --iei-arc-w: 720px;
   --iei-cell-y: var(--iei-2);
   --iei-cell-y-tight: var(--iei-1);
   --iei-cell-x: var(--iei-3);
@@ -3121,6 +3123,178 @@ html {
   }
 }
 
+/* ══════════════════════════ the house, as an arc ══════════════════════════
+   One dot per seat on a half ring, in the ink of the party that won it, with the leader's seats at the centre and a key beside it
+   (under it below 900px). The ring scales with its column, so the centre text is HTML in the hollow rather than SVG text, which
+   would shrink with it; below 640px the hollow is smaller than the number and the number drops under the ring.
+
+   The only hues are the parties': a dot is a party's ink, and everything else (the hollow dots of undeclared seats, the key, the
+   text) is the interface's own. Pointing at one wedge picks it out and dims the rest, in CSS alone. */
+
+.iei-arc-wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: var(--iei-6);
+}
+
+.iei-arc {
+  margin: 0;
+}
+
+.iei-arc-stage {
+  position: relative;
+}
+
+.iei-arc-svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.iei-arc-p,
+.iei-arc-none {
+  transition: opacity var(--iei-t-1) linear;
+}
+
+/* A seat nobody was declared to hold: a hollow dot, drawn in the interface's own ink so it reads as a seat and not as a party. */
+.iei-arc-none circle {
+  stroke: var(--iei-ink-3);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.iei-arc-p[data-dim="true"],
+.iei-arc-none[data-dim="true"] {
+  opacity: 0.3;
+}
+
+.iei-arc-svg:has(a:hover) a:not(:hover) .iei-arc-p,
+.iei-arc-svg:has(a:hover) .iei-arc-none {
+  opacity: 0.3;
+}
+
+.iei-arc-centre {
+  position: absolute;
+  left: 50%;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--iei-1);
+  transform: translateX(-50%);
+  text-align: center;
+  pointer-events: none;
+}
+
+.iei-arc-lead {
+  display: inline-flex;
+  align-items: center;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-weight: 600;
+  color: var(--iei-ink-2);
+}
+
+.iei-arc-n {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-3);
+}
+
+.iei-arc-n .iei-of {
+  font-size: var(--iei-f-data);
+}
+
+.iei-arc-n b {
+  font-size: var(--iei-f-answer);
+  font-weight: 600;
+  line-height: 1;
+  color: var(--iei-ink);
+}
+
+.iei-arc-maj {
+  margin: var(--iei-2) 0 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+  text-align: center;
+}
+
+.iei-arc-cap {
+  margin-top: var(--iei-2);
+}
+
+.iei-arc-key {
+  display: grid;
+  gap: var(--iei-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+}
+
+.iei-arc-key a {
+  display: inline-flex;
+  align-items: center;
+  color: var(--iei-ink);
+  text-decoration: none;
+}
+
+.iei-arc-key a:hover,
+.iei-arc-key a[aria-current="true"] {
+  text-decoration: underline;
+  text-decoration-thickness: 2px;
+  text-underline-offset: var(--iei-1);
+}
+
+.iei-arc-key b {
+  margin-left: var(--iei-2);
+  font-weight: 600;
+}
+
+.iei-arc-rest {
+  color: var(--iei-ink-3);
+  font-size: var(--iei-f-meta);
+}
+
+.iei-sw-hollow {
+  background: transparent;
+  border: 1px solid var(--iei-ink-3);
+}
+
+.iei-arc-table {
+  margin-top: var(--iei-4);
+}
+
+.iei-arc-table summary {
+  padding: var(--iei-1) 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+  cursor: pointer;
+}
+
+.iei-arc-table summary:hover {
+  color: var(--iei-ink);
+}
+
+@media (min-width: 900px) {
+  .iei-arc-wrap {
+    grid-template-columns: minmax(0, var(--iei-arc-w)) minmax(0, 1fr);
+    align-items: start;
+    column-gap: var(--iei-8);
+  }
+}
+
+@media (max-width: 640px) {
+  .iei-arc-centre {
+    position: static;
+    margin-top: var(--iei-3);
+    transform: none;
+  }
+}
+
 @media (max-width: 900px) {
   .iei-partyrows li {
     grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
@@ -3448,5 +3622,10 @@ html {
   /* The system takes the dashes with the colour: an election with no winner stays outlined, not filled, and stays dashed. */
   .iei-held-none {
     border-style: dashed;
+  }
+
+  /* An undeclared seat is a hollow dot: its outline is the system's text colour there, since its fill is the page's. */
+  .iei-arc-none circle {
+    stroke: CanvasText;
   }
 }

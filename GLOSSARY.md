@@ -267,6 +267,10 @@ _Avoid_: Filter
 The order a map page holds the seats of an election in: by state, then by seat number. A list that no margin put in order is in seat order, and its heading says so.
 _Avoid_: Natural order, default order
 
+**Seat arc**:
+The picture of a full-house election's whole house as a half ring of dots, one per seat, in the ink of the party that won it, with a seat that has no declared winner a hollow dot. Parties run largest first, which says nothing about left and right or alliances. A by-election has none, because it has no majority to be short of.
+_Avoid_: Parliament chart, hemicycle
+
 **Subject params**:
 The parts of a link that choose which data a page shows, such as the front page's layer, an election or a house, as against the selection, which narrows data already chosen.
 _Avoid_: Scope, which already names the elections a read covers

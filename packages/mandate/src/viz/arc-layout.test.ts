@@ -70,3 +70,32 @@ test("the Lok Sabha's dots are still readable, and a small house does not get gi
 test("the layout is the same every time it is asked for", () => {
   assert.deepEqual(arcLayout(294), arcLayout(294));
 });
+
+test("the rows sit as close as the dots allow, so a small house is a thin ring and not two hoops far apart", () => {
+  const cx = ARC_BOX.w / 2;
+  for (const n of [13, 42, 100, 294, 543]) {
+    const dots = arcLayout(n);
+    const cy = dots[0]!.y; // the first dot is the outer row's left end, which is on the baseline
+    const r = dots[0]!.r;
+    const radii = [...new Set(dots.map((d) => `${d.row}:${Math.hypot(d.x - cx, d.y - cy).toFixed(3)}`))]
+      .map((k) => k.split(":").map(Number) as [number, number])
+      .sort((a, b) => a[0] - b[0])
+      .map((k) => k[1]);
+    for (let i = 1; i < radii.length; i++) {
+      const step = radii[i - 1]! - radii[i]!;
+      assert.ok(Math.abs(step - (2 * r + 2)) <= 0.01, `${n} seats: rows ${i - 1} and ${i} are ${step.toFixed(2)} apart, a tight pair is ${2 * r + 2}`);
+    }
+  }
+});
+
+test("the hollow in the middle is never smaller than 0.3 of the outer radius, so the leader's number fits in it", () => {
+  const cx = ARC_BOX.w / 2;
+  for (const n of [1, 2, 13, 42, 100, 294, 543]) {
+    const dots = arcLayout(n);
+    const cy = dots[0]!.y;
+    const reach = dots.map((d) => Math.hypot(d.x - cx, d.y - cy));
+    const outer = Math.max(...reach);
+    const inner = Math.min(...reach);
+    assert.ok(inner >= 0.3 * outer - 1e-6, `${n} seats: the inner row is at ${inner.toFixed(1)} of ${outer.toFixed(1)}`);
+  }
+});
