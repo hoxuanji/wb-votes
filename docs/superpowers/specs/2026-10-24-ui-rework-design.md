@@ -114,3 +114,44 @@ What is decided now, as the builder's calls:
 4. **The look of the reference** is applied as a separate pass once it can be read; the structure and data work above does
    not depend on it.
 
+
+## Batch 2 results
+
+Measured at the tip of `ui-seat-1` against its start (`7208512`), in-process pages through `ops/probe/shot/shot.mjs` and
+`measure.sh`, on the dev registry (West Bengal, boundaries loaded). Mekliganj is the seat with four elections, Bishnupur
+(`wb.ac.154`) the seat whose first three elections declare no winner, Baharampur the Lok Sabha seat with one election.
+
+| Measured | Start | Tip |
+|---|---|---|
+| Locator beside the header (Mekliganj, 1440x900) | none | 320 x 362 at y=99, wholly inside the fold |
+| Held-by strip (Mekliganj, 1440x900 and 1280x800 and 1024x768) | none | y=235, h=107, wholly inside the fold |
+| Held-by strip at 390x844 | none | y=249, inside the fold |
+| Result bar per election (Mekliganj, 1440) | none | list from y=970; three bars and one sentence (2026 has no counts) |
+| Analysis chart width at 1440 / 1024 / 390 | 640 / 640 / 366 | 1008 / 992 / 366 (the column's width) |
+| Analysis labels overlapping, Mekliganj at 1440 | 17 pairs (96.6% with 96.4% among them) | 0 of 6 charts' labels, none clipped |
+| Horizontal overflow, three seats, five widths | none | none |
+
+The start widths at 1024 and 390 are the ones the S-analysis commit recorded; the rest were measured here. The overlap count is a pairwise test of the rendered `<text>` boxes; the same checker finds the 17 at the start and none at the
+tip, so it does detect what it is said to rule out. Tests 1104 -> 1146 with the same 51 environment failures as before
+(see the test-baseline note in the architecture review); `tsc`, `registry:typecheck` and `next build` are clean, and the seat
+routes ship the same 514 to 516 bytes of page script as every other route.
+
+What decision 5 asked for, and where it stands:
+
+- The seat's outline among its neighbours, linking to each: met (S-locator).
+- The contest per election, winner and runner-up and margin: met as a sentence and a bar of each candidate's share of the votes
+  polled, where counts are on record. Where only a declared margin is (West Bengal 2026) or nothing is, the row says so and
+  draws no bar. The margin is written beside the bar, not drawn as a bar of its own; turnout stays in the table.
+- Who held the seat, with where it changed hands: met (S-results).
+- Analysis charts the width of their column with labels that touch nothing: met (S-analysis).
+
+Not met, or not tested:
+
+- The seat with ten candidates was seen only on a test fixture; the dev registry holds no contest with more than five.
+- The Karnataka fixture (no outlines) the brief named is gone; the no-map case was looked at on a fixture seat in a made-up state.
+- Hover (the Analysis lines pick out, the strip's and the bars' titles) and any interaction were not tested.
+- On Bishnupur the "changed hands" tile says "never" with three of four elections undeclared; the strip's caption says "no change
+  of hands on record". The tile is older than this batch and was left.
+- At 390 the election table is 605px wide in a 390px column, as it was before this batch.
+- No motion has been added: the "Direction added 2026-10-25" list still has it all to do, and the look of the reference site waits
+  until the site can be read.
