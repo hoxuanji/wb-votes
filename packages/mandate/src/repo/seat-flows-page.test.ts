@@ -246,6 +246,23 @@ test("seats redrawn and seats with no winner are both counted and both explained
   assert.match(t, /3 left out: 2 because the constituency was redrawn since, so it has no predecessor, and 1 because one of the two elections declared no winner there/);
 });
 
+test("ribbons into the smaller-parties box are grey, not a party's ink, and the caption says so", () => {
+  // Nine winning parties: the winners' side folds, which is what a Lok Sabha comparison does.
+  const seats = Array.from({ length: 9 }, (_, i) => Array.from({ length: 20 - i * 2 }, () => won("P1", `P${i + 1}`))).flat();
+  const html = renderFlow(seatFlows(seats));
+  const ribbons = [...html.matchAll(/<path class="([^"]*)" style="fill:([^"]*)"[^>]*><title>([^<]*)</g)].map((m) => ({ cls: m[1], fill: m[2], title: m[3] as string }));
+  const intoFold = ribbons.filter((r) => r.title.includes("→ Others"));
+  assert.ok(intoFold.length > 0, "no ribbon goes into the fold");
+  for (const r of intoFold) assert.equal(r.fill, "var(--iei-ink-3)", r.title);
+  assert.notEqual(fillFor(""), "var(--iei-ink-3)", "the empty key is the unattached ink, which is what the fold used to be painted in");
+  assert.equal(ribbons.find((r) => r.title.startsWith("P1 → P2"))?.fill, fillFor("P2"), "a named party keeps its own ink");
+  assert.match(text(html), /Grey ribbons go to the smaller parties together/);
+});
+
+test("with nothing folded on the winners' side the caption does not mention grey ribbons", () => {
+  assert.doesNotMatch(text(renderFlow(seatFlows([won("AAA", "BBB"), won("BBB", "BBB")]))), /Grey ribbons/);
+});
+
 test("a previous election whose year the page does not know is called the previous election", () => {
   const t = text(renderFlow(seatFlows([won("AAA", "BBB")]), null));
   assert.match(t, /Held in the previous election/);

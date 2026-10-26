@@ -49,8 +49,11 @@ export function SeatArc({
   arc,
   selected,
   hrefFor,
+  delegation = null,
 }: {
   arc: HouseArc;
+  /** The name of the state whose seats these are, where they are part of a bigger house: then there is no majority to state. */
+  delegation?: string | null;
   /** The party the reader has isolated, or null. The others are dimmed. */
   selected: string | null;
   /** The page's own link for a party. The selection toggles, so the link for the selected party releases it. */
@@ -70,7 +73,9 @@ export function SeatArc({
 
   const summary =
     `Seats by party: ${arc.parties.map((p) => `${p.label} ${p.n}`).join(', ')}` +
-    `${arc.undeclared === 0 ? '' : `, ${arc.undeclared} with no declared winner`}. ${arc.total} seats, majority ${arc.majority}.`;
+    `${arc.undeclared === 0 ? '' : `, ${arc.undeclared} with no declared winner`}. ${arc.total} seats${
+      arc.majority === null ? '' : `, majority ${arc.majority}`
+    }.`;
 
   return (
     <div className="iei-arc-wrap">
@@ -116,18 +121,20 @@ export function SeatArc({
         </div>
         </div>
 
-        <p className="iei-arc-maj">
-          majority {IN.format(arc.majority)}
-          {lead === null
-            ? ' · no seat has a declared winner'
-            : arc.shortBy === null
-              ? ` · ${lead.label} has it`
-              : ` · short by ${IN.format(arc.shortBy)}`}
-        </p>
+        {arc.majority === null ? null : (
+          <p className="iei-arc-maj">
+            majority {IN.format(arc.majority)}
+            {lead === null
+              ? ' · no seat has a declared winner'
+              : arc.shortBy === null
+                ? ` · ${lead.label} has it`
+                : ` · short by ${IN.format(arc.shortBy)}`}
+          </p>
+        )}
 
         <figcaption className="iei-note iei-arc-cap">
-          Every seat of the house, one dot each, in the party that won it. Ordered by seats, largest first: the order does not mean
-          left or right, or who would govern together.
+          {delegation === null ? 'Every seat of the house' : `Every seat in ${delegation}`}, one dot each, in the party that won it.
+          Ordered by seats, largest first: the order does not mean left or right, or who would govern together.
         </figcaption>
       </figure>
 
@@ -167,7 +174,7 @@ export function SeatArc({
                   Seats
                 </th>
                 <th scope="col" className="iei-n">
-                  Of the house
+                  {delegation === null ? 'Of the house' : 'Of these seats'}
                 </th>
               </>
             }
@@ -195,25 +202,35 @@ export function SeatArc({
  *
  * On the runner-up tab a party in the selection is the RUNNER-UP, and a wedge is a winner, so there the arc shows nothing as
  * selected and a wedge's link switches to the winners as it isolates, instead of answering a question nobody asked.
+ *
+ * A STATE'S SEATS IN A BIGGER HOUSE (the Lok Sabha election narrowed to one state) are a delegation, not the house: the panel is
+ * named for the state, says nothing of a majority, and the arc has none. `delegation` is the state's name in that case, else null.
  */
 export function HousePanel({
   seats,
   majority,
   selection,
+  delegation = null,
 }: {
   seats: readonly { partyKey: string | null; partyLabel: string | null }[];
   majority: number | null;
   selection: MapSelection;
+  delegation?: string | null;
 }) {
-  const arc = houseArc(seats, majority);
+  const arc = houseArc(seats, majority, delegation === null ? 'house' : 'delegation');
   if (arc === null) return null;
   const runnerUp = selection.mode === 'runnerup';
   const selected = !runnerUp && selection.isolation?.by === 'party' ? selection.isolation.key : null;
   return (
-    <Panel id="house" title="The house" question="Who holds the house, and how far is it from a majority?">
+    <Panel
+      id="house"
+      title={delegation === null ? 'The house' : `${delegation}\u2019s seats`}
+      question={delegation === null ? 'Who holds the house, and how far is it from a majority?' : `Which parties won ${delegation}\u2019s seats?`}
+    >
       <SeatArc
         arc={arc}
         selected={selected}
+        delegation={delegation}
         hrefFor={(key) => (runnerUp ? selection.href({ mode: 'winners' }, { party: key }) : selection.href({ party: key }))}
       />
     </Panel>

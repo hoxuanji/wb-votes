@@ -280,7 +280,7 @@ How a map page draws its seats: as the map, each with its boundary's area, or as
 _Avoid_: View, layout
 
 **Seat tile**:
-A seat drawn as one square of the same size as every other, placed near where the seat is, so that a crowded district gets room and seats next to each other stay next to each other. A tile's size says nothing about the seat, and a seat with no boundary on record has none.
+A seat drawn as one square of the same size as every other, placed roughly where the seat is, so that a crowded district gets room and seats next to each other mostly stay next to each other. Distances between tiles are not to scale, a tile's size says nothing about the seat, and a seat with no boundary on record has none.
 _Avoid_: Cartogram, hex
 
 **Subject params**:

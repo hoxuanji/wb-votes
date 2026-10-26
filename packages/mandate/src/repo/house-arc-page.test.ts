@@ -72,6 +72,19 @@ function fixture(db: DatabaseSync): DatabaseSync {
       result.run(id, `${id}-${who}`, rank === 1 ? 600 : 400, rank, rank === 1 && declared ? 1 : 0, rank === 1 && declared ? 200 : null);
     }
   };
+  // THE LOK SABHA, of which this state sends three: its page is the national election narrowed to the state.
+  const pcPlace = db.prepare(`INSERT INTO place (id, kind, canonical_name, parent_id) VALUES (?, 'pc', ?, 'hh')`);
+  const pcVersion = db.prepare(
+    `INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+     VALUES (?, ?, 'hh', 'pc', 'e1', ?, ?, 'general')`,
+  );
+  for (let n = 1; n <= 3; n++) {
+    pcPlace.run(`hh.pc.00${n}`, `Pc ${n}`);
+    pcVersion.run(100 + n, `hh.pc.00${n}`, n, `Pc ${n}`);
+  }
+  db.exec(`INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+           VALUES ('ls-2024', 'general', 'union', 'in', 'e1', 'LS 2024', 'declared', 'pc', 2024, 1)`);
+  [1, 1, 2].forEach((pv, i) => contest("ls-2024", 101 + i, pv as 1 | 2 | 3, pv === 2 ? 1 : 2));
   [1, 1, 1, 1, 2, 2, 3].forEach((pv, i) => contest("hh-assembly-2021", i + 1, pv as 1 | 2 | 3, pv === 2 ? 1 : 2));
   contest("hh-assembly-2021", 8, 1, 2, false);
   contest("hh-bypoll-ae-2022", 1, 2, 1);
@@ -195,6 +208,23 @@ test("on the runner-up tab a party means the runner-up, so nothing is dimmed and
   const g = groups(panel(render("/election", "mode=runnerup&party=BBB", ELECTION), "house"));
   assert.deepEqual(g.map((x) => x.dim), [false, false, false]);
   for (const x of g) assert.ok(x.href !== null && x.href.includes(`party=${x.party}`) && !x.href.includes("mode=runnerup"), `${x.party}: ${x.href}`);
+});
+
+test("a state's seats in the Lok Sabha are a delegation, not a house: no majority, and not called one", () => {
+  const house = panel(render("/state", "house=pc", "hh"), "house");
+  const t = text(house);
+  assert.match(t, /Hh State\u2019s seats/);
+  assert.doesNotMatch(t, /majority|has it|short by|The house|Every seat of the house/);
+  assert.match(t, /Every seat in Hh State, one dot each/);
+  assert.match(t, /Of these seats/);
+  assert.deepEqual(groups(house).map((x) => [x.party, x.dots]), [["AITC", 2], ["BBB", 1]]);
+  assert.match(text(render("/state", "house=pc", "hh")), /narrowed to the seats in Hh State/, "the page's own notice is the same claim");
+});
+
+test("the national Lok Sabha election, unscoped, is the house, with its majority", () => {
+  const t = text(panel(render("/election", "", "ls-2024"), "house"));
+  assert.match(t, /The house/);
+  assert.match(t, /majority 2/);
 });
 
 test("a by-election decides no house, so it has no arc and no majority", () => {

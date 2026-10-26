@@ -85,7 +85,7 @@ export function SeatFlow({
               <path
                 key={`${r.from}>${r.to}`}
                 className={`iei-flow-${r.movement}`}
-                style={{ fill: r.movement === 'mixed' ? 'var(--iei-ink-3)' : fillFor(r.to) }}
+                style={{ fill: r.movement === 'mixed' || r.to === OTHERS ? 'var(--iei-ink-3)' : fillFor(r.to) }}
                 d={r.path}
               >
                 <title>
@@ -101,6 +101,7 @@ export function SeatFlow({
         <figcaption className="iei-note iei-flow-cap">
           {IN.format(flows.compared)} of {IN.format(total)} seats are in the picture, compared with {before}. {leftOut(flows.left)}{' '}
           A brighter ribbon is seats that changed hands, in the colour of the party that gained them; a fainter one is seats held.
+          {layout.to.some((n) => n.key === OTHERS) ? ' Grey ribbons go to the smaller parties together.' : null}
         </figcaption>
       </figure>
 

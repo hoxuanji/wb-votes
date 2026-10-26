@@ -178,11 +178,17 @@ What the direction asked, and where it stands:
 
 - **A parliament arc of every seat for a state or election:** met. One dot per seat in the party's ink, the leader's seats and distance from a
   majority at its centre, a key and a table twin; a wedge links to the party isolation the page already had. A by-election, which decides no
-  house, has none. Parties run largest first and the caption says that means nothing about left, right or alliances.
+  house, has none. The Lok Sabha narrowed to one state is a delegation, not the house: its panel is named for the state's seats and states no
+  majority (a review found it first said "the house… TMC has it" over 42 of 543 seats). Parties run largest first and the caption says that
+  means nothing about left, right or alliances.
 - **A flow of seats between parties across two elections:** met. Held and moved seats are told apart (fainter and brighter ribbons) and the
   seats it cannot compare are counted in the sentence under it, with the reason, and agree with `findings.ts` on every election in the registry.
 - **A seat-tile cartogram:** met as a Map / Tiles control on both pages. Tiles are placed from the outlines' centroids by closest pair first, then
-  settled by swaps; no seat moves more than three cells on a uniform cloud. A tile and a polygon are the same colour and say the same thing.
+  settled by swaps. A tile and a polygon are the same colour and say the same thing. **How near it keeps a seat to its place depends on the
+  state:** no seat moves more than three cells on a uniform cloud, but on West Bengal's real outlines (288 tiles on a 14 by 21 grid, because a
+  rectangle holds a state that is not one only by moving seats) the median seat sits 4.4 cells from where its boundary is, the worst 9.9, three in
+  four of each seat's two nearest neighbours are its adjacent tile and 11 neighbour pairs end up more than three cells apart. The caption therefore
+  says "roughly where the seat is" and "distances are not to scale".
 - **Motion that carries information:** met for what is listed below, as CSS only, inside `no-preference`, once, under 700ms, with tokens.
   *Dropped:* the numeral count-up (a figure counting up from 0 can be caught showing a wrong number, and a browser without `@property` would jump
   from 0 to the answer) and a fade of 492 map polygons by party (a stagger index on every polygon, for an effect that cannot be seen here).
@@ -200,6 +206,11 @@ Not met, or not tested:
 - **Interaction on the new pictures** (hover, the pick-out, focus and keyboard on a wedge, a ribbon or a tile), forced-colors and a screen reader
   were not tested; the captures have no pointer, no focus and no accessibility tree.
 - **Motion was counted and timed, not watched.** Only a first and a last frame can be judged here, and the screenshots have animation switched off.
+- **Other browsers.** Animation was counted in Chromium only; `animation-delay: min()`, `pathLength` on a circle with a non-scaling stroke and
+  a custom property in an SVG `fill` were not seen in Firefox or Safari.
+- **The national Lok Sabha page against the 340,000-byte budget.** The seed holds West Bengal's 42 of its 543 seats, and a map page's polygon
+  paths dominate its size; the arc adds about 13 kB and the flow picture a few. The budget test runs on fixtures.
+- **Tab order** through the tiles follows the picture (reading order), but how a screen reader announces 288 links was not tried.
 - **A comparison with more than seven parties on a side**, or an arc key with more than eight parties, was seen only on test fixtures; the dev
   registry has none.
 - **On a phone** the arc's dots are about 6px across for 294 seats, and `/election` is one row of tabs lower (352 to 385) because the new control has no

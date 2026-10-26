@@ -5,6 +5,10 @@
 // on the page is highlighted in the picture, never removed from it. It exists only for a house that decides something: a
 // by-election has no majority, and a "majority 148" over four dots would be a claim the registry does not make.
 //
+// A DELEGATION IS NOT A HOUSE. The state page can show the Lok Sabha election narrowed to the state's own seats, 42 of 543 for West
+// Bengal. Those are worth drawing, but they are not "the house": a party with 29 of them does not hold the Lok Sabha, and a
+// majority of the 42 is a number about nothing. For that scope the arc has the seats and no majority to be short of.
+//
 // PARTIES ARE ORDERED BY SEATS and then by key. The registry holds no left-to-right or alliance data, so the order says nothing
 // about either, and the page says so; the key breaks a tie so the same election always draws the same arc.
 
@@ -17,8 +21,8 @@ export type HouseArc = {
   parties: ArcParty[];
   /** Seats with no declared winner: in no party, and drawn as what they are. */
   undeclared: number;
-  /** The seats a majority needs. */
-  majority: number;
+  /** The seats a majority needs: null for a delegation, which is part of a house and has no majority of its own. */
+  majority: number | null;
   leader: ArcParty | null;
   /** How many seats the leader lacks of a majority; null once it has one. */
   shortBy: number | null;
@@ -27,8 +31,12 @@ export type HouseArc = {
 export function houseArc(
   seats: readonly { partyKey: string | null; partyLabel: string | null }[],
   majority: number | null,
+  scope: "house" | "delegation" = "house",
 ): HouseArc | null {
-  if (majority === null || seats.length === 0) return null;
+  if (seats.length === 0) return null;
+  // A house that decides nothing has no arc. A delegation has one, but not a majority, whatever number the caller was given.
+  if (scope === "house" && majority === null) return null;
+  const needed = scope === "delegation" ? null : majority;
   const held = new Map<string, ArcParty>();
   let undeclared = 0;
   for (const s of seats) {
@@ -46,8 +54,8 @@ export function houseArc(
     total: seats.length,
     parties,
     undeclared,
-    majority,
+    majority: needed,
     leader,
-    shortBy: leader !== null && leader.n < majority ? majority - leader.n : null,
+    shortBy: leader !== null && needed !== null && leader.n < needed ? needed - leader.n : null,
   };
 }

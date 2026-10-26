@@ -319,7 +319,9 @@ export function StateSurface({
               <details className="iei-districts" open>
                 <summary>
                   {focused === null
-                    ? `${districts.length} districts — select one to ${mapped ? 'zoom the map and ' : ''}narrow the list`
+                    ? `${districts.length} districts — select one to ${
+                        !mapped ? '' : selection.shape === 'tiles' ? 'mute the other tiles and ' : 'zoom the map and '
+                      }narrow the list`
                     : `District: ${focused.name}`}
                 </summary>
                 {focused === null ? null : (
@@ -393,7 +395,12 @@ export function StateSurface({
       </MapSection>
 
       {/* ══ 2b · THE HOUSE, as an arc: all of it, whatever the list is narrowed to. ═════════════════════ */}
-      <HousePanel seats={view.seats} majority={view.majority} selection={selection} />
+      <HousePanel
+        seats={view.seats}
+        majority={view.majority}
+        selection={selection}
+        delegation={e.body === 'lok-sabha' && view.scope !== null ? name : null}
+      />
 
       {/* ══ 3 · WHAT CHANGED ══════════════════════════════════════════════════════════════════ */}
       {view.flips === null ? (

@@ -55,6 +55,18 @@ test("the leader is short of a majority by the difference, and not short once it
   assert.equal(over?.majority, 6);
 });
 
+test("a state's seats in a bigger house are an arc with no majority to be short of, and the scoped majority does not leak into it", () => {
+  const arc = houseArc(seats({ AAA: 4, BBB: 3 }), 6, "delegation");
+  assert.ok(arc !== null);
+  assert.equal(arc.total, 7);
+  assert.equal(arc.majority, null);
+  assert.equal(arc.shortBy, null);
+  assert.equal(arc.leader?.key, "AAA");
+  assert.equal(houseArc(seats({ AAA: 4 }), null, "delegation")?.majority, null);
+  assert.equal(houseArc([], null, "delegation"), null, "no seats is still no arc");
+  assert.equal(houseArc(seats({ AAA: 3 }), null), null, "a by-election, which is not a delegation, still has none");
+});
+
 test("a party is keyed by its key and named by its label, which the first of its seats supplies", () => {
   const arc = houseArc([seat("AITC", "TMC"), seat("AITC", "TMC"), seat("BJP", "BJP")], 2);
   assert.deepEqual(arc?.parties[0], { key: "AITC", label: "TMC", n: 2 });

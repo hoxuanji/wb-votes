@@ -1,8 +1,10 @@
 // Where each seat sits when every seat is the same size.
 //
 // A map gives a seat the area its boundary has: Kolkata's sixteen seats are specks and Cooch Behar's are continents. A tile map gives
-// every seat one equal tile and keeps the one thing a map is good for, that seats next to each other on the ground stay next to each
-// other on the grid. It is a layout of the seats' CENTROIDS alone (centroidOf reads one from an outline), held on literal numbers in
+// every seat one equal tile and keeps what a map is good for, MOSTLY: seats next to each other on the ground usually stay next to each
+// other on the grid (on West Bengal's real outlines, 75% of a seat's two nearest neighbours are its adjacent tiles, the median seat sits
+// about four cells from where its boundary is, and 11 neighbour pairs end up more than three cells apart). A rectangle cannot hold a
+// state that is not one without moving seats, and a uniform cloud, which the tests use, is the easy case. It is a layout of the seats' CENTROIDS alone (centroidOf reads one from an outline), held on literal numbers in
 // seat-tiles.test.ts: every seat has its own cell, the grid is compact, a seat does not move far from where it is, and the same seats
 // give the same grid however they arrive.
 //

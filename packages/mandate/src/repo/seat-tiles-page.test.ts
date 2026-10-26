@@ -6,6 +6,7 @@
 //   tt  six assembly seats with outlines in a 3 by 2 block, two elections (so Flips is a mode)
 //   pp  four assembly seats, three with an outline and one without
 //   bb  two assembly seats, none with an outline
+//   rr  four assembly seats laid out against their ids, so reading order is not id order
 
 import assert from "node:assert/strict";
 import test from "node:test";
@@ -34,29 +35,33 @@ function fixture(db: DatabaseSync): DatabaseSync {
     INSERT INTO party_version (id, party_id, valid_from, name) VALUES (2,'BBB','1990-01-01','B Party');
   `);
   const place = db.prepare(`INSERT INTO place (id, kind, canonical_name, parent_id) VALUES (?, ?, ?, ?)`);
-  for (const [id, name] of [["tt", "Tt"], ["pp", "Pp"], ["bb", "Bb"]] as const) place.run(id, "state", `${name} State`, "in");
+  for (const [id, name] of [["tt", "Tt"], ["pp", "Pp"], ["bb", "Bb"], ["rr", "Rr"]] as const) place.run(id, "state", `${name} State`, "in");
+  place.run("tt.d1", "district", "North", "tt");
+  place.run("tt.d2", "district", "South", "tt");
   const version = db.prepare(
-    `INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
-     VALUES (?, ?, ?, 'ac', 'e1', ?, ?, 'general')`,
+    `INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation, district_place_id)
+     VALUES (?, ?, ?, 'ac', 'e1', ?, ?, 'general', ?)`,
   );
   const outline = db.prepare(
     `INSERT INTO place_geometry (place_version_id, path, centroid_x, centroid_y, view_box, source_id) VALUES (?, ?, 1, 1, ?, 's2')`,
   );
   let next = 0;
   /** A seat; `at` is its place in a 3-wide block of squares, or null for no outline. */
-  const seat = (state: string, n: number, at: number | null): number => {
+  const seat = (state: string, n: number, at: number | null, district: string | null = null): number => {
     const id = ++next;
     place.run(`${state}.ac.00${n}`, "ac", `Seat ${state}${n}`, state);
-    version.run(id, `${state}.ac.00${n}`, state, n, `Seat ${state}${n}`);
+    version.run(id, `${state}.ac.00${n}`, state, n, `Seat ${state}${n}`, district);
     if (at !== null) {
       const [x, y] = [100 + (at % 3) * 20, 100 + Math.floor(at / 3) * 20];
       outline.run(id, `M${x} ${y}L${x + 10} ${y}L${x + 10} ${y + 10}L${x} ${y + 10}Z`, SHARED_FRAME);
     }
     return id;
   };
-  const tt = [0, 1, 2, 3, 4, 5].map((i) => seat("tt", i + 1, i));
+  const tt = [0, 1, 2, 3, 4, 5].map((i) => seat("tt", i + 1, i, i < 3 ? "tt.d1" : "tt.d2"));
   const pp = [seat("pp", 1, 0), seat("pp", 2, 1), seat("pp", 3, 2), seat("pp", 4, null)];
   const bb = [seat("bb", 1, null), seat("bb", 2, null)];
+  // Seat 1 is bottom left and seat 4 top left: read left to right and top to bottom, they are 4, 3, 2, 1.
+  const rr = [seat("rr", 1, 3), seat("rr", 2, 2), seat("rr", 3, 1), seat("rr", 4, 0)];
 
   const election = db.prepare(
     `INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
@@ -66,6 +71,7 @@ function fixture(db: DatabaseSync): DatabaseSync {
   election.run("tt-assembly-2021", "tt", "TT 2021", 2021);
   election.run("pp-assembly-2021", "pp", "PP 2021", 2021);
   election.run("bb-assembly-2021", "bb", "BB 2021", 2021);
+  election.run("rr-assembly-2021", "rr", "RR 2021", 2021);
 
   const person = db.prepare(`INSERT INTO person (id, canonical_name, created_at) VALUES (?, ?, '2026-08-12')`);
   const contestRow = db.prepare(`INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES (?, ?, ?, 'declared')`);
@@ -90,6 +96,7 @@ function fixture(db: DatabaseSync): DatabaseSync {
   });
   pp.forEach((v, i) => contest("pp-assembly-2021", v, i < 2 ? 1 : 2, 100 + i * 10));
   bb.forEach((v, i) => contest("bb-assembly-2021", v, 1, 50 + i * 10));
+  rr.forEach((v, i) => contest("rr-assembly-2021", v, 1, 50 + i * 10));
   return db;
 }
 
@@ -212,6 +219,35 @@ test("a tile is square-cornered to the system's radius and the tiles are separat
   assert.ok(rect !== null);
   assert.doesNotMatch(rect[0], /stroke/);
   assert.match(rect[0], /rx="2"/);
+});
+
+/** The x and y of each tile in the order the markup has them. */
+function tilePositions(html: string): [number, number][] {
+  const region = html.slice(html.indexOf('<g class="iei-tiles"'));
+  return [...region.slice(0, region.indexOf("</svg>")).matchAll(/<rect x="([\d.]+)" y="([\d.]+)"/g)].map((m) => [Number(m[2]), Number(m[1])]);
+}
+
+test("the tiles are in reading order in the markup, so tabbing through them follows the picture", () => {
+  for (const state of ["tt", "rr"]) {
+    const pos = tilePositions(render("/state", "shape=tiles", state));
+    assert.ok(pos.length >= 4, `${state}: ${pos.length} tiles`);
+    assert.deepEqual(pos, [...pos].sort((a, b) => a[0] - b[0] || a[1] - b[1]), `${state}: the markup is not top to bottom, left to right`);
+  }
+});
+
+test("the district chooser says what choosing a district does in the shape being shown", () => {
+  const map = text(render("/state", "", "tt"));
+  const tiles = text(render("/state", "shape=tiles", "tt"));
+  assert.match(map, /2 districts — select one to zoom the map and narrow the list/);
+  assert.match(tiles, /2 districts — select one to mute the other tiles and narrow the list/);
+  assert.doesNotMatch(tiles, /zoom the map/, "nothing zooms in the tile view");
+});
+
+test("the caption does not claim more than the layout delivers: roughly where the seat is, and not to scale", () => {
+  const caption = text(render("/state", "shape=tiles", "tt").split('<figure class="iei-map iei-map-tiles"')[1] ?? "");
+  assert.match(caption, /placed roughly where the seat is/);
+  assert.match(caption, /distances are not to scale/);
+  assert.doesNotMatch(caption, /placed near where/);
 });
 
 test("the page stays far under the page budget", () => {

@@ -12,8 +12,9 @@ import { seatFill, seatTitle } from './seat-fill.ts';
  *
  * A map gives a seat the area its boundary has. Kolkata's sixteen seats are specks on it and Cooch Behar's are continents, so the
  * crowded parts, where most of the seats are, are the parts the map shows worst. A tile gives every seat one square and keeps what
- * a map is good for: seats next to each other on the ground stay next to each other on the grid (viz/seat-tiles.ts places them by
- * their centroids, closest first). What it gives up is shape, and so it says so: a tile's size says nothing about the seat.
+ * a map is good for: seats next to each other on the ground mostly stay next to each other on the grid (viz/seat-tiles.ts places
+ * them by their centroids, closest first; on West Bengal's real outlines three in four of a seat's two nearest neighbours are the next
+ * tile, and the median seat sits about four cells from where its boundary is, so the picture says "roughly"). What it gives up is shape, and so it says so: a tile's size says nothing about the seat.
  *
  * ── THE SAME SEAT, THE SAME COLOUR ──
  *
@@ -53,7 +54,8 @@ export function SeatTiles({ view, selection }: { view: ElectionMapView; selectio
           style={{ aspectRatio: aspect }}
         >
           <g className="iei-tiles">
-            {tiles.map((t) => {
+            {/* In reading order, so that tabbing through the links follows the picture and not the order the layout found them in. */}
+            {[...tiles].sort((a, b) => a.row - b.row || a.col - b.col).map((t) => {
               const s = bySeat.get(t.id) as NonNullable<ReturnType<typeof bySeat.get>>;
               const tile = (
                 <rect
@@ -82,7 +84,7 @@ export function SeatTiles({ view, selection }: { view: ElectionMapView; selectio
 
         <figcaption>
           {missing === 0 ? <>All {view.seats.length} constituencies are tiled</> : <>{placed.length} of {view.seats.length} constituencies are tiled</>}, one
-          equal tile each, placed near where the seat is. A tile&rsquo;s size says nothing about the seat.
+          equal tile each, placed roughly where the seat is (distances are not to scale). A tile&rsquo;s size says nothing about the seat.
           {missing === 0 ? null : (
             <>
               {' '}
