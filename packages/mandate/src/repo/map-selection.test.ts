@@ -15,8 +15,8 @@ import { MARGIN_BANDS, bandOf, binOf, choicesOf, electionChoices, electionMapVie
 import { layerChoices, leaderOf } from "./home.ts";
 import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
-import { MODES, isMode, queryHref, readAsk, readSelection, tally } from "./map-selection.ts";
-import type { Choices, Isolation, MapMode, MapSelection, Move, TalliedSeat, SeatFacts } from "./map-selection.ts";
+import { MODES, SHAPES, isMode, isShape, queryHref, readAsk, readSelection, tally } from "./map-selection.ts";
+import type { Choices, Isolation, MapMode, MapSelection, MapShape, Move, TalliedSeat, SeatFacts } from "./map-selection.ts";
 
 /* ─────────────────────────────────── literals ─────────────────────────────────── */
 
@@ -58,9 +58,10 @@ const FULL: Choices = {
   districts: new Set(["d1", "d2", "d3"]),
   seats: new Set(SEATS.map((s) => s.placeId)),
   flips: true,
+  tiles: true,
 };
 /** The election page: two-point bins, no districts, no seat focus. */
-const ELECTION: Choices = { parties: FULL.parties, bins: BINS, flips: true };
+const ELECTION: Choices = { parties: FULL.parties, bins: BINS, flips: true, tiles: true };
 /** The state page: five named bands, district and seat focus. */
 const STATE: Choices = { ...FULL, bins: undefined };
 
@@ -409,10 +410,80 @@ test("a link is anchored where it was told to be, and not at all if it was not t
   assert.equal(readSelection(undefined, FULL, { base: "/election/ls-2024" }).href({ party: "BJP" }), "/election/ls-2024?party=BJP");
 });
 
+/* ─────────────────────────────────── the shape ─────────────────────────────────── */
+
+test("the shapes are the map and the tiles, in the order the control shows them", () => {
+  assert.deepEqual(SHAPES.map((x) => x.key), ["map", "tiles"]);
+  assert.ok(isShape("tiles") && isShape("map") && !isShape("grid") && !isShape(undefined));
+});
+
+test("nothing asked is the map, and tiles are read where the view offers them", () => {
+  assert.equal(read("").shape, "map");
+  assert.equal(read("shape=tiles").shape, "tiles");
+  assert.deepEqual(read("shape=tiles").ignored, []);
+  assert.deepEqual(read("shape=map").ignored, []);
+});
+
+test("tiles asked of a view that cannot tile are reported and the map is read", () => {
+  for (const choices of [{ ...FULL, tiles: false }, { parties: FULL.parties }]) {
+    const sel = read("shape=tiles", choices);
+    assert.equal(sel.shape, "map");
+    assert.deepEqual(sel.ignored, ["shape"]);
+  }
+  assert.deepEqual(read("shape=grid").ignored, ["shape"], "a shape nobody can read is reported");
+});
+
+test("a shape move changes only the shape, and the map is the default so it leaves no parameter", () => {
+  const sel = read("party=BJP&mode=margin");
+  assert.equal(sel.href({ shape: "tiles" }), "/state/ka?party=BJP&mode=margin&shape=tiles#map");
+  const tiled = read("party=BJP&mode=margin&shape=tiles");
+  assert.equal(tiled.href({ shape: "map" }), "/state/ka?party=BJP&mode=margin#map");
+  assert.equal(follow(tiled.href({ shape: "map" })).shape, "map");
+});
+
+test("a chosen shape is kept by every other move, so the reader stays in the tiles while narrowing them", () => {
+  const sel = read("shape=tiles");
+  for (const move of ["release", "clear", { mode: "margin" }, { party: "BJP" }, { band: "under1" }, { district: "d1" }, { seat: "p2" }] as Move[]) {
+    assert.equal(follow(sel.href(move)).shape, "tiles", JSON.stringify(move));
+  }
+  assert.equal(follow(sel.href({ election: "ka-2018" })).shape, "tiles", "another election of the same state is still read as tiles");
+});
+
+test("tiles are offered where at least two seats have an outline to place them by, on the election page and the state page alike", () => {
+  const view = (paths: (string | null)[]) => ({
+    legend: [],
+    voteSeat: [],
+    seats: paths.map((path, i) => ({ runnerUpKey: null, path, districtId: null, placeId: `p${i}` })),
+    marginBins: [],
+    flips: null,
+  });
+  for (const choices of [choicesOf, stateChoicesOf]) {
+    assert.equal(choices(view(["M0 0L1 0L1 1Z", "M2 0L3 0L3 1Z"])).tiles, true);
+    assert.equal(choices(view(["M0 0L1 0L1 1Z", null])).tiles, false, "one outline places nothing");
+    assert.equal(choices(view([null, null])).tiles, false);
+    assert.equal(choices(view([])).tiles, false);
+  }
+});
+
+test("tiles are not offered past a thousand seats, where a tile is a speck and the layout is slow", () => {
+  const seats = (n: number) => Array.from({ length: n }, (_, i) => `M${i} 0L${i + 1} 0L${i + 1} 1Z`);
+  const view = (paths: string[]) => ({
+    legend: [],
+    voteSeat: [],
+    seats: paths.map((path, i) => ({ runnerUpKey: null, path, districtId: null, placeId: `p${i}` })),
+    marginBins: [],
+    flips: null,
+  });
+  for (const choices of [choicesOf, stateChoicesOf]) {
+    assert.equal(choices(view(seats(1000))).tiles, true, "the Lok Sabha and the biggest assembly are far under");
+    assert.equal(choices(view(seats(1001))).tiles, false);
+  }
+});
+
 /* ─────────────────────────────── the round trip ─────────────────────────────── */
 
-type State = { mode: MapMode; isolation: Isolation; district: string | null; seat: string | null };
-const stateOf = (s: MapSelection): State => ({ mode: s.mode, isolation: s.isolation, district: s.district, seat: s.seat });
+type State = { mode: MapMode; shape: MapShape; isolation: Isolation; district: string | null; seat: string | null };
+const stateOf = (s: MapSelection): State => ({ mode: s.mode, shape: s.shape, isolation: s.isolation, district: s.district, seat: s.seat });
 
 /** What a reader means by a move, restated without the module's help. */
 function meant(from: State, moves: Move[]): State {
@@ -423,6 +494,7 @@ function meant(from: State, moves: Move[]): State {
     if (m === "release") s.isolation = null;
     else if (m === "clear") Object.assign(s, { isolation: null, district: null, seat: null });
     else if ("mode" in m) s.mode = m.mode;
+    else if ("shape" in m) s.shape = m.shape;
     else if ("party" in m || "band" in m || "bin" in m) {
       const to: Isolation = "party" in m ? { by: "party", key: m.party } : "band" in m ? { by: "band", key: m.band } : { by: "bin", lo: m.bin };
       s.isolation = !selects && same(s.isolation, to) ? null : to;
@@ -441,6 +513,7 @@ function offered(choices: Choices): Move[] {
     "release",
     "clear",
     ...MODES.filter((m) => m.key !== "flips" || choices.flips === true).map((m): Move => ({ mode: m.key })),
+    ...SHAPES.filter((x) => x.key !== "tiles" || choices.tiles === true).map((x): Move => ({ shape: x.key })),
     ...[...choices.parties].map((party): Move => ({ party })),
     ...(choices.bands ?? []).map((b): Move => ({ band: b.key })),
     ...(choices.bins ?? []).map((bin): Move => ({ bin })),
@@ -453,6 +526,7 @@ function offered(choices: Choices): Move[] {
 /** The clean URLs a reader could be standing on: every mode, every isolation, a focus or none. */
 function starts(choices: Choices): string[] {
   const modes = ["", "mode=margin", "mode=runnerup", ...(choices.flips === true ? ["mode=flips"] : [])];
+  const shapes = choices.tiles === true ? ["", "shape=tiles"] : [""];
   const isolations = [
     "",
     "party=BJP",
@@ -462,8 +536,8 @@ function starts(choices: Choices): string[] {
   const districts = choices.districts === undefined ? [""] : ["", "district=d1"];
   const seats = choices.seats === undefined ? [""] : ["", "seat=p2"];
   const out: string[] = [];
-  for (const m of modes) for (const i of isolations) for (const d of districts) for (const s of seats) {
-    out.push([m, i, d, s].filter((x) => x !== "").join("&"));
+  for (const m of modes) for (const sh of shapes) for (const i of isolations) for (const d of districts) for (const s of seats) {
+    out.push([m, sh, i, d, s].filter((x) => x !== "").join("&"));
   }
   return out;
 }
@@ -873,6 +947,7 @@ function prng(seed: number): () => number {
 function canon(sel: MapSelection): string {
   const q = new URLSearchParams();
   if (sel.mode !== "winners") q.set("mode", sel.mode);
+  if (sel.shape !== "map") q.set("shape", sel.shape);
   if (sel.isolation !== null) q.set(sel.isolation.by, sel.isolation.by === "bin" ? String(sel.isolation.lo) : sel.isolation.key);
   if (sel.district !== null) q.set("district", sel.district);
   if (sel.seat !== null) q.set("seat", sel.seat);
@@ -884,6 +959,7 @@ test("any ask is read without throwing, accounts for every selection param, and 
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)] as T;
   const vocabulary: Record<string, string[]> = {
     mode: ["winners", "flips", "margin", "runnerup", "bogus", ""],
+    shape: ["map", "tiles", "bogus", ""],
     party: ["BJP", "INC", "TMC", "NOPE", "", "bjp", "'; DROP TABLE x;--"],
     band: ["under1", "1to2", "2to5", "5to10", "over10", "nope", ""],
     bin: ["0", "2", "4", "40", "5", "-2", "4.0", "", " ", "abc"],
@@ -893,7 +969,7 @@ test("any ask is read without throwing, accounts for every selection param, and 
     election: ["ka-2018"],
     utm: ["1"],
   };
-  const names = ["mode", "party", "band", "bin", "district", "seat"] as const;
+  const names = ["mode", "shape", "party", "band", "bin", "district", "seat"] as const;
   for (let i = 0; i < 4000; i += 1) {
     const choices = pick([FULL, ELECTION, STATE, { ...FULL, flips: false }, { parties: FULL.parties }]);
     const q = new URLSearchParams();
@@ -910,6 +986,7 @@ test("any ask is read without throwing, accounts for every selection param, and 
     // Every selection param that was asked is honoured or ignored, never both and never neither.
     const honoured: Record<(typeof names)[number], boolean> = {
       mode: ask.has("mode") && sel.mode === ask.get("mode"),
+      shape: ask.has("shape") && sel.shape === ask.get("shape"),
       party: sel.isolation?.by === "party",
       band: sel.isolation?.by === "band",
       bin: sel.isolation?.by === "bin",

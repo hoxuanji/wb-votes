@@ -3445,6 +3445,32 @@ html {
   color: var(--iei-ink);
 }
 
+/* ══════════════════════════ the seats as tiles ══════════════════════════
+   The same seats as the map, in the same colours and dimmed by the same selection, each as one equal tile (SeatTiles.tsx). A tile has
+   a 2px gap of surface around it instead of a stroke, no text of its own (the hover card and the list carry the names), and the map's
+   own hover and focus treatment: the edge brightens and the fill lifts, and the hue, which is the party's, never changes. */
+
+.iei-tiles rect {
+  transition: opacity var(--iei-t-1) linear;
+}
+
+.iei-tiles a:hover rect {
+  stroke: var(--iei-ink);
+  stroke-width: 1.6;
+  vector-effect: non-scaling-stroke;
+  filter: brightness(1.12);
+}
+
+.iei-tiles a:focus-visible {
+  outline: none;
+}
+
+.iei-tiles a:focus-visible rect {
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
 @media (max-width: 900px) {
   .iei-partyrows li {
     grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
@@ -3753,6 +3779,7 @@ html {
   }
 
   .iei-map a:focus-visible path,
+  .iei-tiles a:focus-visible rect,
   .iei-loc a:focus-visible path {
     outline: 2px solid CanvasText;
   }

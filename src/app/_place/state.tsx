@@ -19,7 +19,7 @@ import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/re
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
 import { bodyWord } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
-import { ElectionMap, MODES, MapHead, MapSection, NoMap } from '../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, MapHead, MapSection, NoMap, ShapeTabs } from '../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginBands,
@@ -220,6 +220,7 @@ export function StateSurface({
                 href: selection.href({ election: s.id }),
               }))}
             />
+            <ShapeTabs view={view} selection={selection} />
             <Tabs
               label={mapped ? 'What the map shows' : 'What this page shows'}
               current={mode}

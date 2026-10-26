@@ -24,7 +24,7 @@ import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
-import { ElectionMap, MODES, MapHead, MapSection, NoMap } from '../../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, MapHead, MapSection, NoMap, ShapeTabs } from '../../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginDistribution,
@@ -231,17 +231,20 @@ export default function ElectionPage({
       <MapSection
         title={mapTitle}
         controls={
-          <Tabs
-            label={mapped ? 'What the map shows' : 'What this page shows'}
-            current={mode}
-            choices={MODES.map((m) => ({
-              key: m.key,
-              label: m.label,
-              href: sel.href({ mode: m.key }),
-              // Flips need a previous election of the same house under the same boundaries.
-              available: m.key === 'flips' ? v.flips !== null : true,
-            }))}
-          />
+          <>
+            <ShapeTabs view={v} selection={sel} />
+            <Tabs
+              label={mapped ? 'What the map shows' : 'What this page shows'}
+              current={mode}
+              choices={MODES.map((m) => ({
+                key: m.key,
+                label: m.label,
+                href: sel.href({ mode: m.key }),
+                // Flips need a previous election of the same house under the same boundaries.
+                available: m.key === 'flips' ? v.flips !== null : true,
+              }))}
+            />
+          </>
         }
       >
         {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}

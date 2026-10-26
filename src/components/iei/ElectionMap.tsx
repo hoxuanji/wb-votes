@@ -1,13 +1,14 @@
 import Link from 'next/link';
 import { INDIA_SHAPES } from '../../lib/india-geo.ts';
-import { fillFor, NOT_HELD } from '../../../packages/mandate/src/viz/party-ink.ts';
+import { NOT_HELD } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { NATIONAL, simplified } from '../../../packages/mandate/src/viz/simplify.ts';
-import { frameOf } from '../../../packages/mandate/src/repo/election-map.ts';
-import { SEQUENTIAL } from '../../../packages/mandate/src/repo/home.ts';
-import { MODES } from '../../../packages/mandate/src/repo/map-selection.ts';
+import { canTile, frameOf } from '../../../packages/mandate/src/repo/election-map.ts';
+import { MODES, SHAPES } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { MapMode, MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
-import { Evidence } from './parts.tsx';
+import { seatFill, seatTitle } from './seat-fill.ts';
+import { SeatTiles } from './SeatTiles.tsx';
+import { Evidence, Tabs } from './parts.tsx';
 
 /**
  * The election map: one polygon per constituency, and four ways of reading the same 500 shapes.
@@ -48,76 +49,6 @@ import { Evidence } from './parts.tsx';
 
 // The modes are the selection's: it reads one out of the URL. Re-exported so a page imports the map and its modes together.
 export { MODES };
-
-const IN = new Intl.NumberFormat('en-IN');
-
-/** One decimal, and a real-but-small value never rounds away to nothing. */
-function pct(v: number | null): string {
-  if (v === null) return '—';
-  if (v !== 0 && Number(v.toFixed(1)) === 0) return '<0.1%';
-  return `${v.toFixed(1)}%`;
-}
-
-/**
- * The margin ramp: BRIGHTEST at the knife edge.
- *
- * Inverted deliberately, and it is the same argument `home.ts` makes for its own margin layer — a knife-edge
- * seat is the finding, so it has to be the loud mark. On a near-black surface the loud end of a sequential
- * ramp is its LIGHTEST step, not its darkest, so a tight seat gets `SEQUENTIAL`'s last entry and a safe seat
- * recedes into the canvas.
- */
-function marginFill(marginPct: number | null): string {
-  if (marginPct === null) return NOT_HELD;
-  const t = Math.min(1, marginPct / 30);
-  const i = Math.min(SEQUENTIAL.length - 1, Math.floor((1 - t) * SEQUENTIAL.length));
-  return SEQUENTIAL[i] as string;
-}
-
-/** The fill for one seat under one encoding, and the reason it is that colour. */
-function inkOf(s: ElectionSeat, mode: MapMode): string {
-  switch (mode) {
-    case 'winners':
-      return s.partyKey === null ? NOT_HELD : fillFor(s.partyKey);
-    case 'runnerup':
-      return s.runnerUpKey === null ? NOT_HELD : fillFor(s.runnerUpKey);
-    case 'margin':
-      return marginFill(s.marginPct);
-    case 'flips':
-      // A HOLD IS NOT A COLOUR. Only a seat that moved carries the gaining party's ink; a hold is the canvas,
-      // and a seat whose boundary was redrawn is drawn as absent because it is neither a hold nor a flip.
-      if (!s.comparable || s.flip === null) return NOT_HELD;
-      return s.flip.changed && s.partyKey !== null ? fillFor(s.partyKey) : 'var(--iei-raised)';
-  }
-}
-
-/**
- * The hover card: ONE line, and different per mode, because the mode is the question being asked.
- *
- * Short on purpose. The full result — winner, runner-up, both vote counts, turnout — is in the list beside
- * the map, once.
- */
-function titleOf(s: ElectionSeat, mode: MapMode): string {
-  const where = s.name.toUpperCase();
-  if (s.partyLabel === null) return `${where} — no winner recorded`;
-  switch (mode) {
-    case 'winners':
-      return `${where} — ${s.partyLabel}${s.marginPct === null ? '' : `, ${pct(s.marginPct)}`}`;
-    case 'runnerup':
-      return s.runnerUpLabel === null
-        ? `${where} — no runner-up recorded`
-        : `${where} — 2nd: ${s.runnerUpLabel}`;
-    case 'margin':
-      return `${where} — ${pct(s.marginPct)}${
-        s.marginVotes === null ? '' : `, ${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`
-      }`;
-    case 'flips':
-      if (!s.comparable) return `${where} — boundary redrawn, not comparable`;
-      if (s.flip === null) return `${where} — no comparison`;
-      return s.flip.changed
-        ? `${where} — ${s.flip.from.label} to ${s.partyLabel}`
-        : `${where} — ${s.partyLabel} held`;
-  }
-}
 
 function aspectOf(viewBox: string): number {
   const [, , w, h] = viewBox.split(' ').map(Number) as [number, number, number, number];
@@ -235,6 +166,21 @@ export function MapSection({
   );
 }
 
+/**
+ * Map or tiles: how the seats are drawn, offered only where enough of them have a boundary to place tiles by. It is a control of
+ * its own and not a mode, because any mode can be read in either shape, and every link on the page keeps the one chosen.
+ */
+export function ShapeTabs({ view, selection }: { view: ElectionMapView; selection: MapSelection }) {
+  if (!canTile(view.seats)) return null;
+  return (
+    <Tabs
+      label="How the seats are drawn"
+      current={selection.shape}
+      choices={SHAPES.map((x) => ({ key: x.key, label: x.label, href: selection.href({ shape: x.key }) }))}
+    />
+  );
+}
+
 export function ElectionMap({
   view,
   selection,
@@ -273,6 +219,9 @@ export function ElectionMap({
    * about fourteen Assamese seats. The caller says why instead (`NoMap`), and the seat list still carries every result.
    */
   if (drawable.length === 0) return null;
+
+  // The same seats, the same colours and the same selection, drawn as equal tiles instead of as boundaries.
+  if (selection.shape === 'tiles') return <SeatTiles view={view} selection={selection} />;
 
   /**
    * Whether a seat is dimmed by the active selection: the seats it does not cover.
@@ -332,11 +281,11 @@ export function ElectionMap({
               const shape = (
                 <path
                   d={s.path as string}
-                  fill={inkOf(s, mode)}
+                  fill={seatFill(s, mode)}
                   opacity={muted(s) ? 0.18 : 1}
                   className={s.placeId === focusSeat ? 'iei-seat-focus' : undefined}
                 >
-                  <title>{titleOf(s, mode)}</title>
+                  <title>{seatTitle(s, mode)}</title>
                 </path>
               );
               return s.href === null ? (

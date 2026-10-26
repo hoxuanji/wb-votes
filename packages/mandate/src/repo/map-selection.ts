@@ -44,6 +44,24 @@ export function isMode(v: string | undefined): v is MapMode {
   return MODES.some((m) => m.key === v);
 }
 
+/* ─────────────────────────────── the shapes ─────────────────────────────── */
+
+/**
+ * HOW THE SEATS ARE DRAWN, which is not what a colour means (that is the mode). On the map a seat has the area its boundary has;
+ * as tiles every seat has one equal tile, placed near where the seat is, which gives a crowded district room. Any mode can be read
+ * in either shape, so a shape is chosen separately and is kept by every other move.
+ */
+export type MapShape = "map" | "tiles";
+
+export const SHAPES: readonly { key: MapShape; label: string }[] = [
+  { key: "map", label: "Map" },
+  { key: "tiles", label: "Tiles" },
+];
+
+export function isShape(v: string | undefined): v is MapShape {
+  return SHAPES.some((x) => x.key === v);
+}
+
 /* ───────────────────────────── the ask, and links ───────────────────────────── */
 
 /** What a page is handed: Next's `searchParams`, whose value is an array when a parameter repeats. */
@@ -115,6 +133,8 @@ export type Choices = {
   seats?: ReadonlySet<string>;
   /** Whether there is a previous election to flip against. Without one, flips is not a mode a reader can have. */
   flips?: boolean;
+  /** Whether enough seats have an outline to place tiles by. Without that, tiles is not a shape a reader can have. */
+  tiles?: boolean;
 };
 
 /** At most one of these, and the parse is what makes it so. */
@@ -145,6 +165,7 @@ export type Move =
   | "release"
   | "clear"
   | { mode: MapMode }
+  | { shape: MapShape }
   | { party: string }
   | { band: string }
   | { bin: number }
@@ -155,12 +176,14 @@ export type Move =
 export type MapSelection = {
   /** `winners` when none was asked, or the one asked is not offered. */
   mode: MapMode;
+  /** `map` when none was asked, or tiles were asked of a view that cannot place them. */
+  shape: MapShape;
   isolation: Isolation;
   /** FOCUS, which reframes the map and narrows what it describes. */
   district: string | null;
   /** FOCUS that only outlines: a seat the reader pointed at from the list. */
   seat: string | null;
-  /** The selection params that were asked and not honoured, in the order mode, party, band, bin, district, seat. */
+  /** The selection params that were asked and not honoured, in the order mode, shape, party, band, bin, district, seat. */
   ignored: string[];
   /** Whether the selection includes this seat. A seat it does not include is the one the map mutes. */
   covers(seat: SeatFacts): boolean;
@@ -197,6 +220,14 @@ export function readSelection(
     // A mode nobody can read is not offered: without a previous election there is nothing to flip against.
     if (isMode(askedMode) && (askedMode !== "flips" || choices.flips === true)) mode = askedMode;
     else ignored.push("mode");
+  }
+
+  const askedShape = ask.get("shape");
+  let shape: MapShape = "map";
+  if (askedShape !== undefined) {
+    // Tiles are placed by the seats' outlines: a view with too few cannot offer them.
+    if (isShape(askedShape) && (askedShape !== "tiles" || choices.tiles === true)) shape = askedShape;
+    else ignored.push("shape");
   }
 
   // The three isolations are tried in one order, and the first the view offers wins. The others, if asked, are
@@ -252,6 +283,8 @@ export function readSelection(
     if (move === "release") return { party: "", band: "", bin: "" };
     if (move === "clear") return { party: "", band: "", bin: "", district: "", seat: "" };
     if ("mode" in move) return { mode: move.mode };
+    // The map is the default, so choosing it leaves no parameter behind.
+    if ("shape" in move) return { shape: move.shape === "map" ? "" : move.shape };
     if ("party" in move) return isolate("party", move.party, isolation?.by === "party" && isolation.key === move.party);
     if ("band" in move) return isolate("band", move.band, isolation?.by === "band" && isolation.key === move.band);
     if ("bin" in move) return isolate("bin", String(move.bin), isolation?.by === "bin" && isolation.lo === move.bin);
@@ -262,6 +295,7 @@ export function readSelection(
 
   return {
     mode,
+    shape,
     isolation,
     district,
     seat,

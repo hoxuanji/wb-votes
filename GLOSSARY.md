@@ -275,6 +275,14 @@ _Avoid_: Parliament chart, hemicycle
 The seats that can be compared between two elections, counted from each previous holder to each winner. A flow whose holder is its winner is held, and any other is a seat that changed hands. A seat redrawn since, or with no declared winner at either election, is in no flow and is counted apart.
 _Avoid_: Swing, transfer
 
+**Shape**:
+How a map page draws its seats: as the map, each with its boundary's area, or as tiles. It is chosen apart from the mode, which says what a colour means, and every other choice on the page keeps it. Tiles are offered only where at least two seats have a boundary to place them by.
+_Avoid_: View, layout
+
+**Seat tile**:
+A seat drawn as one square of the same size as every other, placed near where the seat is, so that a crowded district gets room and seats next to each other stay next to each other. A tile's size says nothing about the seat, and a seat with no boundary on record has none.
+_Avoid_: Cartogram, hex
+
 **Subject params**:
 The parts of a link that choose which data a page shows, such as the front page's layer, an election or a house, as against the selection, which narrows data already chosen.
 _Avoid_: Scope, which already names the elections a read covers
