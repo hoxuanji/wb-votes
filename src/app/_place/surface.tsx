@@ -20,6 +20,8 @@ import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import { StateSurface } from "./state.tsx";
 import { Choose } from "./choose.tsx";
 import { Foot, Shell } from "../../components/iei/Shell.tsx";
+import { HeldBy, ResultBars } from "../../components/iei/SeatHistory.tsx";
+import { SeatLocator } from "../../components/iei/SeatLocator.tsx";
 import {
   BasisChip,
   Crumbs,
@@ -234,15 +236,20 @@ export async function PlaceSurface({
     );
   }
 
-  const { brief, analysis } = view;
+  const { brief, analysis, locator, history } = view;
   const p = brief.place;
   const flags = anomalies(brief, analysis);
   const base = view.base.replace(/\/analysis$/, "");
+  // The ink of each election's winner is the party's KEY, as on the maps, the locator, the strip and the bars: inked by the
+  // short name, West Bengal's TMC (key AITC) would be a second, derived green on the same panel.
+  const holder = new Map(history.results.map((r) => [r.contestId, r.winner?.party.key]));
 
   return (
     <Shell here="place" reading>
       <Crumbs trail={view.trail} />
-      <div className="iei-head">
+      {/* BESIDE THE HEADER where there is room, below it where there is not, and not there at all where the seat has no
+          outline to draw: the header is then the markup it always was, with no frame in its place. */}
+      <div className={locator === null ? "iei-head" : "iei-head iei-head-seat"}>
         {/* WHICH BODY, said ONCE and near the title. "Constituency" alone is ambiguous in India — a reader
             cannot tell a Lok Sabha seat from an assembly seat, and the two are different offices with
             different electorates. The body comes from `place_version.kind`, so this is domain data reaching
@@ -254,7 +261,12 @@ export async function PlaceSurface({
         </p>
         <h1 className="iei-answer">{p.canonicalName}</h1>
         <p className="iei-sub">{placeHeadline(brief)}</p>
+        {/* Under the sentence, in the column the locator leaves it. */}
+        <HeldBy history={history} />
+        {locator === null ? null : <SeatLocator view={locator} />}
       </div>
+      {/* Where the locator's skip link lands: after its links, before the lens tabs. */}
+      {locator === null ? null : <div id="after-locator" />}
 
       <Tabs
         label="Lens"
@@ -288,6 +300,7 @@ export async function PlaceSurface({
       </Panel>
 
       <Panel title="Every election on record" question="Who has won this seat, and by how much?">
+        <ResultBars history={history} />
         <Table
           label="Election history"
           caption={
@@ -325,7 +338,7 @@ export async function PlaceSurface({
                   <span className="iei-mark">
                     <span
                       className="iei-sw"
-                      style={{ background: fillFor(c.winner.partyShortName ?? "") }}
+                      style={{ background: fillFor(holder.get(c.contestId) ?? c.winner.partyShortName ?? "") }}
                       aria-hidden="true"
                     />
                     <span className="iei-chip">{c.winner.partyShortName ?? "party not recorded"}</span>

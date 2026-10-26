@@ -147,12 +147,15 @@ export type SeatResult = {
   counts: { voters: number | null; electors: number | null } | null;
 };
 
+/** The margin from the two counts when both are held, else the one the source declared: the rule `marginOf` applies to a seat. */
+export function marginFrom(won: number | null, second: number | null, declared: number | null): SeatMargin | null {
+  if (won !== null && second !== null) return { votes: won - second, basis: "counted" };
+  return declared === null ? null : { votes: declared, basis: "declared" };
+}
+
 function marginOf(r: SeatRecord): SeatMargin | null {
   if (r.winner === null) return null;
-  const won = r.winner.votes;
-  const second = r.runnerUp?.votes ?? null;
-  if (won !== null && second !== null) return { votes: won - second, basis: "counted" };
-  return r.declaredMargin === null ? null : { votes: r.declaredMargin, basis: "declared" };
+  return marginFrom(r.winner.votes, r.runnerUp?.votes ?? null, r.declaredMargin);
 }
 
 /**

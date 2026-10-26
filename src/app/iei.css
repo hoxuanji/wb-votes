@@ -125,6 +125,9 @@
      of the mark rather than of the layout — same argument as --iei-map-h, and redeclared at the breakpoint
      below rather than overridden rule by rule. */
   --iei-dist-h: 128px;
+  /* The seat locator's box: a square this wide, beside the page header where there is room and under it where there is
+     not. SeatLocator.tsx draws in a box of this many units, so the two are one number. */
+  --iei-locator-w: 320px;
   --iei-cell-y: var(--iei-2);
   --iei-cell-y-tight: var(--iei-1);
   --iei-cell-x: var(--iei-3);
@@ -1486,10 +1489,11 @@ html {
   box-shadow: inset 0 -2px 0 0 var(--iei-ink);
 }
 
-/* A server-rendered chart. charts.ts emits a complete <svg> with a 640-unit viewBox and no width, so
-   `width: 100%` scaled it to the container and took its 11px axis labels with it: at 1,040px of reading
-   measure every tick and legend rendered at 17.9px, which made a chart legend louder than the section
-   heading above it. Capping the box at its authored width keeps the type at the size it was chosen at. */
+/* A server-rendered figure. Its <svg> has a viewBox and no width, so `width: 100%` scaled it to the container and
+   took its 11px axis labels with it: at 1,040px of reading measure every tick and legend rendered at 17.9px, which
+   made a chart legend louder than the section heading above it. Capping the box at its authored width keeps the type
+   at the size it was chosen at. (The Analysis charts are the exception, and draw themselves at several widths: see
+   `.iei-chart`.) */
 .iei-fig {
   margin: 0 0 var(--iei-4);
   overflow-x: auto;
@@ -2008,6 +2012,63 @@ html {
   margin-top: var(--iei-2);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
+}
+
+/* ── the Analysis charts ──
+
+   charts.ts draws each chart three times, 380, 640 and 920 units wide, and the figure shows the one nearest its
+   column. One drawing cannot serve a column that runs from 336px on a phone to 1,008px on a laptop: scaled, it reads
+   11px type at 4px or at 17px; capped at 640px, it left a third of the laptop's column empty. A frame is close to a
+   pixel per unit in the column it serves, so type, markers and the gaps between names keep the size they were written
+   at. 460px and 760px are where the next frame's units come closer to pixels than the last's. Without container
+   queries the narrow frame shows, which is small on a laptop and still complete. */
+.iei-fig.iei-chart {
+  container-type: inline-size;
+}
+
+.iei-fig.iei-chart svg {
+  display: none;
+  max-width: none;
+}
+
+.iei-fig.iei-chart svg[data-frame="narrow"] {
+  display: block;
+}
+
+@container (min-width: 460px) {
+  .iei-fig.iei-chart svg[data-frame="narrow"] {
+    display: none;
+  }
+
+  .iei-fig.iei-chart svg[data-frame="mid"] {
+    display: block;
+  }
+}
+
+@container (min-width: 760px) {
+  .iei-fig.iei-chart svg[data-frame="mid"] {
+    display: none;
+  }
+
+  .iei-fig.iei-chart svg[data-frame="wide"] {
+    display: block;
+  }
+}
+
+/* A line, its markers, its leader and its name are one group. Hovering any of them strengthens that line and dims the
+   rest, so a line can be followed across a crowded chart. `.iei-line-hit` is an invisible stroke wider than the line,
+   so the target is not 2px. A browser without :has() shows no emphasis and loses nothing. Untested here: hover is
+   not something a capture can show. */
+.iei-chart svg:has(.iei-line:hover) .iei-line:not(:hover) {
+  opacity: 0.28;
+}
+
+.iei-chart .iei-line:hover .iei-line-ink {
+  stroke-width: 3.5;
+}
+
+.iei-chart .iei-line:hover .iei-line-lead {
+  stroke-width: 1.5;
 }
 
 /* ── margin distribution ── */
@@ -2696,6 +2757,359 @@ html {
   vector-effect: non-scaling-stroke;
 }
 
+/* ══════════════════════════ the seat locator ══════════════════════════
+   WHERE A SEAT IS, on its own page: its outline among the other seats of its house in its state. The neighbours are in the
+   void ink, the ink that means "no result drawn here", so the only colour on the figure is the seat's: the party that won
+   it at its latest election. Everything else is the interface's own ink.
+
+   Strokes are device pixels (`non-scaling-stroke`), as inside every map, because the outlines go through a transform that
+   fits a state to a 320-unit box and a user-unit hairline would be whatever that scale made it. */
+
+/* BELOW 900px THE LOCATOR IS UNDER THE HEADER'S TEXT, at the width it has, left-aligned with it. */
+.iei-loc {
+  margin: var(--iei-4) 0 0;
+  width: min(100%, var(--iei-locator-w));
+}
+
+.iei-loc svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+}
+
+/* From 900px it sits beside the text. The header becomes two columns, the text in the first and the locator spanning the
+   three rows the text takes and a fourth of nothing, so the height it adds goes to the empty row and the eyebrow, the title
+   and the sentence stay together at the top. The header's own hairline runs under both. */
+@media (min-width: 900px) {
+  .iei-head-seat {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) var(--iei-locator-w);
+    grid-template-rows: repeat(3, auto) 1fr;
+    column-gap: var(--iei-8);
+    align-items: start;
+  }
+
+  .iei-head-seat .iei-loc {
+    grid-column: 2;
+    grid-row: 1 / span 4;
+    margin: 0;
+  }
+}
+
+.iei-loc-hood path {
+  fill: var(--iei-void);
+  stroke: var(--iei-bg);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+/* A neighbour comes forward under the pointer and on focus, as a seat on the maps does: the stroke brightens and the
+   fill steps up one surface. Never a hue, which is the party's. */
+.iei-loc a:hover path {
+  fill: var(--iei-line-2);
+  stroke: var(--iei-ink-3);
+}
+
+.iei-loc a:focus-visible {
+  outline: none;
+}
+
+.iei-loc a:focus-visible path {
+  fill: var(--iei-line-2);
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+}
+
+/* The seat. The neutral ink is for a seat with no winner declared at its latest election; a party's ink arrives inline.
+   Round joins, because a miter on the sharp corners of a simplified outline throws spikes out of a shape this small. */
+.iei-loc-seat {
+  fill: var(--iei-ink-3);
+  stroke: var(--iei-ink);
+  stroke-width: 1;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.iei-loc-ring {
+  fill: none;
+  stroke: var(--iei-ink-2);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+/* The name sits over the neighbours, so it ignores the pointer (a neighbour under it is still reachable) and carries a halo. */
+.iei-loc-label {
+  pointer-events: none;
+}
+
+.iei-loc-label text {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  fill: var(--iei-ink);
+  paint-order: stroke;
+  stroke: var(--iei-bg);
+  stroke-width: 3.5;
+}
+
+.iei-loc-label line {
+  stroke: var(--iei-ink-3);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+}
+
+.iei-loc figcaption {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+  margin-top: var(--iei-2);
+}
+
+/* ══════════════════════════ a seat's history ══════════════════════════
+   WHO HELD THE SEAT, and HOW EACH ELECTION DIVIDED THE VOTE. A strip under the header's sentence, one block per election, and
+   a bar per election above the election table, which stays under them as the exact form of the same numbers.
+
+   The only hues are the parties': a block, a segment and a swatch are filled with a party's ink, and everything else on them
+   (the rule where the seat changed hands, the outline of an election with no winner, the track, the text) is the interface's
+   own. Every length that is a gap or an inset is a step of the spacing scale. */
+
+.iei-held {
+  margin: var(--iei-6) 0 0;
+}
+
+.iei-held-h {
+  margin: 0 0 var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+}
+
+.iei-held-h b {
+  margin-right: var(--iei-2);
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--iei-ink-2);
+}
+
+/* Blocks of one party touch, so a seat held throughout is one run. They share the row evenly up to 12rem each, and the
+   least one takes is what the year and the party under it need (a by-poll breaks from its year onto a second line), so a
+   phone holds six in a row; past that they wrap onto a second row rather than shrink. */
+.iei-held-run {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-3) 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iei-held-b {
+  position: relative;
+  flex: 1 1 3.5rem;
+  min-width: 0;
+  max-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iei-1);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+}
+
+/* Where the seat changed hands: the block opens a gap on its left and a rule stands in it, a little taller than the ink. */
+.iei-held-hand {
+  padding-left: var(--iei-2);
+}
+
+.iei-held-hand::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: calc(-1 * var(--iei-1));
+  width: 2px;
+  height: calc(var(--iei-4) + 2 * var(--iei-1));
+  background: var(--iei-ink);
+}
+
+.iei-held-ink {
+  display: block;
+  height: var(--iei-4);
+}
+
+.iei-held-s .iei-held-ink {
+  border-top-left-radius: var(--iei-r);
+  border-bottom-left-radius: var(--iei-r);
+}
+
+.iei-held-e .iei-held-ink {
+  border-top-right-radius: var(--iei-r);
+  border-bottom-right-radius: var(--iei-r);
+}
+
+/* No declared winner: no ink, because no party. The outline is what keeps the block in the row. */
+.iei-held-none {
+  border: 1px dashed var(--iei-ink-3);
+}
+
+.iei-held-yr {
+  color: var(--iei-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "by-poll" breaks away from its year at the space and never at its own hyphen. */
+.iei-poll {
+  white-space: nowrap;
+}
+
+.iei-held-p {
+  color: var(--iei-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.iei-held-key {
+  margin: var(--iei-2) 0 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+}
+
+.iei-res {
+  margin: 0 0 var(--iei-6);
+}
+
+.iei-res-how {
+  margin: 0 0 var(--iei-3);
+}
+
+.iei-res-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--iei-line);
+}
+
+/* BELOW 900px the sentence sits beside the year and the bar under both; from 900px the row is year, bar, sentence. */
+.iei-res-row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-areas: "yr say" "main main";
+  gap: var(--iei-2) var(--iei-3);
+  padding: var(--iei-3) 0;
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-res-yr {
+  grid-area: yr;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink);
+}
+
+.iei-res-say {
+  grid-area: say;
+  margin: 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-res-main {
+  grid-area: main;
+  min-width: 0;
+}
+
+/* The gap between segments is the surface showing through, and `flex-grow` (set inline to the share) divides what the gaps
+   leave, so the widths stay in proportion. A share too small to see is still 2px, so a candidate is never absent from the bar. */
+.iei-res-bar {
+  display: flex;
+  gap: 2px;
+  height: var(--iei-3);
+  border-radius: var(--iei-r);
+  overflow: hidden;
+}
+
+.iei-res-seg,
+.iei-res-rest {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+/* The tail added together is no party, so it has no party's flat ink: a hatch of the interface's own, which no party's fill is.
+   The key's swatch for it is the same hatch. */
+.iei-res-others,
+.iei-sw-others {
+  background: repeating-linear-gradient(135deg, var(--iei-ink-3) 0 2px, var(--iei-line-2) 2px var(--iei-1));
+}
+
+.iei-res-rest {
+  background: var(--iei-line);
+}
+
+.iei-res-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1) var(--iei-4);
+  margin: var(--iei-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+}
+
+.iei-res-key li {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.iei-res-key b {
+  margin-left: var(--iei-1);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink-2);
+}
+
+.iei-res-key .iei-sw-rest + .iei-chip {
+  font-weight: 400;
+  color: var(--iei-ink-3);
+}
+
+.iei-res-win .iei-chip,
+.iei-res-win b {
+  color: var(--iei-ink);
+}
+
+.iei-res-win b {
+  font-weight: 600;
+}
+
+.iei-sw-rest {
+  background: var(--iei-line);
+  border: 1px solid var(--iei-line-2);
+}
+
+.iei-res-note {
+  margin-top: 0;
+}
+
+.iei-res-key + .iei-res-note {
+  margin-top: var(--iei-2);
+}
+
+@media (min-width: 900px) {
+  .iei-res-row {
+    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 24rem);
+    grid-template-areas: "yr main say";
+    column-gap: var(--iei-6);
+    align-items: start;
+  }
+}
+
 @media (max-width: 900px) {
   .iei-partyrows li {
     grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
@@ -3003,12 +3417,25 @@ html {
     outline-offset: 1px;
   }
 
-  .iei-map a:focus-visible path {
+  .iei-map a:focus-visible path,
+  .iei-loc a:focus-visible path {
     outline: 2px solid CanvasText;
   }
 
   .iei-cov-mark,
-  .iei-sw {
+  .iei-sw,
+  .iei-held-ink,
+  .iei-res-seg,
+  .iei-res-rest {
     border: 1px solid CanvasText;
+  }
+
+  .iei-held-hand::before {
+    background: CanvasText;
+  }
+
+  /* The system takes the dashes with the colour: an election with no winner stays outlined, not filled, and stays dashed. */
+  .iei-held-none {
+    border-style: dashed;
   }
 }

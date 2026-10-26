@@ -134,8 +134,8 @@ function ChartCard({ card }: { card: Card }) {
       {chart.fact === null ? (
         // charts.ts returns a complete, pre-escaped <svg>; every string in `table` is raw text that JSX
         // escapes. These are the only bytes on the page that bypass JSX, and they never contain caller text
-        // unescaped (marks.ts escapeXml).
-        <div className="iei-fig" dangerouslySetInnerHTML={{ __html: chart.svg }} />
+        // unescaped (marks.ts escapeXml). `chart.svg` is the chart drawn at several widths; `.iei-chart` shows one.
+        <div className="iei-fig iei-chart" dangerouslySetInnerHTML={{ __html: chart.svg }} />
       ) : (
         <p className="iei-sub">{chart.fact}</p>
       )}
