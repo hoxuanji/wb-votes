@@ -88,6 +88,17 @@
   --iei-8: 32px;
   --iei-12: 48px;
 
+  /* ── motion ──
+     Motion here carries information or it does not exist: a bar growing from its baseline says "this is a quantity", a wedge
+     arriving says "these seats are one party's". It runs ONCE, on load, and never loops. Three durations and one curve, and 700ms
+     is the ceiling (locked by packages/mandate/src/viz/motion.test.ts, which also holds that every animation sits inside
+     `prefers-reduced-motion: no-preference` and that a @keyframes names only its starting state, so a page at rest is exactly the
+     page the screenshots judge). */
+  --iei-t-1: 160ms;
+  --iei-t-2: 360ms;
+  --iei-t-3: 640ms;
+  --iei-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
+
   /* ── type ──
      Seven sizes, each with a job, and the SPREAD is the point. They used to run 9.5 → 25, so a page title
      was 2.6× a label and a section heading was smaller than the prose under it: "too much information has
