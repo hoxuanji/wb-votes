@@ -353,8 +353,8 @@ test("each neighbour is a link to its own page, named by the seat's name, and th
   assert.ok(seat !== null, "the seat is not drawn");
   assert.equal(seat[1], rect(0, 0));
   assert.equal(seat[3], "Alpha — won by TMC in 2021");
-  // The seat's ink is the ink of the party's key (AITC), which is a curated colour. Its short name TMC is none, and would have
-  // given the derived colour the history table's swatch has.
+  // The seat's ink is the ink of the party's key (AITC), which is a curated colour. Its short name TMC is none, and would give
+  // a derived one.
   assert.equal(seat[2], fillFor("AITC"));
   assert.notEqual(fillFor("AITC"), fillFor("TMC"));
   assert.equal((svg.match(/class="iei-loc-seat"/g) ?? []).length, 1);

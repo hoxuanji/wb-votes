@@ -25,6 +25,8 @@ import { tally } from "./place-presentation.ts";
 import type { Found, Place, PlaceIndex, PlaceQuery, SeatPlace } from "./place-resolve.ts";
 import { placeIndex, resolve, seatHref, seatTies } from "./place-resolve.ts";
 import { readRegistry } from "./session.ts";
+import { readSeatHistory } from "./seat-history.ts";
+import type { SeatHistory } from "./seat-history.ts";
 import { seatLocator } from "./seat-locator.ts";
 import type { SeatLocatorView } from "./seat-locator.ts";
 import { readSeats, sourceIdsFor } from "./seat-results.ts";
@@ -111,6 +113,8 @@ export type PlaceView =
       filters: ParsedFilters;
       /** The seat's outline among its neighbours, or null where there is nothing to draw (seat-locator.ts). */
       locator: SeatLocatorView | null;
+      /** Who held the seat at each election and how each divided the vote (seat-history.ts). */
+      history: SeatHistory;
       trail: Crumb[];
     }
   | {
@@ -245,6 +249,7 @@ export async function placeView(
       parties,
       filters,
       locator: seatLocator(db, hit.versionId),
+      history: readSeatHistory(db, hit.versionId),
       trail: trailOf(index, hit, spelled),
     };
   });

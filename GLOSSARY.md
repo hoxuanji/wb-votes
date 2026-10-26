@@ -176,6 +176,18 @@ _Avoid_: Margin percentage
 The number of votes cast in a seat, as its turnout row reports it. It is not the sum of the candidates' votes, which for an election that published only its leading contestants is smaller.
 _Avoid_: Valid votes, total votes
 
+**Vote share**:
+A candidate's votes as a percentage of the votes polled in their seat: the figure the source published, or else the candidate's votes over the votes polled where those are on record. It is never taken over the candidates' own total, which for an election that published only its leading contestants would give them the whole.
+_Avoid_: Share of the field
+
+**Not itemised**:
+The part of a seat's votes polled that no candidate on record accounts for: candidates the registry does not hold, and whatever else the source did not break down, such as NOTA and rejected ballots. A seat's bar leaves it unfilled and names it, and never calls it "Others".
+_Avoid_: Remainder, residual
+
+**Others**:
+The lowest candidates on record of a seat, added together as one segment of its bar once it has more than six, and labelled with how many they are. It is a grouping of candidates the registry holds, so it is not Not itemised.
+_Avoid_: Rest, minor parties
+
 **Reading**:
 A figure together with whether it has earned the right to be printed. A turnout is always a reading, never a bare number.
 _Avoid_: Value, metric
@@ -210,7 +222,7 @@ A paired seat that is neither held nor flipped because one election, or both, de
 _Avoid_: Missing, incomparable
 
 **Held** and **flipped**:
-A paired seat with a declared winner in both elections is held when both winners belong to the same party and flipped when they do not. An independent replaced by another independent is held, because the comparison reads the party and not the person.
+A paired seat with a declared winner in both elections is held when both winners belong to the same party and flipped when they do not. An independent replaced by another independent is held, because the comparison reads the party and not the person. The same reading applies within one seat's own run of elections, each against the one before it, so an election with no declared winner has no pair.
 _Avoid_: Retained, switched
 
 **Comparable**:

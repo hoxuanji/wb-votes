@@ -48,7 +48,7 @@ function marginPct(c: PlaceBrief["contests"][number]): number | null {
   });
 }
 
-function times(n: number): string {
+export function times(n: number): string {
   return n === 1 ? "once" : n === 2 ? "twice" : `${inr(n)} times`;
 }
 

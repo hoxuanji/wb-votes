@@ -2867,6 +2867,249 @@ html {
   margin-top: var(--iei-2);
 }
 
+/* ══════════════════════════ a seat's history ══════════════════════════
+   WHO HELD THE SEAT, and HOW EACH ELECTION DIVIDED THE VOTE. A strip under the header's sentence, one block per election, and
+   a bar per election above the election table, which stays under them as the exact form of the same numbers.
+
+   The only hues are the parties': a block, a segment and a swatch are filled with a party's ink, and everything else on them
+   (the rule where the seat changed hands, the outline of an election with no winner, the track, the text) is the interface's
+   own. Every length that is a gap or an inset is a step of the spacing scale. */
+
+.iei-held {
+  margin: var(--iei-6) 0 0;
+}
+
+.iei-held-h {
+  margin: 0 0 var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+}
+
+.iei-held-h b {
+  margin-right: var(--iei-2);
+  font-weight: 400;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--iei-ink-2);
+}
+
+/* Blocks of one party touch, so a seat held throughout is one run. They share the row evenly up to 12rem each, and the
+   least one takes is what the year and the party under it need (a by-poll breaks from its year onto a second line), so a
+   phone holds six in a row; past that they wrap onto a second row rather than shrink. */
+.iei-held-run {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-3) 0;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iei-held-b {
+  position: relative;
+  flex: 1 1 3.5rem;
+  min-width: 0;
+  max-width: 12rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--iei-1);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+}
+
+/* Where the seat changed hands: the block opens a gap on its left and a rule stands in it, a little taller than the ink. */
+.iei-held-hand {
+  padding-left: var(--iei-2);
+}
+
+.iei-held-hand::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: calc(-1 * var(--iei-1));
+  width: 2px;
+  height: calc(var(--iei-4) + 2 * var(--iei-1));
+  background: var(--iei-ink);
+}
+
+.iei-held-ink {
+  display: block;
+  height: var(--iei-4);
+}
+
+.iei-held-s .iei-held-ink {
+  border-top-left-radius: var(--iei-r);
+  border-bottom-left-radius: var(--iei-r);
+}
+
+.iei-held-e .iei-held-ink {
+  border-top-right-radius: var(--iei-r);
+  border-bottom-right-radius: var(--iei-r);
+}
+
+/* No declared winner: no ink, because no party. The outline is what keeps the block in the row. */
+.iei-held-none {
+  border: 1px dashed var(--iei-ink-3);
+}
+
+.iei-held-yr {
+  color: var(--iei-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+/* "by-poll" breaks away from its year at the space and never at its own hyphen. */
+.iei-poll {
+  white-space: nowrap;
+}
+
+.iei-held-p {
+  color: var(--iei-ink-2);
+  overflow-wrap: anywhere;
+}
+
+.iei-held-key {
+  margin: var(--iei-2) 0 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1.6;
+  color: var(--iei-ink-3);
+}
+
+.iei-res {
+  margin: 0 0 var(--iei-6);
+}
+
+.iei-res-how {
+  margin: 0 0 var(--iei-3);
+}
+
+.iei-res-list {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid var(--iei-line);
+}
+
+/* BELOW 900px the sentence sits beside the year and the bar under both; from 900px the row is year, bar, sentence. */
+.iei-res-row {
+  display: grid;
+  grid-template-columns: 4.5rem minmax(0, 1fr);
+  grid-template-areas: "yr say" "main main";
+  gap: var(--iei-2) var(--iei-3);
+  padding: var(--iei-3) 0;
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-res-yr {
+  grid-area: yr;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink);
+}
+
+.iei-res-say {
+  grid-area: say;
+  margin: 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-res-main {
+  grid-area: main;
+  min-width: 0;
+}
+
+/* The gap between segments is the surface showing through, and `flex-grow` (set inline to the share) divides what the gaps
+   leave, so the widths stay in proportion. A share too small to see is still 2px, so a candidate is never absent from the bar. */
+.iei-res-bar {
+  display: flex;
+  gap: 2px;
+  height: var(--iei-3);
+  border-radius: var(--iei-r);
+  overflow: hidden;
+}
+
+.iei-res-seg,
+.iei-res-rest {
+  flex-basis: 0;
+  min-width: 2px;
+}
+
+/* The tail added together is no party, so it has no party's flat ink: a hatch of the interface's own, which no party's fill is.
+   The key's swatch for it is the same hatch. */
+.iei-res-others,
+.iei-sw-others {
+  background: repeating-linear-gradient(135deg, var(--iei-ink-3) 0 2px, var(--iei-line-2) 2px var(--iei-1));
+}
+
+.iei-res-rest {
+  background: var(--iei-line);
+}
+
+.iei-res-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1) var(--iei-4);
+  margin: var(--iei-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+}
+
+.iei-res-key li {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.iei-res-key b {
+  margin-left: var(--iei-1);
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink-2);
+}
+
+.iei-res-key .iei-sw-rest + .iei-chip {
+  font-weight: 400;
+  color: var(--iei-ink-3);
+}
+
+.iei-res-win .iei-chip,
+.iei-res-win b {
+  color: var(--iei-ink);
+}
+
+.iei-res-win b {
+  font-weight: 600;
+}
+
+.iei-sw-rest {
+  background: var(--iei-line);
+  border: 1px solid var(--iei-line-2);
+}
+
+.iei-res-note {
+  margin-top: 0;
+}
+
+.iei-res-key + .iei-res-note {
+  margin-top: var(--iei-2);
+}
+
+@media (min-width: 900px) {
+  .iei-res-row {
+    grid-template-columns: 4.5rem minmax(0, 1fr) minmax(0, 24rem);
+    grid-template-areas: "yr main say";
+    column-gap: var(--iei-6);
+    align-items: start;
+  }
+}
+
 @media (max-width: 900px) {
   .iei-partyrows li {
     grid-template-columns: 5.5rem minmax(0, 1fr) 3rem;
@@ -3180,7 +3423,19 @@ html {
   }
 
   .iei-cov-mark,
-  .iei-sw {
+  .iei-sw,
+  .iei-held-ink,
+  .iei-res-seg,
+  .iei-res-rest {
     border: 1px solid CanvasText;
+  }
+
+  .iei-held-hand::before {
+    background: CanvasText;
+  }
+
+  /* The system takes the dashes with the colour: an election with no winner stays outlined, not filled, and stays dashed. */
+  .iei-held-none {
+    border-style: dashed;
   }
 }
