@@ -75,3 +75,22 @@ export function seatFlows(
     left,
   };
 }
+
+const IN = new Intl.NumberFormat("en-IN");
+
+/**
+ * The seats left out of a flow picture, in a sentence that counts them and says why; null where none was left out.
+ *
+ * Written once here so the picture's caption cannot say less than the counts do: a picture of "how power moved" that left seats out
+ * without saying so would claim a whole it was not drawn from.
+ */
+export function leftOut(left: SeatFlows["left"]): string | null {
+  const why = [
+    { n: left.incomparable, because: "the constituency was redrawn since, so it has no predecessor" },
+    { n: left.undeclared, because: "one of the two elections declared no winner there" },
+  ].filter((w) => w.n > 0);
+  if (why.length === 0) return null;
+  const n = left.incomparable + left.undeclared;
+  if (why.length === 1) return `${IN.format(n)} left out because ${why[0]!.because}.`;
+  return `${IN.format(n)} left out: ${why.map((w) => `${IN.format(w.n)} because ${w.because}`).join(", and ")}.`;
+}

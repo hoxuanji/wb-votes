@@ -5,6 +5,7 @@ import { MARGIN_BANDS, districtGroups, marginBandCounts } from '../../../package
 import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';
 import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
 import { tally } from '../../../packages/mandate/src/repo/map-selection.ts';
+import { seatFlows } from '../../../packages/mandate/src/repo/seat-flows.ts';
 import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import {
   bandPhrase,
@@ -28,6 +29,7 @@ import {
 } from '../../components/iei/Distribution.tsx';
 import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
 import { HousePanel } from '../../components/iei/SeatArc.tsx';
+import { SeatFlow } from '../../components/iei/SeatFlow.tsx';
 import { ListHead, RowContest, RowMargin } from '../../components/iei/SeatList.tsx';
 
 /**
@@ -409,6 +411,7 @@ export function StateSurface({
           title="What changed"
           question={`Which seats changed hands since ${view.previous?.year ?? 'the previous election'}?`}
         >
+          <SeatFlow flows={seatFlows(view.seats)} previousYear={view.previous?.year ?? null} year={e.year} />
           <div className="iei-two">
             <div>
               <ul className="iei-tally" aria-label="Seats held, changed hands, and not comparable">

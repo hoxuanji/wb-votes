@@ -9,7 +9,7 @@ import test from "node:test";
 import { existsSync } from "node:fs";
 import { DEV_DB_PATH, all } from "../db/index.ts";
 import { electionMapView } from "./election-map.ts";
-import { seatFlows } from "./seat-flows.ts";
+import { leftOut, seatFlows } from "./seat-flows.ts";
 import { readRegistry } from "./session.ts";
 
 type S = Parameters<typeof seatFlows>[0][number];
@@ -102,4 +102,15 @@ test("on every election of the registry the flows say what the findings say: hel
   assert.ok(checked.ok, "the registry could not be read");
   assert.deepEqual(checked.value.wrong, []);
   assert.ok(checked.value.n > 0, "no election with a comparison was found, so nothing was checked");
+});
+
+test("the seats left out are said in a sentence that counts them and gives the reason, one reason or two", () => {
+  assert.equal(leftOut({ incomparable: 0, undeclared: 0 }), null);
+  assert.equal(leftOut({ incomparable: 2, undeclared: 0 }), "2 left out because the constituency was redrawn since, so it has no predecessor.");
+  assert.equal(leftOut({ incomparable: 0, undeclared: 1 }), "1 left out because one of the two elections declared no winner there.");
+  assert.equal(
+    leftOut({ incomparable: 2, undeclared: 1 }),
+    "3 left out: 2 because the constituency was redrawn since, so it has no predecessor, and 1 because one of the two elections declared no winner there.",
+  );
+  assert.match(leftOut({ incomparable: 1200, undeclared: 0 }) ?? "", /^1,200 left out/);
 });

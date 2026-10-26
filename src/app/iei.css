@@ -141,6 +141,8 @@
   --iei-locator-w: 320px;
   /* The parliament arc's widest box. SeatArc draws in a frame of 640 units; the picture scales with its column up to this. */
   --iei-arc-w: 720px;
+  /* The seat-flow picture's height. flow-layout.ts lays the boxes out in a column this many units tall (FLOW_H), so the two are one number. */
+  --iei-flow-h: 260px;
   --iei-cell-y: var(--iei-2);
   --iei-cell-y-tight: var(--iei-1);
   --iei-cell-x: var(--iei-3);
@@ -3293,6 +3295,154 @@ html {
     margin-top: var(--iei-3);
     transform: none;
   }
+}
+
+/* ══════════════════════════ how seats moved between parties ══════════════════════════
+   Two columns of boxes, who held the seats before and who won them now, each as tall as its seats, joined by ribbons as thick as the
+   seats that moved. The boxes and their names are HTML (so the type keeps its size on a phone) in columns --iei-flow-h tall, which is the
+   height flow-layout.ts lays out in; only the ribbons are SVG, stretched between the columns.
+
+   A ribbon is in the ink of the party that won the seats: brighter where they changed hands, fainter where they were held, so the size
+   of what stayed reads beside the size of what moved. A 1px surface line between ribbons is the gap that separates every touching mark,
+   and pointing at one ribbon picks it out and dims the rest, in CSS alone. */
+
+.iei-flow-wrap {
+  margin: 0 0 var(--iei-6);
+}
+
+.iei-flow {
+  margin: 0;
+}
+
+.iei-flow-heads {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-flow-stage {
+  display: grid;
+  grid-template-columns: 7rem minmax(0, 1fr) 7rem;
+  height: var(--iei-flow-h);
+}
+
+.iei-flow-col {
+  position: relative;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iei-flow-col li {
+  position: absolute;
+  left: 0;
+  right: 0;
+  display: flex;
+  gap: var(--iei-2);
+}
+
+/* The bar is against the ribbons on both sides, and its name is on the far side of it. */
+.iei-flow-from li {
+  flex-direction: row-reverse;
+}
+
+.iei-flow-col i {
+  flex: none;
+  align-self: stretch;
+  width: var(--iei-3);
+  border-radius: var(--iei-r);
+}
+
+.iei-flow-col span {
+  align-self: center;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-flow-col span b {
+  margin-left: var(--iei-1);
+  font-weight: 600;
+  color: var(--iei-ink);
+}
+
+.iei-flow-ribbons {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.iei-flow-ribbons path {
+  stroke: var(--iei-bg);
+  stroke-width: 1;
+  vector-effect: non-scaling-stroke;
+  transition: opacity var(--iei-t-1) linear;
+}
+
+.iei-flow-held {
+  opacity: 0.3;
+}
+
+.iei-flow-moved {
+  opacity: 0.7;
+}
+
+.iei-flow-mixed {
+  opacity: 0.45;
+}
+
+.iei-flow-ribbons:has(path:hover) path:not(:hover) {
+  opacity: 0.08;
+}
+
+.iei-flow-ribbons path:hover {
+  opacity: 0.95;
+}
+
+.iei-flow-cap {
+  margin-top: var(--iei-3);
+}
+
+.iei-flow-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1) var(--iei-4);
+  margin: var(--iei-2) 0 0;
+  padding: 0;
+  list-style: none;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+}
+
+.iei-flow-key li {
+  display: inline-flex;
+  align-items: center;
+}
+
+.iei-flow-table {
+  margin-top: var(--iei-3);
+}
+
+.iei-flow-table summary {
+  padding: var(--iei-1) 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+  cursor: pointer;
+}
+
+.iei-flow-table summary:hover {
+  color: var(--iei-ink);
 }
 
 @media (max-width: 900px) {

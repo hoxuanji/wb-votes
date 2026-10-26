@@ -271,6 +271,10 @@ _Avoid_: Natural order, default order
 The picture of a full-house election's whole house as a half ring of dots, one per seat, in the ink of the party that won it, with a seat that has no declared winner a hollow dot. Parties run largest first, which says nothing about left and right or alliances. A by-election has none, because it has no majority to be short of.
 _Avoid_: Parliament chart, hemicycle
 
+**Seat flow**:
+The seats that can be compared between two elections, counted from each previous holder to each winner. A flow whose holder is its winner is held, and any other is a seat that changed hands. A seat redrawn since, or with no declared winner at either election, is in no flow and is counted apart.
+_Avoid_: Swing, transfer
+
 **Subject params**:
 The parts of a link that choose which data a page shows, such as the front page's layer, an election or a house, as against the selection, which narrows data already chosen.
 _Avoid_: Scope, which already names the elections a read covers

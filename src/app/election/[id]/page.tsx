@@ -18,6 +18,7 @@ import {
   partyPhrase,
 } from '../../../../packages/mandate/src/repo/seat-list.ts';
 import { readSelection, tally } from '../../../../packages/mandate/src/repo/map-selection.ts';
+import { seatFlows } from '../../../../packages/mandate/src/repo/seat-flows.ts';
 import { electionHref, stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
@@ -38,6 +39,7 @@ import {
   Tabs,
 } from '../../../components/iei/parts.tsx';
 import { HousePanel } from '../../../components/iei/SeatArc.tsx';
+import { SeatFlow } from '../../../components/iei/SeatFlow.tsx';
 import { ListHead, RowContest, RowMargin } from '../../../components/iei/SeatList.tsx';
 import '../../iei.css';
 
@@ -371,6 +373,7 @@ export default function ElectionPage({
           title="How power moved"
           question={`Which seats changed hands since ${v.previous?.year ?? 'the previous election'}?`}
         >
+          <SeatFlow flows={seatFlows(v.seats)} previousYear={v.previous?.year ?? null} year={e.year} />
           <div className="iei-two">
             <div>
               <ul className="iei-tally" aria-label="Seats held, flipped and not comparable">
