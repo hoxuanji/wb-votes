@@ -18,12 +18,13 @@ import {
   partyPhrase,
 } from '../../../../packages/mandate/src/repo/seat-list.ts';
 import { readSelection, tally } from '../../../../packages/mandate/src/repo/map-selection.ts';
+import { seatFlows } from '../../../../packages/mandate/src/repo/seat-flows.ts';
 import { electionHref, stateHref } from '../../../../packages/mandate/src/repo/routes.ts';
 import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
-import { ElectionMap, MODES, MapHead, MapSection, NoMap } from '../../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, MapHead, MapSection, NoMap, ShapeTabs } from '../../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginDistribution,
@@ -37,6 +38,8 @@ import {
   RegistryMissing,
   Tabs,
 } from '../../../components/iei/parts.tsx';
+import { HousePanel } from '../../../components/iei/SeatArc.tsx';
+import { SeatFlow } from '../../../components/iei/SeatFlow.tsx';
 import { ListHead, RowContest, RowMargin } from '../../../components/iei/SeatList.tsx';
 import '../../iei.css';
 
@@ -228,17 +231,20 @@ export default function ElectionPage({
       <MapSection
         title={mapTitle}
         controls={
-          <Tabs
-            label={mapped ? 'What the map shows' : 'What this page shows'}
-            current={mode}
-            choices={MODES.map((m) => ({
-              key: m.key,
-              label: m.label,
-              href: sel.href({ mode: m.key }),
-              // Flips need a previous election of the same house under the same boundaries.
-              available: m.key === 'flips' ? v.flips !== null : true,
-            }))}
-          />
+          <>
+            <ShapeTabs view={v} selection={sel} />
+            <Tabs
+              label={mapped ? 'What the map shows' : 'What this page shows'}
+              current={mode}
+              choices={MODES.map((m) => ({
+                key: m.key,
+                label: m.label,
+                href: sel.href({ mode: m.key }),
+                // Flips need a previous election of the same house under the same boundaries.
+                available: m.key === 'flips' ? v.flips !== null : true,
+              }))}
+            />
+          </>
         }
       >
         {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
@@ -311,6 +317,9 @@ export default function ElectionPage({
         </div>
       </MapSection>
 
+      {/* ── 3b · THE HOUSE, as an arc. Only for an election that decides one. ── */}
+      <HousePanel seats={v.seats} majority={v.majority} selection={sel} />
+
       {/* ── 4 · COMPETITIVENESS ── */}
       {marginTotal === 0 ? null : (
         <Panel
@@ -367,6 +376,7 @@ export default function ElectionPage({
           title="How power moved"
           question={`Which seats changed hands since ${v.previous?.year ?? 'the previous election'}?`}
         >
+          <SeatFlow flows={seatFlows(v.seats)} previousYear={v.previous?.year ?? null} year={e.year} />
           <div className="iei-two">
             <div>
               <ul className="iei-tally" aria-label="Seats held, flipped and not comparable">

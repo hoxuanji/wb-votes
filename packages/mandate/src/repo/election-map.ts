@@ -840,11 +840,23 @@ export function peakBin(bins: readonly MarginBin[]): number {
 export function choicesOf(v: {
   legend: readonly { key: string }[];
   voteSeat: readonly { party: { key: string } }[];
-  seats: readonly { runnerUpKey: string | null }[];
+  seats: readonly { runnerUpKey: string | null; path?: string | null }[];
   marginBins: readonly { lo: number }[];
   flips: unknown;
 }): Choices {
-  return { parties: partiesOf(v), bins: v.marginBins.map((b) => b.lo), flips: v.flips !== null };
+  return { parties: partiesOf(v), bins: v.marginBins.map((b) => b.lo), flips: v.flips !== null, tiles: canTile(v.seats) };
+}
+
+/** The most seats a tile view is offered for: the biggest house in India has 543, and past a thousand a tile is a speck. */
+const MOST_TILES = 1000;
+
+/**
+ * Tiles are placed by where the seats are, so they need at least two outlines (one tile locates nothing), and they are for a house
+ * one can read: the layout compares seats in pairs, which is instant at the Lok Sabha's 543 and slow at several thousand.
+ */
+export function canTile(seats: readonly { path?: string | null }[]): boolean {
+  const drawn = seats.filter((s) => s.path !== null && s.path !== undefined).length;
+  return drawn >= 2 && drawn <= MOST_TILES;
 }
 
 function partiesOf(v: {
@@ -865,7 +877,7 @@ function partiesOf(v: {
 export function stateChoicesOf(v: {
   legend: readonly { key: string }[];
   voteSeat: readonly { party: { key: string } }[];
-  seats: readonly { runnerUpKey: string | null; districtId: string | null; placeId: string }[];
+  seats: readonly { runnerUpKey: string | null; districtId: string | null; placeId: string; path?: string | null }[];
   flips: unknown;
 }): Choices {
   const districts = new Set<string>();
@@ -876,5 +888,6 @@ export function stateChoicesOf(v: {
     districts,
     seats: new Set(v.seats.map((s) => s.placeId)),
     flips: v.flips !== null,
+    tiles: canTile(v.seats),
   };
 }

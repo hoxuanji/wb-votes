@@ -5,6 +5,7 @@ import { MARGIN_BANDS, districtGroups, marginBandCounts } from '../../../package
 import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';
 import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
 import { tally } from '../../../packages/mandate/src/repo/map-selection.ts';
+import { seatFlows } from '../../../packages/mandate/src/repo/seat-flows.ts';
 import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import {
   bandPhrase,
@@ -18,7 +19,7 @@ import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/re
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
 import { bodyWord } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
-import { ElectionMap, MODES, MapHead, MapSection, NoMap } from '../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, MapHead, MapSection, NoMap, ShapeTabs } from '../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginBands,
@@ -27,6 +28,8 @@ import {
   anyVoteShare,
 } from '../../components/iei/Distribution.tsx';
 import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
+import { HousePanel } from '../../components/iei/SeatArc.tsx';
+import { SeatFlow } from '../../components/iei/SeatFlow.tsx';
 import { ListHead, RowContest, RowMargin } from '../../components/iei/SeatList.tsx';
 
 /**
@@ -217,6 +220,7 @@ export function StateSurface({
                 href: selection.href({ election: s.id }),
               }))}
             />
+            <ShapeTabs view={view} selection={selection} />
             <Tabs
               label={mapped ? 'What the map shows' : 'What this page shows'}
               current={mode}
@@ -315,7 +319,9 @@ export function StateSurface({
               <details className="iei-districts" open>
                 <summary>
                   {focused === null
-                    ? `${districts.length} districts — select one to ${mapped ? 'zoom the map and ' : ''}narrow the list`
+                    ? `${districts.length} districts — select one to ${
+                        !mapped ? '' : selection.shape === 'tiles' ? 'mute the other tiles and ' : 'zoom the map and '
+                      }narrow the list`
                     : `District: ${focused.name}`}
                 </summary>
                 {focused === null ? null : (
@@ -388,6 +394,14 @@ export function StateSurface({
         </div>
       </MapSection>
 
+      {/* ══ 2b · THE HOUSE, as an arc: all of it, whatever the list is narrowed to. ═════════════════════ */}
+      <HousePanel
+        seats={view.seats}
+        majority={view.majority}
+        selection={selection}
+        delegation={e.body === 'lok-sabha' && view.scope !== null ? name : null}
+      />
+
       {/* ══ 3 · WHAT CHANGED ══════════════════════════════════════════════════════════════════ */}
       {view.flips === null ? (
         view.incomparableSeats === 0 ? null : (
@@ -405,6 +419,7 @@ export function StateSurface({
           title="What changed"
           question={`Which seats changed hands since ${view.previous?.year ?? 'the previous election'}?`}
         >
+          <SeatFlow flows={seatFlows(view.seats)} previousYear={view.previous?.year ?? null} year={e.year} />
           <div className="iei-two">
             <div>
               <ul className="iei-tally" aria-label="Seats held, changed hands, and not comparable">

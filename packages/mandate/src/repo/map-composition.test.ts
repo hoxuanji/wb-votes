@@ -149,12 +149,20 @@ test("the state page runs header band, one control row, the map, then the column
   const side = at(html, SIDE, map);
   assert.ok(head < controls && controls < atlas && atlas < map && map < side);
 
-  // The year strip, then the mode tabs, in the one row: both groups sit between the row's opening and the atlas.
+  // The year strip, then how the seats are drawn, then the mode tabs, in the one row: the three groups sit between the row's
+  // opening and the atlas.
   const row = html.slice(controls, atlas);
   const years = at(row, 'aria-label="Election"');
-  const modes = at(row, 'aria-label="What the map shows"', years);
-  assert.ok(years < modes);
-  assert.equal(row.split('class="iei-tabs"').length - 1, 2, "two strips in the row, and no third");
+  const shapes = at(row, 'aria-label="How the seats are drawn"', years);
+  const modes = at(row, 'aria-label="What the map shows"', shapes);
+  assert.ok(years < shapes && shapes < modes);
+  assert.equal(row.split('class="iei-tabs"').length - 1, 3, "three strips in the row, and no fourth");
+
+  // A state with no outline to place tiles by has no shape strip: the row is the years and the modes, as it was.
+  const none = render("/state", "", "bb");
+  const noneRow = none.slice(at(none, 'class="iei-controls"'), at(none, ATLAS, at(none, 'class="iei-controls"')));
+  assert.equal(noneRow.split('class="iei-tabs"').length - 1, 2, "two strips where no map is drawn");
+  assert.ok(!noneRow.includes("How the seats are drawn"));
 
   // Nothing between the header band and the map is a visible heading.
   const between = html.slice(head, map);
@@ -190,7 +198,7 @@ test("the evidence drawer shares the header's eyebrow line, and is not a section
   assert.ok(at(election, 'class="iei-ev"', etop) < at(election, 'class="iei-controls"'));
 });
 
-test("the election page runs header band, the mode tabs alone in the control row, the map, then the column beside it", () => {
+test("the election page runs header band, the shape and mode tabs in the control row, the map, then the column beside it", () => {
   const html = render("/election", "", "aa-assembly-2021");
   const head = at(html, 'class="iei-head iei-head-map"');
   const controls = at(html, 'class="iei-controls"', head);
@@ -198,8 +206,16 @@ test("the election page runs header band, the mode tabs alone in the control row
   const map = at(html, '<figure class="iei-map', atlas);
   assert.ok(head < controls && controls < atlas && atlas < map && map < at(html, SIDE, map));
   const row = html.slice(controls, atlas);
-  assert.equal(row.split('class="iei-tabs"').length - 1, 1, "an election has no year strip of its own");
-  assert.ok(row.includes('aria-label="What the map shows"'));
+  assert.equal(row.split('class="iei-tabs"').length - 1, 2, "the shape strip and the mode strip, and no third");
+  assert.ok(!row.includes('aria-label="Election"'), "an election has no year strip of its own");
+  assert.ok(at(row, 'aria-label="How the seats are drawn"') < at(row, 'aria-label="What the map shows"'), "the shape comes before the mode");
+
+  // Where no map is drawn there is nothing to tile, so the row is the mode strip alone, as it was.
+  const bare = render("/election", "", "bb-assembly-2021");
+  const bareAt = at(bare, 'class="iei-controls"');
+  const bareRow = bare.slice(bareAt, at(bare, ATLAS, bareAt));
+  assert.equal(bareRow.split('class="iei-tabs"').length - 1, 1, "the mode strip alone where no map is drawn");
+  assert.ok(!bareRow.includes("How the seats are drawn"));
 });
 
 test("the column beside the map opens with what the map answers, in the mode's own words", () => {

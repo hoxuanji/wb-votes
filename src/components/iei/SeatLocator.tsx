@@ -96,7 +96,7 @@ export function SeatLocator({ view }: { view: SeatLocatorView }) {
             <title>{locatorSeatTitle(view)}</title>
           </path>
         </g>
-        {ringed ? <circle cx={x} cy={y} r={marker.r} className="iei-loc-ring" aria-hidden="true" /> : null}
+        {ringed ? <circle cx={x} cy={y} r={marker.r} className="iei-loc-ring" pathLength={1} aria-hidden="true" /> : null}
         {name === undefined ? null : (
           <g className="iei-loc-label" aria-hidden="true">
             {name.leader === null ? null : (
