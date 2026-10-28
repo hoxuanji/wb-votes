@@ -170,17 +170,18 @@ test("a registry without migration 017 links a tied seat by its registry id too,
 
 test("the person page links a tied seat to that seat, and not to the page that asks which was meant", () => {
   const page = render("/p", TIED);
-  assert.deepEqual(seatLinks(page), ["/constituency/wb/assembly/wb.ac.266"]);
+  // the crumb, and the career row, which links its seat too
+  assert.deepEqual(seatLinks(page), Array(2).fill("/constituency/wb/assembly/wb.ac.266"));
   // and that address opens the seat: Bankura's Bishnupur, no. 266
   const seat = render("/constituency", "wb/assembly/wb.ac.266");
   assert.doesNotMatch(seat, /Which did you mean/);
   assert.match(seat, /No\. 266/);
   // the control: a seat that is not tied is linked by its name, as before
-  assert.deepEqual(seatLinks(render("/p", LONE)), ["/constituency/wb/assembly/lone"]);
+  assert.deepEqual(seatLinks(render("/p", LONE)), Array(2).fill("/constituency/wb/assembly/lone"));
 });
 
 test("the person page links a seat whose name is shared within its district by its id too", () => {
-  assert.deepEqual(seatLinks(render("/p", TWIN)), ["/constituency/wb/assembly/wb.ac.007"]);
+  assert.deepEqual(seatLinks(render("/p", TWIN)), Array(2).fill("/constituency/wb/assembly/wb.ac.007"));
 });
 
 // ── the page that asks which seat was meant ──────────────────────────────────────────────────────

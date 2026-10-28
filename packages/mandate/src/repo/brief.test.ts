@@ -16,6 +16,7 @@ import {
   rupees,
   tiles,
 } from "./brief.ts";
+import { UNVERIFIED_REASON } from "./turnout-trust.ts";
 
 const SRC: SourceRef = {
   id: "s1",
@@ -59,7 +60,8 @@ function cand(o: Partial<PersonBrief["candidacies"][number]>): PersonBrief["cand
     rank: 1,
     isWinner: true,
     margin: 500,
-    turnoutPct: null,
+    wonBy: null,
+    turnout: { state: "absent" },
     ...o,
   };
 }
@@ -79,10 +81,35 @@ function brief(o: Partial<PersonBrief>): PersonBrief {
     candidacies: [],
     affidavitTrail: [],
     mergeProvenance: [],
+    sitting: null,
     sources: [],
     ...o,
   };
 }
+
+/** A 2026 candidate in a seat already declared for someone else: a nomination, no result row, the winner on the contest. */
+function stood(o: Partial<PersonBrief["candidacies"][number]> = {}): PersonBrief["candidacies"][number] {
+  return cand({
+    year: 2026,
+    electionId: "wb-assembly-2026",
+    status: "contesting",
+    isWinner: false,
+    votes: null,
+    voteShare: null,
+    rank: null,
+    margin: null,
+    placeName: "Mekliganj",
+    wonBy: { personId: "dadhiram-ray-a22815", name: "DADHIRAM RAY", partyShortName: "BJP" },
+    ...o,
+  });
+}
+
+/** West Bengal 2026: a turnout with no candidate vote counts to reconcile it against, so it is withheld. */
+const WITHHELD: PersonBrief["candidacies"][number]["turnout"] = {
+  state: "unverified",
+  reason: UNVERIFIED_REASON,
+  evidence: { pct: 96.6, voters: 216733, electors: 224413 },
+};
 
 test("indian digit grouping and money units", () => {
   assert.equal(inr(710930), "7,10,930");
@@ -217,6 +244,127 @@ test("a mixed career counts only decided contests, and states the undecided one"
   assert.match(h, /1 contest on record at Bhabanipur 2026 has no declared result/);
 });
 
+test("a seat declared for someone else is said as that, not as a contest still to come", () => {
+  const only = stood();
+  const h = headline(brief({ candidacies: [only] }));
+  assert.equal(h, "Stood at Mekliganj 2026, where DADHIRAM RAY (BJP) won, no affidavit filing is in the registry.");
+  assert.doesNotMatch(h, /standing|awaiting|no result declared|lost|never/i);
+  const t = tiles(brief({ candidacies: [only], sources: [RESULTS] }));
+  assert.ok(!t.some((x) => x.label === "Awaiting a result"), "the seat is declared, so nothing is awaited");
+  assert.deepEqual(t.find((x) => x.label === "Won by another candidate"), {
+    label: "Won by another candidate",
+    value: "1",
+    unit: "contest",
+    note: "Mekliganj 2026",
+    source: RESULTS,
+  });
+  assert.ok(!t.some((x) => x.label === "Contests won"), "no own result, so no won-of-N tile");
+  for (const x of t) assert.doesNotMatch(`${x.value} ${x.unit ?? ""} ${x.note ?? ""}`, /never elected|lost|awaiting/i);
+});
+
+test("a winner with no party on record is named without brackets", () => {
+  const h = headline(
+    brief({ candidacies: [stood({ wonBy: { personId: "x", name: "A WINNER", partyShortName: null } })] }),
+  );
+  assert.match(h, /^Stood at Mekliganj 2026, where A WINNER won,/);
+});
+
+test("a career with a settled seat counts only the contests with a result of their own, and names who won the other", () => {
+  const h = headline(
+    brief({
+      candidacies: [
+        stood({ placeName: "Shyampukur" }),
+        cand({ year: 2021, placeName: "Shyampukur" }),
+        cand({ year: 2016, electionId: "wb-assembly-2016", placeName: "Shyampukur" }),
+      ],
+    }),
+  );
+  assert.match(h, /^Won all 2 decided contests in Shyampukur from 2016 to 2021,/);
+  assert.match(h, /1 contest on record at Shyampukur 2026 was won by DADHIRAM RAY \(BJP\)/);
+  assert.doesNotMatch(h, /no declared result/);
+});
+
+test("several settled seats are each said as won by another candidate; an undeclared seat among them keeps its own words", () => {
+  const two = [stood(), stood({ placeName: "Siliguri", contestId: "c2" })];
+  assert.equal(
+    headline(brief({ candidacies: two })),
+    "Stood in 2 contests, each won by another candidate, no affidavit filing is in the registry.",
+  );
+  const t = tiles(brief({ candidacies: two, sources: [RESULTS] }));
+  assert.deepEqual(
+    t.find((x) => x.label === "Won by another candidate"),
+    { label: "Won by another candidate", value: "2", unit: "contests", note: "own result not reported", source: RESULTS },
+  );
+  const mixed = [stood(), stood({ placeName: "Falta", contestId: "c3", wonBy: null })];
+  assert.match(
+    headline(brief({ candidacies: mixed })),
+    /^Stood in 2 contests, 1 won by another candidate and 1 with no declared result,/,
+  );
+  const mt = tiles(brief({ candidacies: mixed, sources: [RESULTS] }));
+  assert.equal(mt.find((x) => x.label === "Awaiting a result")?.note, "Falta 2026");
+  assert.equal(mt.find((x) => x.label === "Won by another candidate")?.note, "Mekliganj 2026");
+});
+
+test("a turnout nothing corroborates is never printed as a figure", () => {
+  const t = tiles(brief({ candidacies: [stood({ turnout: WITHHELD })], sources: [RESULTS] }));
+  const x = t.find((y) => y.label === "Turnout where they stood");
+  assert.deepEqual(x, {
+    label: "Turnout where they stood",
+    value: "verification pending",
+    unit: null,
+    note: "Mekliganj 2026",
+    source: RESULTS,
+  });
+  for (const y of t) assert.doesNotMatch(`${y.value} ${y.unit ?? ""} ${y.note ?? ""}`, /96\.6|%/);
+});
+
+test("an earlier election's turnout does not stand in for the one that is withheld", () => {
+  const t = tiles(
+    brief({
+      candidacies: [stood({ turnout: WITHHELD }), cand({ year: 2021, turnout: { state: "reported", pct: 82.1 } })],
+      sources: [RESULTS],
+    }),
+  );
+  const x = t.find((y) => y.label === "Turnout where they stood");
+  assert.equal(x?.value, "verification pending");
+  assert.equal(x?.note, "Mekliganj 2026");
+});
+
+test("a reported turnout is still a figure, and one in an older election is found past a seat with none", () => {
+  const t = tiles(
+    brief({
+      candidacies: [
+        cand({ year: 2024, electionId: "ls-2024", turnout: { state: "absent" } }),
+        cand({ year: 2021, turnout: { state: "reported", pct: 82.1 } }),
+      ],
+      sources: [RESULTS],
+    }),
+  );
+  const x = t.find((y) => y.label === "Turnout where they stood");
+  assert.equal(x?.value, "82.1%");
+  assert.equal(x?.unit, "of electors");
+});
+
+test("a row with no contest but a recorded seat says whose seat, instead of there being nothing to judge", () => {
+  const h = headline(
+    brief({
+      sitting: {
+        term: "2026-2031",
+        placeName: "Sitalkuchi",
+        placeHref: "/constituency/wb/assembly/sitalkuchi",
+        party: "BJP",
+        marginVotes: 25278,
+        asOf: "2026-01-01",
+      },
+    }),
+  );
+  assert.equal(
+    h,
+    "No contest is on record for Test Person, but the registry records them as the sitting member for Sitalkuchi, 2026-2031, party BJP.",
+  );
+  assert.doesNotMatch(h, /nothing to judge/);
+});
+
 test("tiles: 4-6, every one carries a source, no tile without a figure", () => {
   const t = tiles(
     brief({
@@ -307,7 +455,7 @@ test("tiles: a thin record still fills at least four, from rank and turnout", ()
           rank: 3,
           votes: 3692,
           voteShare: 1.91,
-          turnoutPct: 79.5,
+          turnout: { state: "reported", pct: 79.5 },
         }),
       ],
       sources: [RESULTS],

@@ -69,7 +69,12 @@ function Person({ p }: { p: PersonRow }) {
     p.latestPlaceName === null
       ? 'no recorded contest'
       : `${p.latestPlaceName}${p.latestYear === null ? '' : ` ${p.latestYear}`}`;
-  const outcome = p.isWinner ? 'won' : (p.latestStatus ?? 'outcome not recorded');
+  // A nomination in a seat already declared for someone else is not still 'contesting'; say who has it, as the person page does.
+  const outcome = p.isWinner
+    ? 'won'
+    : p.latestStatus === 'contesting' && p.latestWonBy !== null
+      ? `seat won by ${p.latestWonBy}`
+      : (p.latestStatus ?? 'outcome not recorded');
   return (
     <DataRow
       title={p.canonicalName}
