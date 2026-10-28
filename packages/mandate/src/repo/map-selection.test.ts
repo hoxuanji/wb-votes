@@ -281,7 +281,7 @@ test("a party isolates the seats it won, or on the runner-up tab the seats where
   assert.deepEqual(ids(read("party=BJP&mode=flips").narrow(SEATS)), ["p1", "p4", "p6"]);
 });
 
-test("switching mode keeps the party, and the party then means the other side of the seat (D20)", () => {
+test("switching mode keeps the party, and the party then means the other side of the seat", () => {
   const winners = read("party=BJP&mode=winners");
   const there = follow(winners.href({ mode: "runnerup" }));
   assert.deepEqual(there.isolation, { by: "party", key: "BJP" });

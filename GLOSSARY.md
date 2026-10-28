@@ -177,7 +177,7 @@ The number of votes cast in a seat, as its turnout row reports it. It is not the
 _Avoid_: Valid votes, total votes
 
 **Vote share**:
-A candidate's votes as a percentage of the votes polled in their seat: the figure the source published, or else the candidate's votes over the votes polled where those are on record. It is never taken over the candidates' own total, which for an election that published only its leading contestants would give them the whole.
+A candidate's votes as a percentage of the votes polled in their seat: the figure the source published, or else the candidate's votes over the votes polled where those are on record. It is never taken over the candidates' own total, which for an election that published only its leading contestants would give them the whole. A party's share of an election is taken the same way, over the votes polled in the seats that have candidate counts (a seat with counts and no votes polled adds what its winner and runner-up polled), while its share of the seats stays over every seat contested.
 _Avoid_: Share of the field
 
 **Not itemised**:
@@ -230,7 +230,7 @@ The number of paired seats that are held or flipped, and so the denominator of "
 _Avoid_: Paired seats (an unknown seat is paired and outside this count)
 
 **Flip matrix**:
-The flipped seats counted by the party that lost them and the party that won them, the biggest count first.
+The flipped seats counted by the party that lost them and the party that won them, the biggest count first. A page lists the eight biggest and counts the rest in one line, and only the party that gained the seats links to them.
 _Avoid_: Transition matrix
 
 ### Reading a map

@@ -26,7 +26,7 @@
 // (the election page has two-point bins, the state page five named bands) and both survive as variants. A param that
 // was asked and not honoured is named in `ignored`, always, though no page shows it yet.
 //
-// Imports nothing from `src/`, no React and no database (ADR 0002). It sits in the package, not beside the pages,
+// Imports nothing from `src/` (ADR 0002), and no React and no database. It sits in the package, not beside the pages,
 // because `npm test` runs only the package's tests.
 
 /* ─────────────────────────────── the modes ─────────────────────────────── */
@@ -177,7 +177,7 @@ export type Isolation =
  *   district   focus it, and drop the seat focus, which belonged to the district before
  *   election   another election, with every selection dropped: each is a statement about one election
  *
- * Everything not named stays as the ask had it, mode included (D20: switching mode keeps the party, and the party
+ * Everything not named stays as the ask had it, mode included (switching mode keeps the party, and the party
  * then means the runner-up in the runner-up mode). A value that is not offered is not refused here; `ignored` on the
  * page it leads to says so, and the round-trip test is how a dead link is found.
  */

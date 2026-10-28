@@ -224,6 +224,30 @@ export function turnoutOf(seats: readonly SeatResult[]): Turnout {
   return turnoutReading(voters, electors, unverified);
 }
 
+/**
+ * What a party's share of an election is over: the votes polled in the seats whose candidates' votes are on record, and how
+ * many seats those are.
+ *
+ * Not the sum of the candidates' own votes. The registry keeps the leading candidates of a seat (five at most), so that sum
+ * falls short of the votes polled by whatever the rest polled, and a share over it is inflated by as much: West Bengal 2021's
+ * TMC is 48.0% of the votes polled and 48.9% of the candidates' sum. Only the seats that have counts, because the votes polled
+ * in a seat the source gave no results for divide nothing. A seat that has counts and no votes polled still has its
+ * candidates' votes in the numerators, so it adds what its winner and runner-up polled, the least it is known to have polled.
+ * An unverified election has neither (`counts` is null, and it has no candidate votes), so it has no base and no share.
+ */
+export function votesPolledWhereCounted(seats: readonly SeatResult[]): { voters: number; seats: number } {
+  let voters = 0;
+  let counted = 0;
+  for (const s of seats) {
+    const [won, second] = [s.winner?.votes ?? null, s.runnerUp?.votes ?? null];
+    if (won === null && second === null) continue;
+    const polled = s.counts?.voters ?? 0;
+    voters += polled > 0 ? polled : (won ?? 0) + (second ?? 0);
+    counted += 1;
+  }
+  return { voters, seats: counted };
+}
+
 export type PartySeats = { key: string; label: string; seats: number };
 
 /** Seats won by party, biggest first. An undeclared seat is nobody's. */

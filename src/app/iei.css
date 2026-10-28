@@ -1729,8 +1729,11 @@ html {
 
 /* A state border reads as a border: the canvas colour, from the states' own outline geometry rather than as a
    by-product of a fill. Now the only line on the national map, and thinner for it — with 726 district lines
-   gone it no longer has to shout over them to be read as the heavier of two. */
-.iei-map-borders path {
+   gone it no longer has to shout over them to be read as the heavier of two. The front page's map draws a `path`
+   per state here and the election map a `use` of an outline it wrote once; each is named, because a `use` is
+   not reached by a rule for `path` and the other way round. */
+.iei-map-borders path,
+.iei-map-borders use {
   fill: none;
   stroke: var(--iei-bg);
   stroke-width: 0.9;
@@ -1924,8 +1927,9 @@ html {
 /* The country under the seats. Not decoration: 51 of 543 seats have no polygon the registry may draw them
    on, and without a backdrop those read as holes in the page rather than as gaps in the map. Same ink as a
    jurisdiction that held no election, which is what they are — unlit, and deliberately below the mark floor
-   so an absence cannot be mistaken for a value. */
-.iei-map-national .iei-map-canvas path {
+   so an absence cannot be mistaken for a value. The state outlines are drawn once and each layer is a `use` of them (see
+   ElectionMap.tsx), which inherits what it is given here and nothing a rule names on `path`. */
+.iei-map-national .iei-map-canvas use {
   stroke: none;
 }
 
@@ -1972,7 +1976,7 @@ html {
    at 0.7px of near-black over 492 constituencies the country's own outline disappeared into the seams
    between seats, which is the one thing a national constituency map cannot afford — 543 small polygons stop
    being India and become confetti. */
-.iei-map-national .iei-map-borders path {
+.iei-map-national .iei-map-borders use {
   fill: none;
   stroke: var(--iei-ink-3);
   stroke-width: 1.3;
@@ -2702,7 +2706,8 @@ html {
   border-bottom: 1px solid var(--iei-line);
 }
 
-.iei-traj-row:hover {
+/* Only a row that is a link answers to the pointer: a party with nothing to isolate on this map is a row and no more. */
+a.iei-traj-row:hover {
   color: var(--iei-ink);
   background: var(--iei-raised);
 }

@@ -43,8 +43,8 @@ function Nothing({ children }: { children: string }) {
 /**
  * How competitive was this election? — 543 margins as a shape rather than as a list of five.
  *
- * WHY IT EXISTS. The registry can compute a margin for 63,334 of 64,021 contests, from rank-1 and rank-2 vote
- * counts. Every surface in this product showed the five smallest. The five smallest cannot tell you whether
+ * WHY IT EXISTS. The registry can compute a margin for every contest a source published counts for, from rank-1 and
+ * rank-2 vote counts. Every surface in this product showed the five smallest. The five smallest cannot tell you whether
  * an election was close everywhere or a landslide with five accidents, and that is the question.
  *
  * INTERACTION IS THE POINT, not an ornament: each bar is a link that isolates its own seats on the map above, or
@@ -93,7 +93,7 @@ export function MarginDistribution({
           stylesheet owns its size and non-uniform scaling cannot reach it. */}
       <svg
         viewBox={`0 0 ${W} ${H}`}
-        role="img"
+        role="group"
         aria-label={distLabel(bins, total)}
         preserveAspectRatio="none"
       >
@@ -107,26 +107,34 @@ export function MarginDistribution({
           // same colour by construction rather than by coincidence.
           const t = Math.min(1, b.lo / 30);
           const ink = SEQUENTIAL[Math.min(SEQUENTIAL.length - 1, Math.floor((1 - t) * SEQUENTIAL.length))] as string;
-          return (
+          const bar = (
+            <g opacity={selected === null || on ? 1 : 0.35}>
+              {/* A full-height hit area, so a bar with two seats in it is still clickable. */}
+              <rect x={i * slot} y={0} width={slot} height={H} fill="transparent" />
+              <rect
+                className="iei-dist-bar"
+                x={i * slot + gap / 2}
+                y={H - h}
+                width={slot - gap}
+                height={Math.max(h, b.n > 0 ? 0.6 : 0)}
+                fill={ink}
+                stroke={on ? 'var(--iei-ink)' : 'none'}
+                strokeWidth={on ? 0.5 : 0}
+              />
+              {/* ONE TEXT NODE. An SVG <title> built from several JSX children arrives as an array, and a
+                  browser renders the whole array — markup, comment nodes and all — as the tooltip text,
+                  then hydration mismatches. React warns about it; the fix is to interpolate first. */}
+              <title>{`${b.overflow ? `${b.lo}% and wider` : `${b.lo}–${b.hi}%`} — ${b.n} seat${b.n === 1 ? '' : 's'}`}</title>
+            </g>
+          );
+          // A BAR WITH NO SEAT IN IT LEADS NOWHERE: following it muted the whole map and emptied the list. It keeps its
+          // tooltip, so the gap in the distribution still says what it is, and a selected bar stays a link whatever it holds,
+          // because it is the way back.
+          return b.n === 0 && !on ? (
+            <g key={b.lo}>{bar}</g>
+          ) : (
             <Link key={b.lo} href={hrefFor(on ? null : b.lo)}>
-              <g opacity={selected === null || on ? 1 : 0.35}>
-                {/* A full-height hit area, so a bar with two seats in it is still clickable. */}
-                <rect x={i * slot} y={0} width={slot} height={H} fill="transparent" />
-                <rect
-                  className="iei-dist-bar"
-                  x={i * slot + gap / 2}
-                  y={H - h}
-                  width={slot - gap}
-                  height={Math.max(h, b.n > 0 ? 0.6 : 0)}
-                  fill={ink}
-                  stroke={on ? 'var(--iei-ink)' : 'none'}
-                  strokeWidth={on ? 0.5 : 0}
-                />
-                {/* ONE TEXT NODE. An SVG <title> built from several JSX children arrives as an array, and a
-                    browser renders the whole array — markup, comment nodes and all — as the tooltip text,
-                    then hydration mismatches. React warns about it; the fix is to interpolate first. */}
-                <title>{`${b.overflow ? `${b.lo}% and wider` : `${b.lo}–${b.hi}%`} — ${b.n} seat${b.n === 1 ? '' : 's'}`}</title>
-              </g>
+              {bar}
             </Link>
           );
         })}
@@ -274,7 +282,7 @@ export function VoteSeatPlot({
 
   return (
     <figure className="iei-fig iei-vs">
-      <svg viewBox={`0 0 ${S} ${S}`} role="img" aria-label={vsLabel(shown)}>
+      <svg viewBox={`0 0 ${S} ${S}`} role="group" aria-label={vsLabel(shown)}>
         {/* PARITY, as a line. Everything in this figure is read against it.
             It is named where it ends, in the margin above the frame: inside the plot the leading party's marker
             lands on its top end, which is why the first version of this label collided with it. */}
@@ -358,7 +366,7 @@ export function VoteSeatPlot({
         )}
       </svg>
       <figcaption>
-        Above the line, a party won a larger share of seats than of votes.{' '}
+        Above the line, a party won a larger share of seats than of votes. {shareBase(shown)}{' '}
         {selected === null ? (
           mapped ? 'Select a party to find its seats on the map.' : null
         ) : (
@@ -367,6 +375,20 @@ export function VoteSeatPlot({
       </figcaption>
     </figure>
   );
+}
+
+/**
+ * WHAT THE TWO SHARES ARE OVER, under the plot. The seat share is over every seat contested, the house the rest of the page
+ * counts; the vote share is over the votes polled in the seats that have candidate counts, and a seat the source gave no result
+ * for is in the first and adds nothing to the second. With a count in every seat they are the same seats, and it says so.
+ */
+function shareBase(rows: readonly VoteSeatEfficiency[]): string {
+  const r = rows[0];
+  if (r === undefined) return '';
+  const seats = (n: number) => `${IN.format(n)} seat${n === 1 ? '' : 's'}`;
+  return r.counted === r.contested
+    ? `Both shares are over all ${seats(r.contested)}.`
+    : `Vote share is of the votes polled in the ${seats(r.counted)} with candidate counts; seat share is of all ${IN.format(r.contested)}.`;
 }
 
 /** Whether any party's vote share is known: the plot's one precondition, and the page's test for its pale bars. */
@@ -396,6 +418,11 @@ function vsLabel(rows: readonly VoteSeatEfficiency[]): string {
  * A ROW OF BARS, NOT A GRID. A true from×to matrix of 43 parties is 1,849 cells of which 13 are non-zero —
  * mostly empty space with the finding hidden in it. Sorted pairs put the largest movement first and read at
  * any width, which is also what makes it work on a phone.
+ *
+ * THE EIGHT LARGEST ARE THE ROWS, and the rest are one line that counts them, so the rows plus that line add up to the seats
+ * that changed hands. THE PARTY THAT GAINED THE SEATS IS THE LINK, to its seats on the map in flips mode; the party that lost
+ * them is named and is not one, because the party isolation is the winner's and a link on the loser lit the seats it still
+ * holds and none of the ones it lost.
  */
 export function FlipMatrix({
   pairs,
@@ -409,14 +436,16 @@ export function FlipMatrix({
     return <Nothing>No seat changed hands, so there is no movement between parties to draw.</Nothing>;
   }
   const top = pairs.slice(0, 8);
+  const rest = pairs.slice(8);
   const peak = Math.max(...top.map((p) => p.count), 1);
+  const folded = rest.reduce((n, p) => n + p.count, 0);
   return (
     <ul className="iei-flipmx" aria-label="Seats that changed hands, by the party that lost them and the party that won them">
       {top.map((p) => (
         <li key={`${p.from.key}>${p.to.key}`}>
           <span className="iei-flipmx-pair">
             <span className="iei-sw" style={{ background: fillFor(p.from.key) }} aria-hidden="true" />
-            <Link className="iei-body-link" href={hrefFor(p.from.key)}>{p.from.label}</Link>
+            {p.from.label}
             <span className="iei-flipmx-arrow" aria-hidden="true">
               →
             </span>
@@ -429,6 +458,11 @@ export function FlipMatrix({
           <b>{p.count}</b>
         </li>
       ))}
+      {rest.length === 0 ? null : (
+        <li className="iei-arc-rest">
+          + {IN.format(rest.length)} smaller {rest.length === 1 ? 'move' : 'moves'} · {IN.format(folded)} seat{folded === 1 ? '' : 's'}
+        </li>
+      )}
     </ul>
   );
 }
@@ -461,7 +495,7 @@ export function MarginBands({
   if (total === 0) return <Nothing>No seat has a known margin over votes polled, so there are no bands to draw.</Nothing>;
   return (
     <div className="iei-bands">
-      <div className="iei-bands-bar" role="img" aria-label={bandLabel(bands, total)}>
+      <div className="iei-bands-bar" role="group" aria-label={bandLabel(bands, total)}>
         {bands.map((b, i) => {
           if (b.n === 0) return null;
           const on = selected === b.key;
@@ -520,8 +554,8 @@ function bandLabel(bands: readonly { label: string; n: number }[], total: number
  *
  * THE BREAK IS THE POINT. A continuous line across a delimitation asserts that the seats either side are the
  * same seats. They are not: every order renumbers from scratch and `place_crosswalk` is empty, so Karnataka's
- * 224 seats in 2008 are not the 224 territories of 2004. `segments()` splits the series at every epoch change
- * and this draws each run separately, with a marked gap. A reader can still see the whole run; what they
+ * 224 seats in 2008 are not the 224 territories of 2004. This splits the series at every epoch change
+ * and draws each run separately, with a marked gap. A reader can still see the whole run; what they
  * cannot do is read across the break as though nothing happened.
  *
  * SEATS BREAK, VOTE SHARE DOES NOT, and the asymmetry is deliberate: a share is a ratio over a whole state's
@@ -535,6 +569,7 @@ export function Trajectory({
   metric,
   hrefFor,
   selected,
+  isolable,
 }: {
   data: {
     elections: readonly { id: string; year: number; epochId: string }[];
@@ -549,6 +584,8 @@ export function Trajectory({
   metric: 'seatPct' | 'votePct';
   hrefFor: (party: string | null) => string;
   selected: string | null;
+  /** The parties the page can isolate on this election's map. A row for any other is not a link. Every row is one if omitted. */
+  isolable?: ReadonlySet<string>;
 }) {
   const years = data.elections.map((e) => e.year);
   // NOTHING TO DRAW IS A SENTENCE, NOT AN AXIS. Without two elections there is no run; without a party there are
@@ -627,8 +664,8 @@ export function Trajectory({
         const latest = p.points.at(-1);
         const value = [...p.points].reverse().find((pt) => (metric === 'seatPct' ? pt.seatPct : pt.votePct) !== null);
         const stale = value !== undefined && latest !== undefined && value.year !== latest.year;
-        return (
-          <Link key={p.key} href={hrefFor(on ? null : p.key)} className="iei-traj-row" aria-current={on ? 'true' : undefined}>
+        const body = (
+          <>
             <span className="iei-traj-name">
               <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
               {p.label}
@@ -688,6 +725,18 @@ export function Trajectory({
                   : `${value.votePct.toFixed(0)}%`}
               {stale && metric === 'votePct' ? <span className="iei-traj-asof"> {value?.year}</span> : null}
             </span>
+          </>
+        );
+        // A PARTY THE PAGE CANNOT ISOLATE IS NOT A LINK. Its row followed `?party=…#map` to a page that does not offer it for this
+        // election (the party won no seat in it, and was neither a runner-up nor 1% of the vote), which dropped it and reloaded
+        // the page at the map with nothing isolated.
+        return isolable !== undefined && !isolable.has(p.key) ? (
+          <div key={p.key} className="iei-traj-row" title="Won no seat in this election">
+            {body}
+          </div>
+        ) : (
+          <Link key={p.key} href={hrefFor(on ? null : p.key)} className="iei-traj-row" aria-current={on ? 'true' : undefined}>
+            {body}
           </Link>
         );
       })}
@@ -695,7 +744,7 @@ export function Trajectory({
         {/* THE DOMAIN, PRINTED. A height with no stated scale is a shape, not a measurement — and every row
             shares this one, so it is said once rather than per row. */}
         <span>
-          {minY} · full height = {top}% of {metric === 'seatPct' ? 'seats' : 'votes'}
+          {minY} · full height = {top}% of {metric === 'seatPct' ? 'seats' : 'votes polled'}
         </span>
         {data.epochBreaks.length === 0 ? null : (
           <span className="iei-traj-break">

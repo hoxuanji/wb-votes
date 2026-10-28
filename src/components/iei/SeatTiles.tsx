@@ -1,8 +1,9 @@
+import { Fragment } from 'react';
 import Link from 'next/link';
 import { centroidOf, tileLayout } from '../../../packages/mandate/src/viz/seat-tiles.ts';
 import { MODES } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
-import type { ElectionMapView } from '../../../packages/mandate/src/repo/election-map.ts';
+import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
 import { seatFill, seatTitle } from './seat-fill.ts';
 
 /**
@@ -20,15 +21,49 @@ import { seatFill, seatTitle } from './seat-fill.ts';
  *
  * A tile is coloured and worded by `seatFill` and `seatTitle`, the functions the map uses, in every mode, and is dimmed by the
  * selection exactly as a polygon is. A seat with no boundary on record cannot be placed, so it has no tile, and the caption counts
- * them: nothing is placed by guesswork.
+ * them and names a few: nothing is placed by guesswork.
  *
  * The tiles are separated by the surface (a 2px gap), never by a stroke; there is no text on a tile, because at 294 seats it would
- * be a wall of numbers and the hover card and the list beside it carry the names.
+ * be a wall of numbers and the hover card carries the name.
  */
 
 /** A tile's cell, in the figure's own units, and the tile inside it: the 2 units left over are the gap between tiles. */
 const PITCH = 20;
 const TILE = 18;
+
+/** The most seats a caption names. Past that a name each is a paragraph, and the caption keeps its count. */
+const MOST_NAMED = 8;
+
+/**
+ * THE SEATS THAT HAVE NO OUTLINE, by name and as links to their pages, so that a seat neither the map nor the tiles can draw is
+ * not one the page cannot reach: the list beside them shows twelve, and a search was the only other way to a seat such as
+ * Howrah. Written after the count a caption already gives, and only for a few. Two seats of one name (West Bengal has two
+ * Bishnupurs) are told apart by their district.
+ */
+export function Unmapped({ seats }: { seats: readonly ElectionSeat[] }) {
+  if (seats.length === 0 || seats.length > MOST_NAMED) return null;
+  const twice = new Set(seats.map((s) => s.name).filter((name, i, all) => all.indexOf(name) !== i));
+  return (
+    <>
+      :{' '}
+      {seats.map((s, i) => {
+        const name = twice.has(s.name) && s.districtName !== null ? `${s.name} (${s.districtName})` : s.name;
+        return (
+          <Fragment key={s.versionId}>
+            {i === 0 ? null : ', '}
+            {s.href === null ? (
+              name
+            ) : (
+              <Link className="iei-body-link" href={s.href}>
+                {name}
+              </Link>
+            )}
+          </Fragment>
+        );
+      })}
+    </>
+  );
+}
 
 export function SeatTiles({ view, selection }: { view: ElectionMapView; selection: MapSelection }) {
   const { mode, seat: focusSeat } = selection;
@@ -45,12 +80,13 @@ export function SeatTiles({ view, selection }: { view: ElectionMapView; selectio
   return (
     <div className="iei-map-col" style={{ ['--iei-map-w' as string]: `calc(var(--iei-map-h) * ${aspect.toFixed(3)})` }}>
       <figure className="iei-map iei-map-tiles">
+        {/* A group, not an image, for the reason the map's is: the tiles are links (ElectionMap.tsx). The skip link is the map's too. */}
         <svg
           viewBox={`0 0 ${cols * PITCH} ${rows * PITCH}`}
-          role="img"
+          role="group"
           aria-label={`${view.election?.name ?? 'Election'}. ${MODES.find((m) => m.key === mode)?.question ?? ''} ${placed.length} of ${
             view.seats.length
-          } constituencies as equal tiles. The full result for every seat is in the list that follows.`}
+          } constituencies as equal tiles. Each seat links to its own page.`}
           style={{ aspectRatio: aspect }}
         >
           <g className="iei-tiles">
@@ -88,7 +124,8 @@ export function SeatTiles({ view, selection }: { view: ElectionMapView; selectio
           {missing === 0 ? null : (
             <>
               {' '}
-              {missing} {missing === 1 ? 'has' : 'have'} no boundary on record, so no tile.
+              {missing} {missing === 1 ? 'has' : 'have'} no boundary on record, so no tile
+              <Unmapped seats={view.seats.filter((s) => !bySeat.has(String(s.versionId)))} />.
             </>
           )}
           {mode === 'flips' && view.incomparableSeats > 0 ? (
@@ -100,6 +137,7 @@ export function SeatTiles({ view, selection }: { view: ElectionMapView; selectio
           ) : null}
         </figcaption>
       </figure>
+      <div id="after-map" />
     </div>
   );
 }

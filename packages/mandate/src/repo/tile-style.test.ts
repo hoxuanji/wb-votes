@@ -103,7 +103,7 @@ test("the classes add no element and no word: a tile's text and structure are wh
   );
 });
 
-test("every party name in a flip list is a link in the product's link treatment", () => {
+test("every party name in a flip list that is a link is in the product's link treatment, and the party that lost the seats is not a link", () => {
   const [html] = renderAll([
     `React.createElement(FlipMatrix, {
        pairs: [
@@ -114,12 +114,20 @@ test("every party name in a flip list is a link in the product's link treatment"
      })`,
   ]) as [string];
   const anchors = [...html.matchAll(/<a [^>]*>[^<]*<\/a>/g)].map((m) => m[0]);
-  assert.equal(anchors.length, 4, "two pairs link both of their parties");
+  // THE PARTY THAT LOST THE SEATS WAS A LINK TOO, and it isolated the seats that party holds now, none of the ones it lost
+  // (CPM → TMC 29 lit CPM's 26 remaining seats and not one of the 29). A link has to lead to what it names, so the party that
+  // gained the seats is the link, and the one that lost them is its name in the row.
+  assert.equal(anchors.length, 2, "two pairs link the party that gained their seats");
   for (const a of anchors) assert.match(a, /^<a class="iei-body-link" href="/, `a flip-list link has no link class: ${a}`);
   assert.deepEqual(
     anchors.map((a) => a.replace(/<[^>]*>/g, "")),
-    ["TMC", "BJP", "IND", "BJP"],
+    ["BJP", "BJP"],
     "the labels are the same words as before",
+  );
+  assert.deepEqual(
+    [...html.matchAll(/<span class="iei-flipmx-pair">.*?<\/span>(?=<span class="iei-flipmx-bar")/g)].map((m) => m[0].replace(/<[^>]*>/g, "")),
+    ["TMC→BJP", "IND→BJP"],
+    "and the losing party is still named, before the arrow",
   );
 });
 

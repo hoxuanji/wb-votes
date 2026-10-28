@@ -1,7 +1,7 @@
 import Link from 'next/link';
 import { districtHref, electionHref } from '../../../packages/mandate/src/repo/routes.ts';
 import type { ElectionChoice, ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
-import { MARGIN_BANDS, districtGroups, marginBandCounts } from '../../../packages/mandate/src/repo/election-map.ts';
+import { MARGIN_BANDS, districtGroups, marginBandCounts, stateChoicesOf } from '../../../packages/mandate/src/repo/election-map.ts';
 import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';
 import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
 import { tally } from '../../../packages/mandate/src/repo/map-selection.ts';
@@ -20,7 +20,7 @@ import type { ElectionContext } from '../../../packages/mandate/src/repo/electio
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
 import { bodyWord, chipOf } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
-import { ElectionMap, MODES, MapHead, MapSection, NoMap, ShapeTabs } from '../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, MapHead, MapSection, NO_EARLIER_ELECTION, NoMap, ShapeTabs } from '../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginBands,
@@ -166,7 +166,13 @@ export function StateSurface({
     const before = seatsBefore(r.party.key);
     return before !== undefined && before !== r.seats;
   });
+  // Eight rows, and what is left over is said under them: the rows are the biggest, not all.
+  const unlisted = landscape.slice(8);
+  const unlistedSeats = unlisted.reduce((n, r) => n + r.seats, 0);
   const narrowed = band !== null || party !== null || focused !== null;
+  // The parties this election's map can isolate, which the run of elections' rows are links to; a party in the run that won
+  // nothing here is not one of them.
+  const isolable = stateChoicesOf(view).parties;
   /**
    * HOW MANY ROWS THE LIST SHOWS, and it is the difference between a contextual list and a table.
    *
@@ -435,7 +441,7 @@ export function StateSurface({
               </details>
             )}
 
-            {/* ══ 7 · THE SEAT LIST — the current selection, and the map's accessible form ══
+            {/* ══ 7 · THE SEAT LIST — the current selection, with each seat's result ══
                 Headed with what it is and how much of it is shown, which is also where "12 of 294" is said: it used to be a
                 note under the last row, and the rows had no name. */}
             <ListHead head={head} />
@@ -490,7 +496,13 @@ export function StateSurface({
 
       {/* ══ 3 · WHAT CHANGED ══════════════════════════════════════════════════════════════════ */}
       {view.flips === null ? (
-        view.incomparableSeats === 0 ? null : (
+        view.incomparableSeats === 0 ? (
+          view.previous === null && e.fill === 'general' ? (
+            <Panel id="changed" title="What changed" question="How does this compare with the previous election?">
+              <p className="iei-absent">{NO_EARLIER_ELECTION}</p>
+            </Panel>
+          ) : null
+        ) : (
           <Panel id="changed" title="What changed" question="How does this compare with the previous election?">
             <p className="iei-absent">
               Seat-level comparison unavailable: the constituencies were redrawn after{' '}
@@ -570,45 +582,53 @@ export function StateSurface({
               hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
               mapped={mapped}
             />
-            <ul
-              className="iei-partyrows"
-              aria-label={voted ? 'Vote share, seat share and the gap between them' : 'Seat share by party'}
-            >
-              {landscape.slice(0, 8).map((r) => {
-                const before = seatsBefore(r.party.key);
-                return (
-                  <li key={r.party.key}>
-                    <Link
-                      href={selection.href({ party: r.party.key })}
-                      className={party === null ? undefined : party === r.party.key ? 'iei-legend-on' : 'iei-legend-off'}
-                    >
-                      <span className="iei-mark">
-                        <span className="iei-sw" style={{ background: fillFor(r.party.key) }} aria-hidden="true" />
-                        {r.party.label}
+            <div>
+              <ul
+                className="iei-partyrows"
+                aria-label={voted ? 'Vote share, seat share and the gap between them' : 'Seat share by party'}
+              >
+                {landscape.slice(0, 8).map((r) => {
+                  const before = seatsBefore(r.party.key);
+                  return (
+                    <li key={r.party.key}>
+                      <Link
+                        href={selection.href({ party: r.party.key })}
+                        className={party === null ? undefined : party === r.party.key ? 'iei-legend-on' : 'iei-legend-off'}
+                      >
+                        <span className="iei-mark">
+                          <span className="iei-sw" style={{ background: fillFor(r.party.key) }} aria-hidden="true" />
+                          {r.party.label}
+                        </span>
+                      </Link>
+                      <span className="iei-partyrows-bars" aria-hidden="true">
+                        {voted ? (
+                          <span className="iei-partyrows-vote" style={{ width: `${Math.min(r.votePct ?? 0, 100)}%` }} />
+                        ) : null}
+                        <span
+                          className="iei-partyrows-seat"
+                          style={{ width: `${Math.min(r.seatPct, 100)}%`, background: fillFor(r.party.key) }}
+                        />
                       </span>
-                    </Link>
-                    <span className="iei-partyrows-bars" aria-hidden="true">
-                      {voted ? (
-                        <span className="iei-partyrows-vote" style={{ width: `${Math.min(r.votePct ?? 0, 100)}%` }} />
-                      ) : null}
-                      <span
-                        className="iei-partyrows-seat"
-                        style={{ width: `${Math.min(r.seatPct, 100)}%`, background: fillFor(r.party.key) }}
-                      />
-                    </span>
-                    <span className="iei-partyrows-n">
-                      {r.seats}
-                      {before === undefined || before === r.seats ? null : (
-                        <i className={r.seats > before ? 'iei-up' : 'iei-down'}>
-                          {r.seats > before ? '+' : '−'}
-                          {Math.abs(r.seats - before)}
-                        </i>
-                      )}
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
+                      <span className="iei-partyrows-n">
+                        {r.seats}
+                        {before === undefined || before === r.seats ? null : (
+                          <i className={r.seats > before ? 'iei-up' : 'iei-down'}>
+                            {r.seats > before ? '+' : '−'}
+                            {Math.abs(r.seats - before)}
+                          </i>
+                        )}
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              {unlisted.length === 0 ? null : (
+                <p className="iei-note">
+                  Not listed: {unlisted.length} smaller {unlisted.length === 1 ? 'party' : 'parties'}, with {unlistedSeats} seat
+                  {unlistedSeats === 1 ? '' : 's'}.
+                </p>
+              )}
+            </div>
           </div>
           {voted ? (
             <p className="iei-note">
@@ -660,6 +680,7 @@ export function StateSurface({
                 data={trajectory}
                 metric="seatPct"
                 selected={party}
+                isolable={isolable}
                 hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
               />
             </div>
@@ -669,6 +690,7 @@ export function StateSurface({
                 data={trajectory}
                 metric="votePct"
                 selected={party}
+                isolable={isolable}
                 hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
               />
             </div>

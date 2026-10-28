@@ -28,27 +28,26 @@ const inc = { key: "INC", label: "INC" };
 
 test("a finding carries the numbers, so a renderer never parses a sentence", () => {
   const f: Finding = {
-    type: "seat_movement",
+    type: "vote_seat_efficiency",
     party: bjp,
-    then: 104,
-    now: 65,
-    delta: -39,
-    previousYear: 2018,
-    year: 2023,
+    votePct: 36.1,
+    seatPct: 29,
+    deltaPp: -7.1,
+    seats: 65,
+    contested: 224,
+    counted: 224,
+    seatsPerPoint: 65 / 36.1,
   };
-  // Both endpoints AND the delta are fields — a slope, a dumbbell and a diverging bar all need them, and
-  // none of the three could have got them out of "BJP lost 39 seats, 104 to 65."
-  assert.equal(f.then, 104);
-  assert.equal(f.now, 65);
-  assert.equal(f.delta, -39);
-  assert.match(summarise(f), /lost 39 seats/);
+  // Both shares AND the gap are fields — a plot, a dumbbell and a diverging bar all need them, and none of
+  // the three could have got them out of "BJP took 36.1% of the vote and 29.0% of the seats (−7.1pp)."
+  assert.equal(f.votePct, 36.1);
+  assert.equal(f.seatPct, 29);
+  assert.equal(f.deltaPp, -7.1);
+  assert.match(summarise(f), /took 36\.1% of the vote and 29\.0% of the seats \(−7\.1pp\)/);
 });
 
 test("no finding stores its own prose — summarise is the only formatter", () => {
   const samples: Finding[] = [
-    { type: "seat_movement", party: bjp, then: 104, now: 65, delta: -39, previousYear: 2018, year: 2023 },
-    { type: "party_arrival", party: inc, seats: 12, previousYear: 2018, year: 2023 },
-    { type: "party_wipeout", party: bjp, seats: 7, previousYear: 2018, year: 2023 },
     {
       type: "seat_flips",
       flipped: 115,
@@ -59,8 +58,8 @@ test("no finding stores its own prose — summarise is the only formatter", () =
       year: 2023,
     },
     { type: "seats_incomparable", count: 224, previousYear: 2004, previousEpochId: "d76", epochId: "d08" },
-    { type: "turnout_change", nowPct: 72.8, thenPct: 74, deltaPp: -1.2, previousYear: 2018, year: 2023 },
     { type: "majority", party: inc, seats: 135, contested: 224, needed: 113, holds: true },
+    { type: "vote_seat_efficiency", party: bjp, votePct: 36.1, seatPct: 29, deltaPp: -7.1, seats: 65, contested: 224, counted: 224, seatsPerPoint: null },
   ];
   for (const f of samples) {
     assert.ok(!("text" in f), `${f.type} carries a stored sentence`);
@@ -117,6 +116,7 @@ test("a share that is small but real never summarises as zero", () => {
     deltaPp: 0.15,
     seats: 1,
     contested: 543,
+    counted: 543,
     seatsPerPoint: null,
   };
   // A party that won a seat did not receive no votes. "0.0%" would be a fabrication by rounding.
@@ -126,7 +126,7 @@ test("a share that is small but real never summarises as zero", () => {
 test("ofType narrows without losing the type", () => {
   const mixed: Finding[] = [
     { type: "majority", party: inc, seats: 135, contested: 224, needed: 113, holds: true },
-    { type: "turnout_change", nowPct: 72.8, thenPct: 74, deltaPp: -1.2, previousYear: 2018, year: 2023 },
+    { type: "seats_incomparable", count: 224, previousYear: 2004, previousEpochId: "d76", epochId: "d08" },
   ];
   const majorities = ofType(mixed, "majority");
   assert.equal(majorities.length, 1);

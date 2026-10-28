@@ -25,7 +25,7 @@ import { readRegistry } from '../../../../packages/mandate/src/repo/session.ts';
 import { bodyWord } from '../../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../../packages/mandate/src/viz/party-ink.ts';
 import { Foot, Shell } from '../../../components/iei/Shell.tsx';
-import { ElectionMap, MODES, MapHead, MapSection, NoMap, ShapeTabs } from '../../../components/iei/ElectionMap.tsx';
+import { ElectionMap, MODES, MapHead, MapSection, NO_EARLIER_ELECTION, NoMap, ShapeTabs } from '../../../components/iei/ElectionMap.tsx';
 import {
   FlipMatrix,
   MarginDistribution,
@@ -451,9 +451,7 @@ export default function ElectionPage({
           // NO EARLIER ELECTION, NO REDRAW. A first election has every seat "incomparable" by construction, and the redraw
           // sentence would blame a delimitation the registry does not hold. A by-election has no comparison to be missing.
           <Panel id="flips" title="How power moved" question="What changed since the previous election?">
-            <p className="iei-absent">
-              No earlier election of this house is on record, so there is nothing to compare this one with.
-            </p>
+            <p className="iei-absent">{NO_EARLIER_ELECTION}</p>
           </Panel>
         ) : v.incomparableSeats === 0 ? null : (
           <Panel id="flips" title="How power moved" question="What changed since the previous election?">
