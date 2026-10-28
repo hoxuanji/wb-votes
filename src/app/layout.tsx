@@ -16,8 +16,7 @@ import type { Metadata, Viewport } from 'next';
  * field is empty for every candidate. A webfont fetched on every page load to render text that does
  * not exist is the clearest case of paying for something no reader receives.
  *
- * ponytail: still no shell component here. Shell is mounted by the pages, because /review/merges is an
- * internal resolution queue and must not wear the product's chrome.
+ * ponytail: still no shell component here. Shell is mounted by the pages.
  */
 
 export const viewport: Viewport = {
@@ -28,6 +27,8 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
+  // The default is the home page's. Every other page gives its own (packages/mandate/src/repo/page-title.ts) and the
+  // template adds the product's name after it.
   title: {
     default: 'India Election Intelligence',
     template: '%s · India Election Intelligence',
@@ -37,7 +38,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'India Election Intelligence',
     description:
-      'Every figure carries its source. Assembly and Lok Sabha elections across 36 states and union territories, and a counted account of what is not loaded.',
+      'Every figure carries its source. The assembly and Lok Sabha elections the registry holds, and a counted account of what is not loaded.',
     type: 'website',
     locale: 'en_IN',
     siteName: 'India Election Intelligence',

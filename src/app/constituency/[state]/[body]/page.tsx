@@ -1,8 +1,13 @@
 import { follow } from '../../../_place/follow.tsx';
 import { legacyTarget } from '../../../../../packages/mandate/src/repo/legacy.ts';
+import { legacyTitle } from '../../../../../packages/mandate/src/repo/page-title.ts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+export function generateMetadata({ params }: { params: { state: string; body: string } }) {
+  return { title: legacyTitle(legacyTarget({ route: 'constituency-name', state: params.state, body: params.body })) };
+}
 
 /**
  * `/constituency/<state>/<name>` — THE PRE-BODY URL, and it does not guess.

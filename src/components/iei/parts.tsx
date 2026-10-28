@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { fromRepo, href } from '../../../packages/mandate/src/repo/brief.ts';
 import type { SourceRef } from '../../../packages/mandate/src/repo/index.ts';
 import { ABSENT } from '../../../packages/mandate/src/semantic/measures.ts';
 
@@ -550,20 +551,34 @@ export function Crumbs({ trail }: { trail: readonly { label: string; href?: stri
  * One wording. There were five: the homepage, `/pl`, `/p`, `/coverage` and `/search` each said "the
  * registry is not built in this checkout" in different words, and two of them said it without the command
  * that fixes it. A reader who has just cloned this repository sees the same sentence wherever they land.
+ *
+ * It is the page's h1, because on most routes it is the only heading there is. Under a page that has an h1 of its
+ * own, `level={2}` keeps the page to one; and a page whose headline already says "nothing here" passes no title and
+ * leaves the explanation to this.
  */
-export function EmptyState({ title, detail }: { title: string; detail?: React.ReactNode }) {
+export function EmptyState({
+  title,
+  detail,
+  level = 1,
+}: {
+  title?: string;
+  detail?: React.ReactNode;
+  level?: 1 | 2;
+}) {
+  const Heading = level === 1 ? 'h1' : 'h2';
   return (
     <div className="iei-empty">
-      <h1 className="iei-answer">{title}</h1>
+      {title === undefined ? null : <Heading className="iei-answer">{title}</Heading>}
       {detail === undefined ? null : <p className="iei-sub">{detail}</p>}
     </div>
   );
 }
 
 /** The one place the "build the registry" instruction is written. */
-export function RegistryMissing() {
+export function RegistryMissing({ level }: { level?: 1 | 2 }) {
   return (
     <EmptyState
+      level={level}
       title="The registry is not built in this checkout."
       detail={
         <>
@@ -611,7 +626,8 @@ export function Evidence({
 }) {
   const fetched = sources.filter((s) => s.retrievalKind === 'fetched').length;
   const n = sources.length;
-  const name = `${label === undefined ? 'Sources' : `Sources for ${label}`}: ${n}`;
+  // The visible words come first: a reader who says what is on screen ("click 2 sources") has to reach it by that.
+  const name = `${n} source${n === 1 ? '' : 's'}${label === undefined ? '' : ` for ${label}`}`;
   return (
     <details className={inline ? 'iei-ev iei-ev-inline' : 'iei-ev'}>
       <summary aria-label={name}>
@@ -637,11 +653,7 @@ export function Evidence({
                     attribution is what the licence asks for in exchange. */}
                 {s.licence === null || s.licence === '' ? null : ` · ${s.licence}`}
               </span>
-              {s.url === null ? null : (
-                <a className="iei-ev-a" href={s.url} rel="nofollow noopener" target="_blank">
-                  open source
-                </a>
-              )}
+              <SourceLink source={s} />
             </li>
           ))}
         </ul>
@@ -654,6 +666,24 @@ export function Evidence({
       </div>
     </details>
   );
+}
+
+/**
+ * The way into one source: a link where it has a web address, and its path where it is a file of this repository.
+ *
+ * A `repo:` url is the second, and no browser opens that scheme, so the path is the citation and is printed rather
+ * than linked. What the words of a link say is for whoever hears it out of its place under the publisher's name.
+ */
+function SourceLink({ source: s }: { source: SourceRef }) {
+  const url = href(s);
+  if (url !== null) {
+    return (
+      <a className="iei-ev-a" href={url} rel="nofollow noopener" target="_blank">
+        open source<span className="iei-sr"> of {s.publisher ?? s.title ?? 'this source'}</span>
+      </a>
+    );
+  }
+  return fromRepo(s) ? <span className="iei-rule">in this repository: {s.url?.replace(/^repo:/, '')}</span> : null;
 }
 
 /** Source ids are content-derived and carry the digest; the last segment is enough to match a manifest. */

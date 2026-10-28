@@ -340,7 +340,7 @@ test("a state and a district name themselves in the document title, and name the
   assert.equal(state.alternates?.canonical, "/state/tt", "/state/TT is the same page as /state/tt");
 
   const district = metadata("./src/app/district/[state]/[district]/page.tsx", { state: "tt", district: "North" });
-  assert.equal(district.title, "North, Tt State");
+  assert.equal(district.title, "North · District, Tt State");
   assert.equal(district.alternates?.canonical, "/district/tt/d1");
 
   // A place the registry does not hold keeps the site's own title: the page is a 404 and has nothing to name.

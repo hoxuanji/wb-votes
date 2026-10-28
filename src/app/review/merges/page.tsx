@@ -159,7 +159,7 @@ export default function MergeReview({
           <h1 className="iei-answer">Are these two records the same person?</h1>
         </div>
 
-        {unavailable && <RegistryMissing />}
+        {unavailable && <RegistryMissing level={2} />}
 
         {est !== null && (
           <>

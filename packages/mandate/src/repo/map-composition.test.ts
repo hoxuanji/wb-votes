@@ -184,8 +184,8 @@ test("the heading the map section used to print is there for a screen reader and
   assert.equal(html.split("<h1").length - 1, 1);
   assert.match(html, /<h2 id="map-h" class="iei-sr">[^<]*<\/h2><div class="iei-controls">/);
   assert.doesNotMatch(html, /<div class="iei-h"><div class="iei-h-title"><h2 id="map-h"/);
-  // The drawer still names what it is evidence for.
-  assert.match(html, /aria-label="Sources for Aa State · Winners: \d+"/);
+  // The drawer still names what it is evidence for, after the words it shows.
+  assert.match(html, /aria-label="\d+ sources? for Aa State · Winners"/);
 });
 
 test("the evidence drawer shares the header's eyebrow line, and is not a section heading's", () => {

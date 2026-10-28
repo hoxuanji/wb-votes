@@ -394,6 +394,30 @@ test("tiles: 4-6, every one carries a source, no tile without a figure", () => {
   assert.equal(t.find((x) => x.label === "Contests fought")?.source?.id, "s2");
 });
 
+test("tiles: the assets tile says it is self-declared in its hint, because as a unit it split at its hyphen", () => {
+  const t = tiles(
+    brief({
+      candidacies: [cand({ year: 2021 })],
+      affidavitTrail: [
+        {
+          year: 2021,
+          filedOn: "2021-03-01",
+          assetsTotal: 12000000,
+          liabilitiesTotal: null,
+          movable: null,
+          immovable: null,
+          pendingCasesDeclared: null,
+          sourceId: "s1",
+        },
+      ],
+      sources: [SRC, RESULTS],
+    }),
+  );
+  const assets = t.find((x) => x.label === "Declared assets");
+  assert.equal(assets?.unit, null);
+  assert.equal(assets?.note, "self-declared, affidavit 2021");
+});
+
 test("tiles: a figure with no resolvable source gets none", () => {
   const t = tiles(brief({ candidacies: [cand({})], sources: [] }));
   assert.equal(t[0]?.source, null);

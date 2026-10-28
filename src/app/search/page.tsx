@@ -204,7 +204,6 @@ export default function SearchPage({
 
       {q !== '' && r.total === 0 && r.alike.length === 0 ? (
         <EmptyState
-          title="Nothing here matches that."
           detail={
             <>
               What is loaded is on <Link href="/coverage">/coverage</Link>, counted rather than described: 36

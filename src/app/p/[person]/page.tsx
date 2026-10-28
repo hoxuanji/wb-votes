@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { PersonBrief } from "../../../../packages/mandate/src/repo/index.ts";
 import type { Problem } from "../../../../packages/mandate/src/repo/envelope.ts";
 import { personReply } from "../../../../packages/mandate/src/repo/envelope.ts";
+import { personTitle } from "../../../../packages/mandate/src/repo/page-title.ts";
 import {
   deltas,
   headline,
@@ -30,6 +31,10 @@ import "../../iei.css";
 // Constraint 7: .data/ is gitignored, so this route can never be prerendered.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export function generateMetadata({ params }: { params: { person: string } }) {
+  return { title: personTitle(params.person) };
+}
 
 /**
  * `/p/<person>` — one person, and everything the registry holds about them.

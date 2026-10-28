@@ -304,8 +304,9 @@ export function tiles(b: PersonBrief): Tile[] {
     out.push({
       label: "Declared assets",
       value: rupees(assets.assetsTotal ?? 0),
-      unit: "self-declared",
-      note: `affidavit ${assets.year}`,
+      // In the hint and not the unit: as a unit it broke at its hyphen and made this tile a line taller than its row.
+      unit: null,
+      note: `self-declared, affidavit ${assets.year}`,
       source: byId(b.sources, assets.sourceId),
     });
   }

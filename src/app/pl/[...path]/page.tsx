@@ -1,8 +1,19 @@
 import { follow } from '../../_place/follow.tsx';
 import { legacyTarget } from '../../../../packages/mandate/src/repo/legacy.ts';
+import { legacyTitle } from '../../../../packages/mandate/src/repo/page-title.ts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+export function generateMetadata({
+  params,
+  searchParams,
+}: {
+  params: { path?: string[] };
+  searchParams?: Record<string, string | string[] | undefined>;
+}) {
+  return { title: legacyTitle(legacyTarget({ route: 'pl-path', path: params.path ?? [], search: searchParams ?? {} })) };
+}
 
 /**
  * `/pl/*` — COMPATIBILITY ONLY. It renders nothing, unless the path names more than one seat.
