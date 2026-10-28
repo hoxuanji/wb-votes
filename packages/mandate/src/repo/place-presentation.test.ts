@@ -173,6 +173,7 @@ function analysisOf(parts: Partial<PlaceAnalysis>): PlaceAnalysis {
     enpSeries: [],
     retention: [],
     demographics: [],
+    filters: {},
     ...parts,
   } as unknown as PlaceAnalysis;
 }
@@ -281,7 +282,7 @@ test("anomalies: no recount-scale flag is built from an unverified election's vo
 test("analysisCards: where a margin is on record and its share is not, the card says the margin in votes and tabulates it", () => {
   const winner = { partyId: "AITC", shortName: "TMC", personName: "Yusuf Pathan", votes: null, voteSharePct: null, rank: 1, won: true };
   const cards = analysisCards(
-    analysisOf({ marginSeries: [{ electionId: "ls-2024", year: 2024, marginVotes: 85_022, marginPct: null, winner, runnerUp: null }] }),
+    analysisOf({ marginSeries: [{ electionId: "ls-2024", year: 2024, marginVotes: 85_022, marginPct: null, winner, runnerUp: null, unverified: false }] }),
   );
   const card = cards.find((c) => /safer or closer/.test(c.question));
   assert.ok(card);
@@ -305,7 +306,7 @@ test("analysisCards: a repeated label's swing rows are named, and the share note
   assert.ok(swing);
   const labels = swing.chart.table.rows.map((r) => r[0]);
   assert.deepEqual(labels, ["IND · Ruden Sada Lepcha", "BJP", "IND · Dr. R.B. Bhujel"]);
-  assert.match(swing.chart.table.caption, /a single recorded 2016 share/);
+  assert.match(swing.chart.fact ?? "", /a single recorded 2016 share/);
   const share = cards.find((c) => /Who took what share/.test(c.question));
   assert.ok(share === undefined || !/votes card below names each of them/.test(share.note ?? ""));
 });

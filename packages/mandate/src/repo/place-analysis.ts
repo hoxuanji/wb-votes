@@ -6,8 +6,8 @@
 // all come from semantic/measures.ts — that layer exists precisely so this file cannot become the
 // second definition of turnout.
 //
-// FIVE fixed queries, whatever the number of elections or parties: place · contest×candidacy ·
-// district+state turnout baselines · demographic claims · sources.
+// SIX fixed queries, whatever the number of elections or parties: place · contest×candidacy ·
+// district+state turnout baselines · which elections' turnout is unverified · demographic claims · sources.
 
 import type { DatabaseSync } from "node:sqlite";
 import type { Reservation } from "../core/index.ts";
@@ -27,13 +27,15 @@ import { counted } from "./person.ts";
 import type { DemographicFigure } from "./place.ts";
 import { demographicClaims, groupDemographics } from "./place.ts";
 import { sameSeat } from "./seat-comparison.ts";
+import { unverifiedTurnout } from "./turnout-trust.ts";
 
 /** Exactly what the Analysis page's URL exposes. A fourth filter would be a parameter with no
  *  caller. */
 export type PlaceAnalysisFilters = { fromYear?: number; toYear?: number; party?: string };
 
-/** §24 caps entity-keyed colour at three hues on the dark surface (§05-craft, all-pairs CVD run),
- *  so three parties are named and the tail is folded — the fold is DATA, not the page's guess. */
+/** Three parties are named at each election and the tail is folded into `others`, which still lists who is in it
+ *  (`others.parties`), so the fold is DATA and not the page's guess. A party's colour does not come from this: it is its
+ *  ink, wherever it is drawn. */
 export const PARTY_CAP = 3;
 
 export type PartyPoint = {
@@ -51,10 +53,14 @@ export type TurnoutPoint = {
   year: number;
   electors: number | null;
   voters: number | null;
+  /** The three percentages here are null, and never a figure, where `unverified`. */
   turnoutPct: number | null;
   /** §6.5: a bare 96.6% says nothing. Same election, same measure, wider electorate. */
   districtTurnoutPct: number | null;
   stateTurnoutPct: number | null;
+  /** The election published no candidate vote counts, so its turnout has nothing to be reconciled against
+   *  (turnout-trust.ts). `electors` and `voters` stay: they are what the source said, not what we claim. */
+  unverified: boolean;
 };
 
 export type PartySharePoint = {
@@ -62,8 +68,9 @@ export type PartySharePoint = {
   year: number;
   /** At most PARTY_CAP, share-descending. */
   parties: PartyPoint[];
-  /** null when nothing was folded. `count` is how many parties the bucket stands for. */
-  others: { count: number; votes: number | null; voteSharePct: number | null } | null;
+  /** null when nothing was folded. `count` is how many candidacies the bucket stands for and `parties` is who
+   *  they are, in rank order, so a page can name what it folded rather than hide a runner-up inside it. */
+  others: { count: number; votes: number | null; voteSharePct: number | null; parties: PartyPoint[] } | null;
 };
 
 export type SwingPoint = {
@@ -86,7 +93,10 @@ export type MarginPoint = {
   electionId: string;
   year: number;
   marginVotes: number | null;
+  /** null where `unverified`: the share divides by the votes cast of an election whose turnout is withheld. The
+   *  margin in votes is the source's declaration and stays. */
   marginPct: number | null;
+  unverified: boolean;
   winner: PartyPoint | null;
   runnerUp: PartyPoint | null;
 };
@@ -303,6 +313,9 @@ export function getPlaceAnalysis(
       .map((c, i) => [c, contests[i + 1]] as const)
       .filter((x): x is readonly [Contest, Contest] => x[1] !== undefined);
     const epochIds = [...new Set(contests.map((c) => c.epochId))].sort();
+    // Decided once per election, by the rule every other page uses, so this page cannot print a turnout that the
+    // Brief of the same seat withholds.
+    const unverified = unverifiedTurnout(db, [...new Set(contests.map((c) => c.electionId))]);
 
     return {
       place: {
@@ -320,20 +333,23 @@ export function getPlaceAnalysis(
       filters,
       turnoutSeries: contests.map((c) => {
         const b = baseline.get(c.electionId);
+        const held = unverified.has(c.electionId);
         return {
           electionId: c.electionId,
           year: c.year,
           electors: c.electors,
           voters: c.voters,
-          turnoutPct: turnout_pct.compute({ voters: c.voters, electors: c.electors }),
+          // The district and state baselines are sums over the same unverified rows, so they go with the seat.
+          turnoutPct: held ? null : turnout_pct.compute({ voters: c.voters, electors: c.electors }),
           districtTurnoutPct:
-            b === undefined
+            b === undefined || held
               ? null
               : turnout_pct.compute({ voters: b.d_voters, electors: b.d_electors }),
           stateTurnoutPct:
-            b === undefined
+            b === undefined || held
               ? null
               : turnout_pct.compute({ voters: b.s_voters, electors: b.s_electors }),
+          unverified: held,
         };
       }),
       partyShareSeries: contests.map((c) => fold(c, filters.party)),
@@ -344,12 +360,16 @@ export function getPlaceAnalysis(
         marginVotes: c.marginVotes,
         // result.margin IS (rank-1 − rank-2) as published, so it is the measure's numerator. Going
         // through the two vote columns instead would lose 2026, where votes are 0 (declared, not
-        // counted) but the margin is on record.
-        marginPct: margin_pct.compute({
-          rank1Votes: c.marginVotes,
-          rank2Votes: 0,
-          validVotes: c.voters,
-        }),
+        // counted) but the margin is on record. Its denominator is the votes cast of an election whose turnout
+        // is withheld, so the share is withheld with it and the margin in votes stands.
+        marginPct: unverified.has(c.electionId)
+          ? null
+          : margin_pct.compute({
+              rank1Votes: c.marginVotes,
+              rank2Votes: 0,
+              validVotes: c.voters,
+            }),
+        unverified: unverified.has(c.electionId),
         winner: c.runners.find((r) => r.won) ?? null,
         runnerUp: c.runners.find((r) => r.rank === 2) ?? null,
       })),
@@ -460,6 +480,7 @@ function fold(c: Contest, party: string | undefined): PartySharePoint {
             // Summed from the shares actually on record, so it reconciles with `parties` and stays
             // silent about the missing tail rather than inventing a residual.
             voteSharePct: sumShares(rest),
+            parties: rest,
           },
   };
 }

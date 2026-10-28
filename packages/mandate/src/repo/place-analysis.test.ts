@@ -47,12 +47,12 @@ function counting(real: DatabaseSync): { db: DatabaseSync; count: () => number }
   return { db: proxy, count: () => n };
 }
 
-test("getPlaceAnalysis: five fixed queries, four elections newest-first, cited", { skip }, () => {
+test("getPlaceAnalysis: six fixed queries, four elections newest-first, cited", { skip }, () => {
   const d = openRead(DEV_DB_PATH);
   const { db, count } = counting(d);
   const a = getPlaceAnalysis(db, versionOf(d, "wb.ac.001"));
   assert.ok(a);
-  assert.equal(count(), 5, "place · contests · baselines · demographics · sources");
+  assert.equal(count(), 6, "place · contests · baselines · trust · demographics · sources");
 
   assert.equal(a.place.id, "wb.ac.001");
   assert.equal(a.place.districtId, "wb.cooch-behar");
@@ -77,19 +77,39 @@ test("getPlaceAnalysis: turnout reads against the district and state baseline", 
   const d = openRead(DEV_DB_PATH);
   const a = getPlaceAnalysis(d, versionOf(d, "wb.ac.001"));
   assert.ok(a);
-  const t2026 = a.turnoutSeries.find((x) => x.year === 2026);
-  assert.ok(t2026);
-  assert.equal(t2026.turnoutPct, 96.6, "Mekliganj 2026, the upstream figure");
-  // §6.5: a bare 96.6% means nothing. The baselines must be real, different, and plausible.
-  assert.ok(t2026.districtTurnoutPct !== null && t2026.stateTurnoutPct !== null);
-  assert.notEqual(t2026.districtTurnoutPct, t2026.turnoutPct);
-  assert.notEqual(t2026.stateTurnoutPct, t2026.turnoutPct);
-  assert.notEqual(t2026.stateTurnoutPct, t2026.districtTurnoutPct);
-  for (const t of a.turnoutSeries) {
+  const t2021 = a.turnoutSeries.find((x) => x.year === 2021);
+  assert.ok(t2021);
+  assert.equal(t2021.turnoutPct, 87.8, "Mekliganj 2021");
+  // §6.5: a bare 87.8% means nothing. The baselines must be real, different, and plausible.
+  assert.ok(t2021.districtTurnoutPct !== null && t2021.stateTurnoutPct !== null);
+  assert.notEqual(t2021.districtTurnoutPct, t2021.turnoutPct);
+  assert.notEqual(t2021.stateTurnoutPct, t2021.turnoutPct);
+  assert.notEqual(t2021.stateTurnoutPct, t2021.districtTurnoutPct);
+  for (const t of a.turnoutSeries.filter((x) => !x.unverified)) {
     for (const v of [t.turnoutPct, t.districtTurnoutPct, t.stateTurnoutPct]) {
       assert.ok(v !== null && v > 50 && v <= 100, `${t.year}: ${String(v)}`);
     }
   }
+  d.close();
+});
+
+test("getPlaceAnalysis: an unverified election's turnout is withheld, at the seat, the district and the state", { skip }, () => {
+  const d = openRead(DEV_DB_PATH);
+  const a = getPlaceAnalysis(d, versionOf(d, "wb.ac.001"));
+  assert.ok(a);
+  // West Bengal 2026 published no candidate vote counts, so its 96.6% / 96.4% / 93.0% have nothing to be
+  // reconciled against (turnout-trust.ts). The brief withholds them; the analysis must not print them.
+  const t2026 = a.turnoutSeries.find((x) => x.year === 2026);
+  assert.ok(t2026);
+  assert.equal(t2026.unverified, true);
+  assert.deepEqual([t2026.turnoutPct, t2026.districtTurnoutPct, t2026.stateTurnoutPct], [null, null, null]);
+  // The roll and the count are facts about the source, not claims built on the turnout, and stay.
+  assert.equal(t2026.electors, 224_413);
+  assert.deepEqual(
+    a.turnoutSeries.filter((x) => x.unverified).map((x) => x.year),
+    [2026],
+    "the three counted elections are verified",
+  );
   d.close();
 });
 
@@ -108,6 +128,21 @@ test("getPlaceAnalysis: party fold caps at three and its count reconciles", { sk
   assert.equal(p2021.others.count, 2, "SUCI(C) and BSP folded");
   assert.equal(p2021.others.votes, 1768 + 1025);
   assert.equal(p2021.others.voteSharePct, 1.4, "0.89 + 0.52 to one dp");
+  // The bucket is data about who is in it, so a page can name them rather than print "Others (2)".
+  assert.deepEqual(
+    p2021.others.parties.map((x) => [x.shortName, x.votes]),
+    [
+      ["SUCI(C)", 1768],
+      ["BSP", 1025],
+    ],
+    "rank order, with each one's own figures",
+  );
+  const p2011 = a.partyShareSeries.find((x) => x.year === 2011);
+  assert.deepEqual(
+    p2011?.others?.parties.map((x) => x.shortName),
+    ["BJP", "BSP"],
+    "BJP polled 2.5% in 2011 and sits in the fold, not outside the record",
+  );
   // The fold accounts for the whole recorded field: named + others = contestants on record.
   const enp2021 = a.enpSeries.find((x) => x.year === 2021);
   assert.equal(p2021.parties.length + p2021.others.count, enp2021?.contestants);
@@ -165,8 +200,12 @@ test("getPlaceAnalysis: margin, enp and retention per election", { skip }, () =>
   assert.equal(m2011?.marginPct, 22.1, "32632 / 147357");
   assert.equal(m2011?.winner?.shortName, "AIFB");
   assert.equal(m2011?.runnerUp?.shortName, "INC");
-  // 2026: votes are 0 (declared, uncounted) but the margin is on record, so marginPct survives.
-  assert.equal(a.marginSeries.find((x) => x.year === 2026)?.marginPct, 13.6);
+  // 2026: votes are 0 (declared, uncounted) so the margin in votes is on record, but its SHARE divides by the
+  // votes cast of an unverified election and is withheld (GLOSSARY: Margin share).
+  const m2026 = a.marginSeries.find((x) => x.year === 2026);
+  assert.equal(m2026?.marginVotes, 29_584);
+  assert.equal(m2026?.marginPct, null);
+  assert.equal(m2026?.unverified, true);
 
   const e = a.enpSeries.find((x) => x.year === 2021);
   assert.ok(e && e.enp !== null && e.enp > 1 && e.enp < 3, `two-horse 2021: ${String(e?.enp)}`);
@@ -199,7 +238,7 @@ test("getPlaceAnalysis: filters narrow the result", { skip }, () => {
   const { db, count } = counting(openRead(DEV_DB_PATH));
   const narrow = getPlaceAnalysis(db, versionOf(d, "wb.ac.001"), { fromYear: 2016, toYear: 2021 });
   assert.ok(narrow);
-  assert.equal(count(), 5, "filters do not cost a query");
+  assert.equal(count(), 6, "filters do not cost a query");
   assert.deepEqual(
     narrow.turnoutSeries.map((t) => t.year),
     [2021, 2016],

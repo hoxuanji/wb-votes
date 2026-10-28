@@ -127,7 +127,7 @@ test("hueMap refuses a fourth hue: past three, every key gets the neutral", () =
   assert.equal(new Set([...many.values()]).size, 4); // 3 hues + the neutral
 });
 
-test("a fourth line series is folded into a summed, neutral Others", () => {
+test("a fourth line series is folded into a summed, neutral Others on the chart, and the table keeps every series", () => {
   const c = lines({
     title: "Party share over time",
     finding: "AITC held its plurality throughout",
@@ -142,17 +142,20 @@ test("a fourth line series is folded into a summed, neutral Others", () => {
     ],
     format: percent,
   });
-  assert.deepEqual(c.table.headers, ["Election", "AITC", "BJP", "CPI(M)", "Others (2)"]);
-  // 8 + 6 = 14 in 2016, summed rather than dropped
-  assert.deepEqual(c.table.rows[1], ["2016", "45.0%", "10.0%", "26.0%", "8.0%"]);
-  assert.deepEqual(c.table.rows[0], ["2011", "45.0%", "5.0%", "30.0%", "10.0%"]);
+  // The table is the exact form: it lists INC, which the chart folds, so no recorded figure is only inside a sum.
+  assert.deepEqual(c.table.headers, ["Election", "AITC", "BJP", "CPI(M)", "INC", "Others"]);
+  assert.deepEqual(c.table.rows[1], ["2016", "45.0%", "10.0%", "26.0%", "6.0%", "2.0%"]);
+  assert.deepEqual(c.table.rows[0], ["2011", "45.0%", "5.0%", "30.0%", "8.0%", "2.0%"]);
+  // The chart draws INC and Others as one grey line, 8 + 2 = 10 in 2011, summed rather than dropped.
+  assert.ok(c.svg.includes(">Others (2)</tspan>"), "the folded line is named once, with the series it stands for");
+  assert.ok(!c.svg.includes(">INC</tspan>"));
   // exactly three categorical hues in the markup, plus the neutral
   for (const hue of CATEGORICAL.slice(0, 3)) assert.ok(c.svg.includes(hue), `${hue} missing`);
   for (const hue of CATEGORICAL.slice(3)) assert.ok(!c.svg.includes(hue), `${hue} leaked past the cap`);
   assert.ok(c.svg.includes(OTHERS));
 });
 
-test("the line fold ranks on each series' peak, so a party that won an early election keeps its column", () => {
+test("the line fold ranks on each series' peak, so a party that won an early election keeps its line", () => {
   // Mekliganj's real shape: AIFB won 2011 with 48.9% and collapsed to 3.4% by 2021, while INC's only
   // recorded share is 26.7% in 2011. Ranking on "the last value I can find" compared INC's 2011
   // against AIFB's 2021 and folded the 2011 WINNER into an unlabelled grey line.
@@ -169,8 +172,108 @@ test("the line fold ranks on each series' peak, so a party that won an early ele
     ],
     format: percent,
   });
-  assert.deepEqual(c.table.headers, ["Election", "TMC", "AIFB", "BJP", "Others (1)"]);
+  // AIFB keeps its line and INC, whose only share is 26.7% in 2011, goes into the grey one.
+  assert.ok(c.svg.includes(">AIFB</tspan>") && c.svg.includes(">Others (1)</tspan>"));
+  assert.ok(!c.svg.includes(">INC</tspan>"));
+  // The table is not folded, so the 2011 runner-up is a column of its own.
+  assert.deepEqual(c.table.headers, ["Election", "TMC", "AIFB", "BJP", "INC"]);
   assert.deepEqual(c.table.rows[0], ["2011", "—", "48.9%", "—", "26.7%"]);
+});
+
+test("a series may bring its own colour, and then takes none of the capped hues", () => {
+  const c = lines({
+    title: "Vote share by party",
+    finding: "TMC took 50.0% in 2021",
+    x: [...ELECTIONS],
+    xHeader: "Election",
+    series: [
+      { key: "TMC", label: "TMC", values: [null, 41.3, 50, null], colour: "#4bbe7f" },
+      { key: "BJP", label: "BJP", values: [null, 12.9, 42.6, null], colour: "#f4993c" },
+      { key: "AIFB", label: "AIFB", values: [48.9, 37.7, 3.4, null], colour: "#97ad80" },
+      { key: "INC", label: "INC", values: [26.7, null, null, null], colour: "#37a8ec" },
+    ],
+    format: percent,
+  });
+  const f = frame(c.svg);
+  for (const own of ["#4bbe7f", "#f4993c", "#97ad80"]) assert.ok(f.includes(`stroke="${own}"`), `${own} missing`);
+  assert.ok(!f.includes("#37a8ec"), "a folded party's colour is not drawn: it is in the grey line");
+  assert.ok(f.includes(`fill="${OTHERS}"`), "the fold is the neutral (one point, so a marker and no line)");
+  for (const hue of CATEGORICAL) assert.ok(!f.includes(hue), `${hue} was handed out to a series that had its own`);
+});
+
+test("a series with no colour of its own still takes the capped hues in order, beside one that has", () => {
+  const c = lines({
+    title: "Turnout",
+    finding: "x",
+    x: ["2016", "2021"],
+    xHeader: "Election",
+    series: [
+      { key: "seat", label: "Seat", values: [80, 82] },
+      { key: "own", label: "Own", values: [70, 72], colour: "#123456" },
+      { key: "state", label: "State", values: [60, 62] },
+    ],
+    format: percent,
+  });
+  const f = frame(c.svg);
+  assert.ok(f.includes(`stroke="${CATEGORICAL[0]}"`) && f.includes(`stroke="${CATEGORICAL[1]}"`));
+  assert.ok(f.includes('stroke="#123456"') && !f.includes(CATEGORICAL[2]));
+});
+
+test("a missing figure is words in the table where the caller knows why, and a dash where it does not", () => {
+  const c = lines({
+    title: "Turnout",
+    finding: "x",
+    x: ["2016", "2021", "2026"],
+    xHeader: "Election",
+    series: [
+      { key: "a", label: "Seat", values: [80, 82, null], absent: [undefined, undefined, "withheld"] },
+      { key: "b", label: "State", values: [null, 62, null] },
+    ],
+    format: percent,
+  });
+  assert.deepEqual(c.table.rows, [
+    ["2016", "80.0%", "—"],
+    ["2021", "82.0%", "62.0%"],
+    ["2026", "withheld", "—"],
+  ]);
+  const b = bars({
+    title: "Votes polled, 2026",
+    finding: "x",
+    dimension: "Party",
+    valueHeader: "Votes",
+    points: [{ label: "BJP", value: null, absent: "no counts" }, { label: "TMC", value: null }],
+    format: (v) => (v === null ? "—" : String(v)),
+  });
+  assert.deepEqual(b.table.rows, [["BJP", "no counts"], ["TMC", "—"]]);
+  const s = slope({
+    title: "Swing",
+    finding: "x",
+    dimension: "Party",
+    fromLabel: "2021",
+    toLabel: "2026",
+    rows: [{ label: "BJP", from: 42.6, to: null, absent: { to: "no counts", change: "no swing" } }],
+    format: percent,
+    delta: percentagePoints,
+  });
+  assert.deepEqual(s.table.rows, [["BJP", "42.6%", "no counts", "no swing"]]);
+});
+
+test("a bar may bring its own colour, and then takes none of the capped hues", () => {
+  const fills = (svg: string): string[] =>
+    [...svg.matchAll(/<path d="[^"]*" fill="(#[0-9a-fA-F]{6})"/g)].flatMap((m) => (m[1] ? [m[1]] : []));
+  const c = bars({
+    title: "Votes polled, 2021",
+    finding: "x",
+    dimension: "Party",
+    valueHeader: "Votes",
+    points: [
+      { label: "TMC", value: 99_338, key: "TMC", colour: "#4bbe7f" },
+      { label: "BJP", value: 84_653, key: "BJP", colour: "#f4993c" },
+      { label: "AIFB", value: 6_853, key: "AIFB" },
+    ],
+    format: (v) => (v === null ? "—" : String(v)),
+  });
+  assert.deepEqual(fills(frame(c.svg)), ["#4bbe7f", "#f4993c", CATEGORICAL[0]]);
 });
 
 test("bars caps entity colour at three hues without folding any row away", () => {
@@ -606,7 +709,8 @@ test("an empty series states a fact instead of framing an empty axis", () => {
   assert.equal(b.svg, "");
   assert.equal(b.fact, "The 2026 election has no results in the registry yet.");
   assert.deepEqual(b.table.rows, []);
-  assert.ok(b.table.caption.includes("Vote share, 2026"));
+  // The page prints the fact as a line of its own, so a caption that repeated it printed the sentence twice.
+  assert.equal(b.table.caption, "Vote share, 2026");
 
   // all-null is the same case: no axis frame
   const l = lines({
@@ -634,6 +738,31 @@ test("an empty series states a fact instead of framing an empty axis", () => {
   assert.equal(s.svg, "");
   assert.equal(s.fact, "2026 has not been held.");
   assert.deepEqual(s.table.rows, [["AITC", "48.1%", "—", "—"]], "the one known figure still reaches the table");
+});
+
+// ── a swing is drawn against zero ───────────────────────────────────────────────────────────────
+
+test("a swing is drawn from zero, so a point's move is not stretched across the whole plot", () => {
+  const rise = (rows: { label: string; from: number; to: number }[]): number => {
+    const svg = slope({
+      title: "Swing",
+      finding: "x",
+      dimension: "Party",
+      fromLabel: "2016",
+      toLabel: "2021",
+      rows,
+      format: percent,
+      delta: percentagePoints,
+    }).svg;
+    const ys = [...frame(svg).matchAll(/<circle cx="[\d.]+" cy="([\d.]+)"/g)].map((m) => Number(m[1]));
+    return Math.abs((ys[0] ?? 0) - (ys[1] ?? 0));
+  };
+  // SUCI(C) at Mekliganj: 1.2% to 0.9%. Fitted to its own two values this ran corner to corner of a 220px plot.
+  const small = rise([{ label: "SUCI(C)", from: 1.2, to: 0.9 }]);
+  assert.ok(small < 0.3 * 220, `0.3 pp is ${small}px of a 220px plot`);
+  // and a real collapse is still the long line: AIFB, 37.7% to 3.4%, against the same scale
+  const big = rise([{ label: "AIFB", from: 37.7, to: 3.4 }]);
+  assert.ok(big > 0.7 * 220, `34.3 pp is ${big}px`);
 });
 
 // ── colour, as a test rather than a document (§24.8) ────────────────────────────────────────────

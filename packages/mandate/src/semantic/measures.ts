@@ -20,25 +20,29 @@ export type Measure<I> = {
   unit: Unit;
   /** Exact prose. The arithmetic a reader can check a query against, including the denominator. */
   formula: string;
-  /** Validity conditions, not footnotes. Rendered wherever the measure is (§13.2). */
+  /** Validity conditions, not footnotes. Rendered wherever the measure is (§13.2). The exact wording an API
+   *  consumer is given, in the registry's own terms. */
   caveats: string[];
+  /** The same limits for a page's reader: no column, file or identifier names, and no count of the registry. */
+  reader: string[];
   /** Repo-relative, and asserted to exist by measures.test.ts (§18 enforced as a test). */
   modelCard: string;
   format(value: number | null): string;
   compute(inputs: I): number | null;
 };
 
-/** Every measure over THIS registry inherits it: nothing here is verified. */
+/** Every measure over THIS registry inherits it: nothing here is verified. No count of claims or sources: a figure
+ *  written here is a figure of the run that wrote it, and was out of date at the next ingest. */
 const PROVENANCE =
-  "All 22,414 claims in this registry are confidence='provisional': only 8 of 2,932 sources were " +
-  "ever actually fetched, so every figure is as good as an unverified upstream assertion.";
+  "Every claim in this registry is confidence='provisional', and nearly every source is an upstream assertion " +
+  "that was never fetched, so every figure is as good as an unverified upstream assertion.";
 
 /** The truncation that bounds vote_share_pct and enp. Cycle 1 weakened the "shares sum to 100"
  *  invariant to a one-sided bound for exactly this reason — see resolve/index.ts
  *  `vote_share_never_exceeds_100`. */
 const TRUNCATION =
   "data/seed/historical-results.json publishes only a truncated top-N field (at most 5 contestants), " +
-  "so shares do not sum to 100 — 1,009 of 1,135 contest revisions are short, averaging 72.9%.";
+  "so shares do not sum to 100.";
 
 // ── formatters, once ─────────────────────────────────────────────────────────────────────────────
 // inr/rupees already existed in repo/brief.ts (cycle 2) and are re-exported from semantic/index.ts
@@ -92,6 +96,11 @@ export const turnout_pct: Measure<{ voters: number | null; electors: number | nu
     "Returns null rather than 0 when either side is missing or electors is 0: an unreported turnout is not a turnout of zero.",
     PROVENANCE,
   ],
+  reader: [
+    "Before 2014 the votes cast may leave out postal votes, so turnout is understated by a fraction of a point.",
+    "The roll is the one in force on polling day, so it will not match a roll counted later.",
+    "Where the source gave no turnout, the page says so; it is never shown as zero.",
+  ],
   modelCard: "docs/methodology/turnout_pct.md",
   format: percent,
   compute: ({ voters, electors }) => pct(voters, electors),
@@ -113,6 +122,11 @@ export const margin_pct: Measure<{
     "Not meaningful for a multi-member contest; this registry holds none.",
     PROVENANCE,
   ],
+  reader: [
+    "A margin share is the winning margin over the votes cast at that election, so it is only as sound as that count. " +
+      "The count is the seat's own, not the sum of the listed candidates, which would inflate every margin.",
+    "A seat with no runner-up has no margin.",
+  ],
   modelCard: "docs/methodology/margin_pct.md",
   format: percent,
   compute: ({ rank1Votes, rank2Votes, validVotes }) =>
@@ -130,6 +144,10 @@ export const vote_share_pct: Measure<{ votes: number | null; validVotes: number 
       " A share is therefore correct for the candidacies present and silent about the missing tail; the shares shown do not add up to the whole field.",
     "Never compare a share against the sum of the shares rendered beside it: the residual is the missing tail plus NOTA, not 'others'.",
     PROVENANCE,
+  ],
+  reader: [
+    "The source lists only its leading candidates, so shares add up to less than 100. The gap is candidates the " +
+      "source left out, plus NOTA and rejected votes, and should not be read as Others.",
   ],
   modelCard: "docs/methodology/vote_share_pct.md",
   format: percent,
@@ -152,6 +170,11 @@ export const swing_pp: Measure<{
     "Inherits the truncation bias of its inputs: if a party finished outside the recorded top-N in one of the two elections it reads as absent, so a small party's swing is missing rather than small.",
     PROVENANCE,
   ],
+  reader: [
+    "A swing compares one party's share at two elections held on the same boundaries. A seat redrawn between them has none.",
+    "A party missing from the earlier election has no swing, which is not a fall of 100 points. A party that " +
+      "finished below the listed candidates reads as missing, so a small party's swing can be absent rather than small.",
+  ],
   modelCard: "docs/methodology/swing_pp.md",
   format: percentagePoints,
   compute: ({ sharePct, previousSharePct, sameEpoch }) =>
@@ -172,6 +195,10 @@ export const enp: Measure<{ sharesPct: readonly number[] }> = {
     "Shares are renormalised over the contestants on record before squaring, so the figure is the effective number of parties AMONG THE TOP-N, and a true value is at or above it.",
     "Returns null for an empty or all-zero field.",
     PROVENANCE,
+  ],
+  reader: [
+    "Effective parties is counted over the candidates the source lists, so it overstates how concentrated the vote " +
+      "was. The true figure is at or above it.",
   ],
   modelCard: "docs/methodology/enp.md",
   format: twoDp,
@@ -199,6 +226,10 @@ export const incumbency_retention: Measure<{
     "Undefined across a boundary-epoch change: a redrawn seat has no predecessor to be retained from.",
     "Undefined where the previous contest has no declared result; this registry has 2,627 candidacies with status='contesting' and no result row.",
     PROVENANCE,
+  ],
+  reader: [
+    "It asks whether the same party held the seat, not the same member: a member who changed party reads as a loss " +
+      "for the old party. A merger or a rename reads as a change of party unless the registry treats both as one.",
   ],
   modelCard: "docs/methodology/incumbency_retention.md",
   format: (v) => (v === null ? ABSENT : v === 1 ? "held" : v === 0 ? "changed hands" : percent(v * 100)),

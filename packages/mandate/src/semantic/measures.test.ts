@@ -134,6 +134,25 @@ test("every measure declares a formula, caveats and its provenance caveat", () =
   assert.ok(vote_share_pct.caveats.some((c) => c.includes("do not sum to 100")));
 });
 
+test("no caveat carries a count of this registry, which is out of date at the next ingest", () => {
+  // These said "22,414 claims" and "8 of 2,932 sources" against a registry of 25,491 and 2,935, and called the
+  // average field 72.9% complete when 2026's missing votes were most of that: the figure belongs to a run, not to the measure.
+  for (const m of MEASURES) {
+    for (const c of m.caveats) {
+      assert.doesNotMatch(c, /\d[\d,]* (claims|sources|contest revisions)|averaging/, `${m.id}: ${c}`);
+    }
+  }
+});
+
+test("every measure also states its limits in a reader's words: no identifier, column, file or shouting", () => {
+  for (const m of MEASURES) {
+    assert.ok(m.reader.length >= 1, `${m.id}: nothing a page can print`);
+    for (const r of m.reader) {
+      assert.doesNotMatch(r, /[`_]|\.json|\.ts|\bnull\b|\bvoters\b|\belectors\b|top-N|[A-Z]{6,}/, `${m.id}: ${r}`);
+    }
+  }
+});
+
 test("§18: every measure has a real model card, and no card is stale", () => {
   assert.deepEqual(modelCardProblems(), []);
 });
