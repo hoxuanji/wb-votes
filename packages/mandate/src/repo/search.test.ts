@@ -84,6 +84,70 @@ test("an election hit opens the election's own page", () => {
   }
 });
 
+test("an election is found by the words its hit is printed in, in any order and across its parts", () => {
+  // The registry's own names ('Indian general election, 2024') say neither Lok Sabha nor the jurisdiction, so a
+  // reader who types what the page printed ('India Lok Sabha Election 2024', 'LS 2024') used to be told it was not here.
+  const d = open(":memory:");
+  migrate(d, "2026-08-12T00:00:00.000Z");
+  d.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('e1','Delimitation','2008-02-19');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('in','nation','India');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('ka','state','Karnataka','in');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-assembly-2018','assembly','state','ka','e1','Karnataka Legislative Assembly election, 2018','declared','ac',2018,1);
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-assembly-2023','assembly','state','ka','e1','Karnataka Legislative Assembly election, 2023','declared','ac',2023,1);
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ls-2024','general','union','in','e1','Indian general election, 2024','declared','pc',2024,1);
+  `);
+  try {
+    const ids = (q: string): string[] => searchAll(d, q).elections.map((h) => h.id);
+    for (const q of ["Karnataka Assembly Election 2023", "karnataka 2023", "Assembly Election 2023", "2023 Karnataka"]) {
+      assert.deepEqual(ids(q), ["ka-assembly-2023"], q);
+    }
+    for (const q of ["Lok Sabha", "Lok Sabha Election 2024", "India Lok Sabha Election", "LS 2024", "general election"]) {
+      assert.deepEqual(ids(q), ["ls-2024"], q);
+    }
+    assert.deepEqual(ids("Assembly Election"), ["ka-assembly-2023", "ka-assembly-2018"], "newest first");
+    // A word the hit does not carry still finds nothing, which is the honest answer, and a wildcard is a character.
+    for (const q of ["Parliament", "Karnataka 2024", "Lok Sabha 2023", "%", "_"]) assert.deepEqual(ids(q), [], q);
+  } finally {
+    d.close();
+  }
+});
+
+test("a party's reach is in Indian digit grouping, as every other count is", () => {
+  const d = open(":memory:");
+  migrate(d, "2026-08-12T00:00:00.000Z");
+  d.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('e1','Delimitation','2008-02-19');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('in','nation','India');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('ka','state','Karnataka','in');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('ka-assembly-2018','assembly','state','ka','e1','KA 2018','declared','ac',2018,1);
+    INSERT INTO party (id, name, short_name) VALUES ('ZZZ','Zed Party','ZZZ');
+    INSERT INTO party_version (id, party_id, valid_from, name) VALUES (1,'ZZZ','1990-01-01','Zed Party');
+  `);
+  try {
+    // 1,200 candidacies in 1,200 contests of one election, which is more than a seat file holds but is what a long-lived party has
+    d.exec("BEGIN");
+    for (let n = 1; n <= 1200; n++) {
+      d.exec(`
+        INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('ka.ac.${n}','ac','Seat ${n}','ka');
+        INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+          VALUES (${n},'ka.ac.${n}','ka','ac','e1',${n},'Seat ${n}','general');
+        INSERT INTO person (id, canonical_name, created_at) VALUES ('p${n}','Person ${n}','2026-08-12');
+        INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('c${n}','ka-assembly-2018',${n},'declared');
+        INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status) VALUES ('k${n}','c${n}','p${n}',1,'defeated');
+      `);
+    }
+    d.exec("COMMIT");
+    assert.equal(searchAll(d, "Zed").parties[0]?.detail.startsWith("1,200 contests · 2018"), true, searchAll(d, "Zed").parties[0]?.detail);
+  } finally {
+    d.close();
+  }
+});
+
 test("an empty query returns nothing, rather than the whole registry", live, () => {
   const d = db();
   try {
@@ -106,6 +170,7 @@ test("a LIKE wildcard is escaped, not honoured", live, () => {
     for (const q of ["%", "_", "%%", "_a_"]) {
       const r = searchAll(d, q);
       assert.equal(r.states.length, 0, `"${q}" matched states as a wildcard`);
+      assert.equal(r.elections.length + r.districts.length, 0, `"${q}" matched elections or districts as a wildcard`);
       assert.equal(r.constituencies.length, 0, `"${q}" matched constituencies as a wildcard`);
       assert.equal(r.parties.length, 0, `"${q}" matched parties as a wildcard`);
     }
@@ -125,6 +190,7 @@ test("every group caps at PER_GROUP, so no one query can flood the page", live, 
     for (const [group, hits] of [
       ["states", r.states],
       ["elections", r.elections],
+      ["districts", r.districts],
       ["constituencies", r.constituencies],
       ["parties", r.parties],
     ] as const) {
@@ -148,16 +214,19 @@ async function everyHitResolves(
 ): Promise<void> {
   const d = openRead(path);
   let states: string[] = [];
+  let districts: string[] = [];
   let seats: string[] = [];
   let elections: string[] = [];
   let parties: string[] = [];
   try {
     for (const q of queries) {
       const r = search(d, q);
-      states.push(...r.states.map((h) => h.href));
-      seats.push(...r.constituencies.map((h) => h.href));
-      elections.push(...r.elections.map((h) => h.href));
-      parties.push(...r.parties.map((h) => h.href));
+      states.push(...r.states.map((h) => h.href ?? ""));
+      districts.push(...r.districts.map((h) => h.href ?? ""));
+      seats.push(...r.constituencies.map((h) => h.href ?? ""));
+      elections.push(...r.elections.map((h) => h.href ?? ""));
+      // A party with no line in the landscape is a row with nothing to open, which is not a link that fails
+      parties.push(...r.parties.flatMap((h) => (h.href === null ? [] : [h.href])));
       for (const p of [...r.people, ...r.alike]) {
         assert.match(`/p/${p.id}`, /^\/p\/[^/]+$/, "a person hit has no id");
       }
@@ -168,13 +237,13 @@ async function everyHitResolves(
   }
 
   // A place hit is only an offer if placeView resolves it. This is the assertion the whole file is for.
-  for (const href of [...new Set([...states, ...seats])]) {
+  for (const href of [...new Set([...states, ...districts, ...seats])]) {
     /**
      * RESOLVED THE WAY THE ROUTE RESOLVES IT.
      *
      * A canonical route names what it asks for, so the hit is read back into the query the reader's click will
-     * make: a state by its id, a seat by its state, its body and its name. A name two seats answer to is a page
-     * that asks, which is not a 404.
+     * make: a state by its id, a district by its state and its slug, a seat by its state, its body and its name. A
+     * name two seats answer to is a page that asks, which is not a 404.
      */
     // /constituency/<state>/<body>/<name> — the BODY is part of the identity now, so a hit is resolved with
     // the body it advertises rather than with a name alone.
@@ -187,7 +256,9 @@ async function everyHitResolves(
             body: parts[2] === "lok-sabha" ? "lok-sabha" : "assembly",
             name: parts[3] as string,
           }
-        : { level: "state", id: parts[1] as string };
+        : parts[0] === "district"
+          ? { level: "district", state: parts[1] as string, district: parts[2] as string }
+          : { level: "state", id: parts[1] as string };
     const view = await placeView(query, {}, (fn) => readRegistry(fn, { path }));
     assert.notEqual(view.kind, "not-found", `${href} is offered by search and 404s`);
     assert.notEqual(view.kind, "unavailable", `${href} could not be read`);
@@ -210,9 +281,9 @@ async function everyHitResolves(
 }
 
 test("every hit points at a URL that resolves", live, async () => {
-  // Queries chosen to hit all five groups: a state, a seat, a party, a year, and a letter that is
+  // Queries chosen to hit all six groups: a state, a district, a seat, a party, a year, and a letter that is
   // everywhere. Nothing here names a jurisdiction the product started with.
-  await everyHitResolves(DEV_DB_PATH, ["a", "north", "congress", "assembly", "2023"]);
+  await everyHitResolves(DEV_DB_PATH, ["a", "north", "parganas", "congress", "assembly", "2023"]);
 });
 
 // ── a seat's newest order is not always the one its house votes under ────────────────────────────

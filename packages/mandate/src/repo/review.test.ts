@@ -223,7 +223,7 @@ test("the queue serves the band with the largest shortfall, and never repeats a 
 test("the live queue is reviewable and its pairs carry real evidence", live, () => {
   const db = openRead();
   const p = nextForReview(db);
-  assert.ok(p !== null, "8,683 pairs are pending but the queue served none");
+  assert.ok(p !== null, "pairs are pending but the queue served none");
   assert.ok(p.score >= QUEUE_AT && p.score < AUTO_MERGE_AT, `score ${p.score} is outside the bands`);
   assert.notEqual(p.aId, p.bId);
   // A reviewer cannot judge sameness from two ids: both sides need a name and their contest history.

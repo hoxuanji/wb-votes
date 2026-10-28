@@ -58,6 +58,9 @@ test("reach is measured, and scope no longer claims to be a count", () => {
       `${v.key}'s scope line counts something in prose: "${v.scope}"`,
     );
     assert.doesNotMatch(v.scope, /\d+\s+(assembly seats|West Bengal)/i, `${v.key}'s scope hard-codes a count`);
+    // Nor may it count files that sit in the repo: those are not rows, nothing measures them, and the two this once
+    // counted (party manifestos, party funding) were deleted while the page went on saying they were there.
+    assert.doesNotMatch(v.scope, /\d+\s+(parties|party|manifestos)\b|\bsit in the repo\b/i, `${v.key}'s scope counts files: "${v.scope}"`);
   }
 });
 
@@ -131,12 +134,59 @@ test("geography counts the seats of a jurisdiction's newest election by chronolo
   db.close();
 });
 
+/** Two states and a union territory, each with a seat, and an election for two of them and for the nation. */
+function loaded(): DatabaseSync {
+  const db = new DatabaseSync(":memory:");
+  migrate(db, "2026-08-10T00:00:00.000Z");
+  db.exec(`
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('e1','Delimitation','2008-02-19');
+    INSERT INTO source (id, kind, publisher, title, retrieved_at, doc_hash) VALUES ('s1','static_module','P','Results','2026-08-10','sha256:0');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('in','nation','India');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('br','state','Bihar','in'), ('ka','state','Karnataka','in'), ('dl','ut','Delhi','in');
+    INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('br.ac.001','ac','SEAT A','br'), ('dl.pc.001','pc','SEAT B','dl'), ('ka.ac.001','ac','SEAT C','ka');
+    INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+      VALUES (1,'br.ac.001','br','ac','e1',1,'SEAT A','general'), (2,'dl.pc.001','dl','pc','e1',1,'SEAT B','general'),
+             (3,'ka.ac.001','ka','ac','e1',1,'SEAT C','general');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('br-assembly-2020','assembly','state','br','e1','BR 2020','declared','ac',2020,1),
+             ('ls-2024','general','union','in','e1','LS 2024','declared','pc',2024,1);
+    INSERT INTO contest (id, election_id, place_version_id, lifecycle)
+      VALUES ('c1','br-assembly-2020',1,'declared'), ('c2','ls-2024',2,'declared');
+    INSERT INTO person (id, canonical_name, created_at) VALUES ('p1','A Person','2026-08-10'), ('p2','B Person','2026-08-10');
+    INSERT INTO party (id, name, short_name) VALUES ('AAA','A Party','AAA');
+    INSERT INTO party_version (id, party_id, valid_from, name) VALUES (1,'AAA','1990-01-01','A Party');
+    INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status)
+      VALUES ('k1','c1','p1',1,'elected'), ('k2','c2','p2',1,'elected');
+    INSERT INTO result (contest_id, candidacy_id, revision, votes, "rank", is_winner, margin, source_id, ingested_at)
+      VALUES ('c1','k1',0,600,1,1,200,'s1','2026-08-10'), ('c2','k2',0,600,1,1,200,'s1','2026-08-10');
+  `);
+  return db;
+}
+
+test("a state is loaded when an election has a contest in it, not because the registry names it", () => {
+  const db = loaded();
+  const g = geography(db);
+  // Bihar by its assembly and Delhi by the Lok Sabha; Karnataka has a seat and no election, and India is not a state.
+  // The count used to be every place of kind state or union territory, which is all 36 on a registry with one election.
+  assert.equal(g.statesLoaded, 2);
+  assert.equal(g.statePct, (100 * 2) / INDIA.states);
+  db.close();
+});
+
+test("the elections row counts jurisdictions and names the national election apart, so the nation is not one of them", () => {
+  const db = loaded();
+  const elections = verticals(db).find((v) => v.key === "elections");
+  assert.equal(elections?.status, "present");
+  assert.equal(elections?.reach, "1 jurisdiction, 2020-2024, 2 elections, 1 of them national");
+  db.close();
+});
+
 test("the live ledger reports the gap honestly", live, () => {
   const c = getCoverage(openRead());
   assert.equal(c.present + c.empty + c.noModel, c.total, "the three counts do not sum to the total");
   assert.equal(c.total, 18);
 
-  // Elections and census are the two verticals with real data; if either stops being "present" the
+  // Elections and census are verticals with real data; if either stops being "present" the
   // registry has lost rows.
   const byKey = new Map(c.verticals.map((v) => [v.key, v]));
   assert.equal(byKey.get("elections")?.status, "present");
@@ -172,15 +222,20 @@ test("measured reach agrees with the registry, and never contradicts the count",
       assert.match(v.reach, /\d/, `${v.key}'s reach carries no figure: "${v.reach}"`);
       assert.match(v.reach, /[a-z]/i, `${v.key}'s reach carries no unit: "${v.reach}"`);
     }
-    // The one that rotted, asserted directly: the elections row must name more than one jurisdiction if
-    // the registry holds more than one.
-    const js = get<{ n: number }>(d, "SELECT count(DISTINCT jurisdiction_place_id) AS n FROM election")?.n ?? 0;
+    // The one that rotted, asserted directly: the elections row must name as many jurisdictions as the registry holds
+    // elections for. The nation is not one of them, whose Lok Sabha election is named apart.
+    const js =
+      get<{ n: number }>(
+        d,
+        `SELECT count(DISTINCT e.jurisdiction_place_id) AS n FROM election e
+           JOIN place p ON p.id = e.jurisdiction_place_id WHERE p.kind IN ('state','ut')`,
+      )?.n ?? 0;
     const elections = verticals(d).find((v) => v.key === "elections");
-    if (js > 1 && elections?.status === "present") {
+    if (js > 0 && elections?.status === "present") {
       assert.match(
         elections.reach ?? "",
-        new RegExp(`^${js} jurisdictions`),
-        `the elections reach says "${elections.reach}" but the registry holds ${js} jurisdictions`,
+        new RegExp(`^${js} jurisdictions?,`),
+        `the elections reach says "${elections.reach}" but the registry holds elections for ${js} jurisdictions`,
       );
     }
   } finally {

@@ -1,10 +1,10 @@
 // §20 — the /v1 response envelope. Every 200 carries `data` + a NON-EMPTY `sources` + a complete
-// `meta`; every non-200 is an RFC 9457 problem document whose `detail` is written to be shown to a
-// user verbatim (§10: what happened and what to do, no apology).
+// `meta`; every non-200 is an RFC 9457 problem document, sent as application/problem+json, whose `detail` is
+// written to be shown to a user verbatim (§10: what happened and what to do, no apology).
 //
 // The handler bodies live here as plain functions so the contract test (envelope.test.ts) can call
 // them under `node --test` without booting Next. The route.ts files under src/app/v1 are three
-// lines each: call, NextResponse.json, headers.
+// lines each: call, `toResponse`.
 //
 // They live in the package rather than in src/app/v1 because this package's tsconfig prints an
 // error in a src/ file as "src/...", and registry:typecheck greps for "^packages/mandate" — a
@@ -61,7 +61,13 @@ export type Reply<T> = {
   body: Envelope<T> | Problem;
 };
 
-export type SearchHit = { query: string; count: number; results: PersonRow[] };
+/**
+ * What a search answers with. `results` are the people whose recorded names contain the query, and `count` is how many;
+ * `soundsLike` are people who share a phonetic key with it and nothing more, each marked `match: "sounds-like"`. The two
+ * are kept apart because a phonetic hit is a suggestion to check and not a person found, and a client that reads `count`
+ * or takes the first rows must not be handed one. `limit` bounds both together, the matches first.
+ */
+export type SearchHit = { query: string; count: number; results: PersonRow[]; soundsLike: PersonRow[] };
 
 /** What a handler returns before `meta` is assembled: the payload plus the claim subjects whose
  *  confidence and vintage generate the caveats. */
@@ -96,14 +102,16 @@ export function unavailable(): Problem {
   );
 }
 
+/**
+ * The problem for something that is not there. What it suggests next is what can find the thing: the person search finds
+ * people, and nothing searches seats, which a caller can ask for only by the registry's id or by the name itself.
+ */
 function notFound(kind: string, slug: string): Problem {
-  return problem(
-    404,
-    `unknown-${kind}`,
-    `No ${kind} for “${slug}”`,
-    `“${slug}” does not match any ${kind} in the registry. Search for a name at ` +
-      `/v1/search?q=${encodeURIComponent(slug)}.`,
-  );
+  const next =
+    kind === "place"
+      ? "Ask for a seat by its place id, for example wb.ac.001, or by its exact name."
+      : `Search for a name at /v1/search?q=${encodeURIComponent(slug)}.`;
+  return problem(404, `unknown-${kind}`, `No ${kind} for “${slug}”`, `“${slug}” does not match any ${kind} in the registry. ${next}`);
 }
 
 /**
@@ -356,7 +364,8 @@ export function placeReply(slug: string, read = readRegistry): Promise<Reply<Pla
 /**
  * Transliteration-aware person search (repo/searchPersons does the Indic normalisation).
  * A query that matches nothing is a 404, not a 200 with an empty `sources` array — the envelope
- * invariant holds for every 200 without exception.
+ * invariant holds for every 200 without exception. A query that only SOUNDS like names is a 200 with no
+ * `results` and those names in `soundsLike`, which are as citable as a match.
  * ponytail: persons only. Add places when the picker needs them; `types=` is not parsed until it
  * has a second value to choose between.
  */
@@ -376,8 +385,8 @@ export function searchReply(q: string, limit = 20, read = readRegistry): Promise
     );
   }
   return run(`search/${term}/${limit}`, (db) => {
-    const results = searchPersons(db, term, limit);
-    if (results.length === 0) {
+    const rows = searchPersons(db, term, limit);
+    if (rows.length === 0) {
       return problem(
         404,
         "no-matches",
@@ -385,14 +394,16 @@ export function searchReply(q: string, limit = 20, read = readRegistry): Promise
         `No person in the registry matches “${term}”. Try a surname alone, or the Bengali spelling.`,
       );
     }
-    const refs = results.map((r) => `person:${r.id}`);
+    const results = rows.filter((r) => r.match !== "sounds-like");
+    const soundsLike = rows.filter((r) => r.match === "sounds-like");
+    const refs = rows.map((r) => `person:${r.id}`);
     // Most persons in this registry carry NO person-level claim (only the 2026 affidavit filers
     // do), so resolving sources from `refs` alone answered 500 for ordinary historical names.
     // Every row carries its own source id, and those are the ids that make the list citable.
-    const directIds = results.map((r) => r.sourceId).filter((id): id is string => id !== null);
+    const directIds = rows.map((r) => r.sourceId).filter((id): id is string => id !== null);
     const sources = loadSources(db, directIds, refs);
     return {
-      data: { query: term, count: results.length, results },
+      data: { query: term, count: results.length, results, soundsLike },
       sources,
       refs,
       like: null,
@@ -401,4 +412,21 @@ export function searchReply(q: string, limit = 20, read = readRegistry): Promise
       estimated: false,
     };
   }, read);
+}
+
+/** A search's `limit`: 1 to 50, and 20 where it is absent, blank or not a number. A blank value is not zero. */
+export function searchLimit(raw: string | null): number {
+  const n = raw === null || raw.trim() === "" ? NaN : Number(raw);
+  return Number.isFinite(n) ? Math.min(50, Math.max(1, Math.trunc(n))) : 20;
+}
+
+/**
+ * A reply as the Response that goes on the wire. A problem document carries RFC 9457's own media type, so a client can
+ * tell one from data without parsing it; data is plain JSON. The status decides which: only a 200 is data.
+ */
+export function toResponse(r: Reply<unknown>): Response {
+  return new Response(JSON.stringify(r.body), {
+    status: r.status,
+    headers: { ...r.headers, "Content-Type": r.status === 200 ? "application/json" : "application/problem+json" },
+  });
 }

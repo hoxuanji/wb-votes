@@ -135,6 +135,73 @@ test("the page shows the buttons only when the switch is on, and the pair either
   }
 });
 
+/** A migrated registry with a pending candidate pair at each score given, each between two people of its own. */
+function queued(scores: number[]): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-review-bands-")), "registry.db");
+  const d = open(path);
+  migrate(d, NOW);
+  scores.forEach((score, i) => {
+    for (const [id, name] of [[`q${i}a`, `Anil Roy ${i}`], [`q${i}b`, `Anil Rai ${i}`]] as const) {
+      d.prepare(
+        `INSERT INTO person (id, canonical_name, canonical_name_script, names, review_state, created_at)
+         VALUES (?, ?, 'latn', '{}', 'auto', ?)`,
+      ).run(id, name, NOW);
+    }
+    d.prepare(
+      `INSERT INTO person_merge_candidate (person_a_id, person_b_id, score, evidence, blocked_by, state, queued_at)
+       VALUES (?, ?, ?, '{}', 'name', 'pending', ?)`,
+    ).run(`q${i}a`, `q${i}b`, score, NOW);
+  });
+  d.close();
+  return path;
+}
+
+test("the page names the band that holds most of the queue, from the queue and not from a figure written in it", { skip }, async () => {
+  // Three of four pairs in the lowest band, and then two of three in the one above it: the sentence follows the data.
+  const low = await render(queued([0.56, 0.57, 0.58, 0.8]), "/review/merges", "", undefined);
+  assert.equal(low.failed, false, low.err);
+  assert.match(low.out, /because the 0\.55–0\.65 band holds 3 of the 4 pairs/);
+  const mid = await render(queued([0.8, 0.81, 0.56]), "/review/merges", "", undefined);
+  assert.match(mid.out, /because the 0\.75–0\.85 band holds 2 of the 3 pairs/);
+  assert.doesNotMatch(low.out + mid.out, /7,114/);
+});
+
+test("the page reports a decision only where decisions are recorded, and only one the route could have made", { skip }, async () => {
+  const path = pending();
+  const shows = async (query: string, writes: string | undefined): Promise<boolean> => {
+    const r = await render(path, "/review/merges", query, writes);
+    assert.equal(r.failed, false, r.err);
+    return /class="rv-saved/.test(r.out);
+  };
+  // What the route redirects with, under the switch it needs: reported.
+  for (const query of ["saved=merged", "saved=deferred", "already=rejected", "error=malformed", "error=unavailable"]) {
+    assert.equal(await shows(query, "1"), true, query);
+  }
+  // A link somebody wrote by hand says nothing was recorded that was not.
+  for (const query of ["saved=anything%20at%20all", "saved=", "already=1", "error=whatever"]) {
+    assert.equal(await shows(query, "1"), false, query);
+  }
+  // And without the switch the page says the pair is shown read-only, which "Recorded as merged" would contradict.
+  for (const query of ["saved=merged", "already=merged", "error=malformed"]) {
+    assert.equal(await shows(query, undefined), false, query);
+  }
+});
+
+test("the page is not offered to search engines, and says applying a decision is not built", { skip }, async () => {
+  const meta = await run(
+    process.execPath,
+    [
+      "--import", "./ops/probe/render/register.mjs", "--input-type=module", "-e",
+      `const m = await import("./src/app/review/merges/page.tsx"); process.stdout.write(JSON.stringify(m.metadata));`,
+    ],
+    { cwd: ROOT },
+  );
+  assert.deepEqual((JSON.parse(meta.stdout) as { robots: unknown }).robots, { index: false, follow: false });
+  const saved = await render(pending(), "/review/merges", "saved=merged", "1");
+  assert.match(saved.out, /Recorded as <strong>merged<\/strong>\. Nothing was merged/);
+  assert.doesNotMatch(saved.out, /separate step|apply-reviewed/, "there is no step to take, and no command for it");
+});
+
 test("nothing that is deployed sets the switch", () => {
   // fly.toml and the Dockerfile are what production is built from. A comment may name the variable; a setting may not.
   for (const file of ["fly.toml", "Dockerfile"]) {

@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import {
   AUTO_MERGE_AT,
+  DECISIONS,
   QUEUE_AT,
   nextForReview,
   recallEstimate,
@@ -17,7 +18,7 @@ import './review.css';
 /**
  * `/review/merges` — the tool that turns "6,167 people" into a measurement.
  *
- * The registry auto-merged 1,160 pairs and left 8,683 in a queue nobody could see. Cycle 1's audit
+ * The registry auto-merged some pairs and left the rest in a queue nobody could see. Cycle 1's audit
  * measured PRECISION on the merges it made and found no errors; nothing has ever measured RECALL on
  * the merges it did not make. So the person count has been published as a fact and is an upper bound.
  *
@@ -25,7 +26,7 @@ import './review.css';
  * render and a 303, which also means the back button works and a reload cannot double-record.
  *
  * Deciding here does NOT merge. It records a judgement. Mutating person rows needs the undo tape and
- * the claim moves, and that lives in `mandate resolve --apply-reviewed`.
+ * the claim moves, which are not built: `mandate resolve` reads no decision.
  *
  * The buttons are there only where MANDATE_REVIEW_WRITES=1 is set, the same switch the POST behind them checks:
  * the app has no auth, so a deployment shows the pending pair read-only and says where decisions are recorded.
@@ -40,7 +41,11 @@ import './review.css';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-export const metadata = { title: 'Merge review' };
+// A maintainer's queue: no reader is sent here, and no search engine should list it.
+export const metadata = { title: 'Merge review', robots: { index: false, follow: false } };
+
+/** What the decide route redirects back with when it could not record, which is all the page says of an error. */
+const ERRORS: readonly string[] = ['malformed', 'unavailable'];
 
 const IN = new Intl.NumberFormat('en-IN');
 const pct1 = (n: number) => `${n.toFixed(1)}%`;
@@ -142,15 +147,23 @@ export default function MergeReview({
 }) {
   const one = (v: string | string[] | undefined): string | undefined =>
     Array.isArray(v) ? v[0] : v;
-  const saved = one(searchParams?.['saved']);
-  const already = one(searchParams?.['already']);
-  const error = one(searchParams?.['error']);
   const writes = reviewWritesEnabled(process.env);
+  // The decide route redirects here with what it did, and only where decisions are recorded. A link made by hand,
+  // or opened where nothing is recorded, says nothing, rather than that a decision was.
+  const said = (v: string | undefined, known: readonly string[]): string | undefined =>
+    writes && v !== undefined && known.includes(v) ? v : undefined;
+  const saved = said(one(searchParams?.['saved']), DECISIONS);
+  const already = said(one(searchParams?.['already']), DECISIONS);
+  const error = said(one(searchParams?.['error']), ERRORS);
   // An outage shows the registry notice under the heading; a defect in either query is thrown, not shown as one.
   const read = readRegistry((db) => ({ pair: nextForReview(db), est: recallEstimate(db) }));
   const unavailable = !read.ok;
   const pair: Pair | null = read.ok ? read.value.pair : null;
   const est: ReturnType<typeof recallEstimate> | null = read.ok ? read.value.est : null;
+  const queued = est === null ? 0 : est.bands.reduce((n, b) => n + b.size, 0);
+  // The band with most pairs in it, the first where two tie: the sample is stratified because of it, so it is named from
+  // the queue and not from a figure written beside it.
+  const widest = est === null ? null : est.bands.reduce((a, b) => (b.size > a.size ? b : a));
 
   return (
     <Shell here="review" reading>
@@ -165,7 +178,7 @@ export default function MergeReview({
           <>
             <p className="iei-sub">
               The resolver merged <strong>{IN.format(est.autoMerges)}</strong> pairs on its own and left{' '}
-              <strong>{IN.format(est.bands.reduce((n, b) => n + b.size, 0))}</strong> for a human. Of
+              <strong>{IN.format(queued)}</strong> for a human. Of
               those, <strong>{IN.format(est.reviewed)}</strong> have been decided and{' '}
               <strong>{IN.format(est.confirmedMisses)}</strong> were the same person — merges the
               resolver missed.
@@ -225,9 +238,9 @@ export default function MergeReview({
                   {est.bands.length} bands have no reviewed pair ({est.unsampled.join(', ')}), and a
                   total that treated an unreviewed band as zero would be biased low by exactly the
                   bands nobody has looked at. The sample is stratified with a target of{' '}
-                  {est.bands[0]?.target ?? 0} per band because 7,114 of the pairs sit in the lowest
-                  band — a uniform sample would spend itself there and estimate the top band from a
-                  handful of rows.
+                  {est.bands[0]?.target ?? 0} per band because the {widest?.label} band holds{' '}
+                  {IN.format(widest?.size ?? 0)} of the {IN.format(queued)} pairs — a uniform sample would
+                  spend itself there and estimate the top band from a handful of rows.
                 </>
               ) : (
                 <>
@@ -251,8 +264,8 @@ export default function MergeReview({
             while looking like progress. */}
         {saved !== undefined && (
           <p className="rv-saved">
-            Recorded as <strong>{saved}</strong>. Nothing was merged — deciding here writes a
-            judgement, and applying it is a separate step.
+            Recorded as <strong>{saved}</strong>. Nothing was merged — deciding here records a
+            judgement, and applying judgements is not built yet.
           </p>
         )}
         {already !== undefined && (
