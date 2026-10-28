@@ -373,7 +373,7 @@ export async function PlaceSurface({
         {flags.length === 0 ? (
           /* An empty list is not a list of what passed: a rule that reads a turnout or a margin cannot fire where the
              record has neither. */
-          <p className="iei-note">No rule flagged this seat's record; a rule cannot fire on a figure the record lacks.</p>
+          <p className="iei-note">No rule flagged this seat&rsquo;s record; a rule cannot fire on a figure the record lacks.</p>
         ) : (
           <DataList label="Flags">
             {flags.map((flag) => (

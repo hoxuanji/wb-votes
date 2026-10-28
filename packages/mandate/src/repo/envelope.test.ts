@@ -554,8 +554,8 @@ test("a problem is sent as application/problem+json and data as application/json
   }
 });
 
-test("every /v1 route answers through toResponse, so none can send a problem as plain JSON", () => {
-  for (const route of ["search/route.ts", "entity/place/[slug]/route.ts", "entity/person/[slug]/route.ts"]) {
+test("every /v1 route, the catch-all for an unknown path included, answers through toResponse, so none can send a problem as plain JSON", () => {
+  for (const route of ["search/route.ts", "entity/place/[slug]/route.ts", "entity/person/[slug]/route.ts", "[[...rest]]/route.ts"]) {
     const source = readFileSync(new URL(`../../../../src/app/v1/${route}`, import.meta.url), "utf8");
     assert.match(source, /return toResponse\(r\)/, `${route} does not answer through toResponse`);
     assert.doesNotMatch(source, /NextResponse\.json/, `${route} sends its reply as plain JSON`);
