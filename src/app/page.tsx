@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { stateHref } from '../../packages/mandate/src/repo/routes.ts';
+import { electionHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
 import { homeView, layerChoices, leaderOf } from '../../packages/mandate/src/repo/home.ts';
 import { bodyWord } from '../../packages/mandate/src/core/election-kind.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
@@ -127,9 +127,11 @@ export default function Home({
   const shown = many.length > 0 ? many : v.layer.legend.slice(0, 8);
   const rest = v.layer.legend.filter((l) => !shown.includes(l));
   const s = v.snapshot;
-  // The party leading each jurisdiction, for the standings list beside the map.
+  // The party leading each jurisdiction's most recent assembly, for the Upcoming rows.
   const standingOf = (id: string): HomeView['standings'][number] | undefined =>
     v.standings.find((x) => x.jurisdictionId === id);
+  // Only a layer that colours a party has a party in each row for a seat count to belong to.
+  const seated = v.layer.encoding === 'categorical';
 
   return (
     <Shell here="india" live={s.live}>
@@ -144,7 +146,7 @@ export default function Home({
           {v.headline}{' '}
           {s.elections === 0 || s.earliestYear === null ? null : (
             <>
-              {IN.format(s.elections)} elections on record since {s.earliestYear}.
+              {IN.format(s.elections)} {s.elections === 1 ? 'election' : 'elections'} on record since {s.earliestYear}.
             </>
           )}
         </p>
@@ -201,10 +203,16 @@ export default function Home({
                   )}
                 </li>
               ))}
-              {v.layer.unknown === 0 ? null : (
+              {v.layer.unloaded === 0 ? null : (
                 <li>
                   <span className="iei-sw iei-sw-none" aria-hidden="true" />
-                  Not held <b>{v.layer.unknown}</b>
+                  Not loaded <b>{v.layer.unloaded}</b>
+                </li>
+              )}
+              {v.layer.unknown === v.layer.unloaded ? null : (
+                <li>
+                  <span className="iei-sw iei-sw-none" aria-hidden="true" />
+                  No figure <b>{v.layer.unknown - v.layer.unloaded}</b>
                 </li>
               )}
             </ul>
@@ -239,9 +247,10 @@ export default function Home({
               </p>
             )}
 
-            {/* WHO GOVERNS WHERE — the map's companion, and a genuine comparison across 36 rows, which is what
-                a table is for. FOUR COLUMNS, down from five: the seat count and its denominator are one fact
-                in two cells so the figures align on their own edge.
+            {/* THE LAYER'S ROWS — the map's companion, and a genuine comparison across 36 rows, which is what
+                a table is for. The seat count and its denominator are one fact in two cells so the figures
+                align on their own edge, and they are there only where the layer names a party: they are that
+                layer's own figures, the Lok Sabha's under the Lok Sabha layer.
 
                 It was also INVISIBLE until this pass, at every desktop width, and that was a layout defect
                 rather than a design choice — the map column's intrinsic width came from a `vh` figure, so in a
@@ -254,18 +263,22 @@ export default function Home({
               head={
                 <>
                   <th scope="col">State / UT</th>
-                  <th scope="col">{v.layer.encoding === 'categorical' ? 'Leads' : 'Value'}</th>
-                  <th scope="col" className="iei-n">
-                    Seats
-                  </th>
-                  {/* The denominator's own column, so the seat counts align on their own right edge
-                      instead of on the width of "of 288". Blank in the header, because "of" is a unit. */}
-                  <th scope="col" className="iei-den">
-                    <span className="iei-sr">of seats contested</span>
-                  </th>
+                  <th scope="col">{seated ? 'Leads' : 'Value'}</th>
+                  {seated ? (
+                    <>
+                      <th scope="col" className="iei-n">
+                        Seats
+                      </th>
+                      {/* The denominator's own column, so the seat counts align on their own right edge
+                          instead of on the width of "of 288". Blank in the header, because "of" is a unit. */}
+                      <th scope="col" className="iei-den">
+                        <span className="iei-sr">of seats contested</span>
+                      </th>
+                    </>
+                  ) : null}
                   {/* THE YEAR STAYS, and it is the one column of the original five that could not go. These
                       elections span 2014–2026, so "INC 135 of 224" without a date is a claim a reader cannot
-                      place — and the section's whole question is who governs NOW. */}
+                      place. */}
                   <th scope="col" className="iei-n">
                     Elected
                   </th>
@@ -273,7 +286,6 @@ export default function Home({
               }
             >
               {v.layer.cells.map((c) => {
-                const st = standingOf(c.jurisdictionId);
                 // The table mutes with the map, by the same selection. A highlight that dimmed the polygons and left
                 // the rows at full strength would be two answers to one question on one screen.
                 const muted = !sel.covers(leaderOf(c));
@@ -292,10 +304,14 @@ export default function Home({
                         </span>
                       )}
                     </td>
-                    <td className="iei-n">
-                      {st === undefined ? <span className="iei-absent">—</span> : st.leaderSeats}
-                    </td>
-                    <td className="iei-den">{st === undefined ? null : `of ${st.seatsContested}`}</td>
+                    {seated ? (
+                      <>
+                        <td className="iei-n">
+                          {c.leaderSeats === null ? <span className="iei-absent">—</span> : c.leaderSeats}
+                        </td>
+                        <td className="iei-den">{c.seatsContested === null ? null : `of ${c.seatsContested}`}</td>
+                      </>
+                    ) : null}
                     <td className="iei-n">{c.year ?? <span className="iei-absent">—</span>}</td>
                   </tr>
                 );
@@ -373,9 +389,9 @@ export default function Home({
               return (
                 <DataRow
                   key={r.id}
-                  /* A general election's jurisdiction is the nation, whose page is this one, so its name is
-                     plain text rather than a link to /pl/in — which is a 404, and was one, hidden behind a
-                     query string a navigation test's regex did not match. */
+                  /* Each row is a link to the election it names. A state's page opens on its newest election, so a row
+                     for 2021 linked there would land on 2026. A general election's jurisdiction is the nation, whose
+                     page is this one, so its row names the nation and links to the election alone. */
                   title={
                     <>
                       {r.jurisdictionName}
@@ -385,7 +401,7 @@ export default function Home({
                       </span>
                     </>
                   }
-                  href={r.body === 'lok-sabha' && r.fill === 'general' ? undefined : stateHref(r.jurisdictionId)}
+                  href={electionHref(r.id)}
                   aside={
                     <b>
                       {/* A reading, never a bare number: West Bengal 2026's 93.0% is a seed defect, and
@@ -452,23 +468,28 @@ export default function Home({
               }
               aside={
                 <>
-                  <b>{IN.format(p.assemblySeats)}</b>
-                  <Sparkline
-                    points={p.spark}
-                    fill={fillFor(p.key)}
-                    label={`${p.label} Lok Sabha seats: ${p.spark.map((x) => `${x.year} ${x.seats}`).join(', ')}`}
-                  />
+                  <b>
+                    {IN.format(p.assemblySeats)} assembly {p.assemblySeats === 1 ? 'seat' : 'seats'}
+                  </b>
+                  {/* A trend of one election is not a trend, and it is not an absence worth stating on every row. */}
+                  {p.spark.length < 2 ? null : (
+                    <Sparkline
+                      points={p.spark}
+                      fill={fillFor(p.key)}
+                      label={`${p.label} Lok Sabha seats: ${p.spark.map((x) => `${x.year} ${x.seats}`).join(', ')}`}
+                    />
+                  )}
                 </>
               }
               detail={
                 <>
-                  {p.governs === 0 ? 'no assembly' : `${p.governs} ${p.governs === 1 ? 'assembly' : 'assemblies'}`}
+                  leads {p.governs === 0 ? 'no assembly' : `${p.governs} ${p.governs === 1 ? 'assembly' : 'assemblies'}`}
                   {' · '}
                   {p.houseSeats === 0 ? (
                     <span className="iei-absent">no Lok Sabha seat</span>
                   ) : (
                     <>
-                      {p.houseSeats} Lok Sabha
+                      {p.houseSeats} Lok Sabha {p.houseSeats === 1 ? 'seat' : 'seats'}
                       {p.houseSeatsChange === null ? '' : ` (${p.houseSeatsChange > 0 ? '+' : ''}${p.houseSeatsChange})`}
                     </>
                   )}
@@ -493,7 +514,10 @@ export default function Home({
           question="Which seats were decided by almost nothing?"
         >
           {v.fights.length === 0 ? (
-            <p className="iei-absent">No election on record publishes a margin.</p>
+            <p className="iei-absent">
+              No seat can be ranked: a margin is ranked as a share of votes polled, and no state&rsquo;s latest election has
+              one on record that can be verified.
+            </p>
           ) : (
             <DataList label="The tightest results in the country" tight>
               {v.fights.map((f) => (

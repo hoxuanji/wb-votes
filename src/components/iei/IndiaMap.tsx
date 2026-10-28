@@ -177,7 +177,9 @@ export function IndiaMap({
               <Link href={c.href} data-j={c.jurisdictionId}>
                 <span className="iei-sw" style={{ background: c.fill }} aria-hidden="true" />
                 <b>{c.jurisdictionId.toUpperCase()}</b>
-                <span className="iei-tile-v">{c.label ?? <span className="iei-absent">not held</span>}</span>
+                <span className="iei-tile-v">
+                  {c.label ?? <span className="iei-absent">{c.electionId === null ? 'not loaded' : 'no figure'}</span>}
+                </span>
                 <span className="iei-sr">{c.jurisdictionName}</span>
               </Link>
             </li>

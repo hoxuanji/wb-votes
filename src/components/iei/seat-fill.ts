@@ -25,7 +25,7 @@ function pct(v: number | null): string {
  * Inverted deliberately, and it is the same argument `home.ts` makes for its own margin layer — a knife-edge
  * seat is the finding, so it has to be the loud mark. On a near-black surface the loud end of a sequential
  * ramp is its LIGHTEST step, not its darkest, so a tight seat gets `SEQUENTIAL`'s last entry and a safe seat
- * recedes into the canvas.
+ * its first, which is dimmer and still a mark.
  */
 function marginFill(marginPct: number | null): string {
   if (marginPct === null) return NOT_HELD;

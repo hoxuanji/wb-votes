@@ -33,6 +33,7 @@ import {
   availability,
   electionCoverage,
   electionCoverageView,
+  headline,
   homeView,
   isLayer,
   layer,
@@ -41,6 +42,8 @@ import {
   spine,
   watchSignals,
   type LayerKey,
+  type PartyLandscape,
+  type Snapshot,
   type Spine,
 } from "./home.ts";
 import {
@@ -514,7 +517,7 @@ test("the same seats with nothing unverified print 93.0%: the gate is the only t
     const l = layer(d, "turnout", literalSpine(new Set(), [...OK, ...BAD]));
     assert.equal(l.cells[1]?.label, "93.0%");
     assert.equal(l.cells[1]?.detail[1], "93.0% of electors voted");
-    assert.doesNotMatch(l.unknownWhy, /verified/, "and the layer's wording is the one it always had");
+    assert.doesNotMatch(l.unknownWhy, /verified/, "and the layer's wording does not speak of verification");
   } finally {
     d.close();
   }
@@ -951,6 +954,195 @@ test("the bulk seat reads agree with the per-election ones they replaced", live,
         assert.match(w.jurisdictionId, /^[a-z]{2}$/, `${l.id}: a seat is filed under '${w.jurisdictionId}'`);
       }
     }
+  } finally {
+    d.close();
+  }
+});
+
+/* ────────────────────────────── a row's figures belong to its layer ────────────────────────────── */
+
+/** A standing of one election, with the leader's own seats rather than the whole house's. */
+const lead = (jurisdictionId: string, electionId: string, seatsContested: number, leaderSeats: number): Standing => ({
+  ...standing(jurisdictionId, electionId, seatsContested),
+  leaderSeats,
+});
+
+test("a cell carries the seats of its own layer: the Lok Sabha's for the Lok Sabha layer, never the assembly's", () => {
+  const d = open(":memory:");
+  try {
+    // One state, two houses that disagree: the party leading its assembly holds 192 of 294, the one leading its Lok Sabha seats 29 of 42.
+    const sp: Spine = {
+      ...literalSpine(new Set(), []),
+      standings: [lead("ok", "ok-assembly", 294, 192)],
+      houseStandings: [{ ...lead("ok", "ls", 42, 29), leaderKey: "BBB", leaderLabel: "BBB" }],
+    };
+    const gov = layer(d, "government", sp).cells.find((c) => c.jurisdictionId === "ok");
+    assert.deepEqual([gov?.leaderSeats, gov?.seatsContested], [192, 294]);
+    const ls = layer(d, "loksabha", sp).cells.find((c) => c.jurisdictionId === "ok");
+    assert.deepEqual([ls?.label, ls?.leaderSeats, ls?.seatsContested], ["BBB", 29, 42], "the row printed the assembly's 192 of 294");
+    // A magnitude layer colours a figure, not a party, so no seat count has an owner there and its cells hold none.
+    for (const key of ["voteshare", "turnout", "margin", "year"] as const) {
+      for (const c of layer(d, key, sp).cells) assert.deepEqual([c.leaderSeats, c.seatsContested], [null, null], `${key}/${c.jurisdictionId}`);
+    }
+    // And a jurisdiction the layer cannot colour has none either.
+    const none = layer(d, "government", sp).cells.find((c) => c.jurisdictionId === "none");
+    assert.deepEqual([none?.leaderSeats, none?.seatsContested], [null, null]);
+  } finally {
+    d.close();
+  }
+});
+
+/* ────────────────────────────── what an unshaded cell is called ────────────────────────────── */
+
+test("an unshaded cell is not loaded where no election is, and has no figure where one is loaded and published none", () => {
+  const d = open(":memory:");
+  try {
+    // ok: counted. bad: loaded, a winner and a turnout and no counts. none: no election at all.
+    const sp = literalSpine(GATED, [...OK, ...BAD]);
+    const l = layer(d, "voteshare", sp);
+    assert.deepEqual([l.unknown, l.unloaded], [3, 1], "ok has no leader share in this spine, bad is loaded, none is not");
+    const bad = l.cells.find((c) => c.jurisdictionId === "bad");
+    const none = l.cells.find((c) => c.jurisdictionId === "none");
+    assert.equal(bad?.electionId, "bad-1");
+    assert.equal(none?.electionId, null);
+    // The caption speaks of a source only for the cells that have one.
+    assert.match(l.unknownWhy, /no election is loaded for 1 of them/);
+    assert.match(l.unknownWhy, /for the rest, their source published a winner and no vote counts/);
+    // Everything unshaded is unloaded: the caption says that and does not describe a source nobody loaded.
+    const gov = layer(d, "government", { ...sp, standings: [] });
+    assert.equal(gov.unloaded, gov.unknown);
+    assert.doesNotMatch(layer(d, "year", { ...sp, standings: [] }).unknownWhy, /source/);
+    // Everything unshaded is loaded: the caption is the source's.
+    const loaded = layer(d, "voteshare", { ...sp, states: sp.states.filter((s) => s.id === "bad") });
+    assert.deepEqual([loaded.unknown, loaded.unloaded], [1, 0]);
+    assert.match(loaded.unknownWhy, /^their source published a winner and no vote counts/);
+  } finally {
+    d.close();
+  }
+});
+
+test("an election that is loaded and has no declared winner is not called not loaded", () => {
+  const d = open(":memory:");
+  try {
+    // Nominations are in and nothing is counted: the election is on record and has no leader.
+    const sp: Spine = {
+      ...literalSpine(new Set(), []),
+      standings: [{ ...standing("ok", "ok-1", 2), leaderKey: null, leaderLabel: null, leaderSeats: 0, majority: false }],
+    };
+    const l = layer(d, "government", sp);
+    const ok = l.cells.find((c) => c.jurisdictionId === "ok");
+    assert.equal(ok?.label, null);
+    assert.equal(ok?.electionId, "ok-1");
+    assert.deepEqual(ok?.detail, ["Assembly 2026", "no winner recorded"]);
+    assert.equal(l.unloaded, l.unknown - 1, "it is unshaded but it is loaded");
+  } finally {
+    d.close();
+  }
+});
+
+/* ────────────────────────────── the magnitude ramp is a set of marks ────────────────────────────── */
+
+test("every step of the magnitude ramp is a mark: it clears the floor on every surface and is told apart from the next", () => {
+  const surfaces = { bg: "#07070b", panel: "#0d0d13", raised: "#14141c" };
+  // Three of the six steps were 1.25, 1.62 and 2.24 against the page, and the darkest was 1.06 against the ink that says a
+  // jurisdiction has no data: a seat with a figure looked like a seat without one.
+  for (const step of SEQUENTIAL) {
+    for (const [name, surface] of Object.entries(surfaces)) {
+      assert.ok(contrast(step, surface) >= 3, `${step} on ${name} is ${contrast(step, surface).toFixed(2)}:1`);
+    }
+    assert.ok(deltaE(step, NO_DATA_HUE, "normal") >= 20, `${step} is not told apart from the no-data ink`);
+  }
+  for (let i = 1; i < SEQUENTIAL.length; i += 1) {
+    const [a, b] = [SEQUENTIAL[i - 1] as string, SEQUENTIAL[i] as string];
+    assert.ok(luminance(b) > luminance(a), `${b} is not lighter than ${a}: the ramp is a ramp because it is ordered`);
+    assert.ok(deltaE(a, b, "normal") >= 7, `${a} and ${b} are ${deltaE(a, b, "normal").toFixed(1)} apart`);
+  }
+});
+
+/* ────────────────────────────── the headline's counts ────────────────────────────── */
+
+test("the headline names the only assembly rather than counting one of one, and one election is not elections", () => {
+  const snap = { jurisdictionsWithResults: 1, jurisdictionsTotal: 36, elections: 5, assembliesOnRecord: 1, dueSoon: 0 } as Snapshot;
+  const row = (governs: number) => ({ label: "BJP", governs }) as PartyLandscape["rows"][number];
+  assert.equal(headline(snap, { rows: [row(1)] } as PartyLandscape), "BJP leads the only assembly on record.");
+  assert.equal(
+    headline({ ...snap, assembliesOnRecord: 31 } as Snapshot, { rows: [row(11)] } as PartyLandscape),
+    "BJP leads 11 of the 31 assemblies on record.",
+  );
+  assert.equal(
+    headline({ ...snap, elections: 1 } as Snapshot, { rows: [] } as unknown as PartyLandscape),
+    "1 of 36 states and union territories have results on record, across 1 election.",
+  );
+});
+
+/* ────────────────────────────── what a coverage gap and an anomaly say ────────────────────────────── */
+
+/**
+ * West Bengal 2026's shape, in three contests: two whose source published a winner and a declared margin and nothing else, and one with an
+ * elected candidacy and no result at all. Every other candidate is on the nomination list, which says they stood and nothing more.
+ */
+function winnersOnly(): DatabaseSync {
+  const d = open(":memory:");
+  migrate(d, "2026-08-12T00:00:00.000Z");
+  d.exec(`
+    INSERT INTO source (id, kind, retrieved_at, doc_hash) VALUES ('s1','static_module','2026-08-12','sha256:0');
+    INSERT INTO boundary_epoch (id, name, effective_from) VALUES ('e1','Delimitation','2008-02-19');
+    INSERT INTO place (id, kind, canonical_name) VALUES ('wb','state','West Bengal');
+    INSERT INTO party (id, name, short_name) VALUES ('PARTY','A Party','PTY');
+    INSERT INTO party_version (id, party_id, valid_from, name) VALUES (1,'PARTY','1990-01-01','A Party');
+    INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, occurrence)
+      VALUES ('wb-assembly-2026','assembly','state','wb','e1','WB 2026','declared','ac',2026,1);
+  `);
+  for (const n of [1, 2, 3]) {
+    d.exec(`
+      INSERT INTO place (id, kind, canonical_name, parent_id) VALUES ('wb.ac.00${n}','ac','SEAT ${n}','wb');
+      INSERT INTO place_version (id, place_id, jurisdiction_id, kind, epoch_id, number, canonical_name, reservation)
+        VALUES (${n},'wb.ac.00${n}','wb','ac','e1',${n},'SEAT ${n}','general');
+      INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('c${n}','wb-assembly-2026',${n},'declared');
+      INSERT INTO person (id, canonical_name, created_at) VALUES ('p${n}a','A${n}','2026-08-12');
+      INSERT INTO person (id, canonical_name, created_at) VALUES ('p${n}b','B${n}','2026-08-12');
+      INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status) VALUES ('d${n}a','c${n}','p${n}a',1,'elected');
+      INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status) VALUES ('d${n}b','c${n}','p${n}b',1,'contesting');
+    `);
+  }
+  for (const n of [1, 2]) {
+    d.exec(`INSERT INTO result (contest_id, candidacy_id, rank, is_winner, margin, source_id, ingested_at)
+              VALUES ('c${n}','d${n}a',1,1,${n * 100},'s1','2026-08-12')`);
+  }
+  return d;
+}
+
+test("a contest whose source published a winner and a margin is said to hold that, and nothing is called a placeholder", () => {
+  const d = winnersOnly();
+  try {
+    const c = electionCoverage(d, "wb-assembly-2026");
+    assert.ok(c !== null);
+    // Three contests, no vote count anywhere. Two hold a declared winner and margin; the third holds nothing, and is not among them.
+    assert.ok(
+      c.gaps.includes("3 contests carry no vote count and no stated reason; 2 of them hold a declared winner and margin and no other result"),
+      c.gaps.join(" | "),
+    );
+    // Four candidacies have no result row: three stood and nothing more is known, which is not an anomaly, and one is elected with no
+    // result and no unopposed claim, which is. Nothing in the registry says an import superseded anything.
+    assert.deepEqual(c.anomalies, ["1 elected candidacy carries no result row and no unopposed claim"]);
+    assert.equal(c.candidaciesWithoutResult, 4, "the count of candidacies with no result row is still the whole count");
+  } finally {
+    d.close();
+  }
+});
+
+test("a coverage count agrees with its verb, whether it is one contest or candidacy or several", () => {
+  const d = winnersOnly();
+  try {
+    d.exec(`DELETE FROM result; DELETE FROM candidacy WHERE status = 'contesting'`);
+    const c = electionCoverage(d, "wb-assembly-2026");
+    assert.ok(c !== null);
+    assert.ok(c.gaps.includes("3 contests carry no vote count and no stated reason"), "no margin was declared, so there is nothing to add");
+    assert.deepEqual(c.anomalies, ["3 elected candidacies carry no result row and no unopposed claim"]);
+    d.exec(`DELETE FROM candidacy WHERE id IN ('d1a','d2a')`);
+    assert.deepEqual(electionCoverage(d, "wb-assembly-2026")?.anomalies, ["1 elected candidacy carries no result row and no unopposed claim"]);
+    d.exec(`DELETE FROM contest WHERE id IN ('c1','c2')`);
+    assert.ok(electionCoverage(d, "wb-assembly-2026")?.gaps.includes("1 contest carries no vote count and no stated reason"));
   } finally {
     d.close();
   }

@@ -101,7 +101,7 @@ test("the homepage renders, and says what it is in the first screen", live, () =
   // and a computed sentence about who governs.
   assert.match(t, /INDIA\nElection Intelligence/, "the wordmark is not the first thing");
   assert.match(t, /India\nThe electoral landscape/, "the hero does not name the country and its subject");
-  assert.match(t, /assemblies on record/, "the headline does not say what it counted");
+  assert.match(t, /assembl(?:y|ies) on record/, "the headline does not say what it counted");
   // SIX MODULES. Five sections as far as the markup is concerned — two of them hold two panels each — and the
   // six questions a front page owes a reader: where am I, who governs where, what is coming, what was just
   // decided, who holds power, and what stands out.
@@ -250,6 +250,11 @@ test("the front page reaches a constituency, not just a state", live, () => {
   const fights = home.homeView(db, { thisYear: 2026 }).fights;
   if (fights.length === 0) {
     assert.equal(seats.length, 0, "the closest-contests module links to seats it was not given");
+    // AND WHAT IT SAYS INSTEAD MUST BE TRUE. It said "No election on record publishes a margin" over a registry in which every
+    // election declares one, in votes: what is missing is the vote counts a margin needs to be a share of votes polled.
+    const declared = all<{ n: number }>(db, "SELECT COUNT(*) AS n FROM result WHERE margin IS NOT NULL")[0]?.n ?? 0;
+    if (declared > 0) assert.doesNotMatch(t, /publishes a margin/, `the module denies margins, and ${declared} result rows declare one`);
+    assert.match(t, /share of votes polled/, "the module does not say what it could not rank by");
     return;
   }
   assert.ok(
@@ -259,6 +264,95 @@ test("the front page reaches a constituency, not just a state", live, () => {
   // Each row states the margin as votes AND as a share, so "closest" is arguable rather than asserted.
   assert.match(t, /\d+ votes/, "a close fight does not state its margin in votes");
   assert.match(t, /% of votes polled/, "a close fight does not state its margin as a share");
+});
+
+test("the table beside the map prints the seats of the layer it sits beside, and none where the layer names no party", live, () => {
+  // The seats column read the ASSEMBLY standings whatever layer was shown, so the Lok Sabha layer printed "TMC 192 of 294": the Lok Sabha
+  // leader's name over the assembly leader's seats. The registry's own count of contests is what the denominator has to be.
+  const house = all<{ id: string }>(db, "SELECT id FROM election WHERE house = 'pc' AND kind = 'general' ORDER BY year DESC, id DESC LIMIT 1")[0]?.id;
+  assert.ok(house !== undefined, "no Lok Sabha election in the registry");
+  const contests = new Map(
+    all<{ j: string; n: number }>(
+      db,
+      `SELECT pv.jurisdiction_id AS j, COUNT(*) AS n FROM contest c JOIN place_version pv ON pv.id = c.place_version_id
+        WHERE c.election_id = ? GROUP BY 1`,
+      house,
+    ).map((r) => [r.j, r.n]),
+  );
+  const rows = (html: string): Map<string, string[]> =>
+    new Map(
+      [...html.matchAll(/<tr [^>]*data-j="([a-z]{2})"[^>]*>([\s\S]*?)<\/tr>/g)].map((m) => [m[1] as string, text(m[2] as string).split("\n")]),
+    );
+  const lok = rows(render("/", "layer=loksabha"));
+  let checked = 0;
+  for (const [j, cells] of lok) {
+    const of = /^of (\d+)$/.exec(cells[3] ?? "")?.[1];
+    if (of === undefined) continue;
+    checked += 1;
+    assert.equal(Number(of), contests.get(j), `${j}: the Lok Sabha layer's row says "of ${of}"`);
+    assert.ok(Number(cells[2]) <= Number(of) && Number(cells[2]) > 0, `${j}: ${cells[2]} seats of ${of}`);
+  }
+  assert.ok(checked > 0, "the Lok Sabha layer's table has no seat figure in any row");
+  // A layer whose value is a number has no party in its row for a seat count to belong to: no column, rather than a leader's seats
+  // beside a turnout.
+  for (const layer of ["voteshare", "turnout", "margin", "year"]) {
+    const html = render("/", `layer=${layer}`);
+    const head = text(/<thead>([\s\S]*?)<\/thead>/.exec(html)?.[1] ?? "").split("\n");
+    assert.deepEqual(head, ["State / UT", "Value", "Elected"], `${layer}'s table has columns that belong to another layer`);
+    for (const [j, cells] of rows(html)) assert.equal(cells.length, 3, `${j}: ${cells.join(" | ")}`);
+  }
+});
+
+test("an unshaded jurisdiction is called not loaded where no election is and has no figure where one is, and never not held", live, () => {
+  // "Not held" says no election took place. Karnataka's was; it is not loaded. And on the vote share, turnout and margin layers West Bengal,
+  // whose 2026 election was held and declared, was counted among the "not held" because the legend had one word for two causes.
+  for (const layer of ["government", "loksabha", "voteshare", "turnout", "margin", "year"]) {
+    const html = render("/", `layer=${layer}`);
+    assert.doesNotMatch(text(html), /not held/i, `${layer} says an election was not held`);
+    const view = home.homeView(db, { layer, thisYear: 2026 }).layer;
+    const legend = (word: string): number | null => {
+      const n = new RegExp(`${word} <b>(\\d+)</b>`).exec(html)?.[1];
+      return n === undefined ? null : Number(n);
+    };
+    assert.equal(legend("Not loaded"), view.unloaded === 0 ? null : view.unloaded, `${layer}: the legend's count of what is not loaded`);
+    assert.equal(legend("No figure"), view.unknown === view.unloaded ? null : view.unknown - view.unloaded, `${layer}: the legend's count of what has no figure`);
+    // The tile row says the same, per jurisdiction: each tile is the word for its own cause.
+    for (const m of html.matchAll(/<li><a[^>]* data-j="([a-z]{2})">[\s\S]*?<span class="iei-tile-v">([\s\S]*?)<\/span><span class="iei-sr">/g)) {
+      const cell = view.cells.find((c) => c.jurisdictionId === m[1]);
+      const word = text(m[2] as string);
+      if (cell?.label === null) assert.equal(word, cell.electionId === null ? "not loaded" : "no figure", `${layer}/${m[1]}'s tile`);
+    }
+  }
+});
+
+test("a party's row says what its figures count, and does not say 'one election' beside an assembly seat total", live, () => {
+  const html = render("/");
+  const section = /id="parties"([\s\S]*?)id="fights"/.exec(html)?.[1] ?? "";
+  const rows = [...section.matchAll(/<li id="[^"]*">([\s\S]*?)<\/li>/g)].map((m) => text(m[1] as string).replace(/\n/g, " "));
+  assert.ok(rows.length > 0, "the party landscape has no rows");
+  for (const row of rows) {
+    // The bold figure is assembly seats; "no assembly" beside 77 of them read as holding none, when it meant leading none.
+    assert.match(row, /\d[\d,]* assembly seats?\b/, `no unit on the figure: ${row}`);
+    assert.match(row, /leads (?:no assembly|\d+ assembl(?:y|ies))/, `no verb on the count of assemblies: ${row}`);
+    assert.doesNotMatch(row, /one election/, `a Lok Sabha trend's fallback sits beside an assembly figure: ${row}`);
+    assert.match(row, /no Lok Sabha seat|\d+ Lok Sabha seats?\b/, `no unit on the Lok Sabha figure: ${row}`);
+  }
+});
+
+test("each Recent results row links to the election it names, the Lok Sabha's included", live, () => {
+  // Four rows linked to /state/wb, which opens on 2026, under the names of 2021, 2016 and 2011; the Lok Sabha's was not a link at all.
+  const html = render("/");
+  const list = /aria-label="Elections most recently held">([\s\S]*?)<\/ul>/.exec(html)?.[1] ?? "";
+  const rows = [...list.matchAll(/<li>([\s\S]*?)<\/li>/g)].map((m) => m[1] as string);
+  const held = home.homeView(db, { thisYear: 2026 }).held;
+  assert.ok(held.length > 0 && rows.length === held.length, `${rows.length} rows for ${held.length} elections`);
+  rows.forEach((row, i) => {
+    const e = held[i] as (typeof held)[number];
+    assert.match(row, new RegExp(`<a href="/election/${e.id}">`), `${e.id}'s row does not link to its election: ${text(row)}`);
+    assert.ok(text(row).includes(String(e.year)), `${e.id}'s row does not name ${e.year}`);
+    // A 404 throws inside the render, so asserting by not throwing is the assertion.
+    assert.ok(text(render("/election", "", e.id)).includes(String(e.year)), `/election/${e.id} does not name its year`);
+  });
 });
 
 test("the unopposed seat is never counted among the numeric results", live, () => {
