@@ -5,7 +5,7 @@ import { MARGIN_BANDS, districtGroups, marginBandCounts } from '../../../package
 import type { StateTrajectory } from '../../../packages/mandate/src/repo/trajectory.ts';
 import type { Asked } from '../../../packages/mandate/src/repo/state-view.ts';
 import { tally } from '../../../packages/mandate/src/repo/map-selection.ts';
-import { seatFlows } from '../../../packages/mandate/src/repo/seat-flows.ts';
+import { leftOut, seatFlows } from '../../../packages/mandate/src/repo/seat-flows.ts';
 import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import {
   bandPhrase,
@@ -16,8 +16,9 @@ import {
 } from '../../../packages/mandate/src/repo/seat-list.ts';
 import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
+import type { ElectionContext } from '../../../packages/mandate/src/repo/election-context.ts';
 import { scaleLabel, typeLabel } from '../../../packages/mandate/src/repo/election-context.ts';
-import { bodyWord } from '../../../packages/mandate/src/core/election-kind.ts';
+import { bodyWord, chipOf } from '../../../packages/mandate/src/core/election-kind.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { ElectionMap, MODES, MapHead, MapSection, NoMap, ShapeTabs } from '../../components/iei/ElectionMap.tsx';
 import {
@@ -110,11 +111,61 @@ export function StateSurface({
   const SEATS: ElectionSeat[] = selection.narrow(view.seats);
 
   const bands = marginBandCounts(inDistrict);
+  // A MODE NO SEAT CAN FILL is offered as unavailable, as Flips is: a live tab would paint the state one colour that means nothing.
+  // A runner-up needs a second candidate on record and a band needs votes polled, judged over the whole election and not the district.
+  // A link that still asks for the mode is told so, straight under the question.
+  const anySeat = view.seats.length > 0;
+  const noRunnerUp = anySeat && view.seats.every((s) => s.runnerUpKey === null);
+  const noBands = anySeat && marginBandCounts(view.seats).every((b) => b.n === 0);
+  const blank =
+    mode === 'runnerup' && noRunnerUp
+      ? 'No runner-up is on record for any seat of this election'
+      : mode === 'margin' && noBands
+        ? 'No seat has a known margin over votes polled'
+        : null;
+  // The seats the map fills with the void, which its legend names as the arc below does: no declared winner (no runner-up, on that tab),
+  // and in Flips a paired seat with no flip, one of whose two elections declared none. A redrawn seat is `view.incomparableSeats`.
+  const uncoloured = inDistrict.filter((s) => (mode === 'runnerup' ? s.runnerUpKey : s.partyKey) === null).length;
+  const noComparison = view.seats.filter((s) => s.comparable && s.flip === null).length;
+  // What the no-vote-counts caveat says is on record is read from the data, because West Bengal 2026 holds a turnout it does not trust
+  // and the 2024 Lok Sabha holds none.
+  const recorded = `${
+    view.seats.some((s) => s.marginVotes !== null) ? 'Winners and declared margins are on record' : 'Winners are on record'
+  }, and ${
+    view.turnout.state === 'unverified'
+      ? 'its turnout is awaiting verification'
+      : view.turnout.state === 'absent'
+        ? 'turnout is not reported'
+        : 'turnout is on record'
+  }`;
+  // The flow picture's counts, said once: the sentence under the page's name counts the seats it compared, and says where the rest went.
+  const flows = seatFlows(view.seats);
+  const left = leftOut(flows.left);
+  // Whether the election has seats this state's share of it leaves out. The map's siblings count each election whole, and `view.seats`
+  // is the state's share of it.
+  const elsewhere = (view.siblings.find((x) => x.id === e.id)?.seats ?? 0) > view.seats.length;
+  // A state's share of the Lok Sabha has no majority of its own: 22 of 42 is not the 272 of 543 the house needs.
+  const delegation = e.body === 'lok-sabha' && view.scope !== null;
+  const scaleOf = (ctx: ElectionContext): string =>
+    delegation && e.fill === 'general' ? `${IN.format(ctx.seatsContested)} seats in ${name}` : scaleLabel(ctx);
+  // The change beside a party's seats is since the election before THIS one in the state's run: the run's last two points are that pair
+  // on its newest election only. None for the oldest, or for an election outside the run, a by-election.
+  const inRun = trajectory.elections.findIndex((x) => x.id === e.id);
+  const since = inRun > 0 ? (trajectory.elections[inRun - 1] ?? null) : null;
+  const seatsBefore = (key: string): number | undefined =>
+    since === null
+      ? undefined
+      : trajectory.parties.find((p) => p.key === key)?.points.find((pt) => pt.electionId === since.id)?.seats;
   // Whether the party landscape has any vote share to set beside the seat share, and the order of its rows. They
   // arrive ranked by vote share, which with none known is a tie everywhere: the eight shown would be the first
   // eight by party key, not the eight with the most seats.
   const voted = anyVoteShare(view.voteSeat);
   const landscape = voted ? view.voteSeat : [...view.voteSeat].sort((a, b) => b.seats - a.seats);
+  // Whether any row shown has a change to print: the note that says what it is since is not printed over none.
+  const moved = landscape.slice(0, 8).some((r) => {
+    const before = seatsBefore(r.party.key);
+    return before !== undefined && before !== r.seats;
+  });
   const narrowed = band !== null || party !== null || focused !== null;
   /**
    * HOW MANY ROWS THE LIST SHOWS, and it is the difference between a contextual list and a table.
@@ -180,8 +231,9 @@ export function StateSurface({
               </span>
               <span className="iei-hero-meta">
                 {/* THE TYPE AND THE SCALE, both from ElectionContext: "majority N" is a claim only a full house
-                    can support, and a by-election is not one. */}
-                {view.ctx === null ? `${bodyWord(e.body)} ${e.year}` : `${scaleLabel(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
+                    can support, and a by-election is not one. Nor is a state's share of the Lok Sabha: it says how many
+                    seats the state has in it and no majority, as the arc below does. */}
+                {view.ctx === null ? `${bodyWord(e.body)} ${e.year}` : `${scaleOf(view.ctx)} · ${typeLabel(view.ctx.body, view.ctx.kind)} ${view.ctx.year}`}
                 {/* NOT a number when the registry cannot corroborate one. West Bengal 2026's 93.0% used to
                     sit right here, in the same type as a real majority count, and a first-time reader had no
                     way to discount it. `turnoutHeadline` cannot return a figure for an unverified reading. */}
@@ -192,13 +244,13 @@ export function StateSurface({
         </div>
         {/* ONE analytical statement, from the findings the data layer already produced — never authored
             here, so it cannot claim something the registry does not hold. */}
-        {view.flips === null ? null : <p className="iei-sub">{summarise(view.flips)}</p>}
+        {view.flips === null ? null : <p className="iei-sub">{left === null ? summarise(view.flips) : `${summarise(view.flips)} ${left}`}</p>}
         {/* AN ELECTION THE URL ASKED FOR AND THIS PAGE CANNOT SHOW is replaced by the default, and the reader is
             told. A link to one election that answered with another and said nothing looks right and is about
             something else. */}
         {asked !== 'defaulted' ? null : (
           <p className="iei-note">
-            The election in the link is not one this page can show for {name}, so this is the{' '}
+            The election in the link is not one of {name}&rsquo;s {bodyWord(e.body)} elections on record, so this is the{' '}
             {typeLabel(e.body, e.fill)} {e.year}.
           </p>
         )}
@@ -214,7 +266,7 @@ export function StateSurface({
               current={e.id}
               choices={choices.slice(0, 8).map((s) => ({
                 key: s.id,
-                label: String(s.year),
+                label: chipOf(s.body, s.fill, s.year),
                 // Changing election drops every selection: a party's seats, a margin band and a district focus
                 // are all statements about ONE election and mean nothing carried to another.
                 href: selection.href({ election: s.id }),
@@ -228,7 +280,8 @@ export function StateSurface({
                 key: m.key,
                 label: m.label,
                 href: selection.href({ mode: m.key }),
-                available: m.key === 'flips' ? view.flips !== null : true,
+                available:
+                  m.key === 'flips' ? view.flips !== null : m.key === 'runnerup' ? !noRunnerUp : m.key === 'margin' ? !noBands : true,
               }))}
             />
           </>
@@ -240,34 +293,47 @@ export function StateSurface({
           <div className="iei-atlas-side">
             {/* WHAT THE MAP ANSWERS. It was the section heading's second half. */}
             <p className="iei-atlas-q">{MODES.find((m) => m.key === mode)?.question ?? ''}</p>
-            {/* A STATE'S LOK SABHA VIEW IS A NATIONAL ELECTION NARROWED TO ONE STATE, and the election's own page is the
-                only place that shows the rest of it. */}
+            {blank === null ? null : (
+              <p className="iei-absent">
+                {blank}, so there is nothing to {mapped ? 'colour' : 'show'}.
+              </p>
+            )}
+            {/* A STATE'S LOK SABHA VIEW IS A NATIONAL ELECTION NARROWED TO ONE STATE, and the election's own page is where
+                the rest of it is, where the registry holds any. Where it holds none, that page would show these same seats. */}
             {e.body !== 'lok-sabha' ? null : (
               <p className="iei-note">
                 The {e.year} Lok Sabha election, narrowed to the seats in {name}.{' '}
-                <Link href={electionHref(e.id)}>See the whole country</Link>.
+                {elsewhere ? (
+                  <>
+                    <Link href={electionHref(e.id)}>See the whole country</Link>.
+                  </>
+                ) : (
+                  `The registry holds no seat of it outside ${name}.`
+                )}
               </p>
             )}
             {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
             <NoMap view={view} />
             {/* NO VOTE COUNTS — SAID WHERE THE READER MEETS IT.
-                West Bengal 2026 publishes winners and turnout and no candidate votes, so every seat has no runner-up
-                and no share of its margin, the competitiveness section is absent and the vote-vs-seat plot is a
-                sentence. This line used to sit a hundred rendered lines further down, after the flip matrix, where it
-                explained rows the reader had already stopped asking about. It says what is missing AND what that costs,
-                because a column of "not reported" with no reason beside it reads as a broken page rather than as an
-                honest one. Only when true, and never a coverage panel. It sits in the column with the list, above
+                West Bengal 2026 and the 2024 Lok Sabha publish winners and the margins their sources declared and no candidate
+                votes, so every seat has no runner-up and no share of its margin, the competitiveness section is absent and the
+                vote-vs-seat plot is a sentence. This line used to sit a hundred rendered lines further down, after the flip
+                matrix, where it explained rows the reader had already stopped asking about. It says what is missing AND what
+                that costs, because a column of "not reported" with no reason beside it reads as a broken page rather than as
+                an honest one. What is on record is said from the data: West Bengal 2026 holds a turnout it does not trust, and
+                the Lok Sabha holds none. Only when true, and never a coverage panel. It sits in the column with the list, above
                 the rows it explains, and not over the map. */}
-            {view.seats.length > 0 && view.seats.every((s) => s.votes === null) ? (
+            {anySeat && view.seats.every((s) => s.votes === null) ? (
               <p className="iei-caveat">
-                No candidate vote counts were published for this election. Winners and turnout are on record;
-                margins over votes polled, competitiveness and vote-to-seat conversion are not, so a row says what is
-                not reported, and a chart that needs them is left out or replaced by a sentence, never drawn as zero.
+                No candidate vote counts were published for this election. {recorded}; margins over votes polled, competitiveness
+                and vote-to-seat conversion are not on record, so a row says what is not reported, and a chart that needs them is
+                left out or replaced by a sentence, never drawn as zero.
               </p>
             ) : null}
 
-            {/* The legend answers to the mode, because the mode decides what a colour means. */}
-            {mode === 'margin' ? (
+            {/* The legend answers to the mode, because the mode decides what a colour means. With nothing to colour the
+                sentence above is the answer, and an empty legend would follow it. */}
+            {blank !== null ? null : mode === 'margin' ? (
               <MarginBands
                 bands={bands}
                 selected={band}
@@ -283,6 +349,12 @@ export function StateSurface({
                   <li>
                     <span className="iei-sw iei-sw-none" aria-hidden="true" />
                     Not comparable <b>{view.incomparableSeats}</b>
+                  </li>
+                )}
+                {noComparison === 0 ? null : (
+                  <li>
+                    <span className="iei-sw iei-sw-none" aria-hidden="true" />
+                    No comparison <b>{noComparison}</b>
                   </li>
                 )}
                 {mapped ? <li className="iei-legend-note">A flipped seat wears the colour of the party that gained it.</li> : null}
@@ -302,6 +374,12 @@ export function StateSurface({
                     </Link>
                   </li>
                 ))}
+                {uncoloured === 0 ? null : (
+                  <li>
+                    <span className="iei-sw iei-sw-none" aria-hidden="true" />
+                    {mode === 'runnerup' ? 'No runner-up' : 'No declared winner'} <b>{uncoloured}</b>
+                  </li>
+                )}
               </ul>
             )}
 
@@ -371,14 +449,22 @@ export function StateSurface({
                   detail={
                     <>
                       <RowContest seat={s} />
-                      {/* Focus this seat on the map, without leaving the page. There is nothing to focus it on without one. */}
+                      {/* Focus this seat on the map, without leaving the page. There is nothing to focus it on without one, and
+                          a seat with no outline of its own has nothing to be outlined by. */}
                       {mapped ? (
-                        <>
-                          {' · '}
-                          <Link className="iei-body-link" href={selection.href({ seat: s.placeId })}>
-                            {seat === s.placeId ? 'unfocus' : 'find on map'}
-                          </Link>
-                        </>
+                        s.path === null ? (
+                          <>
+                            {' · '}
+                            <span className="iei-absent">no boundary on record</span>
+                          </>
+                        ) : (
+                          <>
+                            {' · '}
+                            <Link className="iei-body-link" href={selection.href({ seat: s.placeId })}>
+                              {seat === s.placeId ? 'unfocus' : 'find on map'}
+                            </Link>
+                          </>
+                        )
                       ) : null}
                     </>
                   }
@@ -399,7 +485,7 @@ export function StateSurface({
         seats={view.seats}
         majority={view.majority}
         selection={selection}
-        delegation={e.body === 'lok-sabha' && view.scope !== null ? name : null}
+        delegation={delegation ? name : null}
       />
 
       {/* ══ 3 · WHAT CHANGED ══════════════════════════════════════════════════════════════════ */}
@@ -419,7 +505,7 @@ export function StateSurface({
           title="What changed"
           question={`Which seats changed hands since ${view.previous?.year ?? 'the previous election'}?`}
         >
-          <SeatFlow flows={seatFlows(view.seats)} previousYear={view.previous?.year ?? null} year={e.year} />
+          <SeatFlow flows={flows} previousYear={view.previous?.year ?? null} year={e.year} />
           <div className="iei-two">
             <div>
               <ul className="iei-tally" aria-label="Seats held, changed hands, and not comparable">
@@ -489,9 +575,7 @@ export function StateSurface({
               aria-label={voted ? 'Vote share, seat share and the gap between them' : 'Seat share by party'}
             >
               {landscape.slice(0, 8).map((r) => {
-                const before = trajectory.parties
-                  .find((p) => p.key === r.party.key)
-                  ?.points.at(-2);
+                const before = seatsBefore(r.party.key);
                 return (
                   <li key={r.party.key}>
                     <Link
@@ -514,10 +598,10 @@ export function StateSurface({
                     </span>
                     <span className="iei-partyrows-n">
                       {r.seats}
-                      {before === undefined || before.seats === r.seats ? null : (
-                        <i className={r.seats > before.seats ? 'iei-up' : 'iei-down'}>
-                          {r.seats > before.seats ? '+' : '−'}
-                          {Math.abs(r.seats - before.seats)}
+                      {before === undefined || before === r.seats ? null : (
+                        <i className={r.seats > before ? 'iei-up' : 'iei-down'}>
+                          {r.seats > before ? '+' : '−'}
+                          {Math.abs(r.seats - before)}
                         </i>
                       )}
                     </span>
@@ -532,6 +616,12 @@ export function StateSurface({
               party the system rewarded.
             </p>
           ) : null}
+          {since === null || !moved ? null : (
+            <p className="iei-note">
+              The figure beside a seat count is its change in seats since {since.year}, for the parties followed under
+              &ldquo;How the state has changed&rdquo;.
+            </p>
+          )}
         </Panel>
       )}
 
@@ -548,7 +638,7 @@ export function StateSurface({
                   aria-current={sib.id === e.id ? 'page' : undefined}
                   className={sib.id === e.id ? 'iei-legend-on' : undefined}
                 >
-                  {sib.year}
+                  {chipOf(sib.body, sib.fill, sib.year)}
                 </Link>
               </li>
             ))}

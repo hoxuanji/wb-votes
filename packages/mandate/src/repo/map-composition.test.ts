@@ -233,8 +233,8 @@ test("the column beside the map opens with what the map answers, in the mode's o
 
 const CAVEAT_FACTS = [
   /No candidate vote counts were published for this election\./,
-  /Winners and turnout are on record;/,
-  /margins over votes polled, competitiveness and vote-to-seat conversion are not,/,
+  /Winners and declared margins are on record, and turnout is not reported;/,
+  /margins over votes polled, competitiveness and vote-to-seat conversion are not on record,/,
   /so a row says what is not reported,/,
   /a chart that needs them is left out or replaced by a sentence, never drawn as zero\./,
 ];
@@ -266,7 +266,9 @@ test("a Lok Sabha view of a state says what it is narrowed to, in the column wit
   const html = render("/state", "house=pc", "aa");
   const note = at(html, "narrowed to the seats in Aa State.");
   assert.ok(at(html, SIDE) < note && note < at(html, '<ul class="iei-list iei-list-tight"'));
-  assert.ok(html.includes("See the whole country"));
+  // This registry holds the Lok Sabha seat of Aa State and no other, so the election's own page would show the same one seat.
+  assert.doesNotMatch(html, /See the whole country/);
+  assert.match(html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "), /The registry holds no seat of it outside Aa State\./);
 });
 
 test("with no map there is one column and nothing for a second to hold", () => {

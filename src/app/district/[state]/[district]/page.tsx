@@ -1,7 +1,13 @@
+import type { Metadata } from 'next';
+import { placeMetadata } from '../../../_place/metadata.ts';
 import { PlaceSurface } from '../../../_place/surface.tsx';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+export function generateMetadata({ params }: { params: { state: string; district: string } }): Metadata {
+  return placeMetadata({ level: 'district', state: params.state, district: params.district });
+}
 
 /**
  * A DISTRICT, carrying its state.
