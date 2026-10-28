@@ -12,8 +12,9 @@ app = 'india-election-intelligence'
 #   Error: failed to provision seed volumes: no capacity available in bom
 #
 # `sin` is the nearest region with capacity — roughly 40-60 ms to Indian readers against Mumbai's 10-20.
-# That cost is small here and mostly invisible: every page is server-rendered with zero client JavaScript
-# behind a Cloudflare cache, so the origin is reached on a cache MISS rather than on a page view.
+# That cost is paid on every page view: every page is `force-dynamic`, which Next answers with
+# `no-store`, so Cloudflare does not hold the HTML and each view reaches this origin and is rendered
+# here. What the edge can hold is `/_next/static` (immutable) and the `/v1` JSON (`s-maxage=60`).
 #
 # Capacity fluctuates. Moving back to Mumbai later is a one-line change plus a volume in the new region —
 # the database is a file, so relocating it is an upload rather than a migration.

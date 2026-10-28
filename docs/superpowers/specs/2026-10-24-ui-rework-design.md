@@ -169,7 +169,7 @@ at the tip of `ui-batch-3` against `main` (`abd6cee`), in-process pages through 
 | Kolkata's 16 seats, on the 620px-tall map | median 7 px² (2 to 21), against 216 for the state and 2,392 for its largest seat | as tiles, about 708 px² each (a 26.6px square in a 29.5px cell) |
 | `/state/wb` map top edge at 1440 and 390 | 267 and 368 | 267 and 368 |
 | `/election/wb-assembly-2021` map top edge at 1440 and 390 | 289 and 352 | 289 and 385 |
-| `/state/wb` markup, against the 340,000 bytes a page may have | 123,789 bytes | 149,111 as the map, 108,744 as tiles (`/election/wb-assembly-2021`: 122,335 to 148,240) |
+| `/state/wb` markup, against the 340,000-byte markup ceiling (not the document: Next also sends the tree again as flight data, 2.1 to 2.6 times the markup in a model, not a captured response) | 123,789 bytes | 149,111 as the map, 108,744 as tiles (`/election/wb-assembly-2021`: 122,335 to 148,240) |
 | Animations Chromium creates (Mekliganj, `/state/wb`, 2021 election) | 0 | 5, 14 and 25; the longest ends at 640, 660 and 540ms; with reduced motion, 0 on all three |
 | Horizontal overflow at 390 and 360, every mode and shape on `/state/wb` and on three elections | Flips overflowed (451 against 390), on `main` too | none |
 | Tests | 1146 | 1254; the same 51 environment failures as `main` |
@@ -209,7 +209,8 @@ Not met, or not tested:
 - **Other browsers.** Animation was counted in Chromium only; `animation-delay: min()`, `pathLength` on a circle with a non-scaling stroke and
   a custom property in an SVG `fill` were not seen in Firefox or Safari.
 - **The national Lok Sabha page against the 340,000-byte budget.** The seed holds West Bengal's 42 of its 543 seats, and a map page's polygon
-  paths dominate its size; the arc adds about 13 kB and the flow picture a few. The budget test runs on fixtures.
+  paths dominate its size; the arc adds about 13 kB and the flow picture a few. The ceiling is held on West Bengal's pages (`render.test.ts`)
+  and not on a 543-seat one.
 - **Tab order** through the tiles follows the picture (reading order), but how a screen reader announces 288 links was not tried.
 - **A comparison with more than seven parties on a side**, or an arc key with more than eight parties, was seen only on test fixtures; the dev
   registry has none.

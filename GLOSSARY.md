@@ -218,7 +218,7 @@ A seat with no counterpart in the other election under the same epoch, because i
 _Avoid_: Unmatched, redrawn (a paired seat with no declared winner was not redrawn)
 
 **Unknown**:
-A paired seat that is neither held nor flipped because one election, or both, declared no winner for it. The comparison lists it and which side is missing, and a map page says how many there are; the seat has no flip, and it is counted neither as a hold nor as a change.
+A paired seat that is neither held nor flipped because one election, or both, declared no winner for it. The comparison lists it and which side is missing, and a map page says how many there are; the seat flow's caption counts these seats in one sentence ("N left out because one of the two elections declared no winner there") and names none of them. The seat has no flip, and it is counted neither as a hold nor as a change.
 _Avoid_: Missing, incomparable
 
 **Held** and **flipped**:

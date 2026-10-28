@@ -106,6 +106,24 @@ function notFound(kind: string, slug: string): Problem {
   );
 }
 
+/**
+ * A path under /v1 that no endpoint answers. Next's own 404 for it is an HTML page, and a client reading JSON from
+ * this API expects the problem document every other refusal is. No registry is read, so there is no data version
+ * to carry and the reply is never cached.
+ */
+export function unknownEndpointReply(path: string): { status: number; headers: Record<string, string>; body: Problem } {
+  return {
+    status: 404,
+    headers: { "Cache-Control": "no-store" },
+    body: problem(
+      404,
+      "unknown-endpoint",
+      "No such endpoint",
+      `“${path}” is not an endpoint. The endpoints are /v1/search?q=<name>, /v1/entity/person/<slug> and /v1/entity/place/<slug>.`,
+    ),
+  };
+}
+
 type MetaBase = { dataVersion: string };
 
 /**

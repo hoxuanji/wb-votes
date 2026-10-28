@@ -84,9 +84,10 @@ npm run mandate -- release              # the national coverage report
 npm run mandate -- export               # the seed round-trip ratchet
 ```
 
-`export` passes at 95.0% against a 95.0% floor. **The floor moves up only**, in the commit that raises the
-number — its own failure message says so, and Phase 3's closure earned 94.1 → 95.0 by deriving a field the
-registry already held rather than by moving the line. If it goes red, the registry gives back less of
+`export` passes at 96.8% against a 96.8% floor (96.83% on the seed registry after migrate, ingest and resolve).
+**The floor moves up only**, in the commit that raises the number — its own failure message says so. Phase 3's
+closure earned 94.1 → 95.0 by deriving a field the registry already held rather than by moving the line, and
+filing every historical result under its own seat earned 95.0 → 96.8. If it goes red, the registry gives back less of
 data/seed/ than it did; `docs/release/PHASE-3-FINAL.md` records how the last move was earned.
 
 ## Rebuilding the registry from scratch
@@ -155,8 +156,10 @@ Three measured requirements decided it, and each ruled out an alternative:
 Verified on the first real build: `node:24-slim` passes the image's own self-check, and the image is 162 MB.
 
 **The region is `sin`, not `bom`.** Fly had no volume capacity in Mumbai — `no capacity available in bom` — and
-`sin` is the nearest region that does. Roughly 40-60 ms to Indian readers rather than 10-20, which is small
-and mostly invisible behind a Cloudflare cache: the origin is reached on a cache miss, not on a page view.
+`sin` is the nearest region that does. Roughly 40-60 ms to Indian readers rather than 10-20, and it is paid on every
+page view: every page is `force-dynamic`, which Next answers with `no-store`, so Cloudflare does not hold the HTML
+and each view reaches the origin and is rendered there. What the edge can hold is `/_next/static` (immutable) and
+the `/v1` JSON (`s-maxage=60`). That is read from the code, not observed on a live deployment.
 Capacity fluctuates, so moving back is a one-line change plus a volume, and relocating a file-backed database
 is an upload rather than a migration.
 
@@ -220,10 +223,14 @@ by-election result cached for a day is the staleness this product exists to avoi
 The database is a build artefact. Nothing writes to it in production: the one route that could, the merge
 decision, is local only (see below).
 
+Build the new file with the rebuild above, never by re-ingesting over the working registry: a corrected seed row
+leaves the candidacies it replaced behind. After the historical results were refiled under the right seats, an
+in-place `registry:ingest` left Bankura's Bishnupur 2021 with ten candidacies, five of them another seat's.
+
 ```sh
-npm run registry:ingest
-npm run mandate -- elections validate && npm run mandate -- geography validate
-gzip -c .data/registry.db > /tmp/registry.db.gz && shasum -a 256 /tmp/registry.db.gz
+node ops/rebuild.mjs .data/next.db
+MANDATE_DB_PATH=.data/next.db npm run mandate -- elections validate && MANDATE_DB_PATH=.data/next.db npm run mandate -- geography validate
+gzip -c .data/next.db > /tmp/registry.db.gz && shasum -a 256 /tmp/registry.db.gz
 # Interactive, as above: at the » prompt, `put /tmp/registry.db.gz /data/registry.db.gz.new`, then `exit`.
 fly ssh sftp shell -a india-election-intelligence
 fly ssh console -a india-election-intelligence -C "sha256sum /data/registry.db.gz.new"

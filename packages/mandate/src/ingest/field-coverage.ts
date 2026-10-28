@@ -99,34 +99,34 @@ export const RULES: Record<ModuleKey, Record<string, Rule>> = {
     isIncumbent: { drop: "the boolean shadow of incumbentYears: true on exactly the 157 rows that declare a tenure, false on the other 2,763, so incumbent_years_declared carries the same fact with a number behind it" },
   },
   historicalResults: {
-    // 40 of the 1,175 rows are a second row for a (year, constituency) another row already claims,
-    // so a per-contest probe reads 1,135. That is the documented duplicate_result_row discard, not
-    // a lost field — which is why these carry a `partial` reason instead of failing.
-    constituencyId: { probe: "SELECT COUNT(*) AS n FROM (SELECT DISTINCT contest_id FROM result)", partial: "40 input rows are a duplicate (year, constituency) key and are discarded, on content — see the duplicate_result_row anomaly" },
-    year: { probe: "SELECT COUNT(*) AS n FROM (SELECT DISTINCT contest_id FROM result)", partial: "as constituencyId: 40 duplicate (year, constituency) rows discarded" },
-    "winner.name": { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1", partial: "40 duplicate (year, constituency) rows discarded" },
-    "winner.partyId": { probe: "SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r.is_winner = 1 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)", partial: "40 duplicate (year, constituency) rows discarded" },
-    "winner.partyAbbr": { probe: "SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r.is_winner = 1 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)", partial: "the abbreviation is a second spelling of partyId, resolved to the same party_version; 40 duplicate rows discarded" },
-    "winner.votes": { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1", partial: "40 duplicate (year, constituency) rows discarded" },
-    "winner.voteShare": { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1 AND vote_share IS NOT NULL", partial: "40 duplicate (year, constituency) rows discarded" },
-    "runnerUp.name": { probe: 'SELECT COUNT(*) AS n FROM result WHERE "rank" = 2', partial: "40 duplicate (year, constituency) rows discarded" },
-    "runnerUp.partyId": { probe: 'SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" = 2 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)', partial: "40 duplicate (year, constituency) rows discarded" },
-    "runnerUp.partyAbbr": { probe: 'SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" = 2 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)', partial: "a second spelling of partyId; 40 duplicate rows discarded" },
-    "runnerUp.votes": { probe: 'SELECT COUNT(*) AS n FROM result WHERE "rank" = 2', partial: "40 duplicate (year, constituency) rows discarded" },
-    "runnerUp.voteShare": { probe: 'SELECT COUNT(*) AS n FROM result WHERE "rank" = 2 AND vote_share IS NOT NULL', partial: "40 duplicate (year, constituency) rows discarded" },
+    // Each row has a contest of its own: the seed files a (year, constituency) once, and
+    // seed-historical.test.ts holds it to that. A shortfall is therefore a lost value and needs a
+    // reason, and the one that stands is winner.voteShare below.
+    constituencyId: { probe: "SELECT COUNT(*) AS n FROM (SELECT DISTINCT contest_id FROM result)" },
+    year: { probe: "SELECT COUNT(*) AS n FROM (SELECT DISTINCT contest_id FROM result)" },
+    "winner.name": { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1" },
+    "winner.partyId": { probe: "SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r.is_winner = 1 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)" },
+    "winner.partyAbbr": { probe: "SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r.is_winner = 1 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)" },
+    "winner.votes": { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1" },
+    "winner.voteShare": { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1 AND vote_share IS NOT NULL", partial: "the 293 declared 2026 rows give a winner and a margin and no tallies, and 0 in this source means not reported, which the ingest stores as absence" },
+    "runnerUp.name": { probe: 'SELECT COUNT(*) AS n FROM result WHERE "rank" = 2' },
+    "runnerUp.partyId": { probe: 'SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" = 2 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)' },
+    "runnerUp.partyAbbr": { probe: 'SELECT COUNT(*) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" = 2 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)' },
+    "runnerUp.votes": { probe: 'SELECT COUNT(*) AS n FROM result WHERE "rank" = 2' },
+    "runnerUp.voteShare": { probe: 'SELECT COUNT(*) AS n FROM result WHERE "rank" = 2 AND vote_share IS NOT NULL' },
     // COUNT(*) FROM result counted the winner and runner-up rows too, so every topContestants
     // value could vanish and the probe would still read 4,357. A contest whose field the seed
     // publishes (every topContestants array in the seed holds at least 3) has a rank>=3 row.
-    "topContestants.name": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
-    "topContestants.partyId": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" >= 3 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
-    "topContestants.partyAbbr": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" >= 3 AND (c.party_raw IS NOT NULL OR EXISTS (SELECT 1 FROM party_version pv JOIN party pt ON pt.id = pv.party_id WHERE pv.id = c.party_version_id AND pt.short_name IS NOT NULL))', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
-    "topContestants.votes": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3 AND r.votes IS NOT NULL', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
-    "topContestants.voteShare": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3 AND r.vote_share IS NOT NULL', partial: "a topContestants entry the winner/runnerUp fields do not already carry is a rank>=3 result row; 40 duplicate (year, constituency) rows discarded" },
-    turnoutPct: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'turnout_pct'", partial: "40 duplicate (year, constituency) rows discarded" },
-    marginVotes: { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1 AND margin IS NOT NULL", partial: "40 duplicate (year, constituency) rows discarded" },
+    "topContestants.name": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3' },
+    "topContestants.partyId": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" >= 3 AND (c.party_version_id IS NOT NULL OR c.party_raw IS NOT NULL)' },
+    "topContestants.partyAbbr": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r JOIN candidacy c ON c.id = r.candidacy_id WHERE r."rank" >= 3 AND (c.party_raw IS NOT NULL OR EXISTS (SELECT 1 FROM party_version pv JOIN party pt ON pt.id = pv.party_id WHERE pv.id = c.party_version_id AND pt.short_name IS NOT NULL))' },
+    "topContestants.votes": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3 AND r.votes IS NOT NULL' },
+    "topContestants.voteShare": { probe: 'SELECT COUNT(DISTINCT r.contest_id) AS n FROM result r WHERE r."rank" >= 3 AND r.vote_share IS NOT NULL' },
+    turnoutPct: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'turnout_pct'" },
+    marginVotes: { probe: "SELECT COUNT(*) AS n FROM result WHERE is_winner = 1 AND margin IS NOT NULL" },
     marginPct: { drop: "derived: marginVotes / totalVotes, both of which the registry stores. A stored ratio is a second copy of a number that can disagree with its operands" },
-    totalVotes: { probe: "SELECT COUNT(*) AS n FROM turnout WHERE voters IS NOT NULL", partial: "40 duplicate (year, constituency) rows discarded" },
-    totalElectors: { probe: "SELECT COUNT(*) AS n FROM turnout WHERE electors IS NOT NULL", partial: "40 duplicate (year, constituency) rows discarded" },
+    totalVotes: { probe: "SELECT COUNT(*) AS n FROM turnout WHERE voters IS NOT NULL" },
+    totalElectors: { probe: "SELECT COUNT(*) AS n FROM turnout WHERE electors IS NOT NULL" },
   },
   currentMLAs: {
     constituencyId: { probe: "SELECT COUNT(*) AS n FROM claim WHERE predicate = 'mla_term' AND json_extract(object_value, '$.placeId') IS NOT NULL" },

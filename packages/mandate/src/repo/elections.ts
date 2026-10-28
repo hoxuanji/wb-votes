@@ -1,4 +1,4 @@
-// One election, one shape — for all 1,188 of them.
+// One election, one shape — for every election the registry holds.
 //
 // The point of this module is that NOTHING here knows whether it is looking at a state assembly, a Lok
 // Sabha election or a by-poll. An election is a jurisdiction, a set of contests, a set of winners and a

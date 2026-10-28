@@ -20,7 +20,7 @@ import { open, openRead } from "../db/index.ts";
 import { ensureEpochs } from "../db/epochs.ts";
 import { migrate } from "../db/migrate.ts";
 import type { Envelope, Meta, Reply } from "./envelope.ts";
-import { personReply, placeReply, searchReply, unavailable } from "./envelope.ts";
+import { personReply, placeReply, searchReply, unavailable, unknownEndpointReply } from "./envelope.ts";
 import { readRegistry } from "./session.ts";
 
 const AC = "wb.ac.001";
@@ -306,6 +306,17 @@ async function assertContract(where: string, searchTerm: string): Promise<void> 
   assert.equal(none.status, 404, `${where}: no match`);
   if ("data" in none.body) assert.fail("a no-match search must not answer with an empty envelope");
 }
+
+test("a path under /v1 that no endpoint answers is a 404 problem document that names the endpoints that exist", () => {
+  const r = unknownEndpointReply("/v1/entity/election/wb-assembly-2026");
+  assert.equal(r.status, 404);
+  assert.equal(r.body.code, "unknown-endpoint");
+  assert.match(r.body.type, /^https?:\/\//);
+  assert.match(r.body.detail, /\/v1\/entity\/election\/wb-assembly-2026/);
+  for (const endpoint of ["/v1/search", "/v1/entity/person/", "/v1/entity/place/"]) assert.ok(r.body.detail.includes(endpoint), endpoint);
+  assert.equal(r.headers["Cache-Control"], "no-store", "a miss is not something an edge should keep");
+  assert.doesNotThrow(() => new Response(null, { status: r.status, headers: r.headers }));
+});
 
 test("503 names the command that fixes it", () => {
   const u = unavailable();

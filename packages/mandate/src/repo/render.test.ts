@@ -462,7 +462,7 @@ test("the national map draws states and nothing smaller", live, () => {
   assert.ok(!html.includes("iei-map-districts"), "the national map draws district lines again");
   assert.ok(!/not a claim about any district/i.test(text(html)), "a disclaimer for a layer that no longer exists");
   // The markup is materially smaller for it, which is the second reason and a measurable one.
-  assert.ok(html.length < 340_000, `${html.length} bytes of markup — the district layer was about 60 kB of it`);
+  assert.ok(Buffer.byteLength(html) < 340_000, `${Buffer.byteLength(html)} bytes of markup — the district layer was about 60 kB of it`);
   // Every stroke in a map is a DEVICE measurement, not a user-unit one. This is the whole fix for the black
   // gridding over a state map: zoom here is a viewBox change, so a user-unit stroke is ~1.8px across a state
   // and ~25px inside a framed district.
@@ -470,6 +470,27 @@ test("the national map draws states and nothing smaller", live, () => {
   assert.match(css, /\.iei-map path \{[^}]*vector-effect:\s*non-scaling-stroke/, "map strokes scale with the frame");
   // And the caption still dates its boundaries, because they are a 2011 snapshot and India has moved on.
   assert.match(text(html), /2011 census districts/, "the map does not date its boundaries");
+});
+
+test("a page of every family renders under the markup budget, counted in bytes", live, () => {
+  // 340,000 bytes of MARKUP: what the server renders, not what a browser is sent. The document Next sends
+  // carries the page's tree a second time as flight data in script tags, which a model of its serializer
+  // (not a captured response) puts at 2.1 to 2.6 times the markup, so this bounds the render and not the
+  // transfer. It is held on one page of each family because a payload added to one (the parliament arc was
+  // 13 kB) should be a decision, and until now only the front page and a six-seat fixture had a ceiling.
+  const pages: [string, string, string][] = [
+    ["/", "", ""],
+    ["/state", "", "wb"],
+    ["/state", "shape=tiles", "wb"],
+    ["/election", "", "wb-assembly-2021"],
+    ["/election", "", "ls-2024"],
+    ["/constituency", "", "wb/assembly/mekliganj"],
+    ["/constituency/analysis", "", "wb/assembly/mekliganj"],
+  ];
+  for (const [route, query, segments] of pages) {
+    const bytes = Buffer.byteLength(render(route, query, segments));
+    assert.ok(bytes < 340_000, `${route} ${query} ${segments}: ${bytes} bytes of markup`);
+  }
 });
 
 test("the geometry's provenance is in the drawer, not in the caption", live, () => {

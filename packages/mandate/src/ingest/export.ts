@@ -735,8 +735,9 @@ const DISCARDED = "(row discarded: duplicate key)";
 /** And the one a rebuilt row with no seed row is counted under: the rebuild invented it. */
 const INVENTED = "(row invented: no seed row for this key)";
 
-/** historical-results.json holds 40 (year, AC) keys twice; the ingest keeps ONE by the same content
- *  rule used here, so the other 40 rows are counted as dropped rather than blamed on the rebuild. */
+/** historical-results.json holds no (year, AC) key twice now (seed-historical.test.ts); if one came back the
+ *  ingest would keep ONE by the same content rule used here, and the others are counted as dropped rather
+ *  than blamed on the rebuild. */
 function pickSeedRow(file: string, rows: readonly Row[]): { kept: Row; dropped: Row[] } {
   if (rows.length === 1 || file !== "historical-results.json") {
     return { kept: rows[0] as Row, dropped: rows.slice(1) };
@@ -897,24 +898,20 @@ export function diffAgainstSeed(db: DatabaseSync, dir?: string): DiffReport {
 }
 
 /**
- * The gate. 94.1 is TODAY'S MEASURED VALUE floored to a tenth (measured 94.11% on 2026-08-09, after
- * the Lok Sabha load made wbmps.json 100% by giving lsNumber somewhere to live,
- * .data/registry.db after migrate + ingest + resolve). It was 85.8 for one commit, over eleven
- * "modules" — two of which nothing ingests and one of which was registry bookkeeping scoring a false
- * 100%, with photoUrl and incumbentYears wrongly declared unstorable. Not 100: cycle 1 shipped an
- * unsatisfiable vote-share invariant and an always-red gate teaches people to ignore the colour.
- * This one is a RATCHET — it only ever goes up, and it goes up in the commit that makes the number
- * go up. What blocks 100% is in ADR 0004.
- */
-/**
- * The floor, RAISED in the commit that raised the number, which is the only direction it moves.
+ * The gate, a RATCHET: it only ever goes up, and it goes up in the commit that makes the number go up. It is the
+ * measured value floored to a tenth, on a registry after migrate + ingest + resolve. Not 100: cycle 1 shipped an
+ * unsatisfiable vote-share invariant and an always-red gate teaches people to ignore the colour. What blocks 100% is
+ * in ADR 0004.
  *
  * 94.1 -> 95.0 in Phase 3's closure, and both halves of that are earned rather than arranged. The number
  * rose because `marginPct` stopped being listed as something the registry has no home for — it is derived
- * from two figures the registry reconstructs exactly, 1,135 of them. The denominator shrank because
+ * from two figures the registry reconstructs exactly. The denominator shrank because
  * `wb-ac-paths.json` left the seed, the registry having replaced its contents with published geometry.
+ *
+ * 95.0 -> 96.8 when historical-results.json was filed under the right seats: no row is discarded as a
+ * duplicate any more, so all 1,175 come back and 96.83% of the ingested values are exact (95.1% before).
  */
-export const THRESHOLD_PCT = 95.0;
+export const THRESHOLD_PCT = 96.8;
 
 export function formatReport(r: DiffReport): string {
   const out: string[] = [];
