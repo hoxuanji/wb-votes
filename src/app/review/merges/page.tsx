@@ -153,7 +153,7 @@ export default function MergeReview({
   const est: ReturnType<typeof recallEstimate> | null = read.ok ? read.value.est : null;
 
   return (
-    <Shell here="india" reading>
+    <Shell here="review" reading>
         <div className="iei-head">
           <p className="iei-eyebrow">Merge review · recall measurement</p>
           <h1 className="iei-answer">Are these two records the same person?</h1>

@@ -196,6 +196,9 @@ export function SeatArc({
   );
 }
 
+/** "West Bengal's seats", and "2 states' seats" rather than "2 states's". */
+const seatsOf = (name: string): string => `${name}\u2019${name.endsWith('s') ? '' : 's'} seats`;
+
 /**
  * The panel a map page carries under its map: the whole house, whatever the reader has narrowed the list to, or nothing where the
  * election decides no house (a by-election has no majority to be short of).
@@ -204,7 +207,8 @@ export function SeatArc({
  * selected and a wedge's link switches to the winners as it isolates, instead of answering a question nobody asked.
  *
  * A STATE'S SEATS IN A BIGGER HOUSE (the Lok Sabha election narrowed to one state) are a delegation, not the house: the panel is
- * named for the state, says nothing of a majority, and the arc has none. `delegation` is the state's name in that case, else null.
+ * named for the state, says nothing of a majority, and the arc has none. `delegation` is the state's name in that case, or how
+ * many states for the Lok Sabha of which the registry holds the seats of several but not all, else null.
  */
 export function HousePanel({
   seats,
@@ -224,8 +228,8 @@ export function HousePanel({
   return (
     <Panel
       id="house"
-      title={delegation === null ? 'The house' : `${delegation}\u2019s seats`}
-      question={delegation === null ? 'Who holds the house, and how far is it from a majority?' : `Which parties won ${delegation}\u2019s seats?`}
+      title={delegation === null ? 'The house' : seatsOf(delegation)}
+      question={delegation === null ? 'Who holds the house, and how far is it from a majority?' : `Which parties won ${seatsOf(delegation)}?`}
     >
       <SeatArc
         arc={arc}

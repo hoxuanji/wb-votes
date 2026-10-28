@@ -366,7 +366,7 @@ export function StateSurface({
                     <Link
                       href={selection.href({ party: l.key })}
                       className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
-                      aria-pressed={party === l.key}
+                      aria-current={party === l.key ? 'true' : undefined}
                     >
                       <span className="iei-sw" style={{ background: fillFor(l.key) }} aria-hidden="true" />
                       {l.label}

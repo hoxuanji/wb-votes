@@ -80,6 +80,8 @@ function fixture(db: DatabaseSync): DatabaseSync {
   const candidacy = db.prepare(
     `INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status) VALUES (?, ?, ?, ?, ?)`,
   );
+  // Votes polled, which a seat's margin share is taken over: an election with counts has them, one without has none to divide by.
+  const turnout = db.prepare(`INSERT INTO turnout (contest_id, scope, voters, electors, source_id) VALUES (?, 'contest', 1000, 2000, 's1')`);
   const result = db.prepare(
     `INSERT INTO result (contest_id, candidacy_id, revision, votes, "rank", is_winner, margin, source_id, ingested_at)
      VALUES (?, ?, 0, ?, ?, ?, ?, 's1', '2026-08-12')`,
@@ -91,6 +93,7 @@ function fixture(db: DatabaseSync): DatabaseSync {
   const contest = (electionId: string, versionId: number, winner: 1 | 2, margin: number, counted = true): void => {
     const id = `${electionId}:${versionId}`;
     contestRow.run(id, electionId, versionId);
+    if (counted) turnout.run(id);
     const won = (1000 + margin) / 2;
     for (const [who, pv, rank] of [["w", winner, 1], ["r", winner === 1 ? 2 : 1, 2]] as const) {
       if (!counted && rank === 2) continue;

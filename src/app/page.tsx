@@ -193,7 +193,7 @@ export default function Home({
                     <Link
                       href={sel.href({ party: l.key })}
                       className={party === null ? undefined : party === l.key ? 'iei-legend-on' : 'iei-legend-off'}
-                      aria-pressed={party === l.key}
+                      aria-current={party === l.key ? 'true' : undefined}
                       title={party === l.key ? `Stop isolating ${l.label}` : `Show only where ${l.label} leads`}
                     >
                       <span className="iei-sw" style={{ background: l.fill }} aria-hidden="true" />

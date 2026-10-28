@@ -133,9 +133,29 @@ export type Choices = {
   seats?: ReadonlySet<string>;
   /** Whether there is a previous election to flip against. Without one, flips is not a mode a reader can have. */
   flips?: boolean;
+  /** Whether any seat has a margin to shade by, and whether any has a runner-up to colour by. False is no reading to have; absent is an offer. */
+  margin?: boolean;
+  runnerup?: boolean;
   /** Whether enough seats have an outline to place tiles by. Without that, tiles is not a shape a reader can have. */
   tiles?: boolean;
 };
+
+/**
+ * Whether a view offers a reading of its map. Winners always. Flips only where the view says so. Margin and runner-up unless the view
+ * says no seat can fill them: a map painted one ink says nothing, and the state page, which does not say, still offers both.
+ */
+export function offersMode(choices: Choices, mode: MapMode): boolean {
+  switch (mode) {
+    case "flips":
+      return choices.flips === true;
+    case "margin":
+      return choices.margin !== false;
+    case "runnerup":
+      return choices.runnerup !== false;
+    case "winners":
+      return true;
+  }
+}
 
 /** At most one of these, and the parse is what makes it so. */
 export type Isolation =
@@ -218,7 +238,7 @@ export function readSelection(
   let mode: MapMode = "winners";
   if (askedMode !== undefined) {
     // A mode nobody can read is not offered: without a previous election there is nothing to flip against.
-    if (isMode(askedMode) && (askedMode !== "flips" || choices.flips === true)) mode = askedMode;
+    if (isMode(askedMode) && offersMode(choices, askedMode)) mode = askedMode;
     else ignored.push("mode");
   }
 

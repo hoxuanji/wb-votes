@@ -2399,6 +2399,11 @@ html {
   font-size: var(--iei-f-meta);
 }
 
+/* In the footer the strip is part of a sentence's line. As a block it ended the line, and the separator after it opened the next. */
+.iei-foot .iei-sibs {
+  display: inline-flex;
+}
+
 @media (max-width: 900px) {
   /* The distribution keeps its full band on a phone. A histogram narrows well and shortens badly — at 96px
      the 21 bars stop being a shape and start being a row of ticks — so there is no height override here. */

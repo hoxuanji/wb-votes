@@ -221,10 +221,13 @@ test("a state's seats in the Lok Sabha are a delegation, not a house: no majorit
   assert.match(text(render("/state", "house=pc", "hh")), /narrowed to the seats in Hh State/, "the page's own notice is the same claim");
 });
 
-test("the national Lok Sabha election, unscoped, is the house, with its majority", () => {
-  const t = text(panel(render("/election", "", "ls-2024"), "house"));
-  assert.match(t, /The house/);
-  assert.match(t, /majority 2/);
+test("the national Lok Sabha election, unscoped, with only 3 of its 543 seats on record, is those seats and not the house", () => {
+  // The whole 543 is election-page.test.ts's fixture: there it is the house, with its majority.
+  const house = panel(render("/election", "", "ls-2024"), "house");
+  const t = text(house);
+  assert.match(t, /Hh State’s seats/);
+  assert.doesNotMatch(t, /majority|has it|short by|The house|Every seat of the house/);
+  assert.deepEqual(groups(house).map((x) => [x.party, x.dots]), [["AITC", 2], ["BBB", 1]]);
 });
 
 test("a by-election decides no house, so it has no arc and no majority", () => {

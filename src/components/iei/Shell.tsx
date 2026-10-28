@@ -30,7 +30,7 @@ import { CommandKey } from './CommandKey.tsx';
  * the same prop lights it.
  */
 
-export type Section = 'india' | 'coverage' | 'search' | 'place' | 'person';
+export type Section = 'india' | 'coverage' | 'search' | 'place' | 'person' | 'election' | 'review';
 
 export function Shell({
   here,
@@ -40,7 +40,7 @@ export function Shell({
   live = false,
   children,
 }: {
-  /** Which surface this is. Marks the wordmark as current on `/`; carries no navigation any more. */
+  /** Which surface this is. Only the front page's, `india`, does anything: it marks the wordmark as current, on the page it links to. */
   here: Section;
   /** The current query, so the bar shows what was searched rather than emptying itself. */
   q?: string;

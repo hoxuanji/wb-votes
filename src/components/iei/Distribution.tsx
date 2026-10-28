@@ -475,7 +475,7 @@ export function MarginBands({
               className={selected === null ? undefined : on ? 'iei-legend-on' : 'iei-legend-off'}
               style={{ flexGrow: b.n, background: ink }}
               title={`${b.n} seat${b.n === 1 ? '' : 's'} decided by ${b.label}`}
-              aria-pressed={on}
+              aria-current={on ? 'true' : undefined}
             >
               <span className="iei-sr">
                 {b.n} seats, {b.label}
@@ -628,7 +628,7 @@ export function Trajectory({
         const value = [...p.points].reverse().find((pt) => (metric === 'seatPct' ? pt.seatPct : pt.votePct) !== null);
         const stale = value !== undefined && latest !== undefined && value.year !== latest.year;
         return (
-          <Link key={p.key} href={hrefFor(on ? null : p.key)} className="iei-traj-row" aria-pressed={on}>
+          <Link key={p.key} href={hrefFor(on ? null : p.key)} className="iei-traj-row" aria-current={on ? 'true' : undefined}>
             <span className="iei-traj-name">
               <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
               {p.label}

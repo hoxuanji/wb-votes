@@ -638,7 +638,7 @@ test("a party can be isolated, and the isolation is in the URL", live, () => {
   // On the markup: the party's name is its own element, so `text()` puts it on a line of its own.
   assert.match(only, /Showing only where <b>BJP<\/b> leads/, "the map does not say it is filtered");
   assert.match(only, /href="\/#map"/, "there is no way back to every party");
-  assert.match(only, /aria-pressed="true"/, "the isolated party is not marked as pressed");
+  assert.match(only, /<a (?=[^>]*iei-legend-on)(?=[^>]*aria-current="true")[^>]*>/, "the isolated party is not marked as current");
   // Muting is opacity on the fill, never a different colour: the fill is the party's identity.
   assert.ok(/opacity="0\.22"/.test(only), "nothing is muted");
   assert.ok(!/opacity="0\.22"/.test(plain), "the unfiltered map mutes something");
@@ -1121,7 +1121,7 @@ test("every party the runner-up legend lists can be isolated from it", live, (t)
   if (found === undefined) return t.skip("no election has a party in its runner-up legend that only came second");
   const key = (found.dead as { key: string }).key;
   const html = render("/election", new URLSearchParams({ mode: "runnerup", party: key }).toString(), found.id);
-  assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.id}: the link for ${key} did not isolate it`);
+  assert.match(html, /<a (?=[^>]*iei-legend-on)(?=[^>]*aria-current="true")[^>]*>/, `${found.id}: the link for ${key} did not isolate it`);
   assert.match(html, /aria-label="Seats where [^"]+ came second, in seat order"/, `${found.id}: ${key} listed no seats`);
 });
 
@@ -1150,7 +1150,7 @@ test("every party the state page's runner-up legend lists can be isolated from i
   if (found === undefined) return t.skip("no state's election has a party in its runner-up legend that only came second");
   const query = new URLSearchParams({ house: found.house, election: found.election, mode: "runnerup", party: found.key });
   const html = render("/state", query.toString(), found.state);
-  assert.match(html, /<a [^>]*aria-pressed="true"/, `${found.state} ${found.election}: the link for ${found.key} did not isolate it`);
+  assert.match(html, /<a (?=[^>]*iei-legend-on)(?=[^>]*aria-current="true")[^>]*>/, `${found.state} ${found.election}: the link for ${found.key} did not isolate it`);
   assert.match(html, /aria-label="Seats where [^"]+ came second, (closest first|in seat order)/, `${found.state} ${found.election}: ${found.key} listed no seats`);
 });
 
