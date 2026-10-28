@@ -73,6 +73,8 @@ export type SwingPoint = {
   previousYear: number;
   partyId: string;
   shortName: string;
+  /** Who, so that two rows sharing a label (independents) can be told apart. */
+  personName: string | null;
   voteSharePct: number | null;
   previousVoteSharePct: number | null;
   /** null — never 0, never −100 — where the party did not contest the earlier election, or where its
@@ -497,6 +499,7 @@ function swings(now: Contest, prev: Contest, party: string | undefined): SwingPo
         previousYear: prev.year,
         partyId: r.partyId,
         shortName: r.shortName,
+        personName: r.personName,
         voteSharePct: r.voteSharePct,
         previousVoteSharePct,
         swingPp: swing_pp.compute({

@@ -293,6 +293,9 @@ export async function PlaceSurface({
               // effective-party count is written, and a component must not re-round what it was handed.
               text={t.value}
               unit={t.unit ?? undefined}
+              // The registry's absence is "not reported" (the tables below say it); the component's own default
+              // is "not held", which says an election did not happen.
+              absent="not reported"
               hint={t.note}
             />
           ))}
@@ -368,10 +371,9 @@ export async function PlaceSurface({
 
       <Panel title="Flagged" question="Is anything about this seat's record out of the ordinary?">
         {flags.length === 0 ? (
-          <p className="iei-note">
-            Nothing is: its turnout is within five points of its district, its margin is over a point, and
-            every election on record has a declared winner.
-          </p>
+          /* An empty list is not a list of what passed: a rule that reads a turnout or a margin cannot fire where the
+             record has neither. */
+          <p className="iei-note">No rule flagged this seat's record; a rule cannot fire on a figure the record lacks.</p>
         ) : (
           <DataList label="Flags">
             {flags.map((flag) => (

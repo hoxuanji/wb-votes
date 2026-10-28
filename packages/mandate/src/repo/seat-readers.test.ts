@@ -715,18 +715,18 @@ test("placeView: a district lists its seats, winner, member, margin and turnout"
   assert.deepEqual(d.sources.map((x) => x.id), ["s1", "s2"]);
 });
 
-test("placeView: an unverified election's seats are listed with the turnout the registry holds, as the Analysis floor prints it", async () => {
+test("placeView: an unverified election's seats say their turnout is pending verification, and a declared margin says it is declared", async () => {
   const read = at(onFile());
   const d = await placeView({ level: "district", state: "wb", district: "d1" }, {}, read);
   if (d.kind !== "parent" || d.level !== "district") return assert.fail("not a district view");
-  // Whether a district page should print West Bengal 2026's turnout is its own decision, not this one: the winners come
-  // from the seat results, and the turnout is still the held figure. The third seat has no declared winner.
+  // The turnout the registry holds for West Bengal 2026 is withheld as it is on the state, election and seat pages, and the
+  // margins are kept and labelled as the election page labels them. The third seat has no declared winner.
   assert.deepEqual(
     d.children.rows.map((r) => r.cols),
     [
-      ["1", "Seat W1 · General", "AAA", "Person a10", "321", "45.0%"],
-      ["2", "Seat W2 · General", "B Party", "Person b11", "12", "90.0%"],
-      ["3", "Seat W3 · General", "no result declared", "—", "—", "75.0%"],
+      ["1", "Seat W1 · General", "AAA", "Person a10", "321 (declared)", "verification pending"],
+      ["2", "Seat W2 · General", "B Party", "Person b11", "12 (declared)", "verification pending"],
+      ["3", "Seat W3 · General", "no result declared", "not reported", "not reported", "verification pending"],
     ],
   );
 });

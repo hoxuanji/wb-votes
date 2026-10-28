@@ -9,6 +9,8 @@ import type { Tile } from "./brief.ts";
 import { fromRepo } from "./brief.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
 import type { PartyPoint, PlaceAnalysis } from "./place-analysis.ts";
+import { gaps } from "./seat-list.ts";
+import { marginFrom } from "./seat-results.ts";
 
 // ── provenance ───────────────────────────────────────────────────────────────────────────────────
 
@@ -39,8 +41,12 @@ function round1(n: number): number {
  * margin_pct's numerator, so it goes in as rank1Votes against a rank2Votes of 0 — exactly what
  * place-analysis.ts does for marginSeries. Anything computed here instead would be a figure the
  * measure's caveats do not cover.
+ *
+ * Votes polled is the turnout row's, so a share of it is exactly as trustworthy as the turnout: null unless the
+ * election's turnout is `reported`, and what a caller says instead is the margin in votes, a sourced fact.
  */
 function marginPct(c: PlaceBrief["contests"][number]): number | null {
+  if (c.turnout.state !== "reported") return null;
   return margin_pct.compute({
     rank1Votes: c.margin === null ? null : Math.abs(c.margin),
     rank2Votes: 0,
@@ -87,19 +93,30 @@ export function placeHeadline(b: PlaceBrief): string {
   const gap =
     unknown === 0
       ? ""
-      : ` ${inr(unknown)} of the ${inr(cs.length)} elections on record have no declared winner.`;
+      : ` ${inr(unknown)} of the ${inr(cs.length)} elections on record ${unknown === 1 ? "has" : "have"} no declared winner.`;
+  // "Changed hands 0 times" counts an election nobody won as one nobody lost. Past a gap only "none is on record" is
+  // true, which is what the strip over the seat says. The branches that use this come after the unbroken hold, so
+  // 0 flips here always means there is a gap.
+  const since = `since ${oldest.year}`;
+  const hands = (verb: "changed" | "has changed") =>
+    flips === 0 ? `no change of hands is on record ${since}` : `the seat ${verb} hands ${times(flips)} ${since}`;
 
   if (flips === 0 && parties.size === 1 && w !== null && unknown === 0) {
     const now = marginPct(latest);
     const then = marginPct(oldest);
+    // Shares need both ends: an election whose votes polled are unverified is compared in votes, which are on record.
     const trend =
-      now === null || then === null || then === 0
-        ? `on margins of ${percent(now)} of votes cast in ${latest.year}`
-        : now < then
-          ? `but its margin fell ${percent(round1(((then - now) / then) * 100))} over that run, ` +
-            `from ${percent(then)} of votes cast to ${percent(now)}`
-          : `and its margin grew from ${percent(then)} of votes cast to ${percent(now)}`;
-    return `${w} has held ${name} in all ${inr(cs.length)} elections since ${oldest.year}, ${trend}.`;
+      now === null
+        ? latest.margin === null
+          ? null
+          : `most recently by ${inr(Math.abs(latest.margin))} votes`
+        : then === null || then === 0
+          ? `on margins of ${percent(now)} of votes cast in ${latest.year}`
+          : now < then
+            ? `but its margin fell ${percent(round1(((then - now) / then) * 100))} over that run, ` +
+              `from ${percent(then)} of votes cast to ${percent(now)}`
+            : `and its margin grew from ${percent(then)} of votes cast to ${percent(now)}`;
+    return `${w} has held ${name} in all ${inr(cs.length)} elections ${since}${trend === null ? "" : `, ${trend}`}.`;
   }
 
   if (flips === cs.length - 1 && w !== null) {
@@ -115,16 +132,23 @@ export function placeHeadline(b: PlaceBrief): string {
   const run = held ? cs.filter((c, i) => cs.slice(0, i + 1).every((x) => won(x) === w)).length : 0;
   if (w === null) {
     return (
-      `${name} has no declared winner for ${latest.year}; the seat changed hands ${times(flips)} ` +
-      `across the ${inr(cs.length)} elections on record since ${oldest.year}.${gap}`
+      `${name} has no declared winner for ${latest.year}; ` +
+      (flips === 0 ? "no change of hands is on record" : `the seat changed hands ${times(flips)}`) +
+      ` across the ${inr(cs.length)} elections on record ${since}.${gap}`
     );
   }
-  return held
-    ? `${w} has held ${name} for ${inr(run)} straight elections, by ${inr(Math.abs(latest.margin ?? 0))} ` +
-        `votes in ${latest.year}, and the seat changed hands ${times(flips)} since ${oldest.year}.${gap}`
-    : `${w} took ${name} from ${(prev === undefined ? null : won(prev)) ?? "the previous holder"} in ${latest.year} by ` +
-        `${inr(Math.abs(latest.margin ?? 0))} votes — the seat has changed hands ${times(flips)} ` +
-        `since ${oldest.year}.${gap}`;
+  if (held) {
+    return (
+      `${w} has held ${name} for ${inr(run)} straight elections, by ${inr(Math.abs(latest.margin ?? 0))} ` +
+      `votes in ${latest.year}, and ${hands("changed")}.${gap}`
+    );
+  }
+  // An election with no declared winner before this one has no holder to take the seat from.
+  const from = prev === undefined ? null : won(prev);
+  return (
+    `${from === null ? `${w} won ${name}` : `${w} took ${name} from ${from}`} in ${latest.year} by ` +
+    `${inr(Math.abs(latest.margin ?? 0))} votes — ${hands("has changed")}.${gap}`
+  );
 }
 
 // ── Floor 1: the tiles ───────────────────────────────────────────────────────────────────────────
@@ -170,23 +194,45 @@ export function placeTiles(b: PlaceBrief, a: PlaceAnalysis | null): Tile[] {
       note:
         latest.turnout.state === "unverified"
           ? "this election published no candidate vote counts"
-          : shown === null || d === null
-            ? "no district baseline on record"
-            : `${percentagePoints(round1(shown - d))} vs ${b.place.districtName ?? "district"}` +
-              (s === null ? "" : ` · state ${percent(s)}`),
+          : latest.turnout.state === "absent"
+            ? "no turnout is on record for this election"
+            : shown === null || d === null
+              ? "no district baseline on record"
+              : `${percentagePoints(round1(shown - d))} vs ${b.place.districtName ?? "district"}` +
+                (s === null ? "" : ` · state ${percent(s)}`),
       source: result,
     });
+    // The margin in votes is a sourced fact and is always said; its share of votes cast is said only where votes
+    // cast can be stood behind, and where it cannot the note says which gap it is (seat-list's words for it).
+    const share = marginPct(latest);
+    const basis = marginFrom(latest.winner?.votes ?? null, latest.runnerUp?.votes ?? null, latest.margin)?.basis ?? null;
+    const gap = gaps({
+      partyLabel: latest.winner?.partyShortName ?? null,
+      runnerUpLabel: latest.runnerUp?.partyShortName ?? null,
+      marginVotes: latest.margin === null ? null : Math.abs(latest.margin),
+      marginBasis: basis,
+      marginPct: share,
+      turnout: latest.turnout,
+    }).share;
+    const parties =
+      latest.winner?.partyShortName == null
+        ? null
+        : `${latest.winner.partyShortName}${
+            latest.runnerUp?.partyShortName == null ? "" : ` over ${latest.runnerUp.partyShortName}`
+          }`;
+    const said =
+      latest.margin === null
+        ? latest.winner === null
+          ? "no result declared"
+          : null
+        : share === null
+          ? gap
+          : `${percent(share)} of votes cast`;
     out.push({
       label: `Winning margin ${latest.year}`,
       value: latest.margin === null ? "—" : inr(Math.abs(latest.margin)),
-      unit: "votes",
-      note:
-        `${percent(marginPct(latest))} of votes cast` +
-        (latest.winner?.partyShortName == null
-          ? ""
-          : ` · ${latest.winner.partyShortName}${
-              latest.runnerUp?.partyShortName == null ? "" : ` over ${latest.runnerUp.partyShortName}`
-            }`),
+      unit: basis === "declared" ? "votes (declared)" : "votes",
+      note: [said, parties].filter((x): x is string => x !== null).join(" · ") || null,
       source: result,
     });
   }
@@ -195,14 +241,29 @@ export function placeTiles(b: PlaceBrief, a: PlaceAnalysis | null): Tile[] {
     a === null
       ? null
       : a.retention.filter((r) => r.held === 0).length;
+  // "Never" is a claim about every election, so it is made only where each declared a winner and there are two to
+  // compare: the strip over the seat (heldCaption) says the same, and the tile may not say more than it does.
+  const undeclared = b.contests.filter((c) => c.winner === null).length;
   out.push({
     label: "Changed hands",
-    value: flips === null ? "—" : flips === 0 ? "never" : times(flips),
+    value:
+      flips === null
+        ? "—"
+        : flips > 0
+          ? times(flips)
+          : b.contests.length < 2
+            ? "not comparable"
+            : undeclared > 0
+              ? "none on record"
+              : "never",
     unit: null,
     note:
       b.contests.length === 0 || oldest === undefined
         ? "no elections on record"
-        : `across ${inr(b.contests.length)} elections since ${oldest.year}`,
+        : b.contests.length === 1
+          ? `one election on record, ${oldest.year}; no earlier one to compare`
+          : `across ${inr(b.contests.length)} elections since ${oldest.year}` +
+            (undeclared === 0 ? "" : `; ${inr(undeclared)} with no declared winner`),
     source: result,
   });
 
@@ -262,7 +323,7 @@ export function placeTiles(b: PlaceBrief, a: PlaceAnalysis | null): Tile[] {
 // ── Floor 1: flagged anomalies ───────────────────────────────────────────────────────────────────
 
 /** What is unusual about this seat, stated as facts with their figures. Empty is a legitimate
- *  answer, and the page prints one line of fact rather than an empty frame. */
+ *  answer, and the page says that no rule fired rather than printing an empty frame. */
 export function anomalies(b: PlaceBrief, a: PlaceAnalysis | null): string[] {
   const out: string[] = [];
   const latest = b.contests.at(0);
@@ -292,6 +353,7 @@ export function anomalies(b: PlaceBrief, a: PlaceAnalysis | null): string[] {
   if (trusted && t0?.turnoutPct != null && t0.turnoutPct >= 95) {
     out.push(`Turnout at or above 95% (${percent(t0.turnoutPct)}) is at the top of the state's range.`);
   }
+  // A share of votes polled waits on the same reading (marginPct): over an unverified turnout it is no claim to flag.
   const m = latest === undefined ? null : marginPct(latest);
   if (m !== null && m < 1) {
     out.push(
@@ -407,8 +469,8 @@ export function analysisCards(a: PlaceAnalysis): Card[] {
       "Share is votes over the contest's valid votes from the turnout row. The published field is a " +
       "truncated top-N, so the named shares do not sum to 100 and the rest of the field is only as " +
       "complete as the source. Where several contestants at one election share a label — " +
-      "independents, most often — the line is their combined share for that election, and the votes " +
-      "card below names each of them.",
+      "independents, most often — the line is their combined share for that election, so it can " +
+      "move without any one of them moving.",
   });
 
   if (latestShare !== undefined) {
@@ -458,8 +520,13 @@ export function analysisCards(a: PlaceAnalysis): Card[] {
           : best,
       null,
     );
+    // A repeated label (two independents) is told apart by the contestant, as the votes card does: four rows that
+    // all read "IND" are four numbers nobody can attribute.
     const slopeRows: SlopeRow[] = rows.map((r) => ({
-      label: r.shortName,
+      label:
+        r.personName !== null && rows.filter((x) => x.shortName === r.shortName).length > 1
+          ? `${r.shortName} · ${r.personName}`
+          : r.shortName,
       from: r.previousVoteSharePct,
       to: r.voteSharePct,
     }));
@@ -472,7 +539,7 @@ export function analysisCards(a: PlaceAnalysis): Card[] {
         : rows.every((r) => r.previousVoteSharePct === null)
           ? rows.length === 1
             ? `${first.shortName} has no recorded ${first.previousYear} share to measure from`
-            : `none of the ${inr(rows.length)} contestants shown has a recorded ` +
+            : `none of the ${inr(rows.length)} contestants shown has a single recorded ` +
               `${first.previousYear} share to measure from`
           : `every contestant shown is missing one of the two shares, or the pair crosses a ` +
             `boundary epoch`;
@@ -501,25 +568,33 @@ export function analysisCards(a: PlaceAnalysis): Card[] {
 
   const margins = asc(a.marginSeries);
   const m0 = a.marginSeries.at(0);
+  const votes0 = m0?.marginVotes ?? null;
+  // A margin in votes can be on record where its share is not: a declaration publishes the winner and the margin and
+  // no votes cast. The card then says the margin and tabulates it, instead of saying none is on record.
+  const votesOnly = margins.every((p) => p.marginPct === null) && margins.some((p) => p.marginVotes !== null);
+  const margin0Party = m0?.winner?.shortName === undefined ? "" : `, to ${m0.winner.shortName}`;
   cards.push({
     question: "Is the seat getting safer or closer?",
     chart: lines({
-      title: "Winning margin as a share of votes cast",
+      title: votesOnly ? "Winning margin in votes" : "Winning margin as a share of votes cast",
       finding:
-        m0?.marginPct == null
+        m0 === undefined || votes0 === null
           ? "No margin is on record for the latest election in this window."
-          : `${m0.year}: ${percent(m0.marginPct)} of votes cast` +
-            (m0.marginVotes === null ? "" : `, ${inr(m0.marginVotes)} votes`) +
-            (m0.winner?.shortName === undefined ? "" : `, to ${m0.winner.shortName}`) +
-            ".",
+          : m0.marginPct === null
+            ? `${m0.year}: ${inr(votes0)} votes${margin0Party}; no share of votes cast is shown.`
+            : `${m0.year}: ${percent(m0.marginPct)} of votes cast, ${inr(votes0)} votes${margin0Party}.`,
       x: margins.map((p) => String(p.year)),
       xHeader: "Election",
-      series: [{ key: "margin", label: "Margin", values: margins.map((p) => p.marginPct) }],
-      format: percent,
+      series: votesOnly
+        ? [{ key: "margin", label: "Margin (votes)", values: margins.map((p) => p.marginVotes) }]
+        : [{ key: "margin", label: "Margin", values: margins.map((p) => p.marginPct) }],
+      format: votesOnly ? (v) => (v === null ? "—" : inr(v)) : percent,
     }),
-    note:
-      "The denominator is votes cast, not the electorate, so the trend is comparable across a roll " +
-      "that grew.",
+    note: votesOnly
+      ? "A share of votes cast needs votes cast that are on record and verified, and this window has none, " +
+        "so the margin is shown in votes, as published."
+      : "The denominator is votes cast, not the electorate, so the trend is comparable across a roll " +
+        "that grew.",
   });
 
   const enps = asc(a.enpSeries);

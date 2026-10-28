@@ -6,7 +6,6 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { DEV_DB_PATH, open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { turnout_pct } from "../semantic/index.ts";
 import { pathQuery } from "./legacy.ts";
 import { analysisCards, anomalies, placeTiles } from "./place-presentation.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
@@ -188,15 +187,14 @@ test("analysisCards: a party-filtered pair says the party has no earlier share, 
   assert.doesNotMatch(card.chart.table.caption, /no vote count on record/);
 });
 
-test("placeView: a district's turnout column IS turnout_pct, the same measure the Analysis floor uses", live, async () => {
+test("placeView: a district's turnout column is the seats' gated reading, so West Bengal 2026's unverified turnout is not printed", live, async () => {
   const d = await placeView(pathOf("wb", "cooch-behar"), {});
-  const seat = await placeView(pathOf("wb", "cooch-behar", "mekliganj"), {});
   assert.equal(d.kind, "parent");
-  assert.equal(seat.kind, "ac");
-  if (d.kind !== "parent" || d.level !== "district" || seat.kind !== "ac") return;
+  if (d.kind !== "parent" || d.level !== "district") return;
   const turnout = d.children.headers.indexOf("Turnout");
-  const latest = seat.analysis.turnoutSeries.at(0);
-  assert.equal(d.children.rows[0]?.cols[turnout], turnout_pct.format(latest?.turnoutPct ?? null));
+  // The seat's own Brief withholds the same figure, in the same words.
+  assert.ok(d.children.rows.length > 0);
+  for (const row of d.children.rows) assert.equal(row.cols[turnout], "verification pending");
 });
 
 test("placeView: a district lists its seats", live, async () => {
