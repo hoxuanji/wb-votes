@@ -109,3 +109,23 @@ export function partyNotices(a: PlaceAnalysis): string[] {
   }
   return notices;
 }
+
+/* ─────────────────────────── the roster's order ─────────────────────────── */
+
+/** How a seat's roster of candidates may be ordered. Not by assets, cases or margin: a list sorted by what people declared they owe or are accused of is a leaderboard. */
+export type RosterOrder = "default" | "party" | "age";
+export const ROSTER_ORDERS: readonly { key: RosterOrder; label: string }[] = [
+  { key: "default", label: "Winner, then name" },
+  { key: "party", label: "Party" },
+  { key: "age", label: "Age" },
+];
+
+/** `?order=party|age` and `&dir=desc`, read by MEMBERSHIP: an unknown value falls back to the default and is never parsed or used in SQL. */
+export function readOrder(search: Search | undefined): { order: RosterOrder; dir: "asc" | "desc" } {
+  const one = (k: string): string | undefined => {
+    const v = search?.[k];
+    return typeof v === "string" ? v : undefined;
+  };
+  const order = ROSTER_ORDERS.find((o) => o.key === one("order"))?.key ?? "default";
+  return { order, dir: order !== "default" && one("dir") === "desc" ? "desc" : "asc" };
+}

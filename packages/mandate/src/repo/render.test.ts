@@ -292,6 +292,37 @@ test("the story page draws one bar per election, withholds what was not publishe
   assert.equal(sentence(hostile), sentence(html), "?story= changed the story");
 });
 
+test("a seat page leads with a finding, links everyone who stood, and withholds what the record withholds", live, () => {
+  const html = render("/constituency", "", "wb/assembly/mekliganj");
+  const t = text(html);
+  const flat = t.replace(/\s+/g, " ");
+  // The finding, then its people: every 2026 candidate is a link to their page, and so is each earlier winner and runner-up.
+  assert.match(flat, /Dadhiram Ray BJP won Mekliganj at the third try: 3rd in 2016, 2nd in 2021, 1st in 2026, by a declared 29,584 votes\./);
+  const people = new Set([...html.matchAll(/href="\/p\/([^"]+)"/g)].map((m) => m[1]));
+  assert.ok(people.size >= 21, `${people.size} distinct people are linked; the brief counts 21`);
+  assert.ok(t.includes("Golapi Roy"), "a non-winning 2026 candidate is not on the page");
+  const roster = /<table[^>]*iei-seat-roster[^>]*>([\s\S]*?)<\/table>/.exec(html)?.[1] ?? "";
+  assert.equal([...roster.matchAll(/<tr>/g)].length - 1, 11, "the roster is not the 11 who stood");
+  // What the record withholds is not printed, and what it cannot say is said once.
+  for (const bad of [/13\.6%/, /% of votes cast/, /defeated/i, /Others \(/, /not held/, /across 1 elections/, /96\.6%/]) assert.doesNotMatch(t, bad, `the page prints ${String(bad)}`);
+  assert.equal((t.match(/not a criminal record/g) ?? []).length, 1, "the cases footnote is not printed exactly once");
+  assert.match(flat, /3 separate records with similar names/);
+  assert.doesNotMatch(roster, /rank|lost/i, "a rank or a loss is printed in the roster");
+});
+
+test("a seat with no 2026 result row says so, and a seat whose contests have nobody in them says that, and neither throws", live, () => {
+  const falta = text(render("/constituency", "", "wb/assembly/falta")).replace(/\s+/g, " ");
+  assert.match(falta, /No 2026 result is loaded; the candidacy record names Debangshu Panda as elected/);
+  assert.doesNotMatch(falta, /109,021|71\.2%/, "the press margin of a seat with no result row is printed");
+  const wb154 = render("/constituency", "", "wb/assembly/154");
+  assert.match(text(wb154), /no candidates on record/);
+  assert.doesNotMatch(text(wb154), /took the seat from/, "a hand-off is claimed across elections that declared nobody");
+  const lok = text(render("/constituency", "", "wb/lok-sabha/baharampur")).replace(/\s+/g, " ");
+  assert.match(lok, /24th widest of the 42 West Bengal Lok Sabha margins/);
+  assert.match(lok, /Not on record/);
+  assert.doesNotMatch(lok, /Turnout 2024 not held/, "the old tile that read as the election not having been held is back");
+});
+
 test("the table beside the map prints the seats of the layer it sits beside, and none where the layer names no party", live, () => {
   // The seats column read the ASSEMBLY standings whatever layer was shown, so the Lok Sabha layer printed "TMC 192 of 294": the Lok Sabha
   // leader's name over the assembly leader's seats. The registry's own count of contests is what the denominator has to be.

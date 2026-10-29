@@ -53,6 +53,7 @@ export function HeldBy({ history }: { history: SeatHistory }) {
               ]
                 .filter(Boolean)
                 .join(' ')}
+              style={{ '--i': i } as React.CSSProperties}
               title={
                 b.party === null
                   ? `${b.label}: no winner declared`
@@ -66,15 +67,17 @@ export function HeldBy({ history }: { history: SeatHistory }) {
                 style={b.party === null ? undefined : { background: fillFor(b.party.key) }}
                 aria-hidden="true"
               />
-              <span className="iei-held-yr">
-                {b.year}
-                {b.byPoll ? (
-                  <>
-                    {' '}
-                    <span className="iei-poll">by-poll</span>
-                  </>
-                ) : null}
-              </span>
+              <a className="iei-held-a" href={`#ep-${b.year}`}>
+                <span className="iei-held-yr">
+                  {b.year}
+                  {b.byPoll ? (
+                    <>
+                      {' '}
+                      <span className="iei-poll">by-poll</span>
+                    </>
+                  ) : null}
+                </span>
+              </a>
               {b.party === null ? (
                 <span className="iei-held-p iei-absent">no result declared</span>
               ) : (

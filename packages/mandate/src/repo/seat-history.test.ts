@@ -666,7 +666,7 @@ function spanText(fragment: string, cls: string): string {
 test("the strip is in the header under the sentence, oldest first, each block with its year and party printed", () => {
   const html = render("xx/assembly/alpha");
   const head = at(html, 'class="iei-head"');
-  const sub = at(html, 'class="iei-sub"', head);
+  const sub = at(html, 'class="iei-finding"', head);
   const strip = at(html, '<figure class="iei-held">', sub);
   const tabs = at(html, 'class="iei-tabs"', strip);
   assert.ok(head < sub && sub < strip && strip < tabs);
@@ -699,62 +699,64 @@ test("an election with no declared winner is a dashed block with the words, and 
   assert.doesNotMatch(strip, /A rule between two blocks/, "no rule is drawn and none is explained");
 });
 
-test("a bar per election sits above the election table, which keeps every one of its rows", () => {
+test("a panel per election sits above the election table, which keeps every one of its rows", () => {
   const html = render("xx/assembly/alpha");
-  const panel = at(html, "Every election on record");
-  const list = at(html, '<ol class="iei-res-list"', panel);
-  const table = at(html, '<table class="iei-t">', list);
-  assert.ok(panel < list && list < table);
-  const rows = html.slice(list, table).split('<li class="iei-res-row">').slice(1);
-  assert.equal(rows.length, 5);
-  // Newest first: the table's order. The declared 2026 draws no bar, the other four do.
-  assert.deepEqual(rows.map((r) => spanText(r, "iei-res-yr")), ["2026", "2021", "2018 by-poll", "2016", "2011"]);
-  assert.deepEqual(rows.map((r) => r.includes('class="iei-res-bar"')), [false, true, true, true, true]);
+  const panels = at(html, "How each election divided the vote");
+  const table = at(html, 'aria-label="Election history"', panels);
+  assert.ok(panels < table);
+  const section = html.slice(panels, table);
+  // Newest first, the table's order: the declared 2026 is a panel with no bars, the other four are counted panels.
+  const years = [...section.matchAll(/<section[^>]*aria-label="(\d{4})"/g)].map((m) => m[1]);
+  assert.deepEqual(years, ["2026", "2021", "2018", "2016", "2011"]);
+  const counted = section.split('<section').slice(1).filter((p) => p.includes("iei-seat-rows"));
+  assert.equal(counted.length, 4);
   assert.equal((html.slice(table).match(/<tr>/g) ?? []).length, 1 + 5, "the table is the table it was: a head row and a row per election");
-  // The key prints every party, so no segment is known by its colour alone.
-  const key2016 = text(rows[3] ?? "");
-  assert.match(key2016, /BBB 60\.0% AAA 35\.0% not itemised 5\.0%/);
-  assert.match(text(rows[4] ?? ""), /AAA 50\.0% BBB 30\.0% CCC 10\.0% not itemised 10\.0%/);
-  // The page says what a bar is where one is drawn, and says nothing of bars where none is: Beta has none to explain.
-  assert.match(text(html.slice(panel, list)), /Each bar is the votes polled in that election\./);
+  // Every row prints its party's code and its share, so no bar is known by its colour alone; the bars are for the eye.
+  const t2016 = text(counted[2] ?? "");
+  assert.match(t2016, /BBB.*60\.0%.*AAA.*35\.0%/);
+  assert.match(t2016, /Not itemised 5\.0%/);
+  assert.match(text(counted[3] ?? ""), /AAA.*50\.0%.*BBB.*30\.0%.*CCC.*10\.0%.*Not itemised 10\.0%/);
+  assert.ok(counted.every((p) => !/iei-seat-bar"[^>]*>/.test(p) || p.includes('aria-hidden="true"')), "a bar is read out");
+  assert.doesNotMatch(html, /Others \(\d+\)/, "a tail of candidates is added together under a name that is not a party's");
+  assert.match(text(section), /All the bars here share one scale: full width is \d+% of the votes polled/);
+  // Beta has no counted election and so no bars to explain.
   const beta = render("xx/assembly/beta");
-  assert.doesNotMatch(beta, /Each bar is the votes polled/);
-  assert.equal((beta.match(/class="iei-res-bar"/g) ?? []).length, 0);
+  assert.doesNotMatch(beta, /All the bars here share one scale/);
+  assert.equal((beta.match(/class="iei-seat-bar"/g) ?? []).length, 0);
 });
 
 test("a declared-only election says so in words beside the winner and the margin, and draws no bar", () => {
   const html = render("xx/assembly/alpha");
-  const list = at(html, '<ol class="iei-res-list"');
-  const row = html.slice(at(html, '<li class="iei-res-row">', list), at(html, "</li>", at(html, "iei-res-yr", list)));
-  const t = text(row);
-  assert.match(t, /Tom 2026 \(TMC\) won by a declared margin of 777 votes\./);
-  assert.match(t, /Candidate vote counts are not on record for this election, so the shares are not on record and no bar is drawn\./);
-  assert.doesNotMatch(row, /iei-res-bar|iei-res-seg|iei-res-rest/);
+  const start = at(html, 'aria-label="2026"');
+  const panel = html.slice(start, at(html, "</section>", start));
+  const t = text(panel);
+  assert.match(t, /TMC took the seat from TMC|TMC (?:held the seat|won|took the seat from \w+) by 777 votes \(declared\)/);
+  assert.match(t, /No candidate.s votes are on record for 2026, so there are no bars\./);
+  assert.doesNotMatch(panel, /iei-seat-bar|iei-seat-rows|iei-res-bar/);
 });
 
-test("ten candidates are five and Others (5), and the row says so; the bar's widths are the shares", () => {
+test("ten candidates on record are shown as the five the source holds, with what they leave not itemised, and no Others", () => {
   const html = render("xx/assembly/alpha");
-  const rows = html.split('<li class="iei-res-row">').slice(1);
-  const row2021 = rows[1] ?? "";
-  assert.match(text(row2021), /TMC 30\.0% AAA 20\.0% BBB 10\.0% CCC 8\.0% IND 6\.0% Others \(5\) 15\.0% not itemised 11\.0%/);
-  assert.match(text(row2021), /The 5 lowest of 10 candidates are added together as Others \(5\)\./);
-  const widths = [...row2021.matchAll(/class="iei-res-(?:seg|rest)[^"]*" style="(?:flex-grow:([\d.]+))/g)].map((m) => Number(m[1]));
-  assert.deepEqual(widths.map((w) => Math.round(w * 1000) / 1000), [30, 20, 10, 8, 6, 15, 11]);
-  // Each segment and each swatch of the key is the ink of the party's KEY: TMC is AITC, a curated green, and its short name
-  // would have given a derived one. The tail has no party, so it has no party's ink: a hatch, with no inline colour.
+  const start = at(html, 'aria-label="2021"');
+  const panel = html.slice(start, at(html, "</section>", start));
+  const rows = panel.split("<li").slice(1).filter((li) => li.includes("iei-seat-sh"));
+  assert.equal(rows.length, 5, "the panel is capped at the five the source holds");
+  assert.match(text(panel), /TMC.*30\.0%.*AAA.*20\.0%.*BBB.*10\.0%.*CCC.*8\.0%.*IND.*6\.0%.*Not itemised 26\.0%/);
+  const widths = [...panel.matchAll(/class="iei-seat-bar" style="[^"]*width:([\d.]+)%/g)].map((m) => Number(m[1]));
+  const scale = Number(/full width is (\d+)%/.exec(text(html))?.[1]);
+  assert.deepEqual(widths.map((w) => Math.round((w * scale) / 100 * 1000) / 1000), [30, 20, 10, 8, 6], "a bar's width is its share on the page's one scale");
+  // Each bar and each swatch is the ink of the party's KEY: TMC is AITC, a curated green, and its short name would have given a derived one.
   const keys = ["AITC", "AAA", "BBB", "CCC", "IND"].map(fillFor);
   assert.notEqual(fillFor("AITC"), fillFor("TMC"));
-  const segs = [...row2021.matchAll(/class="iei-res-(seg|rest)([^"]*)" style="flex-grow:[\d.]+(?:;background:([^";]*))?"/g)];
-  assert.deepEqual(segs.map((m) => m[3] ?? null), [...keys, null, null]);
-  assert.deepEqual(segs.map((m) => `${m[1]}${m[2]}`.trim()), ["seg", "seg", "seg", "seg", "seg", "seg iei-res-others", "rest"]);
-  const swatches = [...row2021.matchAll(/class="iei-sw( iei-sw-others| iei-sw-rest)?"(?: style="background:([^"]*)")?/g)];
-  assert.deepEqual(swatches.map((m) => m[2] ?? null), [...keys, null, null]);
+  const inks = [...panel.matchAll(/class="iei-seat-bar" style="[^"]*background:([^";]*)/g)].map((m) => m[1]);
+  assert.deepEqual(inks, keys);
 });
 
-test("the winner's swatch in the table is inked by the party's key, as the strip, the bars and the maps are", () => {
+test("the winner's swatch in the table is inked by the party's key, as the strip, the panels and the maps are", () => {
   const html = render("xx/assembly/alpha");
-  const table = html.slice(at(html, '<table class="iei-t">'));
-  const inks = [...table.matchAll(/class="iei-sw" style="background:([^"]*)"/g)].map((m) => m[1]);
+  const table = html.slice(at(html, 'aria-label="Election history"'));
+  const rows = [...table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].slice(1);
+  const inks = rows.map((r) => /class="iei-sw" style="background:([^"]*)"/.exec(r[1] ?? "")?.[1]);
   assert.deepEqual(inks, ["AITC", "AITC", "CCC", "BBB", "AAA"].map(fillFor));
 });
 

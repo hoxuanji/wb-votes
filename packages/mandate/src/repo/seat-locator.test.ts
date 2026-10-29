@@ -328,7 +328,7 @@ test("the seat page draws the locator beside its header, with the description a 
   const head = at(html, 'class="iei-head iei-head-seat"');
   const figure = at(html, '<figure class="iei-loc">', head);
   // The header's text first, then the figure, then the anchor its skip link lands on, then the lens tabs.
-  const sub = at(html, 'class="iei-sub"', head);
+  const sub = at(html, 'class="iei-finding"', head);
   const target = at(html, '<div id="after-locator">', figure);
   assert.ok(head < sub && sub < figure && figure < target && target < at(html, 'class="iei-tabs"', target));
 

@@ -193,25 +193,26 @@ test("the rules that set words and phrase tiles use no colour of their own", () 
   }
 });
 
-test("a seat page puts the words class on exactly the tiles whose value is too long for a numeral", live, () => {
-  const render = (segments: string): string =>
+test("a page puts the words class on exactly the tiles whose value is too long for a numeral", live, () => {
+  const render = (route: string): string =>
     execFileSync(
       process.execPath,
-      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/constituency", "", segments],
+      ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", route, "", ""],
       { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] },
     );
+  // The seat page no longer has tiles of this kind (its numbers are the hero and two bars); the coverage ledger still does.
   let seen = 0;
-  for (const segments of ["wb/assembly/mekliganj", "wb/lok-sabha/baharampur"]) {
-    const html = render(segments);
+  for (const route of ["/coverage"]) {
+    const html = render(route);
     for (const m of html.matchAll(/<dd( class="[^"]*")?>([^<]*)/g)) {
       const long = (m[2] as string).length > 14;
       assert.equal(
         (m[1] ?? "").includes("iei-metric-words"),
         long,
-        `${segments}: tile value "${m[2]}" is ${long ? "" : "not "}longer than a numeral line, and its class is "${m[1] ?? ""}"`,
+        `${route}: tile value "${m[2]}" is ${long ? "" : "not "}longer than a numeral line, and its class is "${m[1] ?? ""}"`,
       );
       seen++;
     }
   }
-  assert.ok(seen >= 6, `only ${seen} tiles were checked — the pattern has stopped matching`);
+  assert.ok(seen >= 3, `only ${seen} tiles were checked — the pattern has stopped matching`);
 });

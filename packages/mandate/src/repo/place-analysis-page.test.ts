@@ -141,15 +141,16 @@ test("the Analysis prints no figure built on 2026's unverified turnout: not the 
   assert.match(text(brief), /verification pending/);
 });
 
-test("the Brief keeps the declared margin in votes and withholds its share: in the tile, in the headline and in the flags", () => {
+test("the Brief keeps the declared margin in votes and withholds its share: in the hero, in the headline and in the flags", () => {
   // Alpha: 777 votes over 1,900 voters is 40.9%, and Beta's 8 votes over them is 0.4%, a recount-scale margin that exists only
   // over a turnout nobody can corroborate.
   const alpha = text(render("", "/constituency"));
-  assert.match(alpha, /Winning margin 2026 777 votes \(declared\) share of votes polled\s.\sverification pending · TMC/);
+  assert.match(alpha, /Winning margin · 2026 · declared/);
+  assert.match(alpha, /777 votes/);
   assert.doesNotMatch(alpha, /40\.9%|of votes cast/);
   const beta = render("", "/constituency", "beta");
-  assert.match(text(beta), /Winning margin 2026 8 votes \(declared\) share of votes polled\s.\sverification pending · TMC/);
-  assert.match(text(beta), /TMC has held Beta in all 3 elections since 2016, most recently by 8 votes\./);
+  assert.match(text(beta), /Winning margin · 2026 · declared/);
+  assert.match(text(beta), /TMC has held Beta in all 3 elections since 2016, most recently by 8 votes \(declared\)\./);
   assert.doesNotMatch(beta, /0\.4%|recount-scale|of votes cast/);
 });
 

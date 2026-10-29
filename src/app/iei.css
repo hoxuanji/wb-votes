@@ -4593,3 +4593,557 @@ ul.iei-tiles b {
     outline-color: CanvasText;
   }
 }
+
+/* ══════════════════════════ the seat page: iei-finding, iei-seat-*, iei-limits ══════════════════════════
+   A finding, its numbers, every election on one scale, everyone who stood, and what the record cannot say. Tokens only. Bars grow from
+   their baseline once on load and the finding and the held-by strip arrive; nothing else moves. */
+
+.iei-finding {
+  margin: var(--iei-3) 0 0;
+  max-width: 62ch;
+}
+
+.iei-finding-s {
+  margin: 0;
+  font-size: var(--iei-f-lead);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.iei-finding-s b {
+  font-family: var(--iei-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-finding-s a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-finding-s a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-finding-s a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-finding-sf {
+  margin-top: var(--iei-2);
+}
+
+.iei-held-a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.iei-held-a:hover .iei-held-yr {
+  text-decoration: underline;
+}
+
+.iei-held-a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+/* The numbers: the hero (the margin and where it came from) and two tiles. */
+.iei-seat-kpis {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 3fr);
+  gap: var(--iei-4) var(--iei-6);
+  align-items: start;
+}
+
+.iei-seat-tile {
+  min-width: 0;
+  padding: var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-k {
+  margin: 0 0 var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+/* The one word that says how a figure was arrived at, underlined so that it reads as a qualifier and not a status. */
+.iei-seat-basis {
+  border-bottom: 1px dashed var(--iei-ink-3);
+}
+
+.iei-seat-big {
+  margin: 0;
+  font-size: var(--iei-f-answer);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.iei-seat-big b {
+  font-family: var(--iei-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-seat-big > span:last-child:not(.iei-mark) {
+  font-size: var(--iei-f-body);
+  letter-spacing: 0;
+  color: var(--iei-ink-2);
+}
+
+.iei-seat-big-s {
+  font-size: var(--iei-f-lead);
+}
+
+.iei-seat-line,
+.iei-seat-fact {
+  margin: var(--iei-1) 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-seat-tile .iei-note {
+  margin: var(--iei-2) 0 0;
+}
+
+.iei-seat-retrieved {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.iei-seat-fold ul {
+  list-style: none;
+  margin: var(--iei-2) 0;
+  padding: 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-seat-fold li::before {
+  content: '○ ';
+  color: var(--iei-ink-3);
+}
+
+/* The line: a fixed 400-unit frame at most 420px wide, so its 10px labels are 10px and never a scaled-up 40px. */
+.iei-seat-sp {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin: var(--iei-3) 0;
+  overflow: visible;
+}
+
+.iei-seat-sp-base {
+  stroke: var(--iei-line);
+  stroke-width: 1;
+}
+
+.iei-seat-sp-run {
+  fill: none;
+  stroke: var(--iei-ink-2);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.iei-seat-sp-stub {
+  fill: none;
+  stroke: var(--iei-ink-3);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+
+.iei-seat-sp-gap {
+  stroke: var(--iei-ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 1 3;
+}
+
+.iei-seat-sp-dot {
+  fill: var(--iei-ink);
+  stroke: var(--iei-bg);
+  stroke-width: 2;
+}
+
+/* A declared figure is a hollow ring: nothing is counted behind it. */
+.iei-seat-sp-ring {
+  fill: var(--iei-bg);
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+}
+
+.iei-seat-sp-yr,
+.iei-seat-sp-val {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+}
+
+.iei-seat-sp-yr {
+  fill: var(--iei-ink-3);
+}
+
+.iei-seat-sp-val {
+  fill: var(--iei-ink);
+}
+
+.iei-seat-twin {
+  margin: var(--iei-3) 0 0;
+  display: grid;
+  gap: 2px;
+  font-size: var(--iei-f-data);
+}
+
+.iei-seat-twin > div {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: var(--iei-2);
+}
+
+.iei-seat-twin dt {
+  font-family: var(--iei-mono);
+  color: var(--iei-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-seat-twin dd {
+  margin: 0;
+}
+
+/* The share against half: a bar from zero, a tick at 50%. */
+.iei-seat-bullet {
+  position: relative;
+  height: var(--iei-3);
+  margin: var(--iei-3) 0 var(--iei-1);
+  background: var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-bullet-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-bullet-tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--iei-ink);
+}
+
+.iei-seat-ticklabel {
+  margin: 0 0 var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+/* How each election divided the vote: one panel per election, as many to a row as fit. */
+.iei-seat-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--iei-6) var(--iei-6);
+}
+
+.iei-seat-panel {
+  min-width: 0;
+  padding-top: var(--iei-3);
+  border-top: 1px solid var(--iei-line-2);
+}
+
+.iei-seat-panel-d {
+  border-top: 1px dashed var(--iei-ink-3);
+}
+
+.iei-seat-ph {
+  margin: 0 0 var(--iei-3);
+  font-size: var(--iei-f-body);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.iei-seat-py {
+  margin-right: var(--iei-1);
+  font-family: var(--iei-mono);
+  font-weight: 400;
+  color: var(--iei-ink-3);
+}
+
+.iei-seat-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-3);
+}
+
+.iei-seat-rows > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  column-gap: var(--iei-2);
+  row-gap: var(--iei-1);
+  align-items: baseline;
+  font-size: var(--iei-f-data);
+}
+
+.iei-seat-nm {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A name inside a panel row, a card or a roster cell is a link in prose: the product's one link treatment. */
+.iei-seat-nm a,
+.iei-seat-card a,
+.iei-seat-who a,
+.iei-seat-line a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-seat-nm a:hover,
+.iei-seat-card a:hover,
+.iei-seat-who a:hover,
+.iei-seat-line a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-seat-nm a:focus-visible,
+.iei-seat-card a:focus-visible,
+.iei-seat-who a:focus-visible,
+.iei-seat-line a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-seat-trail {
+  display: block;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+.iei-seat-sh,
+.iei-seat-vt {
+  font-family: var(--iei-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.iei-seat-vt {
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+.iei-seat-win .iei-seat-sh {
+  font-weight: 600;
+  color: var(--iei-ink);
+}
+
+/* A row's own track: the bar from the left edge, and half the votes polled marked on it, so the line never crosses a figure. */
+.iei-seat-track {
+  grid-column: 1 / -1;
+  position: relative;
+  display: block;
+  height: 6px;
+}
+
+.iei-seat-bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  border-left: 1px dashed var(--iei-ink-3);
+}
+
+.iei-seat-foot {
+  margin: var(--iei-3) 0 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+}
+
+.iei-seat-card {
+  margin: 0 0 var(--iei-3);
+  padding: var(--iei-3);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  font-size: var(--iei-f-data);
+}
+
+.iei-seat-card p {
+  margin: var(--iei-1) 0;
+}
+
+.iei-seat-tag {
+  display: inline-block;
+  margin-left: var(--iei-2);
+  padding: 0 var(--iei-1);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-2);
+  white-space: nowrap;
+}
+
+/* A claim the candidate made, not a fact the record holds: dashed. */
+.iei-seat-tag-claim {
+  border-style: dashed;
+}
+
+.iei-seat-units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: var(--iei-3) 0;
+}
+
+.iei-seat-unit {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-unit-win {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 1px;
+}
+
+/* The roster. */
+.iei-seat-rl {
+  margin-bottom: var(--iei-3);
+}
+
+.iei-seat-rl + .iei-note {
+  margin-bottom: var(--iei-3);
+}
+
+.iei-seat-party {
+  white-space: nowrap;
+}
+
+.iei-seat-who {
+  min-width: 12rem;
+}
+
+.iei-seat-phone {
+  display: none;
+}
+
+/* What the record does not say, and the same list wherever a page has one. */
+.iei-limits-h {
+  margin: 0 0 var(--iei-2);
+  font-size: var(--iei-f-title);
+  font-weight: 600;
+}
+
+.iei-limits ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-2);
+}
+
+.iei-limits li {
+  position: relative;
+  padding-left: var(--iei-4);
+  max-width: 88ch;
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink-2);
+}
+
+.iei-limits li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  width: 9px;
+  height: 9px;
+  border: 1px dashed var(--iei-ink-3);
+}
+
+@media (max-width: 1080px) {
+  .iei-seat-kpis {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .iei-seat-hero {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .iei-seat-hide {
+    display: none;
+  }
+
+  .iei-seat-phone {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .iei-seat-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iei-seat-who {
+    min-width: 0;
+  }
+
+  .iei-finding-s {
+    --iei-f-lead: 21px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The finding arrives, and the held-by blocks after it oldest to newest: order of arrival is chronology. */
+  .iei-finding {
+    animation: iei-arrive var(--iei-t-1) var(--iei-ease) backwards;
+  }
+
+  .iei-held-b {
+    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i) * 60ms), 300ms);
+  }
+
+  /* A quantity grows from its baseline; rank one lands first. */
+  .iei-seat-bullet-fill,
+  .iei-seat-bar {
+    transform-origin: 0 50%;
+    animation: iei-grow var(--iei-t-2) var(--iei-ease) backwards;
+  }
+
+  .iei-seat-bar {
+    animation-delay: min(calc(var(--i) * 40ms), 160ms);
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-seat-bar,
+  .iei-seat-unit,
+  .iei-seat-bullet-fill {
+    border: 1px solid CanvasText;
+  }
+}
