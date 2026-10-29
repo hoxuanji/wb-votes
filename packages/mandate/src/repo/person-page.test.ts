@@ -87,60 +87,62 @@ const table = (html: string, caption: string): string => {
   return html.slice(html.lastIndexOf("<table", at), html.indexOf("</table>", at));
 };
 
-test("a turnout nothing corroborates reads verification pending on the person page, and no older election's stands in", () => {
-  const t = text(render("veteran"));
-  assert.match(t, /Turnout where they stood verification pending Testpur 2026/);
-  assert.doesNotMatch(t, /96\.5/, "the withheld figure is not printed");
-  assert.doesNotMatch(t, /\b50(\.0)?%/, "and the verified 2021 figure is not put in its place");
+const flat = (html: string): string => text(html).replace(/\s+/g, " ");
+
+test("the person page prints no turnout, so a figure nothing corroborates cannot be on it, and no older election's stands in", () => {
+  for (const who of ["veteran", "champ21", "rookie"]) {
+    const t = text(render(who));
+    assert.doesNotMatch(t, /Turnout where they stood|96\.5|\b50(\.0)?%/, `${who}'s page prints a turnout`);
+  }
 });
 
-test("a verified election's turnout is still a figure", () => {
-  const t = text(render("champ21"));
-  assert.match(t, /Turnout where they stood 50% of electors Testpur 2021/);
+test("a counted result is a figure on the record, and a person's win says so by its margin", () => {
+  const t = flat(render("champ21"));
+  assert.match(t, /Won Testpur \(Assembly\) for AAA in 2021 by 200 votes\./);
+  assert.match(t, /Won.*600.*200/);
 });
 
 test("a candidate in a seat declared for someone else is not described as awaiting a result", () => {
   const html = render("rookie");
-  const t = text(html);
-  assert.match(t, /Stood at Testpur 2026, where CHAMP TWENTYSIX \(AAA\) won/);
-  assert.doesNotMatch(t, /Standing at|Awaiting a result|no result declared|no declared result/i);
-  assert.match(t, /Won by another candidate 1 contest Testpur 2026/);
-  assert.match(t, /seat won by CHAMP TWENTYSIX/);
+  const t = flat(html);
+  assert.match(t, /Stood for BBB at Testpur in 2026\. The seat was won by Champ Twentysix AAA by a declared 500 votes\./);
+  assert.doesNotMatch(t, /Standing at|Awaiting a result|no result declared|no declared result|\blost\b/i);
+  assert.match(t, /Not the declared winner seat won by Champ Twentysix/);
   assert.ok(hrefs(html).includes("/p/champ26"), "the winner's name is a link to their page");
-  assert.doesNotMatch(t, /\blost\b/i, "a nomination is not described as a defeat");
 });
 
-test("a career with an earlier loss and a settled seat says each in its own words", () => {
-  const t = text(render("veteran"));
-  assert.match(t, /Lost the only decided contest on record, Testpur 2021/);
-  assert.match(t, /1 contest on record at Testpur 2026 was won by CHAMP TWENTYSIX \(AAA\)/);
+test("a career with an earlier loss and a seat since declared for another says what is on record and characterises nothing", () => {
+  const t = flat(render("veteran"));
+  assert.match(t, /Stood in 2 contests on record, 2021 to 2026; none is a declared win\./);
+  assert.match(t, /Lost rank 2/, "the counted 2021 loss is stated by its rank");
+  assert.match(t, /Not the declared winner seat won by Champ Twentysix/);
 });
 
-test("the career table links each seat to its page and each year to its election", () => {
+test("the record table links each seat to its page and each year to its election", () => {
   const html = render("veteran");
-  const career = table(html, "contests on record.");
+  const record = table(html, "contests on record.");
   assert.deepEqual(
-    hrefs(career).filter((h) => h.startsWith("/constituency") || h.startsWith("/election")),
+    hrefs(record).filter((h) => h.startsWith("/constituency") || h.startsWith("/election")),
     ["/election/wb-assembly-2026", "/constituency/wb/assembly/testpur", "/election/wb-assembly-2021", "/constituency/wb/assembly/testpur"],
   );
-  assert.match(text(career), /The seat links to its brief\./);
+  assert.match(text(record), /The seat links to its page\./);
 });
 
-test("a row with no contest but a seat claim says which seat, links it, and has no empty figures strip", () => {
+test("a row with no contest but a seat claim says which seat, links it, and draws no run, no table and no empty frame", () => {
   const html = render("orphan");
-  const t = text(html);
-  assert.match(t, /No contest is on record for Orphan Member, but the registry records them as the sitting member for Testpur, 2026-2031, party BBB\./);
+  const t = flat(html);
+  assert.match(t, /Named as a member of the 2026-2031 assembly in a press report; no contest is on record for Orphan Member\./);
   assert.doesNotMatch(t, /nothing to judge/);
-  assert.match(t, /Sitting member for Testpur 2026-2031, party BBB/);
-  assert.match(t, /Margin recorded 500 votes as of 2026-01-01/);
+  assert.match(t, /BBB.*Testpur.*press claim/);
   assert.ok(hrefs(html).includes("/constituency/wb/assembly/testpur"), "the crumb reaches the seat");
-  assert.doesNotMatch(html, /<dl class="iei-metrics"><\/dl>/);
+  assert.doesNotMatch(t, /The run|The record in full|Declared in/);
+  assert.doesNotMatch(html, /iei-metrics/);
 });
 
-test("a row with nothing to show says so instead of drawing an empty strip", () => {
+test("a row with nothing to show says so instead of drawing an empty frame", () => {
   const html = render("blank");
-  assert.doesNotMatch(html, /<dl class="iei-metrics"><\/dl>/);
-  assert.match(text(html), /No figure for this person is in the registry\./);
+  assert.match(flat(html), /No contest is on record for Blank Row\./);
+  assert.doesNotMatch(flat(html), /The run|The record in full|Declared in|Against whom/);
 });
 
 test("search says who has the seat of a nomination in a declared contest, and not that it is still contesting", () => {

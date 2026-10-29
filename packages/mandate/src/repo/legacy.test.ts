@@ -293,8 +293,7 @@ test("a candidate id follows the person, and one the registry lacks goes to sear
 
 // ── the routes that do not read the registry ─────────────────────────────────────────────────────
 
-test("/candidates and the /pl picker answer without opening the registry", () => {
-  assert.deepEqual(legacyTarget({ route: "candidates" }, never), redirect("/search"));
+test("the /pl picker answers without opening the registry", () => {
   assert.deepEqual(legacyTarget({ route: "pl-picker", to: "ka" }, never), redirect("/state/ka"));
   for (const to of [undefined, "", "KA", "kar", "k", "ka/x", "k1"]) {
     assert.deepEqual(legacyTarget({ route: "pl-picker", to }, never), NOT_FOUND, String(to));
@@ -454,7 +453,6 @@ test("a registry that cannot be read is thrown by every route that needs it, not
 
 test("a request that needs no registry is answered while the registry is down", () => {
   const gone = at(scratch());
-  assert.deepEqual(legacyTarget({ route: "candidates" }, gone), redirect("/search"));
   assert.deepEqual(legacyTarget({ route: "pl-picker", to: "ka" }, gone), redirect("/state/ka"));
   // a path that is no place cannot match anything, so it is a 404 whether or not there is a registry
   assert.deepEqual(legacyTarget(pl(["wb", "a", "b", "c"]), gone), NOT_FOUND);

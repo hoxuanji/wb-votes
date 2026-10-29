@@ -1,5 +1,6 @@
 import { inr } from '../../../packages/mandate/src/repo/brief.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
+import { PersonLink } from './marks.tsx';
 import { heldCaption, segmentLabel, shareText } from '../../../packages/mandate/src/repo/seat-history.ts';
 import type { ResultBar, SeatHistory } from '../../../packages/mandate/src/repo/seat-history.ts';
 
@@ -98,7 +99,7 @@ export function HeldBy({ history }: { history: SeatHistory }) {
   );
 }
 
-function Key({ bar }: { bar: ResultBar }) {
+function Key({ bar, subjectId }: { bar: ResultBar; subjectId?: string }) {
   return (
     <ul className="iei-res-key">
       {bar.segments.map((s) => (
@@ -112,7 +113,13 @@ function Key({ bar }: { bar: ResultBar }) {
             style={s.party === null ? undefined : { background: fillFor(s.party.key) }}
             aria-hidden="true"
           />
-          <span className="iei-chip">{segmentLabel(s)}</span> <b>{shareText(s.share)}%</b>
+          <span className="iei-chip">{segmentLabel(s)}</span>{' '}
+          {subjectId === undefined || s.personId === null || s.name === null ? null : (
+            <>
+              <PersonLink id={s.personId} name={s.name} current={s.personId === subjectId} />{' '}
+            </>
+          )}
+          <b>{shareText(s.share)}%</b>
         </li>
       ))}
       {bar.unitemised > 0 ? (
@@ -125,7 +132,7 @@ function Key({ bar }: { bar: ResultBar }) {
   );
 }
 
-export function ResultBars({ history }: { history: SeatHistory }) {
+export function ResultBars({ history, subjectId }: { history: SeatHistory; subjectId?: string }) {
   const { results } = history;
   if (results.length === 0) return null;
   const drawn = results.some((r) => r.bar !== null);
@@ -163,7 +170,7 @@ export function ResultBars({ history }: { history: SeatHistory }) {
                     ))}
                     {r.bar.unitemised > 0 ? <span className="iei-res-rest" style={{ flexGrow: r.bar.unitemised }} /> : null}
                   </div>
-                  <Key bar={r.bar} />
+                  <Key bar={r.bar} subjectId={subjectId} />
                 </>
               )}
               {r.note === null ? null : <p className="iei-note iei-res-note">{r.note}</p>}
