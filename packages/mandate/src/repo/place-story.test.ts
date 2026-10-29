@@ -14,7 +14,8 @@ import { placeView } from "./place-view.ts";
 import type { PlaceView } from "./place-view.ts";
 import { MOVE_POINTS, placeStory } from "./place-story.ts";
 import type { PlaceStory } from "./place-story.ts";
-import { currentSeat } from "./testkit.ts";
+import { ordinal } from "./seat-story.ts";
+import { currentSeat, marginRankBySql } from "./testkit.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
@@ -29,14 +30,54 @@ async function load(placeId: string, body: "assembly" | "lok-sabha" = "assembly"
   return { v: a, s: placeStory({ brief: a.brief, history: a.history, analysis: a.analysis, ranks: a.ranks, stateShares: a.stateShares, asked }) };
 }
 
+// WHAT THE REGISTRY HOLDS IS NOT PINNED. How many contests an election has on record, and so a seat's rank among them and a party's share of their votes, is a
+// property of the registry the test meets: the committed seed holds all 294 of West Bengal's 2021 seats and TMC's 2011 share is 38.9% over its 294, where a
+// registry built before the seed was complete held 288 and 279 of them and gave 38.5%. So the ranks are read from the rows (marginRankBySql, in testkit.ts)
+// and so are the shares, in SQL and not through the readers the page is built from.
+//
+// A party's share of an election's votes in a state, from the rows: its candidates' votes over the votes polled in the contests whose candidates' votes are on
+// record, where a contest's votes polled is its turnout row's voters and, for a contest with none, what its winner and runner-up polled between them.
+function stateShareBySql(electionId: string, partyId: string): number | undefined {
+  const [polled] = all<{ polled: number | null }>(
+    db,
+    `WITH k AS (
+       SELECT (SELECT r.votes FROM result r WHERE r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1) AS won,
+              (SELECT r.votes FROM result r WHERE r.contest_id = c.id AND r.revision = 0 AND r."rank" = 2) AS second,
+              (SELECT t.voters FROM turnout t WHERE t.contest_id = c.id AND t.scope = 'contest') AS voters
+         FROM contest c WHERE c.election_id = ?)
+     SELECT SUM(CASE WHEN voters > 0 THEN voters ELSE COALESCE(won, 0) + COALESCE(second, 0) END) AS polled FROM k WHERE won IS NOT NULL OR second IS NOT NULL`,
+    electionId,
+  );
+  const [party] = all<{ votes: number | null }>(
+    db,
+    `SELECT SUM(r.votes) AS votes FROM result r
+       JOIN candidacy ca ON ca.id = r.candidacy_id
+       JOIN party_version pv ON pv.id = ca.party_version_id
+       JOIN contest c ON c.id = r.contest_id
+      WHERE c.election_id = ? AND r.revision = 0 AND pv.party_id = ?`,
+    electionId,
+    partyId,
+  );
+  return polled?.polled == null || polled.polled <= 0 || party?.votes == null ? undefined : (100 * party.votes) / polled.polled;
+}
+
 test("Mekliganj: the finding is the rise, the close one is 2016, and the margin ranks are the registry's", live, async () => {
   const { s } = await load("wb.ac.001");
   assert.equal(s.finding.shape, "rise");
   assert.equal(plain(s.finding.parts), "BJP’s share of the vote here rose from 2.5% in 2011 to 42.6% in 2021, and in 2026 it took the seat from TMC by a declared 29,584 votes.");
-  assert.equal(s.closeAnswer, "2016 was the close one: 47th closest of 275");
+  const rankOf = (year: number): { rank: number; of: number } => {
+    const r = marginRankBySql(db, "wb.ac.001", `wb-assembly-${year}`);
+    assert.ok(r !== null, `Mekliganj has no rankable margin in ${year}`);
+    return r;
+  };
+  const close = rankOf(2016);
+  // "The close one" is the election in which the seat stands nearest the top of its own list, by rank over the count the rank is among.
+  const nearest = [2011, 2016, 2021, 2026].map((y) => ({ y, ...rankOf(y) })).sort((a, b) => a.rank / a.of - b.rank / b.of)[0];
+  assert.equal(nearest?.y, 2016, "the seat's closest election is no longer 2016");
+  assert.equal(s.closeAnswer, `2016 was the close one: ${close.rank === 1 ? "the closest" : `${ordinal(close.rank)} closest`} of ${close.of}`);
   assert.deepEqual(
     s.hero?.ranks.map((r) => [r.year, r.rank?.rank, r.rank?.of]),
-    [[2011, 241, 279], [2016, 47, 275], [2021, 98, 288], [2026, 176, 293]],
+    [2011, 2016, 2021, 2026].map((y) => [y, rankOf(y).rank, rankOf(y).of]),
   );
   assert.equal(s.hero?.votes, 29584);
   assert.equal(s.hero?.delta?.votes, 14899);
@@ -52,15 +93,27 @@ test("the state's shares are the state page's: the same denominator, by party, b
   const { v } = await load("wb.ac.001");
   const round = (n: number | undefined): number | undefined => (n === undefined ? undefined : Math.round(n * 10) / 10);
   const e = (y: number): string => `wb-assembly-${y}`;
-  assert.deepEqual([2011, 2016, 2021].map((y) => round(v.stateShares.get(e(y))?.get("AITC"))), [38.5, 44.9, 48]);
-  assert.deepEqual([2011, 2016, 2021].map((y) => round(v.stateShares.get(e(y))?.get("BJP"))), [4.1, 10.2, 38]);
+  // The shares are the rows': each is taken from them again here, in SQL, over the same denominator and not through the trajectory the page reads, so a
+  // registry that holds more or fewer seats of an election moves the share and the expectation together.
+  for (const party of ["AITC", "BJP"]) {
+    assert.deepEqual(
+      [2011, 2016, 2021].map((y) => round(v.stateShares.get(e(y))?.get(party))),
+      [2011, 2016, 2021].map((y) => round(stateShareBySql(e(y), party))),
+      `${party}'s share of the state's votes is not the rows'`,
+    );
+  }
+  assert.ok((v.stateShares.get(e(2021))?.get("AITC") ?? 0) > 0, "the state has no AITC share for 2021 to compare");
   assert.equal(v.stateShares.get(e(2026)), undefined, "a 2026 state share exists for an election that published no votes");
 });
 
 test("Dinhata: a counted margin of 57 votes is the finding, the closest of 288, and the turnout answer is by sign", live, async () => {
   const { s } = await load("wb.ac.007");
   assert.equal(s.finding.shape, "close");
-  assert.equal(plain(s.finding.parts), "Dinhata was decided by 57 votes in 2021, the closest of 288 counted contests that year.");
+  // The denominator is how many of that year's contests the registry ranks (marginRankBySql in testkit.ts), which is every one of West Bengal's 294 seats once the
+  // registry holds them all and was 288 on a registry that did not.
+  const ranked = marginRankBySql(db, "wb.ac.007", "wb-assembly-2021");
+  assert.equal(ranked?.rank, 1, "Dinhata's 57 votes is no longer the closest of 2021");
+  assert.equal(plain(s.finding.parts), `Dinhata was decided by 57 votes in 2021, the closest of ${ranked?.of} counted contests that year.`);
   assert.equal(s.turnout.answer, "Dinhata ran 3.0 to 4.6 points below the district at every election on record");
 });
 

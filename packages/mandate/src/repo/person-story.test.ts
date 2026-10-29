@@ -92,14 +92,37 @@ test("every person in the registry gets a sentence that keeps the rules", live, 
 test("careers of two or more contests fall into five exclusive shapes that account for every one", live, () => {
   const ids = all<{ id: string }>(db, "SELECT person_id AS id FROM candidacy GROUP BY person_id HAVING COUNT(*) >= 2").map((r) => r.id);
   const counts = new Map<string, number>();
+  const longest = new Map<string, number>();
   for (const id of ids) {
     const b = getPersonBrief(db, id)!;
     const shape = careerShape([...b.candidacies].reverse().map(won));
     assert.ok(shape !== null);
     counts.set(shape, (counts.get(shape) ?? 0) + 1);
+    longest.set(shape, Math.max(longest.get(shape) ?? 0, b.candidacies.length));
   }
   assert.equal([...counts.values()].reduce((a, b) => a + b, 0), ids.length);
-  assert.deepEqual(CAREER_SHAPES.map((s) => counts.get(s.key) ?? 0), [162, 48, 136, 299, 14], "the shapes are not the ones the registry was measured to hold");
+  // The distribution is the registry's, so it is not pinned: a registry built from the committed seed holds fewer careers than the full
+  // one, and a constant here failed on every registry but the one it was measured on. What the shapes owe the rows is checked against a
+  // count taken from the rows themselves, in SQL, and only where it does not depend on the order a career is read in: a career is
+  // "every" when all its contests are wins, "none" when none is, and the three ordered shapes share exactly the careers that have both.
+  // Which of those three a career is depends on the order, which is careerShape's own test below.
+  const [rows] = all<{ every: number; none: number; both: number }>(
+    db,
+    `WITH o AS (
+       SELECT ca.person_id AS pid,
+              (ca.status = 'elected' OR EXISTS (SELECT 1 FROM result r WHERE r.candidacy_id = ca.id AND r.is_winner = 1
+                 AND r.revision = (SELECT MAX(r2.revision) FROM result r2 WHERE r2.candidacy_id = ca.id))) AS w
+         FROM candidacy ca),
+     p AS (SELECT pid, COUNT(*) AS n, SUM(w) AS wins FROM o GROUP BY pid HAVING COUNT(*) >= 2)
+     SELECT COALESCE(SUM(wins = n), 0) AS every, COALESCE(SUM(wins = 0), 0) AS none, COALESCE(SUM(wins > 0 AND wins < n), 0) AS both FROM p`,
+  );
+  const n = (k: string): number => counts.get(k) ?? 0;
+  assert.equal(n("every"), rows!.every, "careers of wins only");
+  assert.equal(n("none"), rows!.none, "careers with no win");
+  assert.equal(n("lost-then-won") + n("won-then-not") + n("mixed"), rows!.both, "careers with a win and a contest that was not");
+  assert.ok((longest.get("mixed") ?? 3) >= 3, "two contests cannot be mixed: a win and a non-win, in either order, is one of the other two shapes");
+  assert.equal(CAREER_SHAPES.length, 5, "the test is named for five shapes");
+  assert.ok([...counts.keys()].every((k) => CAREER_SHAPES.some((s) => s.key === k)), "a shape the list does not name");
 });
 
 test("a career is shaped from its outcomes oldest first, and one contest has no shape", () => {

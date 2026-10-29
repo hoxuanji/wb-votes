@@ -16,8 +16,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, readFileSync, readdirSync } from "node:fs";
-import { DEV_DB_PATH, openRead } from "../db/open.ts";
+import { existsSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { DEV_DB_PATH, open, openRead } from "../db/open.ts";
 import * as electionMap from "./election-map.ts";
 import { readSelection, tally } from "./map-selection.ts";
 import type { ElectionSeat } from "./election-map.ts";
@@ -25,8 +27,9 @@ import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
 import { storyView } from "./home-story.ts";
+import { ordinal } from "./seat-story.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
-import { currentSeat } from "./testkit.ts";
+import { currentSeat, marginRankBySql, seatOfEmptyContests } from "./testkit.ts";
 import { all } from "../db/index.ts";
 import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey } from "../viz/party-ink.ts";
 import { deltaE } from "../viz/colour.ts";
@@ -39,13 +42,16 @@ const ROOT = new URL("../../../../", import.meta.url).pathname;
 /** A read handle, for the few assertions that compare a rendered figure to the registry's own. */
 const db = HAVE_DB ? openRead() : (null as unknown as ReturnType<typeof openRead>);
 
-/** Render a route, or throw with the child's stderr — a page that fails to render must fail loudly. */
-function render(route: string, query = "", segments = ""): string {
+/**
+ * Render a route, or throw with the child's stderr — a page that fails to render must fail loudly. `registry` renders it against a registry file of
+ * the test's own making (a fixture, as seat-list-page.test.ts does) and not the one the run was pointed at.
+ */
+function render(route: string, query = "", segments = "", registry?: string): string {
   try {
     return execFileSync(
       process.execPath,
       ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", route, query, segments],
-      { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] },
+      { cwd: ROOT, ...(registry === undefined ? {} : { env: { ...process.env, MANDATE_DB_PATH: registry } }), encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] },
     );
   } catch (e) {
     const err = e as { stderr?: string; message?: string };
@@ -53,6 +59,23 @@ function render(route: string, query = "", segments = ""): string {
   }
 }
 
+
+/**
+ * A registry file holding a seat whose old contests have nobody in them (seatOfEmptyContests), built once, for the pages that must say what a contest
+ * with nobody in it is. The premise is built because the registry may hold none: a registry built before the seed was complete had Bishnupur's three (West Bengal 154),
+ * and one built from the committed seed has every candidate of those elections and so no such contest at all.
+ */
+let emptyContestsPath: string | undefined;
+function emptyContests(): string {
+  if (emptyContestsPath === undefined) {
+    const path = join(mkdtempSync(join(tmpdir(), "mandate-empty-contests-")), "registry.db");
+    const fixture = open(path);
+    seatOfEmptyContests(fixture);
+    fixture.close();
+    emptyContestsPath = path;
+  }
+  return emptyContestsPath;
+}
 
 /**
  * Render a place by its PATH, dispatching to the canonical route for its kind.
@@ -317,9 +340,10 @@ test("a seat with no 2026 result row says so, and a seat whose contests have nob
   const falta = text(render("/constituency", "", "wb/assembly/falta")).replace(/\s+/g, " ");
   assert.match(falta, /No 2026 result is loaded; the candidacy record names Debangshu Panda as elected/);
   assert.doesNotMatch(falta, /109,021|71\.2%/, "the press margin of a seat with no result row is printed");
-  const wb154 = render("/constituency", "", "wb/assembly/154");
-  assert.match(text(wb154), /no candidates on record/);
-  assert.doesNotMatch(text(wb154), /took the seat from/, "a hand-off is claimed across elections that declared nobody");
+  const wb154 = render("/constituency", "", "wb/assembly/154", emptyContests());
+  const flat154 = text(wb154).replace(/\s+/g, " ");
+  for (const year of [2011, 2016, 2021]) assert.match(flat154, new RegExp(`${year} no candidates on record`), `${year} had nobody in its contest and does not say so`);
+  assert.doesNotMatch(flat154, /took the seat from/, "a hand-off is claimed across elections that declared nobody");
   const lok = text(render("/constituency", "", "wb/lok-sabha/baharampur")).replace(/\s+/g, " ");
   assert.match(lok, /24th widest of the 42 West Bengal Lok Sabha margins/);
   assert.match(lok, /Not on record/);
@@ -373,7 +397,20 @@ test("the candidates index renders a page of its list and its facets, in words a
   const html = render("/candidates");
   const t = text(html).replace(/\s+/g, " ");
   assert.ok(html.length < 120_000, `${html.length} bytes for a page of 50 rows`);
-  assert.match(t, /2,921 candidates stood for 294 seats in the Assembly 2026 election\. 316 had stood before on record\./);
+  // The counts are the registry's, taken from its rows: how many candidacies the election has, how many seats, and how many of those candidacies belong to a
+  // person with a candidacy in an earlier year. The last of them was written down as 316, which is what a registry built before the seed was complete
+  // held, and is 327 over the seed's.
+  const [field] = all<{ candidates: number; seats: number; before: number }>(
+    db,
+    `SELECT COUNT(*) AS candidates,
+            (SELECT COUNT(*) FROM contest WHERE election_id = 'wb-assembly-2026') AS seats,
+            SUM(EXISTS (SELECT 1 FROM candidacy a JOIN contest k ON k.id = a.contest_id JOIN election f ON f.id = k.election_id
+                         WHERE a.person_id = ca.person_id AND f.year < e.year)) AS before
+       FROM candidacy ca JOIN contest c ON c.id = ca.contest_id JOIN election e ON e.id = c.election_id
+      WHERE c.election_id = 'wb-assembly-2026'`,
+  );
+  const n = (x: number | undefined): string => (x ?? 0).toLocaleString("en-US");
+  assert.match(t, new RegExp(`${n(field?.candidates)} candidates stood for ${n(field?.seats)} seats in the Assembly 2026 election\\. ${n(field?.before)} had stood before on record\\.`));
   assert.match(t, /Nothing here is ranked/);
   assert.equal((html.match(/<tr>/g) ?? []).length, 1 + 50, "a page is the head row and fifty candidates");
   // Every swatch has its code, and every person is a link to their page.
@@ -382,7 +419,11 @@ test("the candidates index renders a page of its list and its facets, in words a
   assert.equal(withCode, swatches);
   assert.equal([...html.matchAll(/href="\/p\/[^"]+"/g)].length >= 50, true);
   // Only a declared winner has a figure, and it says declared; nobody is ranked by what they declared.
-  assert.match(t, /declared winner, margin 18,960 declared/);
+  // Every figure printed is a winner's declared margin, and is one the registry holds for this election.
+  const margins = new Set(all<{ m: number }>(db, "SELECT DISTINCT ABS(r.margin) AS m FROM result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = 'wb-assembly-2026' AND r.is_winner = 1 AND r.margin IS NOT NULL").map((r) => r.m.toLocaleString("en-US")));
+  const printed = [...t.matchAll(/declared winner, margin ([\d,]+) declared/g)].map((m) => m[1] as string);
+  assert.ok(printed.length > 0, "no declared winner on the page has a margin");
+  for (const m of printed) assert.ok(margins.has(m), `${m} is not a declared margin of the election`);
   assert.doesNotMatch(t, /richest|most cases|closest|\brank(?:ed)? \d|assets/i);
   // A narrowed view keeps its filters as links that remove them.
   const narrowed = render("/candidates", "party=AITC&repeat=1");
@@ -417,7 +458,10 @@ test("the Analysis pages open on a finding, print no withheld figure, and each s
   }
   const mek = text(render("/constituency/analysis", "", "wb/assembly/mekliganj")).replace(/\s+/g, " ");
   assert.match(mek, /verification pending/);
-  assert.match(mek, /2016 was the close one: 47th closest of 275/);
+  // Where 2016 stands among West Bengal's 2016 margins is the registry's to say (see marginRankBySql): the committed seed holds 294 of them, an older registry 275.
+  const close = marginRankBySql(db, "wb.ac.001", "wb-assembly-2016");
+  assert.ok(close !== null, "Mekliganj has no rankable margin in 2016");
+  assert.match(mek, new RegExp(`2016 was the close one: ${close.rank === 1 ? "the closest" : `${ordinal(close.rank)} closest`} of ${close.of}`));
   assert.match(mek, /beat the district and the state at every election on record/);
 
   const lok = render("/constituency/analysis", "", "wb/lok-sabha/baharampur");
@@ -425,7 +469,8 @@ test("the Analysis pages open on a finding, print no withheld figure, and each s
   assert.doesNotMatch(text(lok), /India · | in West Bengal, the district|district of West Bengal/);
   assert.doesNotMatch(lok, /iei-an-seg/, "a Lok Sabha seat with no candidate votes draws a proportional segment");
 
-  const none = text(render("/constituency/analysis", "", "wb/assembly/154")).replace(/\s+/g, " ");
+  const none = text(render("/constituency/analysis", "", "wb/assembly/154", emptyContests())).replace(/\s+/g, " ");
+  assert.match(none, /How Bishnupur got this way/);
   assert.doesNotMatch(none, /took the seat from/, "a hand-off is claimed across elections that declared nobody");
 });
 

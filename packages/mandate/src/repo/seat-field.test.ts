@@ -6,8 +6,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { existsSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
-import { get } from "../db/index.ts";
+import { all, get, open } from "../db/index.ts";
 import { readSeatField } from "./seat-field.ts";
+import { seatOfEmptyContests } from "./testkit.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
@@ -84,7 +85,22 @@ test("a winner who declared nothing has not-reported fields, never zero", live, 
 });
 
 test("a contest with nobody in it is evidence none; a Lok Sabha seat with one declared winner is declared", live, () => {
-  assert.deepEqual(field("wb.ac.154").elections.map((e) => e.evidence), ["declared", "none", "none", "none"]);
+  // The premise is a data shape, not a seat: a registry built before the seed was complete held three seats whose old contests had nobody in them, and a registry built
+  // from the committed seed holds none (it has every candidate of those elections), so Bishnupur's three old contests being empty was a fact about one
+  // registry. The shape is built here, in a registry of its own, and what the live registry is asked is the rule over whatever empty contests it does hold.
+  const d = open(":memory:");
+  try {
+    const { versionId } = seatOfEmptyContests(d);
+    const built = readSeatField(d, versionId).elections;
+    assert.deepEqual(built.map((e) => [e.year, e.evidence, e.candidates.length, e.winner === null]), [[2026, "declared", 1, false], [2021, "none", 0, true], [2016, "none", 0, true], [2011, "none", 0, true]]);
+  } finally {
+    d.close();
+  }
+  for (const c of all<{ versionId: number; contestId: string }>(db, "SELECT c.place_version_id AS versionId, c.id AS contestId FROM contest c WHERE NOT EXISTS (SELECT 1 FROM candidacy ca WHERE ca.contest_id = c.id)")) {
+    const e = readSeatField(db, c.versionId).elections.find((x) => x.contestId === c.contestId);
+    assert.equal(e?.evidence, "none", `${c.contestId} has nobody in it and is not evidence none`);
+    assert.deepEqual([e?.candidates.length, e?.winner], [0, null]);
+  }
   const b = field("wb.pc.10").elections;
   assert.equal(b.length, 1);
   assert.equal(b[0]!.evidence, "declared");
