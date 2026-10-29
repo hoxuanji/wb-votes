@@ -30,13 +30,12 @@
    · THE DATELINE STRIP AND THE NAVIGATION STRIP ARE GONE. Each has a note at the place it used to be, saying
      what it was and why it went.
 
-   The rest follows from the same instinct:
-   · No gradients, no glass, no shadows, no card that floats for decoration. Sections are divided by
-     hairlines, which is how a document divides sections.
-   · Every NUMBER and every piece of metadata is monospace and tabular. Prose is not. That single split is
-     what lets a table run at 13px and stay readable.
-   · Radius is one token and it is 2px. A dashboard of rounded cards reads as a marketing page with data
-     in it.
+   The rest follows from the same instinct, as amended by THE SKIN (the block at the foot of this file, 2026-10-29):
+   · A section is a card on a faintly lit page, with a soft shadow and a top highlight; sections used to be divided by hairlines "as a
+     document divides sections", and the result read as a document. Nothing floats for decoration, and nothing is coloured.
+   · Numbers, marks and metadata are monospace and tabular. Prose is SANS — a note under a chart is a sentence, and the sentence
+     was in 11px mono. That split is what lets a table run at 13px and stay readable.
+   · Radius is one token and it is 8px.
    · Focus is a 2px bright-ink underline on the control itself, never a ring. forced-colors gets a real
      outline, because there the system owns the treatment. */
 
@@ -54,10 +53,11 @@
   /*
    * ink-3 is every label, table header, caption and metadata line on the page, and it was #74748a — 4.41:1
    * on the canvas and 4.02:1 on the raised surface, which misses the 4.5:1 floor that small text has to
-   * clear. It is #818198 now: 4.82:1 on the WORST surface it is drawn on, with a little headroom. Measured
+   * clear. It was #818198 (4.82:1 on the worst token surface), and is #8b8ba2 since the skin: a card's top edge is lit by a 4% white gradient, so the
+   * surface a label sits on is lighter than any token, and the extra headroom keeps a label over 4.5:1 there too. Measured
    * by iei.test.ts rather than by eye, because this is exactly the kind of claim that cannot be eyeballed.
    */
-  --iei-ink-3: #818198;
+  --iei-ink-3: #8b8ba2;
   /*
    * There is no fourth ink tier. There was one at #4b4b5c — 2.2:1 on the raised surface, which no text can
    * clear — and everything it rendered turned out to carry meaning: `.iei-absent` made "not reported" the
@@ -109,16 +109,16 @@
      The two smallest are mono-only: `mark` is an uppercase label and never a sentence (a note, a caption, the
      footer and a table's second line are sentences, and are `meta`), `meta` is mono at reading size. `data` is a
      table cell, `body` is prose, `title` is a section heading. */
-  --iei-f-mark: 10px;
-  --iei-f-meta: 11.5px;
-  --iei-f-data: 13px;
-  --iei-f-body: 14px;
-  --iei-f-title: 15px;
-  --iei-f-lead: 24px;
-  --iei-f-answer: 34px;
+  --iei-f-mark: 11px;
+  --iei-f-meta: 12.5px;
+  --iei-f-data: 13.5px;
+  --iei-f-body: 15px;
+  --iei-f-title: 18px;
+  --iei-f-lead: 26px;
+  --iei-f-answer: 52px;
 
   /* ── frame ── */
-  --iei-r: 2px;
+  --iei-r: 8px;
   --iei-max: 1340px;
   --iei-gutter: var(--iei-4);
   /* One row density, and one tighter one for the 36-row jurisdiction lists. Both are on the scale, and
@@ -3683,7 +3683,7 @@ ul.iei-tiles b {
 @media (max-width: 900px) {
   :root {
     --iei-gutter: var(--iei-3);
-    --iei-f-answer: 26px;
+    --iei-f-answer: 34px;
     /* Tables stay dense but stop being cramped: a 4px cell is not a reachable touch target. */
     --iei-cell-y-tight: var(--iei-2);
   }
@@ -3915,5 +3915,2742 @@ ul.iei-tiles b {
   /* An undeclared seat is a hollow dot: its outline is the system's text colour there, since its fill is the page's. */
   .iei-arc-none circle {
     stroke: CanvasText;
+  }
+}
+
+/* ══════════════════════════ the front page's story: iei-story-* ══════════════════════════
+   One sentence, the four houses that prove it, four doors, then a chapter for each question the sentence raises. Every length is a
+   token, every ink is a token, and the only motion is the ladder's: its four bars are `.iei-res-bar`s, which already wipe in, and the
+   delay below puts them in election order. */
+
+.iei-story-sentence {
+  max-width: 56ch;
+  font-size: var(--iei-f-lead);
+  font-weight: 650;
+}
+
+.iei-story-sentence .iei-sw {
+  width: 0.42em;
+  height: 0.42em;
+  margin-right: 0.2em;
+  vertical-align: 0.06em;
+}
+
+.iei-story-head .iei-eyebrow a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-story-head .iei-eyebrow a:hover,
+.iei-story-head .iei-eyebrow a:focus-visible {
+  color: var(--iei-ink);
+  border-bottom-color: var(--iei-ink);
+}
+
+/* The first screen: the proof beside the invitation. */
+.iei-story-fold {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 22rem;
+  gap: var(--iei-8);
+  align-items: start;
+  padding: var(--iei-6) 0;
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-story-fig {
+  margin: 0;
+  min-width: 0;
+}
+
+.iei-story-houses {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-4);
+}
+
+.iei-story-house {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  column-gap: var(--iei-3);
+  row-gap: var(--iei-1);
+  align-items: center;
+}
+
+.iei-story-yr {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink);
+  text-decoration: none;
+}
+
+.iei-story-yr:hover {
+  text-decoration: underline;
+}
+
+.iei-story-yr:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-story-track {
+  position: relative;
+}
+
+.iei-story-bar {
+  height: var(--iei-6);
+}
+
+/* No declared winner: no ink, because no party. The dashed outline keeps the segment in the row. */
+.iei-story-none {
+  background: transparent;
+  outline: 1px dashed var(--iei-ink-3);
+  outline-offset: -1px;
+}
+
+/* Half the house, exactly: the bar's own midpoint, because every bar is the whole house. */
+.iei-story-half {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: 50%;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--iei-ink);
+  pointer-events: none;
+}
+
+.iei-story-ends {
+  grid-column: 2;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--iei-3);
+  margin: 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+}
+
+.iei-story-ends span {
+  white-space: nowrap;
+}
+
+.iei-story-ends b {
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink);
+}
+
+.iei-story-fig > .iei-note {
+  margin: var(--iei-3) 0;
+}
+
+/* The four doors: links at least 44px tall. */
+.iei-story-doors .iei-eyebrow {
+  margin-bottom: var(--iei-2);
+}
+
+.iei-story-doors ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-2);
+}
+
+.iei-story-door {
+  display: grid;
+  gap: 2px;
+  min-height: 44px;
+  padding: var(--iei-2) var(--iei-3);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  color: var(--iei-ink);
+  text-decoration: none;
+}
+
+.iei-story-door:hover {
+  border-color: var(--iei-line-2);
+}
+
+.iei-story-door:hover b {
+  text-decoration: underline;
+}
+
+.iei-story-door:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-story-door-k {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-story-door b {
+  font-size: var(--iei-f-title);
+  font-weight: 600;
+}
+
+.iei-story-door span:last-child {
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+/* A candidate's name in a bar's key is a link in prose: the one link treatment, and a space after the party's code. */
+.iei-res-key a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-res-key a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-res-key a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-res-key .iei-chip + a,
+.iei-res-key .iei-chip + span {
+  margin-left: var(--iei-1);
+}
+
+/* A table twin: a disclosure that looks like the evidence drawer's but is not one, so the page keeps one drawer per module. */
+.iei-twin {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+}
+
+.iei-twin summary {
+  cursor: pointer;
+  color: var(--iei-ink-3);
+  letter-spacing: 0.06em;
+  list-style: none;
+  padding-bottom: 2px;
+  border-bottom: 2px solid var(--iei-line-2);
+  white-space: nowrap;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iei-1);
+}
+
+.iei-twin summary::-webkit-details-marker {
+  display: none;
+}
+
+.iei-twin summary::before {
+  content: '▸';
+}
+
+.iei-twin[open] summary::before {
+  content: '▾';
+}
+
+.iei-twin summary:hover {
+  color: var(--iei-ink);
+}
+
+.iei-twin summary:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+  color: var(--iei-ink);
+}
+
+.iei-twin > .iei-scroll {
+  margin-top: var(--iei-2);
+}
+
+/* A chapter's lead: the sentence that says what the picture under it shows. */
+.iei-story-lead {
+  margin: 0 0 var(--iei-4);
+  max-width: 60ch;
+  font-size: var(--iei-f-lead);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+}
+
+.iei-story-lead b {
+  font-family: var(--iei-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-story-h3 {
+  margin: 0 0 var(--iei-2);
+  font-size: var(--iei-f-title);
+  font-weight: 600;
+}
+
+/* Where: a district is a bar as long as its comparable seats, the part that changed hands in the winner's ink. */
+.iei-story-dlist {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-2);
+  max-width: 56rem;
+}
+
+.iei-story-drow {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr) 6rem;
+  gap: var(--iei-3);
+  align-items: center;
+}
+
+.iei-story-dname {
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink);
+  text-decoration: none;
+}
+
+.iei-story-dname:hover {
+  text-decoration: underline;
+}
+
+.iei-story-dname:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-story-dtrack {
+  display: block;
+}
+
+.iei-story-dbar {
+  display: flex;
+  gap: 2px;
+  height: var(--iei-3);
+}
+
+.iei-story-dbar i {
+  flex-basis: 0;
+  min-width: 2px;
+  border-radius: var(--iei-r);
+}
+
+.iei-story-held {
+  background: var(--iei-line-2);
+}
+
+.iei-story-dval {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--iei-ink-2);
+}
+
+.iei-story-dval b {
+  color: var(--iei-ink);
+  font-weight: 600;
+}
+
+.iei-story-more {
+  margin: var(--iei-3) 0;
+}
+
+.iei-story-more .iei-story-dlist {
+  margin-top: var(--iei-3);
+}
+
+/* Votes and seats: a circle at the share of votes, a square at the share of seats, the line between them. */
+.iei-story-votes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.iei-story-vrow {
+  display: grid;
+  grid-template-columns: 3rem 5rem minmax(0, 1fr) 16rem;
+  gap: var(--iei-3);
+  align-items: center;
+  padding: var(--iei-1) 0;
+}
+
+.iei-story-vrow:has(.iei-story-vyr a) {
+  margin-top: var(--iei-2);
+  padding-top: var(--iei-2);
+  border-top: 1px solid var(--iei-line);
+}
+
+.iei-story-vrow:first-child:has(.iei-story-vyr a) {
+  margin-top: 0;
+  padding-top: var(--iei-1);
+  border-top: none;
+}
+
+.iei-story-vyr {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-story-vyr a {
+  color: var(--iei-ink);
+  text-decoration: none;
+}
+
+.iei-story-vyr a:hover {
+  text-decoration: underline;
+}
+
+.iei-story-vyr a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+/* The marks are centred on their value, so at 0% and 100% half a mark would stand outside the track: the inset keeps it inside. */
+.iei-story-vtrack {
+  position: relative;
+  display: block;
+  height: var(--iei-4);
+  margin-inline: 6px;
+}
+
+.iei-story-vtrack::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--iei-line);
+}
+
+.iei-story-vhalf {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  border-left: 1px dashed var(--iei-ink-3);
+}
+
+.iei-story-vline {
+  position: absolute;
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--iei-ink-3);
+}
+
+.iei-story-vote,
+.iei-story-seat {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+}
+
+.iei-story-vote {
+  border-radius: 50%;
+}
+
+.iei-story-seat {
+  border-radius: var(--iei-r);
+}
+
+.iei-story-vfig {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink-2);
+}
+
+.iei-story-vfig b {
+  font-weight: 600;
+  color: var(--iei-ink);
+}
+
+/* How close: the histogram beside the list, then the declared margins in a row of their own. */
+.iei-story-closewrap {
+  align-items: start;
+}
+
+.iei-story-declared {
+  margin-top: var(--iei-6);
+}
+
+.iei-story-cards {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--iei-3);
+}
+
+.iei-story-cards li {
+  display: grid;
+  gap: var(--iei-1);
+  padding: var(--iei-3);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  font-size: var(--iei-f-data);
+}
+
+.iei-story-cards a {
+  color: var(--iei-ink);
+  text-decoration: none;
+}
+
+.iei-story-cards a:hover {
+  text-decoration: underline;
+}
+
+.iei-story-cards a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-story-cards li > span {
+  color: var(--iei-ink-2);
+}
+
+/* People: a block of one colour down the table is the finding. */
+.iei-story-ptable td {
+  white-space: nowrap;
+}
+
+.iei-story-ptable th[scope='row'] {
+  min-width: 9rem;
+}
+
+/* A name in a lead is a name, not a figure: the figures are the mono ones. */
+.iei-story-lead .iei-story-nm {
+  font-weight: 650;
+}
+
+.iei-story-votes ~ .iei-note,
+.iei-story-votes ~ .iei-twin {
+  margin-top: var(--iei-3);
+}
+
+/* The seat sits under the member's name on a phone, and in its own column above it. */
+.iei-story-seat-under {
+  display: none;
+}
+
+.iei-story-cannot {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: var(--iei-2);
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink-2);
+}
+
+.iei-story-cannot b {
+  color: var(--iei-ink);
+  font-weight: 600;
+}
+
+/* The reach ledger: three figures against what there is to have. */
+.iei-story-reach {
+  list-style: none;
+  margin: 0 0 var(--iei-6);
+  padding: 0;
+  display: grid;
+  gap: var(--iei-3);
+  max-width: 56rem;
+}
+
+.iei-story-reach li {
+  display: grid;
+  grid-template-columns: 11rem minmax(0, 1fr) 14rem;
+  gap: var(--iei-3);
+  align-items: center;
+  font-size: var(--iei-f-data);
+}
+
+.iei-story-reach-l {
+  color: var(--iei-ink-2);
+}
+
+.iei-story-reach-bar {
+  display: block;
+  height: var(--iei-2);
+  border-radius: var(--iei-r);
+  background: var(--iei-line);
+}
+
+.iei-story-reach-bar i {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: var(--iei-r);
+  background: var(--iei-ink-2);
+}
+
+.iei-story-reach-v {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink-2);
+}
+
+.iei-story-reach-v b {
+  color: var(--iei-ink);
+  font-weight: 600;
+}
+
+/* The coda: what else the registry holds, and where to find a state that is not loaded. */
+.iei-story-coda-lead {
+  margin: 0 0 var(--iei-4);
+  max-width: 68ch;
+  color: var(--iei-ink-2);
+}
+
+.iei-story-unloaded {
+  margin-top: var(--iei-3);
+}
+
+.iei-story-unloaded ul {
+  list-style: none;
+  margin: var(--iei-2) 0 0;
+  padding: 0;
+  columns: 3 11rem;
+  font-size: var(--iei-f-data);
+}
+
+.iei-story-unloaded a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+}
+
+.iei-story-unloaded a:hover {
+  color: var(--iei-ink);
+  text-decoration: underline;
+}
+
+@media (max-width: 900px) {
+  .iei-story-fold {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--iei-6);
+  }
+
+  .iei-story-vrow {
+    grid-template-columns: 3rem minmax(0, 1fr);
+    grid-template-areas: "yr party" "track track" "fig fig";
+    gap: var(--iei-1) var(--iei-3);
+  }
+
+  .iei-story-vyr {
+    grid-area: yr;
+  }
+
+  .iei-story-vparty {
+    grid-area: party;
+  }
+
+  .iei-story-vtrack {
+    grid-area: track;
+  }
+
+  .iei-story-vfig {
+    grid-area: fig;
+  }
+
+  .iei-story-cards {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iei-story-reach li {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--iei-1);
+  }
+}
+
+@media (max-width: 640px) {
+  .iei-story-lead {
+    --iei-f-lead: 21px;
+  }
+
+  .iei-story-seat-col {
+    display: none;
+  }
+
+  .iei-story-seat-under {
+    display: block;
+    font-size: var(--iei-f-meta);
+    color: var(--iei-ink-3);
+  }
+
+  .iei-story-drow {
+    grid-template-columns: 7rem minmax(0, 1fr) 5rem;
+    gap: var(--iei-2);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The ladder's bars arrive in election order, oldest first: 90ms apart and never later than 270ms in. */
+  .iei-story-bar {
+    animation-delay: min(calc(var(--i) * 90ms), 270ms);
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-story-vote,
+  .iei-story-seat,
+  .iei-story-held,
+  .iei-story-dbar i,
+  .iei-story-reach-bar i {
+    border: 1px solid CanvasText;
+  }
+
+  .iei-story-none {
+    outline-color: CanvasText;
+  }
+}
+
+/* ══════════════════════════ the seat page: iei-finding, iei-seat-*, iei-limits ══════════════════════════
+   A finding, its numbers, every election on one scale, everyone who stood, and what the record cannot say. Tokens only. Bars grow from
+   their baseline once on load and the finding and the held-by strip arrive; nothing else moves. */
+
+.iei-finding {
+  margin: var(--iei-3) 0 0;
+  max-width: 62ch;
+}
+
+.iei-finding-s {
+  margin: 0;
+  font-size: var(--iei-f-lead);
+  line-height: 1.25;
+  letter-spacing: -0.01em;
+  text-wrap: balance;
+  overflow-wrap: anywhere;
+}
+
+.iei-finding-s b {
+  font-family: var(--iei-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-finding-s a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-finding-s a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-finding-s a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-finding-sf {
+  margin-top: var(--iei-2);
+}
+
+.iei-held-a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.iei-held-a:hover .iei-held-yr {
+  text-decoration: underline;
+}
+
+.iei-held-a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+/* The numbers: the hero (the margin and where it came from) and two tiles. */
+.iei-seat-kpis {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 4fr) minmax(0, 3fr);
+  gap: var(--iei-4) var(--iei-6);
+  align-items: start;
+}
+
+.iei-seat-tile {
+  min-width: 0;
+  padding: var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-k {
+  margin: 0 0 var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+/* The one word that says how a figure was arrived at, underlined so that it reads as a qualifier and not a status. */
+.iei-seat-basis {
+  border-bottom: 1px dashed var(--iei-ink-3);
+}
+
+.iei-seat-big {
+  margin: 0;
+  font-size: var(--iei-f-answer);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+  overflow-wrap: anywhere;
+}
+
+.iei-seat-big b {
+  font-family: var(--iei-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-seat-big > span:last-child:not(.iei-mark) {
+  font-size: var(--iei-f-body);
+  letter-spacing: 0;
+  color: var(--iei-ink-2);
+}
+
+.iei-seat-big-s {
+  font-size: var(--iei-f-lead);
+}
+
+.iei-seat-line,
+.iei-seat-fact {
+  margin: var(--iei-1) 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-seat-tile .iei-note {
+  margin: var(--iei-2) 0 0;
+}
+
+.iei-seat-retrieved {
+  grid-column: 1 / -1;
+  margin: 0;
+}
+
+.iei-seat-fold ul {
+  list-style: none;
+  margin: var(--iei-2) 0;
+  padding: 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-seat-fold li::before {
+  content: '○ ';
+  color: var(--iei-ink-3);
+}
+
+/* The line: a fixed 400-unit frame at most 420px wide, so its 10px labels are 10px and never a scaled-up 40px. */
+.iei-seat-sp {
+  display: block;
+  width: 100%;
+  max-width: 420px;
+  height: auto;
+  margin: var(--iei-3) 0;
+  overflow: visible;
+}
+
+.iei-seat-sp-base {
+  stroke: var(--iei-line);
+  stroke-width: 1;
+}
+
+.iei-seat-sp-run {
+  fill: none;
+  stroke: var(--iei-ink-2);
+  stroke-width: 2;
+  stroke-linejoin: round;
+}
+
+.iei-seat-sp-stub {
+  fill: none;
+  stroke: var(--iei-ink-3);
+  stroke-width: 2;
+  stroke-dasharray: 4 4;
+}
+
+.iei-seat-sp-gap {
+  stroke: var(--iei-ink-3);
+  stroke-width: 1;
+  stroke-dasharray: 1 3;
+}
+
+.iei-seat-sp-dot {
+  fill: var(--iei-ink);
+  stroke: var(--iei-bg);
+  stroke-width: 2;
+}
+
+/* A declared figure is a hollow ring: nothing is counted behind it. */
+.iei-seat-sp-ring {
+  fill: var(--iei-bg);
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+}
+
+.iei-seat-sp-yr,
+.iei-seat-sp-val {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+}
+
+.iei-seat-sp-yr {
+  fill: var(--iei-ink-3);
+}
+
+.iei-seat-sp-val {
+  fill: var(--iei-ink);
+}
+
+.iei-seat-twin {
+  margin: var(--iei-3) 0 0;
+  display: grid;
+  gap: 2px;
+  font-size: var(--iei-f-data);
+}
+
+.iei-seat-twin > div {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: var(--iei-2);
+}
+
+.iei-seat-twin dt {
+  font-family: var(--iei-mono);
+  color: var(--iei-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-seat-twin dd {
+  margin: 0;
+}
+
+/* The share against half: a bar from zero, a tick at 50%. */
+.iei-seat-bullet {
+  position: relative;
+  height: var(--iei-3);
+  margin: var(--iei-3) 0 var(--iei-1);
+  background: var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-bullet-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-bullet-tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  margin-left: -1px;
+  background: var(--iei-ink);
+}
+
+.iei-seat-ticklabel {
+  margin: 0 0 var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+/* How each election divided the vote: one panel per election, as many to a row as fit. */
+.iei-seat-panels {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: var(--iei-6) var(--iei-6);
+}
+
+.iei-seat-panel {
+  min-width: 0;
+  padding-top: var(--iei-3);
+  border-top: 1px solid var(--iei-line-2);
+}
+
+.iei-seat-panel-d {
+  border-top: 1px dashed var(--iei-ink-3);
+}
+
+.iei-seat-ph {
+  margin: 0 0 var(--iei-3);
+  font-size: var(--iei-f-body);
+  font-weight: 600;
+  line-height: 1.3;
+}
+
+.iei-seat-py {
+  margin-right: var(--iei-1);
+  font-family: var(--iei-mono);
+  font-weight: 400;
+  color: var(--iei-ink-3);
+}
+
+.iei-seat-rows {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-3);
+}
+
+.iei-seat-rows > li {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto auto;
+  column-gap: var(--iei-2);
+  row-gap: var(--iei-1);
+  align-items: baseline;
+  font-size: var(--iei-f-data);
+}
+
+.iei-seat-nm {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A name inside a panel row, a card or a roster cell is a link in prose: the product's one link treatment. */
+.iei-seat-nm a,
+.iei-seat-card a,
+.iei-seat-who a,
+.iei-seat-line a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-seat-nm a:hover,
+.iei-seat-card a:hover,
+.iei-seat-who a:hover,
+.iei-seat-line a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-seat-nm a:focus-visible,
+.iei-seat-card a:focus-visible,
+.iei-seat-who a:focus-visible,
+.iei-seat-line a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-seat-trail {
+  display: block;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+.iei-seat-sh,
+.iei-seat-vt {
+  font-family: var(--iei-mono);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.iei-seat-vt {
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+.iei-seat-win .iei-seat-sh {
+  font-weight: 600;
+  color: var(--iei-ink);
+}
+
+/* A row's own track: the bar from the left edge, and half the votes polled marked on it, so the line never crosses a figure. */
+.iei-seat-track {
+  grid-column: 1 / -1;
+  position: relative;
+  display: block;
+  height: 6px;
+}
+
+.iei-seat-bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-tick {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  border-left: 1px dashed var(--iei-ink-3);
+}
+
+.iei-seat-foot {
+  margin: var(--iei-3) 0 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+}
+
+.iei-seat-card {
+  margin: 0 0 var(--iei-3);
+  padding: var(--iei-3);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  font-size: var(--iei-f-data);
+}
+
+.iei-seat-card p {
+  margin: var(--iei-1) 0;
+}
+
+.iei-seat-tag {
+  display: inline-block;
+  margin-left: var(--iei-2);
+  padding: 0 var(--iei-1);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-2);
+  white-space: nowrap;
+}
+
+/* A claim the candidate made, not a fact the record holds: dashed. */
+.iei-seat-tag-claim {
+  border-style: dashed;
+}
+
+.iei-seat-units {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+  margin: var(--iei-3) 0;
+}
+
+.iei-seat-unit {
+  width: 12px;
+  height: 12px;
+  border-radius: var(--iei-r);
+}
+
+.iei-seat-unit-win {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 1px;
+}
+
+/* The roster. */
+.iei-seat-rl {
+  margin-bottom: var(--iei-3);
+}
+
+.iei-seat-rl + .iei-note {
+  margin-bottom: var(--iei-3);
+}
+
+.iei-seat-party {
+  white-space: nowrap;
+}
+
+.iei-seat-who {
+  min-width: 12rem;
+}
+
+.iei-seat-phone {
+  display: none;
+}
+
+/* What the record does not say, and the same list wherever a page has one. */
+.iei-limits-h {
+  margin: 0 0 var(--iei-2);
+  font-size: var(--iei-f-title);
+  font-weight: 600;
+}
+
+.iei-limits ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-2);
+}
+
+.iei-limits li {
+  position: relative;
+  padding-left: var(--iei-4);
+  max-width: 88ch;
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink-2);
+}
+
+.iei-limits li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 0.35em;
+  width: 9px;
+  height: 9px;
+  border: 1px dashed var(--iei-ink-3);
+}
+
+@media (max-width: 1080px) {
+  .iei-seat-kpis {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  }
+
+  .iei-seat-hero {
+    grid-column: 1 / -1;
+  }
+}
+
+@media (max-width: 900px) {
+  .iei-seat-hide {
+    display: none;
+  }
+
+  .iei-seat-phone {
+    display: block;
+  }
+}
+
+@media (max-width: 640px) {
+  .iei-seat-kpis {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iei-seat-who {
+    min-width: 0;
+  }
+
+  .iei-finding-s {
+    --iei-f-lead: 21px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The finding arrives, and the held-by blocks after it oldest to newest: order of arrival is chronology. */
+  .iei-finding {
+    animation: iei-arrive var(--iei-t-1) var(--iei-ease) backwards;
+  }
+
+  .iei-held-b {
+    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i) * 60ms), 300ms);
+  }
+
+  /* A quantity grows from its baseline; rank one lands first. */
+  .iei-seat-bullet-fill,
+  .iei-seat-bar {
+    transform-origin: 0 50%;
+    animation: iei-grow var(--iei-t-2) var(--iei-ease) backwards;
+  }
+
+  .iei-seat-bar {
+    animation-delay: min(calc(var(--i) * 40ms), 160ms);
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-seat-bar,
+  .iei-seat-unit,
+  .iei-seat-bullet-fill {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* ══════════════════════════ the person page: iei-pp-* ══════════════════════════
+   Who and where, the run of the seat's elections with this person marked in each and their margins on one scale, who else was on the ballot, and
+   what they declared. A blank column is an election with no candidacy on record; a dashed bar is a margin that was declared and not counted. Tokens
+   only; the run arrives in time order and its bars rise from the zero line, once, and nothing else moves. */
+
+.iei-pp-id {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1) var(--iei-4);
+  align-items: baseline;
+  margin: var(--iei-3) 0 0;
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink-2);
+}
+
+.iei-pp-id a,
+.iei-pp-same a,
+.iei-pp-field a,
+.iei-pp-samelist a,
+.iei-pp-who a,
+.iei-pp-bigline a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-pp-id a:hover,
+.iei-pp-same a:hover,
+.iei-pp-field a:hover,
+.iei-pp-samelist a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-pp-id a:focus-visible,
+.iei-pp-same a:focus-visible,
+.iei-pp-field a:focus-visible,
+.iei-pp-samelist a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+/* The doubt about who else may be this person: a rule in the margin, not a banner. */
+.iei-pp-same {
+  max-width: 88ch;
+  margin: var(--iei-3) 0 0;
+  padding-left: var(--iei-3);
+  border-left: 2px solid var(--iei-line-2);
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-pp-same p {
+  margin: 0;
+}
+
+.iei-pp-run,
+.iei-pp-margins,
+.iei-pp-shares {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: var(--iei-3);
+}
+
+.iei-pp-col {
+  min-width: 0;
+}
+
+/* The seat's holder at each election, in the party's ink: the existing held-by idea, one column of the run. */
+.iei-pp-hold {
+  position: relative;
+  height: var(--iei-6);
+  border-radius: var(--iei-r);
+}
+
+.iei-pp-hold-none {
+  outline: 1px dashed var(--iei-ink-3);
+  outline-offset: -1px;
+}
+
+/* A rule between two holders is where the seat changed hands. */
+.iei-pp-hand {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  left: calc(var(--iei-3) / -2 - 1px);
+  width: 2px;
+  background: var(--iei-ink);
+}
+
+.iei-pp-yr {
+  margin: var(--iei-1) 0 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-pp-who {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-pp-hn {
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+  overflow-wrap: anywhere;
+}
+
+.iei-pp-mine {
+  display: flex;
+  align-items: center;
+  gap: var(--iei-1);
+  min-height: var(--iei-4);
+  margin: var(--iei-2) 0 0;
+  font-size: var(--iei-f-data);
+}
+
+.iei-pp-blank {
+  display: block;
+  width: 12px;
+  height: 12px;
+  border: 1px dotted var(--iei-ink-3);
+  border-radius: 50%;
+}
+
+/* This person's result at each election: a filled disc is a win, a ring is a counted rank, a dashed ring is "not the declared winner". */
+.iei-pp-glyph {
+  display: inline-block;
+  flex: none;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--iei-ink-3);
+  border-radius: 50%;
+}
+
+.iei-pp-glyph-rank,
+.iei-pp-glyph-stood {
+  background: transparent;
+}
+
+.iei-pp-glyph-notWinner {
+  background: transparent;
+  border-style: dashed;
+}
+
+.iei-pp-mk {
+  margin: var(--iei-6) 0 var(--iei-2);
+}
+
+/* Margins from one zero line: ahead of the runner-up above it, behind the winner below it, one scale. */
+.iei-pp-mcell {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.iei-pp-up,
+.iei-pp-down {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  height: 4rem;
+}
+
+.iei-pp-up {
+  align-items: flex-end;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-pp-down {
+  align-items: flex-start;
+}
+
+.iei-pp-mb {
+  display: block;
+  width: 1rem;
+  min-height: 2px;
+  border-radius: var(--iei-r);
+  background: var(--iei-ink-3);
+}
+
+/* A declared margin is a dashed outline, not a fill: nothing is counted behind it. */
+.iei-pp-mb-declared {
+  background: transparent;
+  border: 2px dashed var(--iei-ink-3);
+}
+
+.iei-pp-mv {
+  margin-top: var(--iei-1);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  color: var(--iei-ink);
+}
+
+.iei-pp-mv em {
+  display: block;
+  font-style: normal;
+  color: var(--iei-ink-3);
+}
+
+.iei-pp-shares {
+  margin-top: var(--iei-2);
+}
+
+.iei-pp-shares li {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  text-align: center;
+  color: var(--iei-ink-2);
+}
+
+.iei-pp-bigline {
+  margin: 0;
+  font-size: var(--iei-f-answer);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.iei-pp-bigline b {
+  font-family: var(--iei-mono);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-pp-bigline span:last-child:not(.iei-mark) {
+  font-size: var(--iei-f-body);
+  letter-spacing: 0;
+  color: var(--iei-ink-2);
+}
+
+.iei-pp-field {
+  list-style: none;
+  margin: var(--iei-3) 0 0;
+  padding: 0;
+  columns: 2 18rem;
+  column-gap: var(--iei-6);
+}
+
+.iei-pp-field li {
+  display: flex;
+  gap: var(--iei-2);
+  align-items: baseline;
+  padding: var(--iei-1) 0;
+  break-inside: avoid;
+  font-size: var(--iei-f-data);
+}
+
+/* The page's own person, marked in the field by a rule and no link. */
+.iei-pp-self {
+  border-top: 2px solid var(--iei-ink);
+}
+
+.iei-pp-decl {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--iei-4) var(--iei-6);
+  margin: 0;
+}
+
+.iei-pp-decl dt {
+  margin: 0 0 var(--iei-1);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-pp-decl dd {
+  margin: 0;
+  font-size: var(--iei-f-title);
+}
+
+.iei-pp-decl-l dd b {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-lead);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-pp-decl dd .iei-of {
+  display: block;
+}
+
+.iei-pp-samelist {
+  list-style: none;
+  margin: 0 0 var(--iei-3);
+  padding: 0;
+  display: grid;
+  gap: var(--iei-3);
+  font-size: var(--iei-f-body);
+}
+
+.iei-pp-samelist .iei-rule {
+  display: block;
+}
+
+.iei-pp-assembly {
+  margin-top: var(--iei-4);
+}
+
+@media (max-width: 640px) {
+  .iei-pp-field {
+    columns: 1;
+  }
+
+  .iei-pp-decl {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iei-pp-bigline {
+    font-size: var(--iei-f-lead);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The columns arrive in time order, and each bar rises from the zero line with its column: a column and its bar are one event. */
+  .iei-pp-col,
+  .iei-pp-mcell {
+    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i) * 60ms), 180ms);
+  }
+
+  .iei-pp-mb {
+    animation: iei-rise var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i) * 60ms), 180ms);
+  }
+
+  .iei-pp-mb-up {
+    transform-origin: 50% 100%;
+  }
+
+  .iei-pp-mb-down {
+    transform-origin: 50% 0;
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-pp-hold,
+  .iei-pp-mb {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* ══════════════════════════ the candidates index: iei-pp-idx and its parts ══════════════════════════
+   Facets with counts on the left, the list on the right, one column on a phone. Everything is a link or a GET form; nothing moves. */
+
+.iei-pp-idx {
+  display: grid;
+  grid-template-columns: 17rem minmax(0, 1fr);
+  gap: var(--iei-8);
+  align-items: start;
+  padding-top: var(--iei-4);
+}
+
+.iei-pp-find {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2);
+  align-items: center;
+  margin: var(--iei-3) 0 0;
+}
+
+.iei-pp-find input[type='search'] {
+  min-width: 16rem;
+  padding: var(--iei-2) var(--iei-3);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  background: var(--iei-panel);
+  color: var(--iei-ink);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+}
+
+.iei-pp-find input[type='search']:focus-visible,
+.iei-pp-find button:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-pp-find button {
+  padding: var(--iei-2) var(--iei-3);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  background: transparent;
+  color: var(--iei-ink-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  cursor: pointer;
+}
+
+.iei-pp-find button:hover {
+  color: var(--iei-ink);
+  border-color: var(--iei-ink-3);
+}
+
+.iei-pp-facets {
+  display: grid;
+  gap: var(--iei-6);
+}
+
+.iei-pp-facet ul {
+  list-style: none;
+  margin: var(--iei-2) 0 0;
+  padding: 0;
+}
+
+.iei-pp-facet .iei-eyebrow {
+  margin: 0;
+}
+
+.iei-pp-facet .iei-note {
+  margin: var(--iei-1) 0 0;
+}
+
+.iei-pp-fr {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 4rem auto;
+  gap: var(--iei-2);
+  align-items: center;
+  min-height: var(--iei-6);
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  font-size: var(--iei-f-data);
+}
+
+.iei-pp-fr:hover,
+.iei-pp-fr[aria-current='true'] {
+  color: var(--iei-ink);
+}
+
+.iei-pp-fr:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-pp-fr[aria-current='true'] .iei-pp-fl {
+  border-bottom: 2px solid var(--iei-ink);
+}
+
+.iei-pp-fl {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+/* A bar that starts at zero, in the party's ink where the facet is a party and in a neutral ink where it is not. */
+.iei-pp-fb {
+  display: block;
+  height: 6px;
+  background: var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-pp-fb i {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  background: var(--iei-ink-3);
+  border-radius: var(--iei-r);
+}
+
+.iei-pp-fn {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.iei-pp-fn em {
+  font-style: normal;
+  color: var(--iei-ink-3);
+}
+
+.iei-pp-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2);
+  margin: 0 0 var(--iei-3);
+}
+
+.iei-pp-list {
+  min-width: 0;
+}
+
+.iei-pp-name .iei-seat-tag {
+  display: block;
+  width: fit-content;
+  margin: var(--iei-1) 0 0;
+  font-weight: 400;
+}
+
+.iei-pp-name a,
+.iei-pp-table a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-pp-name a:hover,
+.iei-pp-table a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-pp-dist {
+  display: block;
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+}
+
+/* The ladder: a square a year. Filled in the party's ink is a win; a hollow one is a contest on record that was not won; a dotted one is no contest on record. */
+.iei-pp-lad {
+  display: inline-flex;
+  gap: var(--iei-1);
+}
+
+.iei-pp-sq {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--iei-ink-3);
+  border-radius: var(--iei-r);
+}
+
+.iei-pp-sq-stood {
+  background: transparent;
+}
+
+.iei-pp-sq-none {
+  background: transparent;
+  border: 1px dotted var(--iei-ink-3);
+}
+
+.iei-pp-pager {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2) var(--iei-4);
+  align-items: baseline;
+  margin-top: var(--iei-3);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+}
+
+.iei-pp-pager a {
+  color: var(--iei-ink-2);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-pp-pager a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-pp-sort {
+  margin-left: auto;
+}
+
+.iei-pp-sort b {
+  color: var(--iei-ink);
+  font-weight: 600;
+}
+
+@media (max-width: 900px) {
+  .iei-pp-idx {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--iei-6);
+  }
+
+  /* The list is what a phone reader came for: it comes first, and the facets are under it. */
+  .iei-pp-facets {
+    order: 2;
+  }
+}
+
+/* One touch-target rule for the whole site, desktop unchanged: a link a thumb has to hit is 44px tall. */
+@media (pointer: coarse) {
+  .iei-tab,
+  .iei-pp-fr,
+  .iei-pp-find button {
+    min-height: 44px;
+  }
+
+  .iei-tab {
+    display: inline-flex;
+    align-items: center;
+  }
+}
+
+/* ══════════════════════════ the analysis page: iei-an-* ══════════════════════════
+   One sentence and the ladder that proves it, then one picture per question, each with its exact table at the foot. A ribbon joins the same party
+   across two counted elections; a dashed bar is an election with no candidate votes on record. Tokens only; the ladder's rows arrive in election
+   order, once, and nothing below the first screen moves. */
+
+.iei-an-rule {
+  margin: var(--iei-2) 0 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+  max-width: 88ch;
+}
+
+.iei-an-head .iei-finding {
+  max-width: 70ch;
+}
+
+.iei-an-two {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 18rem;
+  gap: var(--iei-8);
+  align-items: start;
+}
+
+.iei-an-ladder {
+  min-width: 0;
+}
+
+.iei-an-row {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: var(--iei-3);
+  align-items: center;
+}
+
+.iei-an-yr,
+.iei-an-fy {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-variant-numeric: tabular-nums;
+}
+
+/* A 100% bar of the votes polled: segments placed from the left on one scale, and the unfilled end is what no candidate accounts for. */
+.iei-an-bar {
+  position: relative;
+  box-sizing: border-box;
+  height: var(--iei-8);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-an-seg {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  padding-inline: var(--iei-1);
+  overflow: hidden;
+  border-right: 2px solid var(--iei-bg);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* The winner of the election: an inner outline in the interface's own ink. */
+.iei-an-win {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: -2px;
+}
+
+/* The lowest candidates added together are no party's, so no party's ink: a hatch of the interface's own, as in the seat's bars. */
+.iei-an-others {
+  background: repeating-linear-gradient(135deg, var(--iei-ink-3) 0 2px, var(--iei-line-2) 2px var(--iei-1));
+}
+
+/* No candidate votes on record: nothing proportional is drawn, only who won and that nothing was published. */
+.iei-an-declared,
+.iei-an-none {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--iei-1) var(--iei-2);
+  height: auto;
+  min-height: var(--iei-8);
+  padding: var(--iei-1) var(--iei-3);
+  border-color: var(--iei-ink-3);
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-an-declared {
+  border-style: dashed;
+}
+
+.iei-an-none {
+  border-style: dotted;
+}
+
+.iei-an-ribrow {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr);
+  gap: var(--iei-3);
+  height: var(--iei-4);
+}
+
+.iei-an-rib {
+  grid-column: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.iei-an-key {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1) var(--iei-4);
+  margin: var(--iei-3) 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--iei-f-meta);
+}
+
+.iei-an-fl {
+  list-style: none;
+  margin: var(--iei-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-2);
+}
+
+.iei-an-fl li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) auto;
+  gap: var(--iei-2);
+  align-items: baseline;
+  font-size: var(--iei-f-data);
+}
+
+.iei-an-fs b {
+  font-family: var(--iei-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-an-fd {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-3);
+}
+
+/* The margin hero: the number and where it stands, beside one column per election on one scale. */
+.iei-an-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 5fr) minmax(0, 6fr);
+  gap: var(--iei-8);
+  align-items: start;
+}
+
+.iei-an-herotile,
+.iei-an-notdrawn {
+  min-width: 0;
+  padding: var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-an-notdrawn {
+  border-style: dashed;
+  border-color: var(--iei-ink-3);
+}
+
+.iei-an-notdrawn ul {
+  margin: 0;
+  padding-left: var(--iei-4);
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink-2);
+}
+
+.iei-an-cols {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(var(--n), minmax(0, 1fr));
+  gap: var(--iei-3);
+}
+
+.iei-an-cols li {
+  min-width: 0;
+}
+
+.iei-an-colbox {
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  height: 7rem;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-an-col {
+  display: block;
+  width: 1.5rem;
+  min-height: 1px;
+  border-radius: var(--iei-r);
+  background: var(--iei-ink-3);
+}
+
+.iei-an-col-d {
+  background: transparent;
+  border: 2px dashed var(--iei-ink-3);
+}
+
+/* A rule between two columns is where the seat changed hands. */
+.iei-an-hand {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(var(--iei-3) / -2 - 1px);
+  width: 2px;
+  background: var(--iei-ink);
+}
+
+.iei-an-cv,
+.iei-an-cl {
+  display: block;
+  text-align: center;
+  font-family: var(--iei-mono);
+}
+
+.iei-an-cv {
+  margin-top: var(--iei-1);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-an-cl {
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+.iei-an-cl em {
+  display: block;
+  font-style: normal;
+}
+
+/* Rows on one axis: a dot, a ring, a tick. */
+.iei-an-gaps,
+.iei-an-tr {
+  list-style: none;
+  margin: var(--iei-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-2);
+}
+
+.iei-an-gaps li,
+.iei-an-tr li {
+  display: grid;
+  grid-template-columns: 3rem minmax(0, 1fr) 6rem;
+  gap: var(--iei-3);
+  align-items: center;
+}
+
+.iei-an-gt {
+  position: relative;
+  display: block;
+  height: var(--iei-4);
+  margin-inline: 6px;
+}
+
+.iei-an-gt::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--iei-line);
+}
+
+.iei-an-gapn {
+  grid-column: 2 / -1;
+  font-size: var(--iei-f-data);
+}
+
+.iei-an-state,
+.iei-an-seatdot {
+  position: absolute;
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  margin: -6px 0 0 -6px;
+  border-radius: 50%;
+}
+
+.iei-an-state {
+  border: 2px solid var(--iei-ink-2);
+  background: var(--iei-bg);
+}
+
+.iei-an-seatdot-n {
+  background: var(--iei-ink);
+}
+
+.iei-an-tick {
+  position: absolute;
+  top: 50%;
+  width: 2px;
+  height: 12px;
+  margin: -6px 0 0 -1px;
+  background: var(--iei-ink-2);
+}
+
+.iei-an-gv {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--iei-ink-2);
+}
+
+.iei-an-notes {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-3);
+}
+
+.iei-an-notes li {
+  padding-left: var(--iei-3);
+  border-left: 2px solid var(--iei-line-2);
+  font-size: var(--iei-f-body);
+}
+
+.iei-an-notes .iei-rule {
+  display: block;
+}
+
+.iei-an-custom {
+  margin: var(--iei-3) 0;
+}
+
+.iei-an-caveats {
+  margin-top: var(--iei-4);
+}
+
+.iei-an-caveats dl {
+  margin: var(--iei-3) 0 0;
+  display: grid;
+  gap: var(--iei-3);
+  max-width: 88ch;
+}
+
+.iei-an-caveats dt {
+  font-weight: 600;
+  font-size: var(--iei-f-data);
+}
+
+.iei-an-caveats dd {
+  margin: 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+@media (max-width: 900px) {
+  .iei-an-two,
+  .iei-an-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--iei-6);
+  }
+}
+
+@media (max-width: 640px) {
+  .iei-an-hide {
+    display: none;
+  }
+
+  .iei-an-gaps li,
+  .iei-an-tr li {
+    grid-template-columns: 3rem minmax(0, 1fr) 4rem;
+    gap: var(--iei-2);
+  }
+
+  .iei-an-seg {
+    padding-inline: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  /* The ladder's rows wipe in from the left in election order, 100ms apart and never later than 300ms in: the only motion on the page. */
+  .iei-an-bar {
+    clip-path: inset(0);
+    animation: iei-wipe var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i) * 100ms), 300ms);
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-an-seg,
+  .iei-an-col {
+    border: 1px solid CanvasText;
+  }
+}
+
+#tables .iei-scroll {
+  margin-bottom: var(--iei-8);
+}
+
+/* The card beside the map: a glance at every state with a result, or the one state the reader chose. */
+.iei-story-card {
+  margin-bottom: var(--iei-4);
+  padding: var(--iei-3) var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-story-card .iei-eyebrow {
+  margin: 0 0 var(--iei-2);
+}
+
+.iei-story-card .iei-note {
+  margin: var(--iei-3) 0 0;
+}
+
+.iei-story-card-l {
+  margin: var(--iei-1) 0;
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink-2);
+}
+
+.iei-story-card-l b,
+.iei-story-gl b {
+  font-family: var(--iei-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink);
+}
+
+.iei-story-card-go {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1) var(--iei-4);
+  margin: var(--iei-3) 0 0;
+  font-size: var(--iei-f-data);
+}
+
+.iei-story-card-go a,
+.iei-story-gname {
+  color: var(--iei-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-story-card-go a:hover,
+.iei-story-gname:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-story-card-go a:focus-visible,
+.iei-story-gname:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-story-glance {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.iei-story-glance li {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  column-gap: var(--iei-3);
+  padding: var(--iei-2) var(--iei-1);
+  border-top: 1px solid var(--iei-line);
+}
+
+.iei-story-gname {
+  grid-row: 1 / span 2;
+  align-self: start;
+  width: fit-content;
+  font-weight: 600;
+}
+
+.iei-story-gl {
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+/* The chosen state on the map: an outline in the interface's own ink, the same treatment as a located seat. */
+.iei-map svg .iei-map-fills a > path.iei-map-sel {
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+/* ══════════════════════════ the skin ══════════════════════════
+   WHY THIS BLOCK EXISTS (2026-10-29). Looked at in a real browser, across every page at 1440 and 390, the product read as a
+   school project, and the cause was the stylesheet's own first rules rather than any one page: "no gradients, no glass, no
+   shadows", a 2px corner, hairlines between sections, a 10–11.5px monospace voice for every caption and a 34px title over a 15px
+   heading. Together they drew a lab report: flat, one voice, nothing above anything else, and about ten thousand characters
+   per eight pages of grey 11px mono that nobody would read. This block is the owner's "look" decision, taken:
+
+   · DEPTH. A section is a card on a faintly lit page: a one-pixel edge, a top highlight, a soft shadow, and a glow behind the
+     top of the page. Nothing here is coloured; the page is still monochrome and only data carries hue.
+   · SCALE. Title 52px at weight 760, stat numerals large and heavy in mono, headings 18px. The type tokens moved (mark 11,
+     meta 12.5, data 13.5, body 15, title 18, lead 26, answer 52); there are still seven.
+   · ONE VOICE FOR PROSE. A note under a chart is a sentence, so it is sans at reading size in the second ink, not mono at 11px
+     in the third. Mono stays for numbers, marks and metadata, which is what it is for.
+   · ONE RADIUS, 8px, on everything that was 2px.
+
+   It sits at the end so it wins on equal specificity; the narrow-screen rules for it are at the foot of the block. */
+
+.iei {
+  background:
+    radial-gradient(80% 32% at 50% 0, rgba(132, 132, 255, 0.13), transparent 72%) no-repeat,
+    radial-gradient(40% 20% at 12% 4%, rgba(255, 255, 255, 0.04), transparent 70%) no-repeat,
+    var(--iei-bg);
+}
+
+.iei-top {
+  background: rgba(13, 13, 19, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: var(--iei-line);
+}
+
+.iei-mark-a {
+  font-size: var(--iei-f-title);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+}
+
+/* THE PAGE HEAD: the title is the largest thing on the screen and says so. */
+.iei-head {
+  padding: var(--iei-8) 0 var(--iei-6);
+  border-bottom: none;
+}
+
+.iei-eyebrow {
+  display: block;
+  width: fit-content;
+  justify-self: start;
+  padding: var(--iei-1) var(--iei-3);
+  margin: 0 0 var(--iei-4);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--iei-ink-2);
+  letter-spacing: 0.16em;
+}
+
+.iei-answer {
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  max-width: 22ch;
+  margin-bottom: var(--iei-4);
+}
+
+.iei-sub {
+  font-size: var(--iei-f-body);
+  line-height: 1.6;
+  color: var(--iei-ink-2);
+  max-width: 64ch;
+  margin-top: var(--iei-4);
+}
+
+/* SECTIONS ARE CARDS. */
+.iei-sec {
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) calc(var(--iei-12) * 2.5)),
+    var(--iei-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 var(--iei-2) var(--iei-6) rgba(0, 0, 0, 0.32);
+  padding: var(--iei-6);
+  margin: 0 0 var(--iei-6);
+}
+
+.iei-body > .iei-sec:has(+ .iei-foot),
+.iei-body > .iei-two:has(+ .iei-foot) {
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-two {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin: 0 0 var(--iei-6);
+  gap: var(--iei-6);
+}
+
+.iei-two > .iei-sec {
+  margin: 0;
+  padding-bottom: var(--iei-6);
+}
+
+.iei-sec > .iei-sec,
+.iei-sec .iei-sec {
+  border: none;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+
+.iei-h {
+  margin: 0 0 var(--iei-6);
+  padding-bottom: var(--iei-4);
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-h h2 {
+  font-size: var(--iei-f-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.iei-h-title p {
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+/* A NOTE IS A SENTENCE. */
+.iei-note {
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-data);
+  line-height: 1.6;
+  color: var(--iei-ink-2);
+  max-width: 78ch;
+  margin-top: var(--iei-3);
+}
+
+.iei-caveat {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--iei-line);
+  border-left: 2px solid var(--iei-ink-3);
+  border-radius: var(--iei-r);
+  padding: var(--iei-3) var(--iei-4);
+}
+
+/* STAT CARDS: the number is the card. */
+.iei-metrics {
+  border-top: none;
+  padding-top: 0;
+  gap: var(--iei-3);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.iei-metric {
+  padding: var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
+    var(--iei-raised);
+}
+
+.iei-metric dt {
+  letter-spacing: 0.14em;
+  margin-bottom: var(--iei-2);
+}
+
+.iei-metric dd {
+  font-size: calc(var(--iei-f-answer) * 0.72);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.iei-metric .iei-metric-words {
+  font-size: var(--iei-f-lead);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.iei-metric small {
+  font-size: var(--iei-f-meta);
+  margin-top: var(--iei-2);
+}
+
+/* CONTROLS. */
+.iei-tab {
+  padding: var(--iei-2) var(--iei-3);
+  letter-spacing: 0.1em;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.iei-tab.iei-tab-on {
+  background: var(--iei-ink);
+  color: var(--iei-bg);
+  border-color: var(--iei-ink);
+  font-weight: 700;
+}
+
+.iei-tab.iei-tab-on:focus-visible {
+  box-shadow: 0 0 0 2px var(--iei-bg), 0 0 0 var(--iei-1) var(--iei-ink);
+}
+
+.iei-cmd {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* TABLES: a row you can find your place in. */
+.iei-t tbody tr:hover > * {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* THE HOME HERO: the sentence on the left, and on the right how much of the country the registry holds, as three stat cards. */
+.iei-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: var(--iei-8);
+  align-items: end;
+}
+
+.iei-hero .iei-head {
+  border-bottom: none;
+}
+
+.iei-hero-reach {
+  padding: var(--iei-8) 0 var(--iei-6);
+}
+
+.iei-hero-reach .iei-eyebrow {
+  margin-bottom: var(--iei-3);
+}
+
+.iei-hero-reach .iei-story-reach {
+  max-width: none;
+  margin: 0;
+  gap: var(--iei-2);
+}
+
+.iei-hero-reach .iei-story-reach li {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "l v"
+    "b b";
+  gap: var(--iei-2) var(--iei-3);
+  padding: var(--iei-3) var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
+    var(--iei-raised);
+}
+
+.iei-hero-reach .iei-story-reach-l {
+  grid-area: l;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-hero-reach .iei-story-reach-v {
+  grid-area: v;
+  font-size: var(--iei-f-meta);
+  text-align: right;
+}
+
+.iei-hero-reach .iei-story-reach-v b {
+  font-size: var(--iei-f-lead);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin-right: var(--iei-1);
+}
+
+.iei-hero-reach .iei-story-reach-bar {
+  grid-area: b;
+}
+
+@media (max-width: 900px) {
+  .iei-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+/* THE CHOSEN STATE'S OPENING is a card like every chapter under it: the sentence, then the proof beside four doors. */
+.iei-story-top {
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) calc(var(--iei-12) * 2.5)),
+    var(--iei-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 var(--iei-2) var(--iei-6) rgba(0, 0, 0, 0.32);
+  padding: var(--iei-6);
+  margin: 0 0 var(--iei-6);
+}
+
+.iei-story-top .iei-head {
+  padding-top: 0;
+}
+
+.iei-story-top .iei-story-fold {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* THE SEAT'S THREE FIGURES are three equal cards, whatever each has to say. */
+.iei-seat-kpis {
+  align-items: stretch;
+  gap: var(--iei-4);
+}
+
+.iei-seat-tile,
+.iei-seat-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    var(--iei-raised);
+  border-color: var(--iei-line);
+}
+
+/* A TITLE THAT IS A SENTENCE (coverage, search, candidates, an empty state) is not set at the size of a name. */
+.iei-answer-long {
+  font-size: max(calc(var(--iei-f-answer) * 0.72), var(--iei-f-lead));
+  line-height: 1.12;
+  max-width: 30ch;
+}
+
+.iei-an-rule {
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+  margin-top: var(--iei-3);
+}
+
+/* A SCROLL REGION IS THE CONTAINING BLOCK OF ITS OWN SCREEN-READER TEXT. `.iei-sr` is position: absolute, and in a table wider than a phone its
+   static position is past the right edge; with no positioned ancestor its containing block was the page, which an `overflow: auto` box does
+   not clip, so /candidates scrolled sideways at 390px with nothing visible out there. */
+.iei-scroll {
+  position: relative;
+}
+
+/* A LIST HEAD'S ONE SENTENCE about what every row lacks. */
+.iei-list-said {
+  margin: 0 0 var(--iei-3);
+  padding: var(--iei-2) var(--iei-3);
+  border-left: 2px solid var(--iei-line-2);
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: var(--iei-r);
+}
+
+/* THE RUN on a person page: the year is the card's heading and the holder's colour is a rule above it, not a slab. */
+.iei-pp-hold {
+  height: var(--iei-1);
+}
+
+.iei-pp-yr {
+  margin-top: var(--iei-3);
+  font-size: var(--iei-f-lead);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 640px) {
+  .iei-story-top {
+    padding: var(--iei-4);
+  }
+
+  .iei-sec {
+    padding: var(--iei-4);
+    margin-bottom: var(--iei-4);
+  }
+
+  .iei-head {
+    padding-top: var(--iei-6);
+  }
+
+  .iei-metric dd {
+    font-size: var(--iei-f-lead);
   }
 }

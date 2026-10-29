@@ -21,7 +21,7 @@ function pct(v: number): string {
  * WHAT THE LIST IS AND HOW MUCH OF IT IS SHOWN, as a heading. A hairline and a step of space above it set it apart from
  * the district chooser or the legend before it, which used to run straight into the first seat.
  */
-export function ListHead({ head }: { head: ListHeading }) {
+export function ListHead({ head, said }: { head: ListHeading; said?: string | null }) {
   return (
     <>
       <div className="iei-list-head">
@@ -29,6 +29,7 @@ export function ListHead({ head }: { head: ListHeading }) {
         <p className="iei-list-count">{head.count}</p>
       </div>
       {head.note === null ? null : <p className="iei-absent">{head.note}</p>}
+      {said === undefined || said === null ? null : <p className="iei-note iei-list-said">{said}</p>}
     </>
   );
 }
@@ -46,7 +47,14 @@ export function RowMargin({ seat }: { seat: RowFacts }) {
  * Who won, over whom, by how much of the votes polled: what is known of a contest, and for each thing that is not, the
  * words for it. The page appends whatever else it knows of the seat.
  */
-export function RowContest({ seat }: { seat: RowFacts & { partyKey: string | null; runnerUpKey: string | null } }) {
+export function RowContest({
+  seat,
+  quiet,
+}: {
+  seat: RowFacts & { partyKey: string | null; runnerUpKey: string | null };
+  /** Gaps the list says once above its rows (see sharedGaps); a row then leaves them out. */
+  quiet?: { runnerUp: boolean; share: boolean };
+}) {
   const gap = gaps(seat);
   return (
     <>
@@ -63,13 +71,13 @@ export function RowContest({ seat }: { seat: RowFacts & { partyKey: string | nul
           </span>
         </>
       )}
-      {gap.runnerUp === null ? null : (
+      {gap.runnerUp === null || quiet?.runnerUp === true ? null : (
         <>
           {' · '}
           <span className="iei-absent">{gap.runnerUp}</span>
         </>
       )}
-      {seat.marginPct !== null ? (
+      {quiet?.share === true && seat.marginPct === null ? null : seat.marginPct !== null ? (
         <>
           {' · '}
           {pct(seat.marginPct)}

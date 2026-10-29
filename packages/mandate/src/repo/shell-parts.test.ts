@@ -141,12 +141,12 @@ test("an empty state is the page's h1 unless it sits under one, and can leave it
       missing: h(React.createElement(RegistryMissing, { level: 2 })),
     }));
   `);
-  assert.match(html.alone, /<h1 class="iei-answer">Nothing here<\/h1>/);
-  assert.match(html.under, /<h2 class="iei-answer">Nothing here<\/h2>/);
+  assert.match(html.alone, /<h1 class="iei-answer iei-answer-long">Nothing here<\/h1>/);
+  assert.match(html.under, /<h2 class="iei-answer iei-answer-long">Nothing here<\/h2>/);
   assert.equal(count(html.under, "<h1"), 0);
   assert.equal(count(html.headless, "<h"), 0);
   assert.match(html.headless, /<p class="iei-sub">why<\/p>/);
-  assert.match(html.missing, /<h2 class="iei-answer">The registry is not built in this checkout\.<\/h2>/);
+  assert.match(html.missing, /<h2 class="iei-answer iei-answer-long">The registry is not built in this checkout\.<\/h2>/);
 });
 
 test("a search with no match has one h1, and so has the review page when there is no registry", () => {

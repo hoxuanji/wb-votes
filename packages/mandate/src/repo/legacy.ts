@@ -123,8 +123,6 @@ export type LegacyRequest =
   | { route: "mla"; id: string }
   /** `/candidate/wb26_52`. */
   | { route: "candidate"; id: string }
-  /** `/candidates`. */
-  | { route: "candidates" }
   /** `/constituency/c0001`: one segment under `/constituency` is always an id from the previous product. */
   | { route: "constituency-id"; id: string }
   /** `/constituency/<state>/<name>`, the form before the body was in the path. */
@@ -181,7 +179,8 @@ function inRegistry<T>(session: typeof readRegistry, fn: (db: DatabaseSync) => T
  *   constituency-id          a 404, and not the state page: an unresolvable id is not a request for a state
  *   constituency-name        a 404, and `many` asks which, because a name may mean two offices
  *   candidate                search, as a 307: the name in the reader's head is what they can still act on
- *   candidates               search, always
+ *
+ * (`/candidates` is not here: it was a constant redirect to search and is a page now, an index of who stood in one election.)
  *
  * Only `pl-path` is checked before the registry is opened, because a path that is no place cannot match anything;
  * every other registry route opens it for every id, garbage included. A route that needs no registry answers without
@@ -189,9 +188,6 @@ function inRegistry<T>(session: typeof readRegistry, fn: (db: DatabaseSync) => T
  */
 export function legacyTarget(request: LegacyRequest, session: typeof readRegistry = readRegistry): LegacyTarget {
   switch (request.route) {
-    case "candidates":
-      return redirectTo("/search");
-
     case "pl-picker":
       return request.to !== undefined && /^[a-z]{2}$/.test(request.to) ? redirectTo(stateHref(request.to)) : NOT_FOUND;
 

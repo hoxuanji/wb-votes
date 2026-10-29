@@ -178,7 +178,7 @@ function Body({
     <>
       <div className="iei-head">
         <p className="iei-eyebrow">Coverage · computed at request time</p>
-        <h1 className="iei-answer">
+        <h1 className="iei-answer iei-answer-long">
           {c.present} of {c.total} subject areas hold data. {c.noModel} have no model in the schema at all.
         </h1>
         <p className="iei-sub">

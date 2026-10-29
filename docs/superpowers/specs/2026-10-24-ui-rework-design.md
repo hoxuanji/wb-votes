@@ -217,3 +217,62 @@ Not met, or not tested:
 - **On a phone** the arc's dots are about 6px across for 294 seats, and `/election` is one row of tabs lower (352 to 385) because the new control has no
   year strip to share a row with.
 - **The Task 8 commit message calls the 29.5px cell "a 29px tile":** the tile inside it is 26.6px.
+
+
+## Redesign of the front page, the seat, the person and the Analysis (2026-10-29)
+
+Four pages were rebuilt from design briefs written against the audited defects: `/`, the seat page, the person page and the Analysis lens, plus a new
+`/candidates`. Each opens on one computed sentence (a *finding*, repo/finding.ts) and the picture that proves it, answers the next question with one
+picture each, keeps the exact table of every picture, and says what its record cannot say once.
+
+**What changed**
+
+- **`/`** opens on the country (changed the same day, after review: a page that opened on one state's story had made that state its subject). A
+  sentence about India that names every state with a result, the map, and beside it a card that is a glance at every state's latest election (most
+  recent first, then by name, never by size) until the reader chooses a state, and then that state's highlight. A click or a row choose a state through
+  `?state=`; hover keeps the map's card and lights the matching row. Below the map is the chosen state's story (repo/home-story.ts): four houses on one
+  scale with a half-house line, four doors, and chapters for what changed, where, votes against seats, how close, and who was always there. With no
+  choice it is the most recent election on record, and the page says so; with one state loaded it says that state is the only one.
+- **The seat page** leads with a finding (rise, narrow, hands, hold, lone or the old headline), a hero margin with the previous election's margin and a
+  trend line in which a declared figure is a hollow ring, the winner's share against half the votes polled, every election on one scale, the whole 2026
+  field with what each candidate declared, and the Flagged rules evaluated over every election. Every 2026 candidate is a link.
+- **The person page** has a finding with eight rules, the run with margins on one scale (a declared margin is a dashed bar), who they stood against,
+  the field, the record and the affidavit. `/candidates` lists one election's field with facets whose counts honour each other.
+- **The Analysis** has the finding and its rule, a vote ladder with ribbons only between counted elections, a margin hero ranked by votes, the seat
+  against the state, turnout against its district and state on an axis that does not start at zero, notes that print their rules, and four tables.
+
+**Decisions taken by default** (each is a named constant or a one-rule change): the 1340px width for the seat Brief and the Analysis, so the tabs do
+not change the page's width; the roster orders by name or party or age and by nothing the candidate declared; a dashed mark means "no declared winner"
+and a hollow ring or dashed bar means "declared, with nothing counted behind it"; one close-call rule (0.5 point); one margin rank (by votes); one state
+share (the trajectory's); `.iei-tab` and the facet rows are 44px high under `pointer: coarse` and unchanged on a desktop.
+
+**What was measured:** every sentence is audited on every seat (336) and every person (6,167): every number is in its inputs, "declared" sits beside a
+margin without counts, and no pronoun, "never", "first time" or "only" appears. The all-seats and all-people runs found two defects of ours before any reader did (a headline that gave a declared margin without the word, and the word "only" in a line under a sentence).
+
+**Not built:** the seat's photo-finish ruler and margin-rank strip, the Analysis's field strips, a compare view, and any asset or case ordering or
+dot, on purpose. **Not tested:** hover, focus order, screen readers, other browsers, and motion in sequence (the captures freeze animation; first and
+last frames only); 320px; the person page's twin-tied seats in a real browser.
+
+## The look (2026-10-29): "this still looks a school project"
+
+The owner's look decision, taken after every page was walked in a real browser at 1440 and 390 (Playwright's library over a pipe to the installed
+headless Chromium, with each request answered from the app's own renderer; `playwright-cli` itself cannot run in this sandbox, see the memory note).
+
+**Diagnosis.** The stylesheet's first rules drew a lab report: no gradients, shadows or glass, a 2px corner, hairlines between sections, a 10–11.5px
+monospace voice for every caption (about ten thousand characters under 12px across eight pages, nearly all of it `.iei-note` and `.iei-rule`), and a
+34px title over a 15px heading. Nothing sat above anything else, and the first screen of most pages was a 600px column of text beside 700px of black.
+
+**Change.** One block at the foot of `src/app/iei.css` ("the skin") and four token moves; the page is still monochrome and only data carries hue.
+Sections, the stat tiles, the three seat figures and the chosen state's opening are cards on a faintly lit page; the title is 52px at weight 760
+(34px at 900px and below); the type tokens are now mark 11, meta 12.5, data 13.5, body 15, title 18, lead 26 (still seven); a note under a chart is
+sans at reading size in the second ink; radius is one token and it is 8px; `--iei-ink-3` is `#8b8ba2` so a label stays over 4.5:1 on a card's lit top
+edge. The home hero puts the reach ledger beside the sentence as three stat cards. `iei.test.ts` was changed in four places, each with its reason in a
+comment: the radius token is 8px, and `34px` is an allowed title size at the tablet breakpoint.
+
+**Two defects found by looking.** `/candidates` scrolled sideways at 390px: `.iei-sr` text inside the wide table had the page as its containing block, and
+an `overflow: auto` box does not clip that (`.iei-scroll` is `position: relative` now). And an election with no vote counts repeated "no runner-up
+recorded · share of votes polled — verification pending · turnout — verification pending" after all 294 seat names; `sharedGaps` (repo/seat-list.ts)
+says what every row of a list lacks once, above it, and a gap only some rows have stays on those rows.
+
+**Not done.** The Sankey ribbons (muddy at low opacity), the 8px labels inside the seat page's small sparklines (a viewBox scaled down), a per-page glow
+in the colour of the leading party, the coverage page's long ledger, and any check in Safari or Firefox. Hover and click were exercised on the home map only.

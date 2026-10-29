@@ -7,9 +7,9 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { closestFirst, closestRanked, gaps, inSeatOrder, listHead, marginSaid } from "./seat-list.ts";
+import { closestFirst, closestRanked, gaps, inSeatOrder, listHead, marginSaid, sharedGaps } from "./seat-list.ts";
 import { binPhrase, bandPhrase, partyLabelIn, partyPhrase } from "./seat-list.ts";
-import type { SeatList } from "./seat-list.ts";
+import type { RowFacts, SeatList } from "./seat-list.ts";
 import type { Turnout } from "./turnout-trust.ts";
 
 /* ─────────────────────────────────── literals ─────────────────────────────────── */
@@ -229,4 +229,34 @@ test("a seat with no margin at all says so once, and does not also say its share
 test("a seat with no winner has no runner-up to be missing, and no margin", () => {
   const none = row({ partyLabel: null, runnerUpLabel: null, marginVotes: null, marginBasis: null, marginPct: null });
   assert.deepEqual(gaps(none), { margin: "margin not reported", runnerUp: null, share: null });
+});
+
+/* ───────────────────── a gap every row has is said once, above the list ───────────────────── */
+
+const NO_COUNTS = (o: Partial<RowFacts> = {}): RowFacts =>
+  row({ runnerUpLabel: null, marginVotes: 100, marginBasis: "declared", marginPct: null, turnout: UNVERIFIED, ...o });
+
+test("when every row lacks the same things, the list says them once and in the rows' own words", () => {
+  const said = sharedGaps([NO_COUNTS(), NO_COUNTS({ marginVotes: 20 })]);
+  assert.deepEqual([said.runnerUp, said.share, said.turnout], [true, true, true]);
+  assert.equal(
+    said.sentence,
+    "On every seat in this list: no runner-up recorded · share of votes polled\u00a0— verification pending · turnout — verification pending.",
+  );
+});
+
+test("a gap only some rows have stays on those rows, so the list never says less than its rows would", () => {
+  // The second seat has a runner-up: "no runner-up recorded" is not true of every seat, so it is not said of the list.
+  const said = sharedGaps([NO_COUNTS(), NO_COUNTS({ runnerUpLabel: "TMC" })]);
+  assert.equal(said.runnerUp, false);
+  assert.equal(said.share, true);
+  assert.equal(said.sentence?.includes("no runner-up recorded"), false);
+  // A seat with no winner has no runner-up to lack, so it breaks the run too.
+  assert.equal(sharedGaps([NO_COUNTS(), NO_COUNTS({ partyLabel: null })]).runnerUp, false);
+});
+
+test("a list of rows with nothing missing, or of one row, shares nothing", () => {
+  assert.deepEqual(sharedGaps([row(), row()]), { runnerUp: false, share: false, turnout: false, sentence: null });
+  assert.equal(sharedGaps([NO_COUNTS()]).sentence, null, "one row is not a list");
+  assert.equal(sharedGaps([]).sentence, null);
 });

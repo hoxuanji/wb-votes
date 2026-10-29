@@ -172,6 +172,30 @@ _Avoid_: Margin source
 A seat's margin as a percentage of its votes polled. It is only as trustworthy as the votes polled, so it is withheld wherever those are unverified.
 _Avoid_: Margin percentage
 
+**Finding**:
+The one sentence a page says first, composed from the record by a stated rule and printed with that rule. It reads its numbers from the record, says "declared" beside a margin with no counts behind it, and never says a 2026 candidate was defeated.
+_Avoid_: Headline, insight
+
+**Close call**:
+A counted margin of under half a point of the votes polled. Counted, because a declared margin has no votes to be a share of; one rule, shared by a seat's finding, its flags and its Analysis, so the same seat is not narrow on one tab and ordinary on the next.
+_Avoid_: Knife edge, nail-biter
+
+**Margin rank**:
+Where a seat's margin stands among the margins of the other seats of its election, by votes, closest first, ties by seat number. It is always printed with its denominator, and ranks only the contests that have a declared winner and a margin.
+_Avoid_: Closeness score
+
+**The run**:
+The elections of one seat laid side by side, with one person marked in each: who held the seat, whether the person won, was counted second or was not the declared winner, and by how much. A year with no candidacy on record is blank, which is not the same as not having stood.
+_Avoid_: Career line, trajectory
+
+**Career shape**:
+One of five exclusive readings of a person's contests, oldest first: won every one, did not win and then won, won and then did not win again, no win on record, or a mix. A person with fewer than two contests has no shape.
+_Avoid_: Career arc
+
+**Look-alike records**:
+Records of one seat, at different elections, whose names are alike and which the registry has not joined. The page says that the records exist and never that they are one person.
+_Avoid_: Duplicates
+
 **Votes polled**:
 The number of votes cast in a seat, as its turnout row reports it. It is not the sum of the candidates' votes, which for an election that published only its leading contestants is smaller.
 _Avoid_: Valid votes, total votes

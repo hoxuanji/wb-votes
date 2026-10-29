@@ -48,7 +48,12 @@ export type PersonBrief = {
     placeNumber: number | null;
     reservation: Reservation | null;
     partyShortName: string | null;
+    /** The party's id (the key every map, strip and bar inks it by), or null where the register names none. */
+    partyId: string | null;
     partySymbolRef: string | null;
+    /** The seat's version and its place id, so a page can read the seat's own history and field. */
+    versionId: number;
+    placeId: string;
     status: CandidacyStatus;
     ageDeclared: number | null;
     educationDeclared: string | null;
@@ -67,6 +72,8 @@ export type PersonBrief = {
     /** A reading, never a bare percentage: West Bengal 2026's turnout is withheld (turnout-trust.ts). */
     turnout: Turnout;
   }[];
+  /** The occupation they declared (a claim), and the portfolios the press says they hold (claims): both are provisional and printed as claims. */
+  declared: { occupation: string | null; cabinet: string[] };
   /** Oldest first — this is a series, and a series read backwards is a wrong delta. */
   affidavitTrail: {
     year: number;
@@ -173,6 +180,7 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
       number: number | null;
       reservation: Reservation | null;
       party_short_name: string | null;
+      party_id: string | null;
       symbol_id: string | null;
       status: CandidacyStatus;
       age_declared: number | null;
@@ -203,7 +211,7 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
               -- candidacy -> contest -> place_version, which is where a contest's seat is recorded.
               pv.jurisdiction_id AS jurisdiction_id, pv.kind AS place_kind,
               pv.number, pv.reservation,
-              pt.short_name AS party_short_name,
+              pt.short_name AS party_short_name, pt.id AS party_id,
               COALESCE(ca.symbol_id, pver.symbol_id) AS symbol_id,
               ca.status, ca.age_declared, ca.education_declared,
               r.votes, r.vote_share, r.rank, r.is_winner, r.margin,
@@ -272,14 +280,31 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
     const casesByYear = new Map<number, number>();
     let term: { object_value: string; as_of: string | null } | undefined;
     let termMargin: number | null = null;
+    let occupation: string | null = null;
+    const cabinet: string[] = [];
     for (const cl of all<{ predicate: string; object_value: string; as_of: string | null }>(
       db,
       `SELECT predicate, object_value, as_of FROM claim
-        WHERE subject_ref = ? AND predicate IN ('pending_cases_declared', 'mla_term', 'mla_margin_votes')
+        WHERE subject_ref = ?
+          AND (predicate IN ('pending_cases_declared', 'mla_term', 'mla_margin_votes', 'occupation_declared')
+               OR predicate LIKE 'cabinet_portfolio:%')
         ORDER BY as_of`,
       `person:${slug}`,
     )) {
       const n = Number(cl.object_value);
+      if (cl.predicate === "occupation_declared") {
+        try {
+          const v: unknown = JSON.parse(cl.object_value);
+          if (typeof v === "string" && v !== "") occupation = v;
+        } catch {
+          /* a claim that is not JSON is not an occupation */
+        }
+        continue;
+      }
+      if (cl.predicate.startsWith("cabinet_portfolio:")) {
+        cabinet.push(cl.predicate.slice("cabinet_portfolio:".length).replace(/-/g, " "));
+        continue;
+      }
       if (cl.predicate === "mla_term") term = cl;
       else if (cl.predicate === "mla_margin_votes") termMargin = Number.isFinite(n) ? n : null;
       else if (Number.isFinite(n)) casesByYear.set(cl.as_of === null ? 0 : yearOf(cl.as_of), n);
@@ -337,7 +362,10 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
         placeNumber: c.number,
         reservation: c.reservation,
         partyShortName: c.party_short_name,
+        partyId: c.party_id,
         partySymbolRef: c.symbol_id,
+        versionId: c.version_id,
+        placeId: c.place_id,
         status: c.status,
         ageDeclared: c.age_declared,
         educationDeclared: c.education_declared,
@@ -352,6 +380,7 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
             : { personId: c.winner_id, name: c.winner_name, partyShortName: c.winner_party },
         turnout: turnoutReading(c.voters, c.electors, unverified.has(c.election_id)),
       })),
+      declared: { occupation, cabinet: [...new Set(cabinet)].sort() },
       affidavitTrail: aff.map((a) => {
         const year = yearOf(a.election_id);
         return {
