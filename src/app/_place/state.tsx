@@ -13,6 +13,7 @@ import {
   listHead,
   partyLabelIn,
   partyPhrase,
+  sharedGaps,
 } from '../../../packages/mandate/src/repo/seat-list.ts';
 import { summarise } from '../../../packages/mandate/src/repo/findings.ts';
 import { turnoutCaveat, turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
@@ -187,6 +188,7 @@ export function StateSurface({
   // WHAT THE LIST IS CALLED is read from the order `closestFirst` built it in and from what the reader narrowed it to, so a
   // list of an election with no vote counts is headed as the seat order it is, and not as the closest contests it is not.
   // An isolation names its party or band; a party is the runner-up's on the runner-up tab, as the selection reads it.
+  const shared = sharedGaps(list.seats);
   const head = listHead(
     {
       isolation:
@@ -444,7 +446,7 @@ export function StateSurface({
             {/* ══ 7 · THE SEAT LIST — the current selection, with each seat's result ══
                 Headed with what it is and how much of it is shown, which is also where "12 of 294" is said: it used to be a
                 note under the last row, and the rows had no name. */}
-            <ListHead head={head} />
+            <ListHead head={head} said={shared.sentence} />
             <DataList label={head.title} tight>
               {list.seats.map((s) => (
                 <DataRow
@@ -454,7 +456,7 @@ export function StateSurface({
                   aside={<RowMargin seat={s} />}
                   detail={
                     <>
-                      <RowContest seat={s} />
+                      <RowContest seat={s} quiet={shared} />
                       {/* Focus this seat on the map, without leaving the page. There is nothing to focus it on without one, and
                           a seat with no outline of its own has nothing to be outlined by. */}
                       {mapped ? (

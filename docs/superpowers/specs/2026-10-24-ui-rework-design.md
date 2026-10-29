@@ -252,3 +252,27 @@ margin without counts, and no pronoun, "never", "first time" or "only" appears. 
 **Not built:** the seat's photo-finish ruler and margin-rank strip, the Analysis's field strips, a compare view, and any asset or case ordering or
 dot, on purpose. **Not tested:** hover, focus order, screen readers, other browsers, and motion in sequence (the captures freeze animation; first and
 last frames only); 320px; the person page's twin-tied seats in a real browser.
+
+## The look (2026-10-29): "this still looks a school project"
+
+The owner's look decision, taken after every page was walked in a real browser at 1440 and 390 (Playwright's library over a pipe to the installed
+headless Chromium, with each request answered from the app's own renderer; `playwright-cli` itself cannot run in this sandbox, see the memory note).
+
+**Diagnosis.** The stylesheet's first rules drew a lab report: no gradients, shadows or glass, a 2px corner, hairlines between sections, a 10–11.5px
+monospace voice for every caption (about ten thousand characters under 12px across eight pages, nearly all of it `.iei-note` and `.iei-rule`), and a
+34px title over a 15px heading. Nothing sat above anything else, and the first screen of most pages was a 600px column of text beside 700px of black.
+
+**Change.** One block at the foot of `src/app/iei.css` ("the skin") and four token moves; the page is still monochrome and only data carries hue.
+Sections, the stat tiles, the three seat figures and the chosen state's opening are cards on a faintly lit page; the title is 52px at weight 760
+(34px at 900px and below); the type tokens are now mark 11, meta 12.5, data 13.5, body 15, title 18, lead 26 (still seven); a note under a chart is
+sans at reading size in the second ink; radius is one token and it is 8px; `--iei-ink-3` is `#8b8ba2` so a label stays over 4.5:1 on a card's lit top
+edge. The home hero puts the reach ledger beside the sentence as three stat cards. `iei.test.ts` was changed in four places, each with its reason in a
+comment: the radius token is 8px, and `34px` is an allowed title size at the tablet breakpoint.
+
+**Two defects found by looking.** `/candidates` scrolled sideways at 390px: `.iei-sr` text inside the wide table had the page as its containing block, and
+an `overflow: auto` box does not clip that (`.iei-scroll` is `position: relative` now). And an election with no vote counts repeated "no runner-up
+recorded · share of votes polled — verification pending · turnout — verification pending" after all 294 seat names; `sharedGaps` (repo/seat-list.ts)
+says what every row of a list lacks once, above it, and a gap only some rows have stays on those rows.
+
+**Not done.** The Sankey ribbons (muddy at low opacity), the 8px labels inside the seat page's small sparklines (a viewBox scaled down), a per-page glow
+in the colour of the leading party, the coverage page's long ledger, and any check in Safari or Firefox. Hover and click were exercised on the home map only.

@@ -155,7 +155,7 @@ export default function SearchPage({
     <Shell here="search" q={q} reading>
       <div className="iei-head">
         <p className="iei-eyebrow">Search</p>
-        <h1 className="iei-answer">{answer(r)}</h1>
+        <h1 className="iei-answer iei-answer-long">{answer(r)}</h1>
         <p className="iei-sub">
           {r.transliterated === null
             ? 'A name is matched as text first, then on how it sounds, so Bishwas also lists Biswas and Mohammed Salim finds Md. Salim.'

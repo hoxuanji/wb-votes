@@ -17,6 +17,7 @@ import {
   listHead,
   partyLabelIn,
   partyPhrase,
+  sharedGaps,
 } from '../../../../packages/mandate/src/repo/seat-list.ts';
 import { offersMode, queryHref, readAsk, readSelection, tally } from '../../../../packages/mandate/src/repo/map-selection.ts';
 import { seatFlows } from '../../../../packages/mandate/src/repo/seat-flows.ts';
@@ -187,6 +188,7 @@ export default function ElectionPage({
         ? closestRanked(v.seats, 12)
         : closestFirst(v.seats, 12);
   const binned = bin === null ? null : (v.marginBins.find((b) => b.lo === bin) ?? { lo: bin, hi: bin + BIN_WIDTH });
+  const shared = sharedGaps(list.seats);
   const head = listHead(
     {
       isolation:
@@ -387,7 +389,7 @@ export default function ElectionPage({
 
             {/* ── 7 · THE LIST. The selection, or the closest contests: a slice of the result, headed with what it is
                    and how much of it is shown, which is where "12 of 294" is said. ── */}
-            <ListHead head={head} />
+            <ListHead head={head} said={shared.sentence} />
             <DataList label={head.title} tight>
               {list.seats.map((s) => (
                 <DataRow
@@ -397,8 +399,8 @@ export default function ElectionPage({
                   aside={<RowMargin seat={s} />}
                   detail={
                     <>
-                      <RowContest seat={s} />
-                      {turnoutHeadline(s.turnout) === null ? null : <> · {turnoutHeadline(s.turnout)}</>}
+                      <RowContest seat={s} quiet={shared} />
+                      {shared.turnout || turnoutHeadline(s.turnout) === null ? null : <> · {turnoutHeadline(s.turnout)}</>}
                       {e.body === 'lok-sabha' && s.jurisdictionName !== null ? <> · {s.jurisdictionName}</> : null}
                     </>
                   }

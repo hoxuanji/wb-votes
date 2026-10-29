@@ -23,7 +23,7 @@ export function CandidatesHead({ view }: { view: CandidatesView }) {
   return (
     <div className="iei-head">
       <p className="iei-eyebrow">Candidates</p>
-      <h1 className="iei-answer">Who is on record, election by election</h1>
+      <h1 className="iei-answer iei-answer-long">Who is on record, election by election</h1>
       <p className="iei-story-lead">
         <b>{IN.format(e.candidates)}</b> {winnersOnly ? 'declared winners are on record' : e.counted ? 'candidates are on record' : 'candidates stood'} for <b>{IN.format(e.seats)}</b>{' '}
         seats in the {e.label} election.

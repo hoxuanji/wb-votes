@@ -30,13 +30,12 @@
    · THE DATELINE STRIP AND THE NAVIGATION STRIP ARE GONE. Each has a note at the place it used to be, saying
      what it was and why it went.
 
-   The rest follows from the same instinct:
-   · No gradients, no glass, no shadows, no card that floats for decoration. Sections are divided by
-     hairlines, which is how a document divides sections.
-   · Every NUMBER and every piece of metadata is monospace and tabular. Prose is not. That single split is
-     what lets a table run at 13px and stay readable.
-   · Radius is one token and it is 2px. A dashboard of rounded cards reads as a marketing page with data
-     in it.
+   The rest follows from the same instinct, as amended by THE SKIN (the block at the foot of this file, 2026-10-29):
+   · A section is a card on a faintly lit page, with a soft shadow and a top highlight; sections used to be divided by hairlines "as a
+     document divides sections", and the result read as a document. Nothing floats for decoration, and nothing is coloured.
+   · Numbers, marks and metadata are monospace and tabular. Prose is SANS — a note under a chart is a sentence, and the sentence
+     was in 11px mono. That split is what lets a table run at 13px and stay readable.
+   · Radius is one token and it is 8px.
    · Focus is a 2px bright-ink underline on the control itself, never a ring. forced-colors gets a real
      outline, because there the system owns the treatment. */
 
@@ -54,10 +53,11 @@
   /*
    * ink-3 is every label, table header, caption and metadata line on the page, and it was #74748a — 4.41:1
    * on the canvas and 4.02:1 on the raised surface, which misses the 4.5:1 floor that small text has to
-   * clear. It is #818198 now: 4.82:1 on the WORST surface it is drawn on, with a little headroom. Measured
+   * clear. It was #818198 (4.82:1 on the worst token surface), and is #8b8ba2 since the skin: a card's top edge is lit by a 4% white gradient, so the
+   * surface a label sits on is lighter than any token, and the extra headroom keeps a label over 4.5:1 there too. Measured
    * by iei.test.ts rather than by eye, because this is exactly the kind of claim that cannot be eyeballed.
    */
-  --iei-ink-3: #818198;
+  --iei-ink-3: #8b8ba2;
   /*
    * There is no fourth ink tier. There was one at #4b4b5c — 2.2:1 on the raised surface, which no text can
    * clear — and everything it rendered turned out to carry meaning: `.iei-absent` made "not reported" the
@@ -109,16 +109,16 @@
      The two smallest are mono-only: `mark` is an uppercase label and never a sentence (a note, a caption, the
      footer and a table's second line are sentences, and are `meta`), `meta` is mono at reading size. `data` is a
      table cell, `body` is prose, `title` is a section heading. */
-  --iei-f-mark: 10px;
-  --iei-f-meta: 11.5px;
-  --iei-f-data: 13px;
-  --iei-f-body: 14px;
-  --iei-f-title: 15px;
-  --iei-f-lead: 24px;
-  --iei-f-answer: 34px;
+  --iei-f-mark: 11px;
+  --iei-f-meta: 12.5px;
+  --iei-f-data: 13.5px;
+  --iei-f-body: 15px;
+  --iei-f-title: 18px;
+  --iei-f-lead: 26px;
+  --iei-f-answer: 52px;
 
   /* ── frame ── */
-  --iei-r: 2px;
+  --iei-r: 8px;
   --iei-max: 1340px;
   --iei-gutter: var(--iei-4);
   /* One row density, and one tighter one for the 36-row jurisdiction lists. Both are on the scale, and
@@ -3683,7 +3683,7 @@ ul.iei-tiles b {
 @media (max-width: 900px) {
   :root {
     --iei-gutter: var(--iei-3);
-    --iei-f-answer: 26px;
+    --iei-f-answer: 34px;
     /* Tables stay dense but stop being cramped: a 4px cell is not a reachable touch target. */
     --iei-cell-y-tight: var(--iei-2);
   }
@@ -6271,11 +6271,386 @@ ul.iei-tiles b {
   vector-effect: non-scaling-stroke;
 }
 
-.iei-story-reachwrap {
-  border-top: 1px solid var(--iei-line);
+/* ══════════════════════════ the skin ══════════════════════════
+   WHY THIS BLOCK EXISTS (2026-10-29). Looked at in a real browser, across every page at 1440 and 390, the product read as a
+   school project, and the cause was the stylesheet's own first rules rather than any one page: "no gradients, no glass, no
+   shadows", a 2px corner, hairlines between sections, a 10–11.5px monospace voice for every caption and a 34px title over a 15px
+   heading. Together they drew a lab report: flat, one voice, nothing above anything else, and about ten thousand characters
+   per eight pages of grey 11px mono that nobody would read. This block is the owner's "look" decision, taken:
+
+   · DEPTH. A section is a card on a faintly lit page: a one-pixel edge, a top highlight, a soft shadow, and a glow behind the
+     top of the page. Nothing here is coloured; the page is still monochrome and only data carries hue.
+   · SCALE. Title 52px at weight 760, stat numerals large and heavy in mono, headings 18px. The type tokens moved (mark 11,
+     meta 12.5, data 13.5, body 15, title 18, lead 26, answer 52); there are still seven.
+   · ONE VOICE FOR PROSE. A note under a chart is a sentence, so it is sans at reading size in the second ink, not mono at 11px
+     in the third. Mono stays for numbers, marks and metadata, which is what it is for.
+   · ONE RADIUS, 8px, on everything that was 2px.
+
+   It sits at the end so it wins on equal specificity; the narrow-screen rules for it are at the foot of the block. */
+
+.iei {
+  background:
+    radial-gradient(80% 32% at 50% 0, rgba(132, 132, 255, 0.13), transparent 72%) no-repeat,
+    radial-gradient(40% 20% at 12% 4%, rgba(255, 255, 255, 0.04), transparent 70%) no-repeat,
+    var(--iei-bg);
+}
+
+.iei-top {
+  background: rgba(13, 13, 19, 0.78);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom-color: var(--iei-line);
+}
+
+.iei-mark-a {
+  font-size: var(--iei-f-title);
+  font-weight: 850;
+  letter-spacing: -0.03em;
+}
+
+/* THE PAGE HEAD: the title is the largest thing on the screen and says so. */
+.iei-head {
+  padding: var(--iei-8) 0 var(--iei-6);
   border-bottom: none;
 }
 
-.iei-story-reachwrap .iei-story-reach {
+.iei-eyebrow {
+  display: block;
+  width: fit-content;
+  justify-self: start;
+  padding: var(--iei-1) var(--iei-3);
+  margin: 0 0 var(--iei-4);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--iei-ink-2);
+  letter-spacing: 0.16em;
+}
+
+.iei-answer {
+  font-weight: 760;
+  letter-spacing: -0.03em;
+  line-height: 1.08;
+  max-width: 22ch;
+  margin-bottom: var(--iei-4);
+}
+
+.iei-sub {
+  font-size: var(--iei-f-body);
+  line-height: 1.6;
+  color: var(--iei-ink-2);
+  max-width: 64ch;
+  margin-top: var(--iei-4);
+}
+
+/* SECTIONS ARE CARDS. */
+.iei-sec {
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) calc(var(--iei-12) * 2.5)),
+    var(--iei-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 var(--iei-2) var(--iei-6) rgba(0, 0, 0, 0.32);
+  padding: var(--iei-6);
+  margin: 0 0 var(--iei-6);
+}
+
+.iei-body > .iei-sec:has(+ .iei-foot),
+.iei-body > .iei-two:has(+ .iei-foot) {
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-two {
+  border-bottom: none;
+  padding-bottom: 0;
+  margin: 0 0 var(--iei-6);
+  gap: var(--iei-6);
+}
+
+.iei-two > .iei-sec {
+  margin: 0;
+  padding-bottom: var(--iei-6);
+}
+
+.iei-sec > .iei-sec,
+.iei-sec .iei-sec {
+  border: none;
+  background: none;
+  box-shadow: none;
+  padding: 0;
+  margin: 0;
+}
+
+.iei-h {
+  margin: 0 0 var(--iei-6);
+  padding-bottom: var(--iei-4);
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-h h2 {
+  font-size: var(--iei-f-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.iei-h-title p {
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+/* A NOTE IS A SENTENCE. */
+.iei-note {
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-data);
+  line-height: 1.6;
+  color: var(--iei-ink-2);
+  max-width: 78ch;
+  margin-top: var(--iei-3);
+}
+
+.iei-caveat {
+  background: rgba(255, 255, 255, 0.025);
+  border: 1px solid var(--iei-line);
+  border-left: 2px solid var(--iei-ink-3);
+  border-radius: var(--iei-r);
+  padding: var(--iei-3) var(--iei-4);
+}
+
+/* STAT CARDS: the number is the card. */
+.iei-metrics {
+  border-top: none;
+  padding-top: 0;
+  gap: var(--iei-3);
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+}
+
+.iei-metric {
+  padding: var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
+    var(--iei-raised);
+}
+
+.iei-metric dt {
+  letter-spacing: 0.14em;
+  margin-bottom: var(--iei-2);
+}
+
+.iei-metric dd {
+  font-size: calc(var(--iei-f-answer) * 0.72);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+}
+
+.iei-metric .iei-metric-words {
+  font-size: var(--iei-f-lead);
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+.iei-metric small {
+  font-size: var(--iei-f-meta);
+  margin-top: var(--iei-2);
+}
+
+/* CONTROLS. */
+.iei-tab {
+  padding: var(--iei-2) var(--iei-3);
+  letter-spacing: 0.1em;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.iei-tab.iei-tab-on {
+  background: var(--iei-ink);
+  color: var(--iei-bg);
+  border-color: var(--iei-ink);
+  font-weight: 700;
+}
+
+.iei-tab.iei-tab-on:focus-visible {
+  box-shadow: 0 0 0 2px var(--iei-bg), 0 0 0 var(--iei-1) var(--iei-ink);
+}
+
+.iei-cmd {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* TABLES: a row you can find your place in. */
+.iei-t tbody tr:hover > * {
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* THE HOME HERO: the sentence on the left, and on the right how much of the country the registry holds, as three stat cards. */
+.iei-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+  gap: var(--iei-8);
+  align-items: end;
+}
+
+.iei-hero .iei-head {
+  border-bottom: none;
+}
+
+.iei-hero-reach {
+  padding: var(--iei-8) 0 var(--iei-6);
+}
+
+.iei-hero-reach .iei-eyebrow {
   margin-bottom: var(--iei-3);
+}
+
+.iei-hero-reach .iei-story-reach {
+  max-width: none;
+  margin: 0;
+  gap: var(--iei-2);
+}
+
+.iei-hero-reach .iei-story-reach li {
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas:
+    "l v"
+    "b b";
+  gap: var(--iei-2) var(--iei-3);
+  padding: var(--iei-3) var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
+    var(--iei-raised);
+}
+
+.iei-hero-reach .iei-story-reach-l {
+  grid-area: l;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-hero-reach .iei-story-reach-v {
+  grid-area: v;
+  font-size: var(--iei-f-meta);
+  text-align: right;
+}
+
+.iei-hero-reach .iei-story-reach-v b {
+  font-size: var(--iei-f-lead);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  margin-right: var(--iei-1);
+}
+
+.iei-hero-reach .iei-story-reach-bar {
+  grid-area: b;
+}
+
+@media (max-width: 900px) {
+  .iei-hero {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0;
+  }
+}
+
+/* THE CHOSEN STATE'S OPENING is a card like every chapter under it: the sentence, then the proof beside four doors. */
+.iei-story-top {
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) calc(var(--iei-12) * 2.5)),
+    var(--iei-panel);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.05),
+    0 var(--iei-2) var(--iei-6) rgba(0, 0, 0, 0.32);
+  padding: var(--iei-6);
+  margin: 0 0 var(--iei-6);
+}
+
+.iei-story-top .iei-head {
+  padding-top: 0;
+}
+
+.iei-story-top .iei-story-fold {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+/* THE SEAT'S THREE FIGURES are three equal cards, whatever each has to say. */
+.iei-seat-kpis {
+  align-items: stretch;
+  gap: var(--iei-4);
+}
+
+.iei-seat-tile,
+.iei-seat-card {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
+    var(--iei-raised);
+  border-color: var(--iei-line);
+}
+
+/* A TITLE THAT IS A SENTENCE (coverage, search, candidates, an empty state) is not set at the size of a name. */
+.iei-answer-long {
+  font-size: max(calc(var(--iei-f-answer) * 0.72), var(--iei-f-lead));
+  line-height: 1.12;
+  max-width: 30ch;
+}
+
+.iei-an-rule {
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+  margin-top: var(--iei-3);
+}
+
+/* A SCROLL REGION IS THE CONTAINING BLOCK OF ITS OWN SCREEN-READER TEXT. `.iei-sr` is position: absolute, and in a table wider than a phone its
+   static position is past the right edge; with no positioned ancestor its containing block was the page, which an `overflow: auto` box does
+   not clip, so /candidates scrolled sideways at 390px with nothing visible out there. */
+.iei-scroll {
+  position: relative;
+}
+
+/* A LIST HEAD'S ONE SENTENCE about what every row lacks. */
+.iei-list-said {
+  margin: 0 0 var(--iei-3);
+  padding: var(--iei-2) var(--iei-3);
+  border-left: 2px solid var(--iei-line-2);
+  background: rgba(255, 255, 255, 0.025);
+  border-radius: var(--iei-r);
+}
+
+/* THE RUN on a person page: the year is the card's heading and the holder's colour is a rule above it, not a slab. */
+.iei-pp-hold {
+  height: var(--iei-1);
+}
+
+.iei-pp-yr {
+  margin-top: var(--iei-3);
+  font-size: var(--iei-f-lead);
+  font-weight: 700;
+  letter-spacing: -0.03em;
+}
+
+@media (max-width: 640px) {
+  .iei-story-top {
+    padding: var(--iei-4);
+  }
+
+  .iei-sec {
+    padding: var(--iei-4);
+    margin-bottom: var(--iei-4);
+  }
+
+  .iei-head {
+    padding-top: var(--iei-6);
+  }
+
+  .iei-metric dd {
+    font-size: var(--iei-f-lead);
+  }
 }

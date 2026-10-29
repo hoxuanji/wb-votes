@@ -123,7 +123,7 @@ function render(route: string, query: string, segments: string): string {
 
 /** The list's heading and its count, as the page prints them, and the aria-label of the list under it. */
 function headed(html: string): { title: string; count: string; label: string } {
-  const m = /<h3 class="iei-list-title">([^<]*)<\/h3><p class="iei-list-count">([^<]*)<\/p><\/div>(?:<p class="iei-absent">[^<]*<\/p>)?<ul class="iei-list iei-list-tight" aria-label="([^"]*)"/.exec(html);
+  const m = /<h3 class="iei-list-title">([^<]*)<\/h3><p class="iei-list-count">([^<]*)<\/p><\/div>(?:<p class="iei-absent">[^<]*<\/p>)?(?:<p class="iei-note iei-list-said">[^<]*<\/p>)?<ul class="iei-list iei-list-tight" aria-label="([^"]*)"/.exec(html);
   assert.ok(m !== null, "the list has no heading directly above it");
   return { title: m[1] as string, count: m[2] as string, label: m[3] as string };
 }
@@ -222,13 +222,19 @@ test("a chooser on a page with no map does not offer to zoom one", () => {
 
 /* ───────────────────────────── a row that lacks a figure ───────────────────────────── */
 
-test("a row with no runner-up and no share says so in the page's own words, and shows the margin it does have", () => {
+test("a list whose every row lacks a runner-up and a share says so once, in the page's own words, and each row shows the margin it does have", () => {
   const html = render("/state", "", "uu");
   assert.match(html, /<b>100 votes \(declared\)<\/b>/);
-  assert.match(html, /<span class="iei-absent">no runner-up recorded<\/span>/);
-  assert.match(html, /<span class="iei-absent">share of votes polled\u00a0— verification pending<\/span>/);
+  // Said once above the rows (two seats here, both without a runner-up, a share or a corroborated turnout) ...
+  assert.match(
+    html,
+    /<p class="iei-note iei-list-said">On every seat in this list: no runner-up recorded · share of votes polled\u00a0— verification pending · turnout — verification pending\.<\/p>/,
+  );
+  // ... and not repeated on a row: a wall of one sentence after every seat name is what this replaced.
   const list = html.slice(html.indexOf('<ul class="iei-list iei-list-tight"'));
-  assert.doesNotMatch(list.slice(0, list.indexOf("</ul>")), /· —|>—</, "a bare dash is left in a row");
+  const body = list.slice(0, list.indexOf("</ul>"));
+  assert.doesNotMatch(body, /no runner-up recorded|verification pending/, "a row repeats what the list said once");
+  assert.doesNotMatch(body, /· —|>—</, "a bare dash is left in a row");
 });
 
 test("a row with everything known says nothing is missing", () => {

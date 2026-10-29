@@ -192,14 +192,21 @@ export default function Home({
           state that has a result in one glance, and a state's story is what the reader's choice (or, failing one, the most recent election) opens
           below the map. ── */}
       <div id="india">
-        <div className="iei-head">
-          <p className="iei-eyebrow">India</p>
-          <h1 className="iei-answer">The electoral landscape</h1>
-          <p className="iei-story-lead">{indiaSentence(rows, s.jurisdictionsTotal)}</p>
-          <p className="iei-sub">
-            Choose a state on the map to see its latest election; the rest are names and seat counts. <b>Nothing here is a prediction.</b> No model, no forecast, no
-            probability.
-          </p>
+        <div className="iei-hero">
+          <div className="iei-head">
+            <p className="iei-eyebrow">India</p>
+            <h1 className="iei-answer">The electoral landscape</h1>
+            <p className="iei-story-lead">{indiaSentence(rows, s.jurisdictionsTotal)}</p>
+            <p className="iei-sub">
+              Choose a state on the map to see its latest election; the rest are names and seat counts. <b>Nothing here is a prediction.</b> No model, no forecast, no
+              probability.
+            </p>
+          </div>
+          {/* How much of the country the registry holds, said once with true denominators, beside the sentence it qualifies. */}
+          <div className="iei-hero-reach">
+            <p className="iei-eyebrow">How much of India the registry holds</p>
+            <HomeReach reach={reach} />
+          </div>
         </div>
 
       {/* ── the map: the product's primary analytical instrument, and its primary navigation ── */}
@@ -387,20 +394,17 @@ export default function Home({
       </Panel>
 
 
-        {/* How much of the country the registry holds, said once with true denominators, under the map that shows which part. */}
-        <div className="iei-head iei-story-reachwrap">
-          <p className="iei-eyebrow">How much of India the registry holds</p>
-          <HomeReach reach={reach} />
-        </div>
       </div>
 
       {/* ── the chosen state's latest election, or the most recent on record: the sentence, the proof beside four doors, then one chapter per question ── */}
       {story === null ? null : (
         <>
-          <StoryHead view={story} />
-          <div className="iei-story-fold">
-            <StoryHouses view={story} />
-            <StoryDoors view={story} />
+          <div className="iei-story-top">
+            <StoryHead view={story} />
+            <div className="iei-story-fold">
+              <StoryHouses view={story} />
+              <StoryDoors view={story} />
+            </div>
           </div>
           <StoryChanged view={story} />
           <StoryWhere view={story} />

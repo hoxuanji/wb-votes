@@ -568,7 +568,7 @@ export function EmptyState({
   const Heading = level === 1 ? 'h1' : 'h2';
   return (
     <div className="iei-empty">
-      {title === undefined ? null : <Heading className="iei-answer">{title}</Heading>}
+      {title === undefined ? null : <Heading className="iei-answer iei-answer-long">{title}</Heading>}
       {detail === undefined ? null : <p className="iei-sub">{detail}</p>}
     </div>
   );
