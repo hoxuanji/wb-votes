@@ -24,6 +24,7 @@ import type { ElectionSeat } from "./election-map.ts";
 import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
+import { storyView } from "./home-story.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
 import { currentSeat } from "./testkit.ts";
 import { all } from "../db/index.ts";
@@ -97,21 +98,26 @@ function text(html: string): string {
 
 test("the homepage renders, and says what it is in the first screen", live, () => {
   const t = text(render("/"));
-  // The ten-second test, as far as a text assertion can carry it: the product's name, that it is national,
-  // and a computed sentence about who governs.
+  // The ten-second test, as far as a text assertion can carry it: the product's name, and one computed sentence that says what changed
+  // in the one state that has results. The sentence is chosen by rule (repo/home-story.ts), so the test reads its shape and not a name.
   assert.match(t, /INDIA\nElection Intelligence/, "the wordmark is not the first thing");
-  assert.match(t, /India\nThe electoral landscape/, "the hero does not name the country and its subject");
-  assert.match(t, /assembl(?:y|ies) on record/, "the headline does not say what it counted");
-  // SIX MODULES. Five sections as far as the markup is concerned — two of them hold two panels each — and the
-  // six questions a front page owes a reader: where am I, who governs where, what is coming, what was just
-  // decided, who holds power, and what stands out.
+  assert.match(
+    t.replace(/\s+/g, " "),
+    /won \d[\d,]* of .+?.s \d[\d,]* seats in \d{4}/,
+    "the first screen does not open on a sentence that says what was won, of how many, and when",
+  );
+  assert.ok(t.includes("Open the record"), "the four doors are missing from the first screen");
+  // The chapters a reader meets in turn, each a question the sentence raises, then the reference layer.
   for (const heading of [
+    "What changed",
+    "Where",
+    "Votes and seats",
+    "How close",
+    "People",
     "India · Government",
     "Upcoming",
     "Recent results",
     "Party landscape",
-    "Closest contests",
-    "Notable shifts",
   ]) {
     assert.ok(t.includes(heading), `the "${heading}" section is missing`);
   }
@@ -120,7 +126,9 @@ test("the homepage renders, and says what it is in the first screen", live, () =
     ["Who governs", "the map's companion table is the same 36 rows with the same links"],
     ["Historical elections", "180 cells of links to the state pages the map already reaches"],
     ["Data coverage", "/coverage is a page whose whole subject is that question"],
-    ["What to watch", "renamed and cut from nine rows to four; Closest contests took the knife-edge rule"],
+    ["What to watch", "renamed and cut from nine rows to four, and then folded into the chapters"],
+    ["Closest contests", "its facts are the How close chapter's, which keeps counted margins apart from declared ones"],
+    ["Notable shifts", "its movements are What changed and Where, drawn rather than listed"],
     ["computed", "the wall-clock time a SQL query ran is not a fact about Indian politics"],
     ["assembly seats 4,117", "a registry row count, in the first screen"],
     ["what is and is not loaded", "the coverage link belongs in the footer"],
@@ -149,19 +157,17 @@ test("the front page shows no provenance class labels and no dataset status", li
   assert.ok(drawers <= 3, `${drawers} evidence drawers on the front page — one per module is the rule`);
 });
 
-test("the front page is materially lighter than the version it replaced", live, () => {
-  // MEASURED RATHER THAN FELT, and the measurement had to be fixed before it could be used.
+test("the front page stays inside its stated weight, and a table a reader has to open is not a table they meet", live, () => {
+  // THE CEILINGS WERE REBASED, and these are the numbers that replace them. The page this test was written for was five sections of lists
+  // and one table, and it held itself to a fraction of the page before it. The front page now opens on a sentence and four pictures that
+  // prove it, with a chapter for each question the sentence raises, so it carries more words, cells and notes on purpose; what it still
+  // may not do is grow without someone deciding to. Each figure is the first measured build plus about 10%, and the bytes are the one
+  // number that was fixed first: a page this dense is still one document, and 260 kB of it is the budget (the old design's was 218 kB).
   //
-  // Counting every word in the markup counts the 46 SVG `<title>` hover cards — 701 of the old page's 1,930
-  // "words" — which are the accessible name of the map and a mouse tooltip. They are not visible clutter, they
-  // are the reason colour is never the only channel, and a metric that punishes them would push a redesign
-  // towards a LESS accessible map. So VISIBLE words are counted, with the hover cards stripped first.
-  //
-  // The baseline is the five-section page this design pass started from, measured in
-  // docs/product/ui-final-audit.md. Every figure is a ceiling, not an equality: a state loading tomorrow adds
-  // rows, and the point of the test is that the page cannot drift back without someone deciding to.
+  // Visible words are counted with the SVG `<title>` hover cards stripped: they are the accessible name of a picture and a mouse tooltip,
+  // not clutter, and a metric that punished them would push a redesign towards a less accessible page.
   const html = render("/");
-  const count = (re: RegExp): number => (html.match(re) ?? []).length;
+  const count = (re: RegExp, from = html): number => (from.match(re) ?? []).length;
   const visible = (s: string): number =>
     s
       .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, " ")
@@ -169,7 +175,7 @@ test("the front page is materially lighter than the version it replaced", live, 
       .replace(/<[^>]+>/g, "\n")
       .split(/\s+/)
       .filter(Boolean).length;
-  const audited = { tables: 4, rows: 66, cells: 325, words: 1229, notes: 3, bytes: 397_330 };
+  const ceiling = { tables: 6, rows: 51, cells: 252, words: 2220, notes: 10, prose: 300, bytes: 260_000 };
   const now = {
     tables: count(/<table/g),
     rows: count(/<tr/g),
@@ -177,31 +183,20 @@ test("the front page is materially lighter than the version it replaced", live, 
     words: visible(html),
     notes: count(/class="iei-(note|caveat)"/g),
     bytes: html.length,
+    prose: [...html.matchAll(/class="iei-(?:note|caveat|foot)"[^>]*>([\s\S]*?)<\/(?:p|footer|div|figcaption)>/g)]
+      .map((m) => visible(m[1] as string))
+      .reduce((a, b) => a + b, 0),
   };
-  for (const k of Object.keys(audited) as (keyof typeof audited)[]) {
-    assert.ok(now[k] <= audited[k], `${k}: ${now[k]} is not fewer than the ${audited[k]} this pass started from`);
+  for (const k of Object.keys(ceiling) as (keyof typeof ceiling)[]) {
+    assert.ok(now[k] <= ceiling[k], `${k}: ${now[k]} is over the ${ceiling[k]} this page is held to`);
   }
-  // ONE TABLE, and it is the 36-row standings comparison — which is what a table is for. The other three
-  // became lists, so there is one row height, one padding and one hover on the page instead of four.
-  assert.equal(now.tables, 1, `${now.tables} tables on the front page; only the 36-row comparison earns one`);
+  // The pictures' tables are TWINS: each lives inside a <details> and is the exact form of the picture above it. The two tables a reader
+  // meets without opening anything are the 36-row standings comparison (what a table is for) and the people table, whose rows are the finding.
+  const closed = html.replace(/<details[\s\S]*?<\/details>/g, "");
+  assert.equal(count(/<table/g, closed), 2, "a picture's table twin is outside its <details>, or a third table has arrived");
   assert.equal(count(/class="iei-metric"/g), 0, "the front page has metric tiles again");
-  // CONTAINERS AND CELLS ARE HELD HARDEST, because "assembled widgets" is a count of boxes rather than of
-  // words: 325 table cells became 185, and 397 kB of markup became 176 — the 726-district layer was about
-  // 60 kB of that and the tables and repeated chips the rest.
-  assert.ok(now.cells <= audited.cells * 0.65, `${now.cells} table cells, against ${audited.cells} before`);
-  assert.ok(now.bytes <= audited.bytes * 0.55, `${now.bytes} bytes of markup, against ${audited.bytes} before`);
-  // THREE CAVEATS SURVIVE, and each one changes what a figure MEANS rather than explaining the software:
-  // that the party landscape sums elections spanning 2014–2026 and so is not a national vote at one moment;
-  // that no upcoming date was announced by anyone; and that nothing in the shifts module is a prediction.
-  // Everything else — how the arithmetic works, why coverage is honest by construction, which script wrote
-  // which row — went. The ceiling is what stops a fourth arriving without an argument.
-  assert.ok(now.notes <= 3, `${now.notes} prose caveats on the front page`);
-  // And what remains is DATA rather than explanation, which is the brief's actual objective. The three
-  // caveats plus the footer are the page's whole prose budget; everything else is a name, a party or a figure.
-  const prose = [...html.matchAll(/class="iei-(?:note|caveat|foot)"[^>]*>([\s\S]*?)<\/(?:p|footer|div)>/g)]
-    .map((m) => visible(m[1] as string))
-    .reduce((a, b) => a + b, 0);
-  assert.ok(prose <= 90, `${prose} words of explanatory prose on the front page`);
+  // One evidence drawer for the page's geometry, offered once, and a disclosure for a table twin is not one.
+  assert.ok(count(/class="iei-ev(?:\s|")/g) <= 3, "more than three evidence drawers on the front page");
 });
 
 test("the homepage never prints a fabricated figure", live, () => {
@@ -235,35 +230,66 @@ test("the homepage never prints a fabricated figure", live, () => {
   assert.match(t, /No model, no forecast, no probability/, "the disclaimer has been softened");
 });
 
-test("the front page reaches a constituency, not just a state", live, () => {
-  // CLOSEST CONTESTS is the one module this pass ADDED, and this is what it is for: before it, every link on
-  // the landing surface stopped at a state page. Five seats decided by almost nothing, each one a link into
-  // the seat. The rule and threshold are `closeFights`'s and are the same knife-edge rule Watch used to
-  // carry — which is why Watch went from nine rows to four rather than the page growing a section.
+test("the front page reaches a constituency and a person, not just a state", live, () => {
+  // Before the story, every link on the landing surface stopped at a state page. Now there are four doors (a state, an election, a seat, a
+  // person) and the chapters link on: the closest counted results are seats, and the people table links to each member and each seat.
   const html = render("/");
   const t = text(html);
-  assert.match(t, /Closest contests/, "the closest-contests module is missing");
   const seats = [...html.matchAll(/href="\/constituency\/[a-z]{2}\/(?:assembly|lok-sabha)\/[^"]+"/g)];
-  // WHICH SEATS ARE CLOSE is the registry's to say: a seat of an election whose votes polled nothing corroborates
-  // has no margin share, so it is not close, it is unknown. West Bengal 2026 is such an election, and on a
-  // registry whose only assembly is that one there is nothing to rank and the module says so instead.
-  const fights = home.homeView(db, { thisYear: 2026 }).fights;
-  if (fights.length === 0) {
-    assert.equal(seats.length, 0, "the closest-contests module links to seats it was not given");
-    // AND WHAT IT SAYS INSTEAD MUST BE TRUE. It said "No election on record publishes a margin" over a registry in which every
-    // election declares one, in votes: what is missing is the vote counts a margin needs to be a share of votes polled.
-    const declared = all<{ n: number }>(db, "SELECT COUNT(*) AS n FROM result WHERE margin IS NOT NULL")[0]?.n ?? 0;
-    if (declared > 0) assert.doesNotMatch(t, /publishes a margin/, `the module denies margins, and ${declared} result rows declare one`);
-    assert.match(t, /share of votes polled/, "the module does not say what it could not rank by");
-    return;
+  const people = [...html.matchAll(/href="\/p\/[^"]+"/g)];
+  assert.ok(seats.length >= 5, `the front page offers ${seats.length} links to a seat`);
+  assert.ok(people.length >= 1, "the front page offers no link to a person");
+  // A close result states its margin in votes AND as a share of votes polled, so "closest" is arguable rather than asserted; and a margin
+  // an election declared without counts is marked declared, never given a share.
+  assert.match(t, /\d+ votes/, "a close result does not state its margin in votes");
+  assert.match(t, /% of votes polled/, "a close result does not state its margin as a share");
+  const declared = all<{ n: number }>(db, "SELECT COUNT(*) AS n FROM result WHERE margin IS NOT NULL")[0]?.n ?? 0;
+  if (declared > 0) assert.doesNotMatch(t, /publishes a margin/, `the page denies margins, and ${declared} result rows declare one`);
+});
+
+test("the story page draws one bar per election, withholds what was not published, and marks what was declared", live, () => {
+  const html = render("/");
+  const t = text(html);
+  const story = html.slice(0, html.indexOf('id="india"'));
+  const standings = home.homeView(db, { thisYear: 2026 }).standings;
+  const view = storyView(db, { candidates: standings.map((s) => ({ id: s.jurisdictionId, name: s.jurisdictionId })) });
+  assert.ok(view !== null, "the registry has an assembly with results and the page has no story");
+  const n = (re: RegExp, from = story): number => (from.match(re) ?? []).length;
+
+  // One bar per election of the house, each with its half-house line and its place in the arrival order.
+  assert.equal(n(/class="iei-res-bar iei-story-bar"/g), view.houses.length, "not one bar per election");
+  assert.equal(n(/class="iei-story-half"/g), view.houses.length, "a bar has no half-house line");
+  assert.ok(n(/style="--i:\d+"/g) >= view.houses.length, "the bars have no arrival order");
+  assert.equal(n(/class="iei-story-door"/g), view.doors.length, "a door is missing");
+
+  // A circle is drawn for a vote share that exists and for no other: what an election did not publish is a word, never a mark at zero.
+  const published = [...view.votes.lead, ...(view.votes.partner ?? [])].filter((pt) => pt.votePct !== null).length;
+  assert.equal(n(/iei-story-vote"/g), published, "a circle is drawn for votes nobody published, or one that was published is missing");
+  if (!view.countsLatest) {
+    assert.match(t, /votes not reported/, "the vote share of an election with no counts is not said to be unreported");
+    // And every margin of that election in the people table says it is declared.
+    const table = /<table[^>]*iei-story-ptable[^>]*>([\s\S]*?)<\/table>/.exec(story)?.[1] ?? "";
+    const rows = [...table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].slice(1);
+    for (const r of rows) {
+      const last = [...(r[1] as string).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].at(-1)?.[1] ?? "";
+      assert.match(text(last), /declared/, `a ${view.latest.year} margin is not marked declared`);
+    }
   }
-  assert.ok(
-    seats.length >= Math.min(3, fights.length),
-    `the front page offers ${seats.length} links to a seat; the module renders five`,
-  );
-  // Each row states the margin as votes AND as a share, so "closest" is arguable rather than asserted.
-  assert.match(t, /\d+ votes/, "a close fight does not state its margin in votes");
-  assert.match(t, /% of votes polled/, "a close fight does not state its margin as a share");
+
+  // Nothing is printed that is not on record: no 93.0 turnout, no unfilled value, no empty figure.
+  assert.doesNotMatch(story.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, " ").replace(/<[^>]+>/g, " "), /93\.0|turnoutPct/, "the story prints the 93.0 turnout");
+  assert.doesNotMatch(t, /\bNaN\b|\bundefined\b|\bnull\b|\bInfinity\b/, "the page prints an unfilled value");
+
+  // A party's swatch is always followed by its code: the ink is never the only channel.
+  const swatches = n(/<span class="iei-sw"/g);
+  assert.ok(swatches > 0);
+  assert.equal(n(/<span class="iei-sw"[^>]*><\/span>(?=<span class="iei-chip">|<b>|[A-Za-z])/g), swatches, "a swatch is not followed by the party's code");
+
+  // A hand-edited ?story= is ignored: the page tells the same story.
+  const hostile = render("/", "story=%27%3B%20DROP%20TABLE%20election%3B--");
+  const sentence = (h: string): string => /class="iei-answer iei-story-answer"[^>]*>([\s\S]*?)<\/h1>/.exec(h)?.[1] ?? "";
+  assert.ok(sentence(html) !== "", "no sentence");
+  assert.equal(sentence(hostile), sentence(html), "?story= changed the story");
 });
 
 test("the table beside the map prints the seats of the layer it sits beside, and none where the layer names no party", live, () => {
@@ -297,7 +323,9 @@ test("the table beside the map prints the seats of the layer it sits beside, and
   // beside a turnout.
   for (const layer of ["voteshare", "turnout", "margin", "year"]) {
     const html = render("/", `layer=${layer}`);
-    const head = text(/<thead>([\s\S]*?)<\/thead>/.exec(html)?.[1] ?? "").split("\n");
+    // The map's own table, by its label: the page opens on pictures with table twins of their own, and the first <thead> is theirs.
+    const mapTable = html.slice(html.indexOf('aria-label="Every jurisdiction in this layer"'));
+    const head = text(/<thead>([\s\S]*?)<\/thead>/.exec(mapTable)?.[1] ?? "").split("\n");
     assert.deepEqual(head, ["State / UT", "Value", "Elected"], `${layer}'s table has columns that belong to another layer`);
     for (const [j, cells] of rows(html)) assert.equal(cells.length, 3, `${j}: ${cells.join(" | ")}`);
   }
@@ -327,7 +355,7 @@ test("an unshaded jurisdiction is called not loaded where no election is and has
 
 test("a party's row says what its figures count, and does not say 'one election' beside an assembly seat total", live, () => {
   const html = render("/");
-  const section = /id="parties"([\s\S]*?)id="fights"/.exec(html)?.[1] ?? "";
+  const section = /id="parties"([\s\S]*?)<\/section>/.exec(html)?.[1] ?? "";
   const rows = [...section.matchAll(/<li id="[^"]*">([\s\S]*?)<\/li>/g)].map((m) => text(m[1] as string).replace(/\n/g, " "));
   assert.ok(rows.length > 0, "the party landscape has no rows");
   for (const row of rows) {

@@ -1,5 +1,12 @@
 # Phase 2 — the India front page
 
+> **Restructured 2026-10-29.** `/` now opens on one computed sentence about the one state that has results, the four houses that prove it,
+> four doors into the record, and a chapter for each question the sentence raises (What changed, Where, Votes and seats, How close,
+> People). The map, the upcoming and recent elections and the party landscape described below are the coda under `#india`. "Closest
+> contests" and "Notable shifts" are gone: their facts are the How close and What changed chapters. The story is chosen by rule
+> (`repo/home-story.ts`) and drawn by `components/iei/Story.tsx`; nothing in either names a state or a party. The rest of this document
+> records the page as first built and is still right about the data contract and the defects it uncovered.
+
 Built **2026-08-12**, in eight commits, on top of the registry Phase 1.5 finished. `/` is no longer West
 Bengal's results with a national frame drawn around them; it is the country as a place to choose from.
 
