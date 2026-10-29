@@ -70,10 +70,11 @@ export function SeatArc({
   const lead = arc.leader;
   const named = arc.parties.slice(0, KEY_LIMIT);
   const folded = arc.parties.slice(KEY_LIMIT);
+  const foldedSeats = folded.reduce((n, p) => n + p.n, 0);
 
   const summary =
     `Seats by party: ${arc.parties.map((p) => `${p.label} ${p.n}`).join(', ')}` +
-    `${arc.undeclared === 0 ? '' : `, ${arc.undeclared} with no declared winner`}. ${arc.total} seats${
+    `${arc.undeclared === 0 ? '' : `, ${arc.undeclared} with no declared winner`}. ${arc.total} seat${arc.total === 1 ? '' : 's'}${
       arc.majority === null ? '' : `, majority ${arc.majority}`
     }.`;
 
@@ -151,7 +152,7 @@ export function SeatArc({
           {folded.length === 0 ? null : (
             <li className="iei-arc-rest">
               + {IN.format(folded.length)} smaller {folded.length === 1 ? 'party' : 'parties'} ·{' '}
-              {IN.format(folded.reduce((n, p) => n + p.n, 0))} seats
+              {IN.format(foldedSeats)} {foldedSeats === 1 ? 'seat' : 'seats'}
             </li>
           )}
           {arc.undeclared === 0 ? null : (

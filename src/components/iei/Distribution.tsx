@@ -173,7 +173,7 @@ function distLabel(bins: readonly MarginBin[], total: number): string {
   const tight = bins.filter((b) => b.lo < 6).reduce((n, b) => n + b.n, 0);
   const wide = bins.filter((b) => b.lo >= 20).reduce((n, b) => n + b.n, 0);
   return (
-    `Distribution of winning margins across ${IN.format(total)} seats. ` +
+    `Distribution of winning margins across ${IN.format(total)} ${total === 1 ? 'seat' : 'seats'}. ` +
     `${IN.format(tight)} were decided by under 6 percentage points of the votes polled; ` +
     `${IN.format(wide)} by 20 points or more. Each bar links to those seats.`
   );
@@ -541,7 +541,7 @@ export function MarginBands({
 }
 
 function bandLabel(bands: readonly { label: string; n: number }[], total: number): string {
-  return `Winning margins across ${total} seats: ${bands
+  return `Winning margins across ${total} ${total === 1 ? 'seat' : 'seats'}: ${bands
     .filter((b) => b.n > 0)
     .map((b) => `${b.n} decided by ${b.label}`)
     .join('; ')}.`;

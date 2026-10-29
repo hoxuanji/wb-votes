@@ -154,7 +154,7 @@ test("with no seat in any band the bands are a sentence, and with one seat they 
     { component: "MarginBands", props: { bands: bands([0, 1, 0, 0, 0]) } },
   ]) as [string, string];
   assertSentence(none, "all bands empty");
-  assert.match(one, /^<div class="iei-bands"><div class="iei-bands-bar" role="group" aria-label="Winning margins across 1 seats: 1 decided by band 1to2\.">/);
+  assert.match(one, /^<div class="iei-bands"><div class="iei-bands-bar" role="group" aria-label="Winning margins across 1 seat: 1 decided by band 1to2\.">/);
   assert.match(one, /<ul class="iei-bands-key">/);
 });
 

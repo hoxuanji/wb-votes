@@ -353,12 +353,12 @@ function Body({
         </DataList>
       </Panel>
 
-      <footer className="iei-foot">
+      <div className="iei-foot">
         <p>
           Every figure here is computed when the page is requested. The model behind these tables is{' '}
           <code>docs/platform/00-model.md</code>. <Link href="/">India</Link>
         </p>
-      </footer>
+      </div>
     </>
   );
 }

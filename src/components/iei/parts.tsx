@@ -428,8 +428,8 @@ export function Change({ value, unit = '', absent = 'n/a' }: { value: number | n
 /**
  * A strip of mutually exclusive choices, as plain links.
  *
- * One primitive for three things that were three implementations: the map's layer strip, the history
- * house switch, and `/pl`'s Brief/Analysis lens. Links, not buttons, so the choice is URL state — a view
+ * One primitive for every such strip, where there were once three implementations: the map's layer strip,
+ * the history house switch, the Brief/Analysis lens of a place. Links, not buttons, so the choice is URL state — a view
  * can be sent to someone, survives a reload, and works with JavaScript off.
  *
  * A choice with nothing behind it is offered as UNAVAILABLE rather than hidden or rendered as "coming

@@ -345,10 +345,10 @@ function parentView(
     headline:
       rows.length === 0
         ? `No assembly seat in ${place.name} has a contest on record.`
-        : `${place.name} has ${inr(rows.length)} assembly seats` +
+        : `${place.name} has ${inr(rows.length)} assembly seat${rows.length === 1 ? "" : "s"}` +
           (lead === undefined
             ? `, and no declared winner in ${year}.`
-            : `; ${lead[0]} won ${inr(lead[1])} of them in ${year}.`),
+            : `; ${lead[0]} won ${rows.length === 1 ? "it" : `${inr(lead[1])} of them`} in ${year}.`),
     children: {
       caption:
         `Every assembly seat in ${place.name} with its ${year} result — ` +
