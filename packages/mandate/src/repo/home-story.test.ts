@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { existsSync, readFileSync } from "node:fs";
 import { DEV_DB_PATH, openRead } from "../db/open.ts";
-import { all } from "../db/index.ts";
+import { all, get } from "../db/index.ts";
 import { storyView } from "./home-story.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
@@ -114,4 +114,20 @@ test("the story reads no turnout: the word is nowhere in the code that builds it
     .replace(/\/\*[\s\S]*?\*\//g, "")
     .replace(/^\s*\/\/.*$/gm, "");
   assert.doesNotMatch(code, /turnoutPct|\.turnout\b|electors/, "home-story.ts reads a turnout or an electors figure");
+});
+
+test("the story is the reader's state when they chose one and the most recent election when they did not, and the view says which", live, () => {
+  const c = candidates();
+  const byDefault = storyView(db, { candidates: c })!;
+  assert.equal(byDefault.basis, "latest");
+  assert.equal(byDefault.choices, c.length, "the view does not say how many states there were to choose between");
+  // The default is a rule about the data: no candidate has a more recent election than the one shown.
+  const year = (id: string): number => (get<{ y: number }>(db, "SELECT MAX(year) AS y FROM election WHERE jurisdiction_place_id = ? AND house = 'ac'", id) as { y: number }).y;
+  assert.ok(c.every((x) => year(x.id) <= year(byDefault.jurisdiction.id)), "a more recent election than the default's exists");
+  for (const x of c) {
+    const asked = storyView(db, { candidates: c, chosen: x.id })!;
+    assert.equal(asked.basis, "asked");
+    assert.equal(asked.jurisdiction.id, x.id, "the reader's state was not the one shown");
+  }
+  assert.equal(storyView(db, { candidates: c, chosen: "zz" })?.basis, "latest", "an unknown state was taken for a choice");
 });

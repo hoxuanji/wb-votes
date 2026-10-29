@@ -8,12 +8,15 @@ import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
 import { readAsk, readSelection, queryHref } from '../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../packages/mandate/src/repo/session.ts';
 import { storyView } from '../../packages/mandate/src/repo/home-story.ts';
+import { glanceOf, indiaSentence, stateChoice } from '../../packages/mandate/src/repo/home-glance.ts';
+import type { Cell } from '../../packages/mandate/src/repo/home.ts';
 import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
 import { Foot, Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
 import {
   HomeReach,
+  StateCard,
   StoryCannot,
   StoryChanged,
   StoryClose,
@@ -125,9 +128,10 @@ export default function Home({
   // says so with the command that fixes it rather than rendering a 500. Anything else is thrown.
   const read = readRegistry((db) => {
     const home = homeView(db, { layer: ask.get('layer'), thisYear: THIS_YEAR });
-    // `?story=` names a jurisdiction to tell the story of once more than one is loaded. It is looked up among the jurisdictions the
-    // registry has results for and used nowhere else, so a hand-edited value is ignored and never reaches SQL.
-    const asked = searchParams?.story;
+    // `?state=` is the state the reader chose on the map. It is looked up among the jurisdictions the registry has results for (and, for the card,
+    // among all of them) and used nowhere else, so a hand-edited value is ignored and never reaches SQL. Without one the story is of the most
+    // recent election on record, by a rule that is about the data (repo/home-story.ts), and the page says so.
+    const asked = searchParams?.state;
     const story = storyView(db, {
       candidates: home.standings.map((st) => ({ id: st.jurisdictionId, name: nameOf(home, st.jurisdictionId) })),
       chosen: typeof asked === 'string' ? asked : null,
@@ -163,6 +167,15 @@ export default function Home({
   // Only a layer that colours a party has a party in each row for a seat count to belong to.
   const seated = v.layer.encoding === 'categorical';
 
+  // The whole country first: every jurisdiction with a result, side by side, and the state the reader chose.
+  const askedState = typeof searchParams?.state === 'string' ? searchParams.state : null;
+  const rows = glanceOf({ standings: v.standings, houseStandings: v.houseStandings });
+  const chosen = stateChoice({ standings: v.standings, houseStandings: v.houseStandings, states: v.states }, askedState);
+  const choose = (c: Cell): string => queryHref('/', ask, { state: c.jurisdictionId }, 'map');
+  const chooseId = (id: string): string => queryHref('/', ask, { state: id }, 'map');
+  const clearHref = queryHref('/', ask, { state: '' }, 'map');
+  const selectedId = chosen === null ? null : chosen.status === 'loaded' ? chosen.row.id : chosen.id;
+
   const reach = [
     { label: 'States and territories with results', have: s.jurisdictionsWithResults, of: s.jurisdictionsTotal, unit: '' },
     { label: 'Assembly seats', have: s.assemblySeatsHeld, of: s.assemblySeatsTotal, unit: 'seats' },
@@ -175,50 +188,19 @@ export default function Home({
 
   return (
     <Shell here="india" live={s.live}>
-      {story === null ? (
-        /* No assembly result on record, so there is no story to tell: the page keeps a plain title over the reference layer. */
+      {/* ── THE COUNTRY FIRST. The page used to open on one state's story, which made that state the page's subject; it opens on India now, with every
+          state that has a result in one glance, and a state's story is what the reader's choice (or, failing one, the most recent election) opens
+          below the map. ── */}
+      <div id="india">
         <div className="iei-head">
           <p className="iei-eyebrow">India</p>
           <h1 className="iei-answer">The electoral landscape</h1>
+          <p className="iei-story-lead">{indiaSentence(rows, s.jurisdictionsTotal)}</p>
           <p className="iei-sub">
-            {v.headline}{' '}
-            {s.elections === 0 || s.earliestYear === null ? null : (
-              <>
-                {IN.format(s.elections)} {s.elections === 1 ? 'election' : 'elections'} on record since {s.earliestYear}.
-              </>
-            )}
+            Choose a state on the map to see its latest election; the rest are names and seat counts. <b>Nothing here is a prediction.</b> No model, no forecast, no
+            probability.
           </p>
         </div>
-      ) : (
-        <>
-          {/* ── the story: the sentence, the proof beside four doors, then one chapter per question ── */}
-          <StoryHead view={story} reach={{ withResults: s.jurisdictionsWithResults, total: s.jurisdictionsTotal }} />
-          <div className="iei-story-fold">
-            <StoryHouses view={story} />
-            <StoryDoors view={story} />
-          </div>
-          <StoryChanged view={story} />
-          <StoryWhere view={story} />
-          <StoryVotes view={story} />
-          <StoryClose view={story} />
-          <StoryPeople view={story} />
-          <StoryCannot view={story} />
-        </>
-      )}
-
-      {/* ── the coda: everything else the registry holds, and the map that used to open the page ── */}
-      <div id="india">
-        {story === null ? null : (
-          <div className="iei-head">
-            <p className="iei-eyebrow">On record</p>
-            <p className="iei-story-coda-lead">
-              Everything else the registry holds. Only {s.jurisdictionsWithResults} of {s.jurisdictionsTotal} states and territories{' '}
-              {s.jurisdictionsWithResults === 1 ? 'has' : 'have'} results; the rest are names and seat counts. <b>Nothing here is a prediction.</b>{' '}
-              No model, no forecast, no probability.
-            </p>
-            <HomeReach reach={reach} />
-          </div>
-        )}
 
       {/* ── the map: the product's primary analytical instrument, and its primary navigation ── */}
       <Panel
@@ -241,9 +223,10 @@ export default function Home({
         />
 
         <div className="iei-linked iei-map-split">
-          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} />
+          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} hrefFor={choose} selectedId={selectedId} />
 
           <div>
+            <StateCard rows={rows} chosen={chosen} hrefFor={chooseId} clearHref={clearHref} storyHere={story?.jurisdiction.id ?? null} />
             {/* A CONTEXTUAL LEGEND, and an interactive one. It names the parties this layer actually shows —
                 not three slots and an "Others" bucket, and not every party in the registry — and each entry is
                 a link that isolates that party on the map. The isolation is URL state, so it is shareable and
@@ -360,7 +343,7 @@ export default function Home({
                 return (
                   <tr key={c.jurisdictionId} data-j={c.jurisdictionId} className={muted ? 'iei-legend-off' : undefined}>
                     <th scope="row">
-                      <Link href={c.href}>{c.jurisdictionName}</Link>
+                      <Link href={choose(c)}>{c.jurisdictionName}</Link>
                     </th>
                     <td>
                       {c.label === null ? (
@@ -393,7 +376,7 @@ export default function Home({
                 <ul>
                   {bare.map((c) => (
                     <li key={c.jurisdictionId}>
-                      <Link href={c.href}>{c.jurisdictionName}</Link>
+                      <Link href={choose(c)}>{c.jurisdictionName}</Link>
                     </li>
                   ))}
                 </ul>
@@ -402,6 +385,31 @@ export default function Home({
           </div>
         </div>
       </Panel>
+
+
+        {/* How much of the country the registry holds, said once with true denominators, under the map that shows which part. */}
+        <div className="iei-head iei-story-reachwrap">
+          <p className="iei-eyebrow">How much of India the registry holds</p>
+          <HomeReach reach={reach} />
+        </div>
+      </div>
+
+      {/* ── the chosen state's latest election, or the most recent on record: the sentence, the proof beside four doors, then one chapter per question ── */}
+      {story === null ? null : (
+        <>
+          <StoryHead view={story} />
+          <div className="iei-story-fold">
+            <StoryHouses view={story} />
+            <StoryDoors view={story} />
+          </div>
+          <StoryChanged view={story} />
+          <StoryWhere view={story} />
+          <StoryVotes view={story} />
+          <StoryClose view={story} />
+          <StoryPeople view={story} />
+          <StoryCannot view={story} />
+        </>
+      )}
 
       {/* ── what is coming, and what has just been decided ── */}
       <div className="iei-two iei-two-wide" id="elections">
@@ -587,8 +595,6 @@ export default function Home({
           ))}
         </DataList>
       </Panel>
-
-      </div>
 
       <Foot />
     </Shell>

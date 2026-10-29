@@ -801,10 +801,11 @@ test("homeView renders for every layer, and falls back rather than throwing on a
       Object.keys(homeView(d, { thisYear: THIS_YEAR })).sort(),
       // No `ink`. A party's colour is a pure function of its key now (viz/party-ink.ts), so there is nothing
       // to thread through a view model — which is the shape of the fix as well as its consequence.
+      // `houseStandings` arrived with the front page's glance: every state's latest Lok Sabha slice beside its latest assembly election.
       // `fights` and `heldTop` arrived with the final design pass: the front page reaches a SEAT now (five
       // closest contests, each a link to a constituency) and a recent-result card names a runner-up, because
       // "BJP 240" alone does not tell a reader what the election was.
-      ["announced", "coverageOf", "fights", "headline", "held", "heldTop", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
+      ["announced", "coverageOf", "fights", "headline", "held", "heldTop", "houseStandings", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
       "homeView returns something the page does not render, or has stopped returning something it does",
     );
   } finally {

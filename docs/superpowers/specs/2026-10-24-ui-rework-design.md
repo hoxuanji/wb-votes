@@ -227,9 +227,12 @@ picture each, keeps the exact table of every picture, and says what its record c
 
 **What changed**
 
-- **`/`** opens on the story of the one state that has results (repo/home-story.ts picks it by rule): four houses on one scale with a half-house line,
-  four doors, and chapters for what changed, where, votes against seats, how close, and who was always there. The map, the elections and the parties
-  are the coda.
+- **`/`** opens on the country (changed the same day, after review: a page that opened on one state's story had made that state its subject). A
+  sentence about India that names every state with a result, the map, and beside it a card that is a glance at every state's latest election (most
+  recent first, then by name, never by size) until the reader chooses a state, and then that state's highlight. A click or a row choose a state through
+  `?state=`; hover keeps the map's card and lights the matching row. Below the map is the chosen state's story (repo/home-story.ts): four houses on one
+  scale with a half-house line, four doors, and chapters for what changed, where, votes against seats, how close, and who was always there. With no
+  choice it is the most recent election on record, and the page says so; with one state loaded it says that state is the only one.
 - **The seat page** leads with a finding (rise, narrow, hands, hold, lone or the old headline), a hero margin with the previous election's margin and a
   trend line in which a declared figure is a hollow ring, the winner's share against half the votes polled, every election on one scale, the whole 2026
   field with what each candidate declared, and the Flagged rules evaluated over every election. Every 2026 candidate is a link.

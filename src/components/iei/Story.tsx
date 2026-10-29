@@ -5,6 +5,7 @@ import type { HouseSeg } from '../../../packages/mandate/src/viz/story.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { electionHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
 import type { StoryDistrict, StoryParty, StoryView, StoryVote } from '../../../packages/mandate/src/repo/home-story.ts';
+import type { GlanceRow, StateChoice } from '../../../packages/mandate/src/repo/home-glance.ts';
 import { DataList, DataRow, Panel, Table } from './parts.tsx';
 import { SeatFlow } from './SeatFlow.tsx';
 import { MarginDistribution } from './Distribution.tsx';
@@ -58,7 +59,7 @@ const joinNames = (names: readonly string[]): string =>
 
 /* ───────────────────────────── the answer ───────────────────────────── */
 
-export function StoryHead({ view, reach }: { view: StoryView; reach: { withResults: number; total: number } }) {
+export function StoryHead({ view }: { view: StoryView }) {
   const { lead, sentence: s } = view;
   const earlier = s.earlier.map((e) =>
     e.seats === 0 ? (
@@ -69,13 +70,19 @@ export function StoryHead({ view, reach }: { view: StoryView; reach: { withResul
       </>
     ),
   );
+  // Why this state is the one shown, said every time: a page that shows one state owes the reader the reason.
+  const why =
+    view.basis === 'asked'
+      ? 'Chosen on the map. Choose another state there to see its latest election here.'
+      : view.choices > 1
+        ? 'Showing the most recent election on record. Choose another state on the map to see its latest election here.'
+        : `${view.jurisdiction.name} is the only state with an assembly result on record, so it is the one shown here.`;
   return (
-    <div className="iei-head iei-story-head">
+    <div className="iei-head iei-story-head" id="state">
       <p className="iei-eyebrow">
-        India · {reach.withResults} of {reach.total} states and territories {reach.withResults === 1 ? 'has' : 'have'} results ·{' '}
-        <Link href="#india">the rest</Link>
+        {view.jurisdiction.name} · latest assembly election, {view.latest.year}
       </p>
-      <h1 className="iei-answer iei-story-answer">
+      <h2 className="iei-story-lead iei-story-sentence">
         <Party p={lead} bold /> won <b>{s.seats}</b> of {view.jurisdiction.name}&rsquo;s <b>{view.total}</b> seats in {view.latest.year}
         {s.direction === null || earlier.length === 0 ? null : (
           <>
@@ -83,9 +90,92 @@ export function StoryHead({ view, reach }: { view: StoryView; reach: { withResul
           </>
         )}
         .
-      </h1>
+      </h2>
       <p className="iei-sub">{view.scope}</p>
+      <p className="iei-note">{why}</p>
     </div>
+  );
+}
+
+/* ───────────────────────────── the whole country, and the state chosen in it ───────────────────────────── */
+
+const houseLine = (label: string, h: GlanceRow['assembly']): ReactNode =>
+  h === null ? (
+    <span className="iei-absent">no {label} result on record</span>
+  ) : h.leader === null ? (
+    <>
+      {label} {h.year}: <span className="iei-absent">no winner declared</span>
+    </>
+  ) : (
+    <>
+      {label} {h.year}: <Party p={h.leader} /> <b>{h.seats}</b> of {h.of}
+      {h.majority ? ' · majority' : ' · no majority'}
+    </>
+  );
+
+/**
+ * The card beside the map, and it is two things on purpose. With no state chosen it is a GLANCE: the latest election of every state that has one, in one
+ * order that judges none of them (home-glance.ts). With a state chosen it is that state's HIGHLIGHT: its latest assembly election and its slice of the latest
+ * Lok Sabha, and the ways on. Either way a state is a link, so the choice is in the URL and costs no script; hovering the map or a row lights the other.
+ */
+export function StateCard({
+  rows,
+  chosen,
+  hrefFor,
+  clearHref,
+  storyHere,
+}: {
+  rows: readonly GlanceRow[];
+  chosen: StateChoice | null;
+  hrefFor: (id: string) => string;
+  clearHref: string;
+  /** The state the section below the map is about, so the card can point at it. */
+  storyHere: string | null;
+}) {
+  if (chosen !== null) {
+    const name = chosen.status === 'loaded' ? chosen.row.name : chosen.name;
+    return (
+      <section className="iei-story-card" aria-label={`Latest elections in ${name}`}>
+        <p className="iei-eyebrow">{name}</p>
+        {chosen.status === 'loaded' ? (
+          <>
+            <p className="iei-story-card-l">{houseLine('Assembly', chosen.row.assembly)}</p>
+            <p className="iei-story-card-l">{houseLine('Lok Sabha', chosen.row.loksabha)}</p>
+          </>
+        ) : (
+          <p className="iei-story-card-l">
+            <span className="iei-absent">No election result is on record for {name} yet.</span>{' '}
+            {chosen.seats === null ? null : `Its assembly has ${IN.format(chosen.seats)} seats in the reference data.`}
+          </p>
+        )}
+        <p className="iei-story-card-go">
+          <Link href={stateHref(chosen.status === 'loaded' ? chosen.row.id : chosen.id)}>Open {name}</Link>
+          {storyHere !== null && chosen.status === 'loaded' && storyHere === chosen.row.id ? <Link href="#state">Its latest election, below</Link> : null}
+          <Link href={clearHref}>All states</Link>
+        </p>
+      </section>
+    );
+  }
+  return (
+    <section className="iei-story-card" aria-label="Latest elections, state by state">
+      <p className="iei-eyebrow">Latest elections, state by state</p>
+      {rows.length === 0 ? (
+        <p className="iei-absent">No election result is on record yet.</p>
+      ) : (
+        <ul className="iei-story-glance">
+          {rows.map((r) => (
+            <li key={r.id} data-j={r.id}>
+              <Link href={hrefFor(r.id)} className="iei-story-gname">
+                {r.name}
+              </Link>
+              <span className="iei-story-gl">{houseLine('Assembly', r.assembly)}</span>
+              <span className="iei-story-gl">{houseLine('Lok Sabha', r.loksabha)}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+      <p className="iei-note">Most recent election first, then by name. Choose a state on the map or here to see its latest election.</p>
+    </section>
   );
 }
 

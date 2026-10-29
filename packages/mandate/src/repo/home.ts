@@ -1437,6 +1437,8 @@ export type HomeView = {
   headline: string;
   states: readonly JurisdictionState[];
   standings: readonly Standing[];
+  /** Each jurisdiction's slice of the latest Lok Sabha, in the shape of an assembly standing: with `standings`, the front page's glance. */
+  houseStandings: readonly Standing[];
   layer: Layer;
   layers: readonly { key: LayerKey; label: string; available: boolean }[];
   /** Announced by the Commission. Empty until the ECI schedule is ingested. */
@@ -1494,6 +1496,7 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     headline: headline(snap, parties),
     states: sp.states,
     standings: sp.standings,
+    houseStandings: sp.houseStandings,
     layer: chosen,
     layers,
     announced: next.announced,

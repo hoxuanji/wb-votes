@@ -1,13 +1,17 @@
-// What the front page says first: one finding about one state's assembly, the pictures that prove it, and the doors into the record.
+// What the front page says about ONE state, once the reader has the whole country in front of them: one finding about its latest assembly election, the
+// pictures that prove it, and the doors into the record.
 //
-// THE STORY IS CHOSEN BY RULE, NEVER BY NAME. Among the jurisdictions the page may speak of, those with at least two full-house assembly
-// elections in the newest epoch come first; among them the party that gained most seats between its last two elections is the lead (ties
-// by the larger latest count, then by key), and the partner is the party that lost most seats to it. Loading Kerala's history changes the
-// sentence without a line of UI changing; a registry with one election tells a one-election story, and one with none returns null.
+// WHICH STATE. The reader's, when they chose one (`chosen`, looked up among the jurisdictions that have a result and nowhere else). When they have not, the
+// most recent election on record: a rule about the data and not about any state, said on the page ("showing the most recent election on record; choose
+// another on the map") and never "the biggest" or "the one that moved most". With one state loaded there is nothing to choose, and the page says that.
 //
-// WHAT IT NEVER READS: an election's `turnoutPct` (West Bengal 2026's 93.0 is a defect), a count for an election that published none, or a
-// candidacy's status (193 elected, one of them in a seat the result table does not declare; the result table's 192 is the count). Seats
-// are counted from declared winners only, and every figure about 2026 votes is null because there are none.
+// WITHIN A STATE the lead party is chosen by rule, never by name: the party that gained most seats between its last two elections in the newest epoch (ties by
+// the larger latest count, then key), and the partner is the party that lost most seats to it. Loading Kerala's history changes the sentence without a line
+// of UI changing; a registry with one election tells a one-election story, and one with none returns null.
+//
+// WHAT IT NEVER READS: an election's `turnoutPct` (West Bengal 2026's 93.0 is a defect), a count for an election that published none, or a candidacy's status
+// (193 elected, one of them in a seat the result table does not declare; the result table's 192 is the count). Seats are counted from declared winners only,
+// and every figure about 2026 votes is null because there are none.
 
 import type { DatabaseSync } from "node:sqlite";
 import { read } from "./index.ts";
@@ -80,6 +84,10 @@ export type StoryDoor = { door: "state" | "election" | "seat" | "person"; title:
 
 export type StoryView = {
   jurisdiction: { id: string; name: string };
+  /** The reader chose this state, or it is the most recent election on record because they did not. */
+  basis: "asked" | "latest";
+  /** How many jurisdictions have a story to choose between; with one, there is nothing to choose. */
+  choices: number;
   total: number;
   latest: { id: string; year: number };
   lead: StoryParty;
@@ -156,15 +164,9 @@ export function storyView(
       return pick === null ? [] : [{ ...pick, name: c.name }];
     });
     const asked = picks.find((x) => x.t.jurisdictionId === p.chosen);
-    const best =
-      asked ??
-      [...picks].sort(
-        (a, b) =>
-          Number(b.ladder.length >= 2) - Number(a.ladder.length >= 2) ||
-          (b.gain ?? 0) - (a.gain ?? 0) ||
-          b.latest - a.latest ||
-          byKey(a.party.key, b.party.key),
-      )[0];
+    // No choice: the most recent election, then the name. A rule about the data, which judges none of the states.
+    const recency = (x: (typeof picks)[number]): number => x.t.elections.at(-1)?.year ?? 0;
+    const best = asked ?? [...picks].sort((a, b) => recency(b) - recency(a) || byKey(a.name, b.name))[0];
     if (best === undefined) return null;
 
     const { ladder, party: leadTraj } = best;
@@ -389,6 +391,8 @@ export function storyView(
 
     return {
       jurisdiction: { id: jid, name: best.name },
+      basis: asked === undefined ? "latest" : "asked",
+      choices: picks.length,
       total: newest.seats,
       latest: { id: newest.id, year: newest.year },
       lead,

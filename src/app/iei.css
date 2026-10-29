@@ -3923,11 +3923,13 @@ ul.iei-tiles b {
    token, every ink is a token, and the only motion is the ladder's: its four bars are `.iei-res-bar`s, which already wipe in, and the
    delay below puts them in election order. */
 
-.iei-story-answer {
+.iei-story-sentence {
   max-width: 56ch;
+  font-size: var(--iei-f-lead);
+  font-weight: 650;
 }
 
-.iei-story-answer .iei-sw {
+.iei-story-sentence .iei-sw {
   width: 0.42em;
   height: 0.42em;
   margin-right: 0.2em;
@@ -6178,4 +6180,102 @@ ul.iei-tiles b {
 
 #tables .iei-scroll {
   margin-bottom: var(--iei-8);
+}
+
+/* The card beside the map: a glance at every state with a result, or the one state the reader chose. */
+.iei-story-card {
+  margin-bottom: var(--iei-4);
+  padding: var(--iei-3) var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+}
+
+.iei-story-card .iei-eyebrow {
+  margin: 0 0 var(--iei-2);
+}
+
+.iei-story-card .iei-note {
+  margin: var(--iei-3) 0 0;
+}
+
+.iei-story-card-l {
+  margin: var(--iei-1) 0;
+  font-size: var(--iei-f-body);
+  color: var(--iei-ink-2);
+}
+
+.iei-story-card-l b,
+.iei-story-gl b {
+  font-family: var(--iei-mono);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink);
+}
+
+.iei-story-card-go {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1) var(--iei-4);
+  margin: var(--iei-3) 0 0;
+  font-size: var(--iei-f-data);
+}
+
+.iei-story-card-go a,
+.iei-story-gname {
+  color: var(--iei-ink);
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-story-card-go a:hover,
+.iei-story-gname:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-story-card-go a:focus-visible,
+.iei-story-gname:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-story-glance {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.iei-story-glance li {
+  display: grid;
+  grid-template-columns: 8rem minmax(0, 1fr);
+  column-gap: var(--iei-3);
+  padding: var(--iei-2) var(--iei-1);
+  border-top: 1px solid var(--iei-line);
+}
+
+.iei-story-gname {
+  grid-row: 1 / span 2;
+  align-self: start;
+  width: fit-content;
+  font-weight: 600;
+}
+
+.iei-story-gl {
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+/* The chosen state on the map: an outline in the interface's own ink, the same treatment as a located seat. */
+.iei-map svg .iei-map-fills a > path.iei-map-sel {
+  stroke: var(--iei-ink);
+  stroke-width: 2;
+  vector-effect: non-scaling-stroke;
+}
+
+.iei-story-reachwrap {
+  border-top: 1px solid var(--iei-line);
+  border-bottom: none;
+}
+
+.iei-story-reachwrap .iei-story-reach {
+  margin-bottom: var(--iei-3);
 }
