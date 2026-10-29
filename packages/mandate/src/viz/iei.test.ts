@@ -225,6 +225,7 @@ test("every length in the stylesheet comes from the scale", () => {
     "44px", // the minimum width of a magnitude track
     "320px", // the map's minimum column before the split stacks
     "640px", // the authored width of a chart's viewBox, so its type is not scaled up
+    "500px", // a window this short (a phone on its side, a laptop at 400% zoom) drops the sticky top bar: it would keep a quarter of the screen for good
     "200px", // the narrowest a metric tile may be before the grid drops a column
     "140px", // the narrowest a district name may be laid out in before the state page's grid drops a column.
              // A mark, not spacing: it is the measure of the longest district name the registry holds

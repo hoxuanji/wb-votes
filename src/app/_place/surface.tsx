@@ -202,7 +202,6 @@ export async function PlaceSurface({
             caption={view.children.caption}
             captionVisible
             tight={view.children.rows.length > 20}
-            tall={view.children.rows.length > 24}
             head={view.children.headers.map((h, i) => (
               <th scope="col" className={view.children.numeric[i] === true ? "iei-n" : undefined} key={h}>
                 {h}
