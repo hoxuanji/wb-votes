@@ -6,7 +6,6 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { DEV_DB_PATH, open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { turnout_pct } from "../semantic/index.ts";
 import { pathQuery } from "./legacy.ts";
 import { analysisCards, anomalies, placeTiles } from "./place-presentation.ts";
 import type { PlaceQuery } from "./place-resolve.ts";
@@ -143,7 +142,7 @@ test("analysisCards: six to twelve question-titled cards, each with a table", li
   }
   // the ENP caveat is ON the card, not in a footnote
   const enpCard = cards.find((c) => /how many parties/i.test(c.question));
-  assert.match(enpCard?.note ?? "", /OVERSTATES concentration/);
+  assert.match(enpCard?.note ?? "", /overstates how concentrated/);
 });
 
 test("analysisCards: a one-election window has no swing card, and does not fake one", live, async () => {
@@ -157,7 +156,7 @@ test("analysisCards: a one-election window has no swing card, and does not fake 
 });
 
 test("analysisCards: the share chart reconciles with the data when two contestants share a label", live, async () => {
-  // Kalimpong 2021: IND 37.6% (RUDEN SADA LEPCHA), BJP 35.1%, IND 20.6% (DR. R.B. BHUJEL), rest 2.3%.
+  // Kalimpong 2021: IND 37.6% (RUDEN SADA LEPCHA), BJP 35.1%, IND 20.6% (DR. R.B. BHUJEL), IND 2.3%.
   // Keying the series by label and taking the FIRST match dropped the third-placed 20.6% out of the
   // chart and out of the Others bucket both, so the rendered row totalled 75.0% against 95.6%.
   const v = await placeView(pathOf("wb", "kalimpong", "kalimpong"), {});
@@ -174,7 +173,26 @@ test("analysisCards: the share chart reconciles with the data when two contestan
     data.parties.reduce((s, p) => s + (p.voteSharePct ?? 0), 0) + (data.others?.voteSharePct ?? 0);
   assert.ok(Math.abs(drawn - recorded) <= 0.2, `chart ${drawn} vs data ${recorded}`);
   assert.equal(drawn.toFixed(1), "95.6");
-  assert.deepEqual(row, ["2021", "—", "58.2%", "35.1%", "2.3%"], "the two independents are summed, not dropped");
+  // Every candidate on record is a column of the table, so the fourth independent, which the fold used to put in the
+  // bucket, is summed into IND with the other two: 37.6 + 20.6 + 2.3.
+  assert.deepEqual(share.chart.table.headers, ["Election", "BGPM", "IND", "BJP", "INC", "CPI"]);
+  assert.deepEqual(row, ["2021", "—", "60.5%", "35.1%", "—", "—"], "the independents are summed, not dropped");
+});
+
+test("analysisCards: a swing row whose label repeats says its earlier share is not matched, not that nothing was reported", live, async () => {
+  // Kalimpong 2016 ran four independents. Beside each of 2021's the earlier share is blank for the reason the note gives,
+  // and the cell says so in words, where a dash would read as a party that was absent.
+  const v = await placeView(pathOf("wb", "kalimpong", "kalimpong"), {});
+  assert.equal(v.kind, "ac");
+  if (v.kind !== "ac") return;
+  const card = analysisCards(v.analysis).find((c) => /between 2016 and 2021/.test(c.question));
+  assert.ok(card);
+  const ind = card.chart.table.rows.filter((r) => r[0]?.startsWith("IND") === true);
+  assert.ok(ind.length > 1);
+  for (const r of ind) assert.deepEqual([r[1], r[3]], ["not matched", "no swing"]);
+  // A party that is simply not in the earlier field is not described that way.
+  const bjp = card.chart.table.rows.find((r) => r[0] === "BJP");
+  assert.notEqual(bjp?.[1], "not matched");
 });
 
 test("analysisCards: a party-filtered pair says the party has no earlier share, not that votes are missing", live, async () => {
@@ -184,19 +202,18 @@ test("analysisCards: a party-filtered pair says the party has no earlier share, 
   const card = analysisCards(v.analysis).find((c) => /between 2011 and 2016/.test(c.question));
   assert.ok(card);
   // Mekliganj 2011 has 147,357 votes on record for five contestants — the reason is TMC's absence.
-  assert.match(card.chart.table.caption, /TMC has no recorded 2011 share to measure from/);
-  assert.doesNotMatch(card.chart.table.caption, /no vote count on record/);
+  assert.match(card.chart.fact ?? "", /TMC has no recorded 2011 share to measure from/);
+  assert.doesNotMatch(card.chart.fact ?? "", /no vote count on record/);
 });
 
-test("placeView: a district's turnout column IS turnout_pct, the same measure the Analysis floor uses", live, async () => {
+test("placeView: a district's turnout column is the seats' gated reading, so West Bengal 2026's unverified turnout is not printed", live, async () => {
   const d = await placeView(pathOf("wb", "cooch-behar"), {});
-  const seat = await placeView(pathOf("wb", "cooch-behar", "mekliganj"), {});
   assert.equal(d.kind, "parent");
-  assert.equal(seat.kind, "ac");
-  if (d.kind !== "parent" || d.level !== "district" || seat.kind !== "ac") return;
+  if (d.kind !== "parent" || d.level !== "district") return;
   const turnout = d.children.headers.indexOf("Turnout");
-  const latest = seat.analysis.turnoutSeries.at(0);
-  assert.equal(d.children.rows[0]?.cols[turnout], turnout_pct.format(latest?.turnoutPct ?? null));
+  // The seat's own Brief withholds the same figure, in the same words.
+  assert.ok(d.children.rows.length > 0);
+  for (const row of d.children.rows) assert.equal(row.cols[turnout], "verification pending");
 });
 
 test("placeView: a district lists its seats", live, async () => {

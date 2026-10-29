@@ -60,9 +60,31 @@ export type Chart = {
 /** A formatter from packages/mandate/src/semantic — `percent`, `percentagePoints`, `inr`. */
 export type Fmt = (value: number | null) => string;
 
-export type BarPoint = { label: string; value: number | null; key?: string };
-export type Series = { key: string; label: string; values: readonly (number | null)[] };
-export type SlopeRow = { label: string; from: number | null; to: number | null };
+/**
+ * `colour` is the entity's own fill where the caller has one (a party's ink, which belongs to the party and not to
+ * its place in this chart); without it `key` takes one of the capped hues. `absent` is what the table says where
+ * `value` is null and the caller knows why, in words, so the table is not a column of dashes that mean different things.
+ */
+export type BarPoint = { label: string; value: number | null; key?: string; colour?: string; absent?: string };
+/** `absent[i]` is the table's word for `values[i]` when it is null; `colour` as for `BarPoint`. */
+export type Series = {
+  key: string;
+  label: string;
+  values: readonly (number | null)[];
+  colour?: string;
+  absent?: readonly (string | undefined)[];
+};
+export type SlopeRow = {
+  label: string;
+  from: number | null;
+  to: number | null;
+  absent?: { from?: string; to?: string; change?: string };
+};
+
+/** A table cell: the figure, or the caller's reason for there being none, or the formatter's own mark for a gap. */
+function cell(format: Fmt, value: number | null, why: string | undefined): string {
+  return value === null && why !== undefined ? why : format(value);
+}
 
 // ── shell ────────────────────────────────────────────────────────────────────────────────────────
 
@@ -233,7 +255,8 @@ function caption(title: string, finding: string): string {
  *
  * The table still carries every row it was handed — a chart with nothing DRAWABLE is not a chart
  * with nothing KNOWN (a swing into an unheld election has one real endpoint), and §27 makes the
- * table the primary path, so dropping the rows here would be actual data loss.
+ * table the primary path, so dropping the rows here would be actual data loss. Its caption is the title
+ * alone: the page prints the fact as a line of its own, and a caption that repeated it said it twice.
  */
 function nothing(
   title: string,
@@ -244,7 +267,7 @@ function nothing(
   return {
     svg: "",
     fact: finding.trim() || `${title}: nothing recorded.`,
-    table: { caption: caption(title, finding), headers, rows },
+    table: { caption: title, headers, rows },
   };
 }
 
@@ -253,7 +276,7 @@ function nothing(
 /**
  * Horizontal, sorted descending, zero-anchored. One series, so no legend. Points may carry `key` to
  * take entity colour — capped at three hues by `hueMap`, everything past that neutral, with the
- * label still carrying identity (§2 P3).
+ * label still carrying identity (§2 P3) — or `colour`, the entity's own.
  *
  * ponytail: values are assumed ≥ 0 (share, margin, count). A signed measure gets `slope`, not this.
  */
@@ -270,17 +293,18 @@ export function bars(i: {
   const sorted = i.points
     .slice()
     .sort((a, b) => (b.value ?? -Infinity) - (a.value ?? -Infinity) || (a.label < b.label ? -1 : 1));
-  const rows = sorted.map((p) => [p.label, i.format(p.value)] as const);
+  const rows = sorted.map((p) => [p.label, cell(i.format, p.value, p.absent)] as const);
   const drawn = sorted.filter((p) => p.value !== null);
   if (drawn.length === 0) return nothing(i.title, i.finding, headers, rows.map((r) => [...r]));
 
-  const hues = hueMap(drawn.flatMap((p) => (p.key === undefined ? [] : [p.key])));
+  // A point with a colour of its own takes none of the capped hues, so it cannot push a keyed one into the neutral.
+  const hues = hueMap(drawn.flatMap((p) => (p.key === undefined || p.colour !== undefined ? [] : [p.key])));
   const max = Math.max(...drawn.map((p) => Math.max(0, p.value ?? 0)));
   const tk = ticks(0, max, 4);
 
   const labels = drawn.map((p) => clip(p.label, 22));
   const labelW = Math.min(190, Math.max(...labels.map((l) => wide(l, 12))) + 8);
-  const valueW = Math.max(...rows.map((r) => Array.from(r[1]).length)) * CH + 10;
+  const valueW = Math.max(...drawn.map((p) => Array.from(i.format(p.value)).length)) * CH + 10;
   const draw = (f: Frame): string => {
     const x0 = labelW;
     const x1 = f.w - valueW;
@@ -303,9 +327,9 @@ export function bars(i: {
       .map((p, n) => {
         const y = top + n * rowH;
         const v = Math.max(0, p.value ?? 0);
-        // A row with no entity key is not an entity — it is an aggregate ("Rest of the field") — so it
+        // A row with no entity key is not an entity — it is an aggregate ("Others") — so it
         // takes the neutral, never hue 1, which the top-ranked party is already wearing (§24.5).
-        const fill = p.key === undefined ? OTHERS : (hues.get(p.key) ?? OTHERS);
+        const fill = p.colour ?? (p.key === undefined ? OTHERS : (hues.get(p.key) ?? OTHERS));
         const shown = labels[n] ?? "";
         return (
           t(0, y + rowH / 2 + 4, TEXT_SECONDARY, 12, shown) +
@@ -328,11 +352,13 @@ export function bars(i: {
 
 /**
  * §24.5, enforced: past three entity series the tail is SUMMED into one neutral "Others" series.
+ * `ordered` is every series, peak-first, for the table: the chart folds to stay legible, the table does not, because a
+ * table that folds hides the runner-up inside a sum.
  * ponytail: the fold sums — correct for the only >3 case the floor has (party share over time, which
  * is additive). A non-additive fourth series must be faceted into a second chart, not folded.
  */
-function fold(series: readonly Series[]): Series[] {
-  if (series.length <= HUE_CAP) return series.slice();
+function fold(series: readonly Series[]): { drawn: Series[]; ordered: Series[] } {
+  if (series.length <= HUE_CAP) return { drawn: series.slice(), ordered: series.slice() };
   // Ranked on each series' PEAK within the window, which is the only figure comparable across
   // series: ranking on "the last value I can find" compares a 2011 share against a 2021 one, and
   // buried the 2011 winner of Mekliganj (48.9%) under a party whose last non-null value was itself
@@ -351,7 +377,7 @@ function fold(series: readonly Series[]): Series[] {
     }
     return sum;
   });
-  return [...kept, { key: "others", label: `Others (${tail.length})`, values }];
+  return { drawn: [...kept, { key: "others", label: `Others (${tail.length})`, values, colour: OTHERS }], ordered };
 }
 
 export function lines(i: {
@@ -363,16 +389,17 @@ export function lines(i: {
   series: readonly Series[];
   format: Fmt;
 }): Chart {
-  const drawnSeries = fold(i.series);
-  const headers = [i.xHeader, ...drawnSeries.map((s) => s.label)];
-  const rows = i.x.map((xl, idx) => [xl, ...drawnSeries.map((s) => i.format(s.values[idx] ?? null))]);
+  const { drawn: drawnSeries, ordered } = fold(i.series);
+  const headers = [i.xHeader, ...ordered.map((s) => s.label)];
+  const rows = i.x.map((xl, idx) => [xl, ...ordered.map((s) => cell(i.format, s.values[idx] ?? null, s.absent?.[idx]))]);
   const live = drawnSeries.flatMap((s) =>
     i.x.map((_, idx) => s.values[idx]).filter((v): v is number => v !== null && v !== undefined),
   );
   if (i.x.length === 0 || live.length === 0) return nothing(i.title, i.finding, headers, rows);
 
   const tk = ticks(Math.min(...live), Math.max(...live), 4);
-  const hues = hueMap(drawnSeries.map((s) => s.key));
+  // A series with a colour of its own takes none of the capped hues, so it cannot push another into the neutral.
+  const hues = hueMap(drawnSeries.filter((s) => s.colour === undefined).map((s) => s.key));
 
   return {
     svg: FRAMES.map((f) => drawLines(f, i, drawnSeries, tk, hues)).join(""),
@@ -511,7 +538,7 @@ function drawLines(
 
   // One group per line, so that hovering the line or its name (iei.css) can pick it out and dim the rest.
   const groups = series.map((s, n) => {
-    const colour = hues.get(s.key) ?? CATEGORICAL[0];
+    const colour = s.colour ?? hues.get(s.key) ?? CATEGORICAL[0];
     const own = placed.find((p) => p.key === s.key);
     return (
       `<g class="iei-line">` +
@@ -557,17 +584,19 @@ export function slope(i: {
   const headers = [i.dimension, i.fromLabel, i.toLabel, "Change"];
   const table = i.rows.map((r) => [
     r.label,
-    i.format(r.from),
-    i.format(r.to),
-    i.delta(r.from === null || r.to === null ? null : r.to - r.from),
+    cell(i.format, r.from, r.absent?.from),
+    cell(i.format, r.to, r.absent?.to),
+    cell(i.delta, r.from === null || r.to === null ? null : r.to - r.from, r.absent?.change),
   ]);
-  const drawn = i.rows.filter((r): r is { label: string; from: number; to: number } =>
+  const drawn = i.rows.filter((r): r is SlopeRow & { from: number; to: number } =>
     r.from !== null && r.to !== null,
   );
   if (drawn.length === 0) return nothing(i.title, i.finding, headers, table);
 
+  // From zero, never from the smallest of its own values: a share that moved 0.3 points would otherwise run
+  // corner to corner of the plot, no steeper than one that moved 34, with no axis to say which was which.
   const all = drawn.flatMap((r) => [r.from, r.to]);
-  const tk = ticks(Math.min(...all), Math.max(...all), 4);
+  const tk = ticks(Math.min(0, ...all), Math.max(0, ...all), 4);
 
   return {
     svg: FRAMES.map((f) => drawSlope(f, i, drawn, tk)).join(""),
@@ -615,6 +644,8 @@ function drawSlope(
 
   const [from, to] = [clip(i.fromLabel, 16), clip(i.toLabel, 16)];
   const axes =
+    // The zero the scale starts from, so the height of a line can be read against something.
+    line(xa, y(0), xb, y(0), TEXT_MUTED) +
     line(xa, top, xa, bottom, LINE_SUBTLE) +
     line(xb, top, xb, bottom, LINE_SUBTLE) +
     t(xa, bottom + 16, TEXT_MUTED, AX, from, "middle", true) +

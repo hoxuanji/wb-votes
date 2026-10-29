@@ -7,7 +7,7 @@ import { MODES, SHAPES } from '../../../packages/mandate/src/repo/map-selection.
 import type { MapMode, MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import type { ElectionMapView, ElectionSeat } from '../../../packages/mandate/src/repo/election-map.ts';
 import { seatFill, seatTitle } from './seat-fill.ts';
-import { SeatTiles } from './SeatTiles.tsx';
+import { SeatTiles, Unmapped } from './SeatTiles.tsx';
 import { Evidence, Tabs } from './parts.tsx';
 
 /**
@@ -32,8 +32,8 @@ import { Evidence, Tabs } from './parts.tsx';
  * `aria-label` on the anchor. 492 seats of that is about 150 KB of duplicated prose, and it is the reason the
  * front page measured 934 KB against a 340 KB budget. A native `<title>` is what a mouse tooltip and a screen
  * reader BOTH read, so the second copy bought nothing. What is here now is one concise line per seat, and the
- * FULL result lives once, in the linked list beside the map — which is the accessible representation of the
- * whole figure rather than 492 repetitions of it.
+ * seat's full result is one link away, on the seat's own page; the list beside the map gives it for the twelve or so seats
+ * it shows (its heading says how many), never for all 492.
  *
  * ── WHAT IS DRAWN, IN ORDER ──
  *
@@ -44,7 +44,7 @@ import { Evidence, Tabs } from './parts.tsx';
  *   5. state borders on top, so the country stays legible through 492 small polygons
  *
  * No per-seat labels: 492 abbreviations at 9 px is a wall of text. Colour is never the only channel, because
- * every seat carries its result in a hover card and in the list beside the map.
+ * every seat is named in its hover card and is a link to its own page.
  */
 
 // The modes are the selection's: it reads one out of the URL. Re-exported so a page imports the map and its modes together.
@@ -55,20 +55,32 @@ function aspectOf(viewBox: string): number {
   return h > 0 ? w / h : 1;
 }
 
+/** A frame's `x y w h`, as the corners [x0, y0, x1, y1]. */
+function cornersOf(frame: string): readonly [number, number, number, number] {
+  const [x, y, w, h] = frame.split(' ').map(Number) as [number, number, number, number];
+  return [x, y, x + w, y + h];
+}
+
 /**
  * The basemap, simplified once per process.
  *
- * The 36 state outlines are drawn TWICE on a national frame — once as the canvas under the seats, once as
- * borders over them — and at source detail that is about 114 KB of the page for a shape whose only job is to
- * say "this is India". Through the same simplifier the seats use it is about 35 KB, and at 9 px per
- * constituency nothing about the country's outline is legible enough to miss the difference.
+ * The 36 state outlines are 52.5 kB of path text through the simplifier the seats use (58.4 kB at source detail: they are
+ * coastline, which the simplifier can do little with), and a national frame wants them twice, as the canvas under the seats and
+ * as the borders over them. So the page writes each one once and both layers refer to it, and leaves out the outlines that lie
+ * outside the frame (`inFrame`), which for a state's frame is most of them.
  *
  * Module scope, not per render: the paths never change, so the work belongs to the process.
  */
-const BASEMAP: readonly { name: string; path: string }[] = INDIA_SHAPES.map((s) => ({
-  name: s.name,
-  path: simplified(s.path, NATIONAL),
-}));
+const BASEMAP: readonly { id: string; path: string; box: readonly [number, number, number, number] }[] = INDIA_SHAPES.map((s, i) => {
+  const path = simplified(s.path, NATIONAL);
+  return { id: `iei-state-${i}`, path, box: cornersOf(frameOf([path], 0)) };
+});
+
+/** The outlines a frame can show: a stroke is a pixel or two wide, so an outline within a unit of the frame counts as in it. */
+function inFrame(frame: string): typeof BASEMAP {
+  const [x0, y0, x1, y1] = cornersOf(frame);
+  return BASEMAP.filter((s) => s.box[0] <= x1 + 1 && s.box[2] >= x0 - 1 && s.box[1] <= y1 + 1 && s.box[3] >= y0 - 1);
+}
 
 /**
  * WHY THERE IS NO MAP, where there is none — stated once, beside the thing it is about, and only when it is true.
@@ -80,8 +92,7 @@ const BASEMAP: readonly { name: string; path: string }[] = INDIA_SHAPES.map((s) 
  * there was false. An election with no seats has nothing to explain.
  *
  * It says why and nothing about where the results are. It used to add "Every result is in the list below", which was false on
- * both pages: the state page lists twelve seats unless the reader narrows it (its heading says "12 of 294") and the election
- * page lists its closest contests, which is none where no margin is known.
+ * both pages: each lists twelve seats unless the reader narrows it (its heading says "12 of 294").
  */
 export function NoMap({ view }: { view: ElectionMapView }) {
   const { status } = view.geometry;
@@ -101,6 +112,13 @@ export function NoMap({ view }: { view: ElectionMapView }) {
     </p>
   );
 }
+
+/**
+ * WHY THERE IS NO COMPARISON, where an election has no earlier one of its house to make it with: the first on record. Said by
+ * both pages in the same words. It is not a redraw, which is what a pile of seats with no counterpart means once an earlier
+ * election exists (`incomparableSeats`), and a by-election is another case still: it is compared with nothing by design.
+ */
+export const NO_EARLIER_ELECTION = 'No earlier election of this house is on record, so there is nothing to compare this one with.';
 
 /**
  * THE HEADER OF A MAP PAGE, as one band: the eyebrow with the page's evidence drawer at the other end of its line, then
@@ -181,14 +199,34 @@ export function ShapeTabs({ view, selection }: { view: ElectionMapView; selectio
   );
 }
 
-export function ElectionMap({
+/**
+ * The map, or the tiles, with the way past them for a keyboard: a link to the end of the column, which comes before it.
+ *
+ * BESIDE THE COLUMN AND NOT IN IT. The column sticks below the page bar from 1024px up, and a sticky box is its own stacking
+ * context, so a skip link inside it took focus underneath the bar. Out of flow (the stylesheet's `iei-skip`), the link takes no
+ * cell of the grid the column is in.
+ */
+export function ElectionMap(props: { view: ElectionMapView; selection: MapSelection }) {
+  const column = mapColumn(props);
+  if (column === null) return null;
+  return (
+    <>
+      <a className="iei-skip" href="#after-map">
+        {`Skip the ${props.selection.shape === 'tiles' ? 'tiles' : 'map'}`}
+      </a>
+      {column}
+    </>
+  );
+}
+
+function mapColumn({
   view,
   selection,
 }: {
   view: ElectionMapView;
   /** What the reader has narrowed the map to: the mode, the seats to mute, the district to reframe on, the seat to outline. */
   selection: MapSelection;
-}) {
+}): React.ReactElement | null {
   /**
    * The selection's district REFRAMES the map. Never drawn: a district elects nobody, and the registry holds outlines
    * for one state only, in another projection. The frame comes from the district's OWN SEATS, which needs no district
@@ -209,6 +247,8 @@ export function ElectionMap({
   const viewBox =
     inFocus.length > 0 ? frameOf(inFocus.map((s) => s.path as string), 0.45) : view.geometry.viewBox;
   const aspect = aspectOf(viewBox);
+  // The state outlines this frame can show, for the canvas and the borders.
+  const states = national ? inFrame(viewBox) : [];
 
   /**
    * NOTHING TO DRAW IS NOT AN EMPTY MAP.
@@ -216,12 +256,12 @@ export function ElectionMap({
    * Assam's and Jammu & Kashmir's 2024 parliamentary seats sit under boundaries the registry holds no
    * geometry for, so a scoped view of them has zero polygons. Rendering the figure anyway framed to the
    * whole country — which is what `frameOf([])` falls back to — put an empty outline of India on a page
-   * about fourteen Assamese seats. The caller says why instead (`NoMap`), and the seat list still carries every result.
+   * about fourteen Assamese seats. The caller says why instead (`NoMap`).
    */
   if (drawable.length === 0) return null;
 
   // The same seats, the same colours and the same selection, drawn as equal tiles instead of as boundaries.
-  if (selection.shape === 'tiles') return <SeatTiles view={view} selection={selection} />;
+  if (selection.shape === 'tiles') return SeatTiles({ view, selection });
 
   /**
    * Whether a seat is dimmed by the active selection: the seats it does not cover.
@@ -234,23 +274,35 @@ export function ElectionMap({
   return (
     <div className="iei-map-col" style={{ ['--iei-map-w' as string]: `calc(var(--iei-map-h) * ${aspect.toFixed(3)})` }}>
       <figure className="iei-map iei-map-national">
+        {/* A GROUP, NOT AN IMAGE: the seats are links, and an `img` makes its descendants presentational while the keyboard
+            still stops on every one of them. The group keeps them exposed under the same name, and the skip link before the
+            column is the way past them for a reader who does not want 288 stops. */}
         <svg
           viewBox={viewBox}
-          role="img"
+          role="group"
           aria-label={`${view.election?.name ?? 'Election'}. ${
             MODES.find((m) => m.key === mode)?.question ?? ''
-          } ${drawable.length} of ${view.seats.length} constituencies drawn. The full result for every seat is in the list that follows.`}
+          } ${drawable.length} of ${view.seats.length} constituencies drawn. Each seat links to its own page.`}
           style={{ aspectRatio: aspect }}
         >
           {/* 1 — the country, so a seat with no boundary is a gap in India rather than in the page. Only for
                  a national frame: a state map framed to its own box would draw 35 other states' shapes
-                 across the viewport. */}
+                 across the viewport. Each outline is written once, here, and step 5 draws the same ones again by
+                 reference; `vector-effect` is an attribute because a stylesheet rule does not reach what a `use`
+                 draws, and a stroke in a map is in device pixels. */}
           {national ? (
-            <g className="iei-map-canvas" aria-hidden="true">
-              {BASEMAP.map((s) => (
-                <path key={s.name} d={s.path} fill={NOT_HELD} />
-              ))}
-            </g>
+            <>
+              <defs>
+                {states.map((s) => (
+                  <path key={s.id} id={s.id} d={s.path} vectorEffect="non-scaling-stroke" />
+                ))}
+              </defs>
+              <g className="iei-map-canvas" aria-hidden="true" fill={NOT_HELD}>
+                {states.map((s) => (
+                  <use key={s.id} href={`#${s.id}`} />
+                ))}
+              </g>
+            </>
           ) : null}
 
           {/* 2 — THE SEATS THAT DID NOT VOTE, for a partial election.
@@ -267,7 +319,7 @@ export function ElectionMap({
 
           {/* 3 — THE FOCUSED DISTRICT'S OUTLINE, under the seats so the fills mask its interior.
                  Concatenating the district's own seat paths and stroking the result gives the union's outer
-                 edge for free; the half of the stroke that falls inside gets painted over by step 3. No
+                 edge for free; the half of the stroke that falls inside gets painted over by step 4. No
                  district geometry is involved, so this can never disagree with the constituencies. */}
           {inFocus.length === 0 ? null : (
             <g className="iei-map-district" aria-hidden="true">
@@ -303,8 +355,8 @@ export function ElectionMap({
                  entirely out of view, and the state's own shape is already described by its seats. */}
           {national ? (
             <g className="iei-map-borders" aria-hidden="true">
-              {BASEMAP.map((s) => (
-                <path key={s.name} d={s.path} />
+              {states.map((s) => (
+                <use key={s.id} href={`#${s.id}`} />
               ))}
             </g>
           ) : null}
@@ -318,7 +370,8 @@ export function ElectionMap({
           ) : (
             <>
               {drawable.length} of {view.seats.length} drawn — no boundary on record for the other{' '}
-              {view.seats.length - drawable.length}.
+              {view.seats.length - drawable.length}
+              <Unmapped seats={view.seats.filter((s) => s.path === null)} />.
             </>
           )}
           {mode === 'flips' && view.incomparableSeats > 0 ? (
@@ -330,6 +383,7 @@ export function ElectionMap({
           ) : null}
         </figcaption>
       </figure>
+      <div id="after-map" />
     </div>
   );
 }

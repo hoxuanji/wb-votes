@@ -8,9 +8,12 @@ import type { ListHeading, RowFacts } from '../../../packages/mandate/src/repo/s
  * markup.
  */
 
-/** Two decimals, because the closest seats are decided by hundredths of a point, and a real-but-small value never rounds away to nothing. */
+/**
+ * Two decimals, because the closest seats are decided by hundredths of a point, and a real-but-small value never rounds away to
+ * nothing: below the smallest two decimals can say it is printed as that bound.
+ */
 function pct(v: number): string {
-  if (v !== 0 && Number(v.toFixed(2)) === 0) return '<0.1%';
+  if (v !== 0 && Number(v.toFixed(2)) === 0) return '<0.01%';
   return `${v.toFixed(2)}%`;
 }
 

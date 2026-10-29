@@ -2,8 +2,8 @@
 //
 // This exists because the product had no way to say what it was. Opening it showed margin tables for
 // one state with no frame, so the only available reading was "this is all there is, and it is thin".
-// Eighteen verticals were specified (docs/platform/00-model.md); two have real data. A reader cannot
-// be expected to work that out from a page of tables.
+// Eighteen verticals were specified (docs/platform/00-model.md); the page says how many have data. A reader
+// cannot be expected to work that out from a page of tables.
 //
 // The one rule here: **status is DERIVED from a probe against the live registry.** Nothing in this
 // file declares a vertical live, partial or empty. A hand-written status is a claim that rots the
@@ -60,9 +60,17 @@ export const VERTICALS: readonly Vertical[] = [
     question: "Who won this seat, by how much, and how has it behaved across cycles?",
     probe: "SELECT count(*) AS n FROM result WHERE revision = 0",
     unit: "result rows",
-    reachProbe: `SELECT (SELECT count(DISTINCT jurisdiction_place_id) FROM election) || ' jurisdictions, '
-                     || (SELECT min(year) FROM election) || '-' || (SELECT max(year) FROM election)
-                     || ', ' || (SELECT count(*) FROM election) || ' elections' AS reach`,
+    // The nation's own election (the Lok Sabha is one row for the union) is named apart: it is not a jurisdiction of the 36.
+    reachProbe: `WITH j AS (SELECT count(DISTINCT e.jurisdiction_place_id) AS n FROM election e
+                              JOIN place p ON p.id = e.jurisdiction_place_id WHERE p.kind IN ('state','ut')),
+                      t AS (SELECT count(*) AS n, min(year) AS first, max(year) AS last FROM election),
+                      nat AS (SELECT count(*) AS n FROM election e
+                                JOIN place p ON p.id = e.jurisdiction_place_id WHERE p.kind = 'nation')
+                 SELECT j.n || CASE WHEN j.n = 1 THEN ' jurisdiction, ' ELSE ' jurisdictions, ' END
+                     || t.first || '-' || t.last || ', '
+                     || t.n || CASE WHEN t.n = 1 THEN ' election' ELSE ' elections' END
+                     || CASE WHEN nat.n = 0 THEN '' ELSE ', ' || nat.n || ' of them national' END AS reach
+                   FROM j, t, nat`,
     scope:
       "results only — no booth-level or round-level detail outside West Bengal, and candidate vote counts " +
       "are absent wherever the source published winners alone",
@@ -123,8 +131,7 @@ export const VERTICALS: readonly Vertical[] = [
     key: "performance",
     label: "MLA/MP performance",
     question: "What has this member actually done in office?",
-    // The table does not exist. Neither does anything that could stand in for it: the old app's
-    // mlaRecords and wbmpRecords are empty arrays in files nothing imports.
+    // The table does not exist. Neither does anything that could stand in for it.
     probe: null,
     reachProbe: null,
     unit: "activity rows",
@@ -208,13 +215,13 @@ export const VERTICALS: readonly Vertical[] = [
     key: "promises",
     label: "Promises vs delivery",
     question: "Was the manifesto honoured?",
-    // Promises exist as party stance data in the old app; NOTHING models delivery.
+    // Nothing models the manifestos or their delivery.
     probe: null,
     reachProbe: null,
     unit: "assessed commitments",
     scope:
-      "14 party manifestos with policy positions sit in the repo unmodelled, and there is no delivery " +
-      "evidence at all — half a vertical is worse than none, so neither half is published yet",
+      "no manifesto or delivery model exists yet, so there is no delivery evidence at all — half a vertical " +
+      "is worse than none, so neither half is published yet",
     source: "manifestos, then every money and legislative vertical above",
   },
   {
@@ -224,8 +231,7 @@ export const VERTICALS: readonly Vertical[] = [
     probe: null,
     reachProbe: null,
     unit: "contributions",
-    scope:
-      "5 parties for one year sit in the repo as a legacy page, unmodelled and uncited by the registry",
+    scope: "no funding model exists yet",
     source: "ECI contribution reports, electoral bond disclosures",
   },
   {
@@ -373,7 +379,15 @@ export type Geography = {
 export function geography(db: DatabaseSync): Geography {
   return read(() => {
     const n = (sql: string, ...p: string[]): number => Number(get<{ n: number }>(db, sql, ...p)?.n ?? 0);
-    const states = n("SELECT count(*) AS n FROM place WHERE kind IN ('state','ut')");
+    // A state is loaded when a contest of either house is on record in it, as the seat rows below count. The 36 places
+    // India's states and union territories are named by exist whether or not anything is loaded for them.
+    const states = n(
+      `SELECT count(DISTINCT pv.jurisdiction_id) AS n
+         FROM contest c
+         JOIN place_version pv ON pv.id = c.place_version_id
+         JOIN place p ON p.id = pv.jurisdiction_id
+        WHERE p.kind IN ('state','ut')`,
+    );
     // The seats contested in each jurisdiction's current election. A general election is one row for the
     // whole union, so the same query serves both houses.
     const seatsNow = (body: Body): number =>

@@ -135,13 +135,17 @@ function render(route: string, segments: string): string {
 /** Every link to a seat on a page. */
 const seatLinks = (html: string): string[] => [...html.matchAll(/href="(\/constituency\/[^"]*)"/g)].map((m) => m[1] as string);
 
-/** The entries of the page that asks which seat was meant: where each goes, and exactly what it says. */
-function entries(html: string): { href: string; markup: string; text: string }[] {
-  const list = html.split('class="iei-district-list"')[1]?.split("</ul>")[0] ?? "";
-  return [...list.matchAll(/<li><a href="([^"]*)">(.*?)<\/a><\/li>/g)].map((m) => ({
+/**
+ * The entries of the page that asks which seat was meant: where each goes, its link's name, and exactly what its row says
+ * under it. The link carries the same words for a reader who hears the links out of their rows.
+ */
+function entries(html: string): { href: string; name: string; detail: string; link: string }[] {
+  const list = html.split('class="iei-list"')[1]?.split("</ul>")[0] ?? "";
+  return [...list.matchAll(/<li><div class="iei-row-h"><a href="([^"]*)">(.*?)<\/a><\/div><p class="iei-row-d">(.*?)<\/p><\/li>/g)].map((m) => ({
     href: m[1] as string,
-    markup: m[2] as string,
-    text: (m[2] as string).replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim(),
+    name: (m[2] as string).replace(/<span class="iei-sr">.*<\/span>/, ""),
+    detail: m[3] as string,
+    link: (m[2] as string).replace(/<[^>]+>/g, ""),
   }));
 }
 
@@ -170,17 +174,18 @@ test("a registry without migration 017 links a tied seat by its registry id too,
 
 test("the person page links a tied seat to that seat, and not to the page that asks which was meant", () => {
   const page = render("/p", TIED);
-  assert.deepEqual(seatLinks(page), ["/constituency/wb/assembly/wb.ac.266"]);
+  // the crumb, and the career row, which links its seat too
+  assert.deepEqual(seatLinks(page), Array(2).fill("/constituency/wb/assembly/wb.ac.266"));
   // and that address opens the seat: Bankura's Bishnupur, no. 266
   const seat = render("/constituency", "wb/assembly/wb.ac.266");
   assert.doesNotMatch(seat, /Which did you mean/);
   assert.match(seat, /No\. 266/);
   // the control: a seat that is not tied is linked by its name, as before
-  assert.deepEqual(seatLinks(render("/p", LONE)), ["/constituency/wb/assembly/lone"]);
+  assert.deepEqual(seatLinks(render("/p", LONE)), Array(2).fill("/constituency/wb/assembly/lone"));
 });
 
 test("the person page links a seat whose name is shared within its district by its id too", () => {
-  assert.deepEqual(seatLinks(render("/p", TWIN)), ["/constituency/wb/assembly/wb.ac.007"]);
+  assert.deepEqual(seatLinks(render("/p", TWIN)), Array(2).fill("/constituency/wb/assembly/wb.ac.007"));
 });
 
 // ── the page that asks which seat was meant ──────────────────────────────────────────────────────
@@ -188,38 +193,43 @@ test("the person page links a seat whose name is shared within its district by i
 test("the entries of a tie of one body are told apart by their district, and each opens its own seat", () => {
   const found = entries(render("/constituency", "wb/assembly/bishnupur"));
   assert.equal(found.length, 2);
-  assert.notEqual(found[0]?.text, found[1]?.text, "the two entries read alike");
+  assert.notEqual(found[0]?.detail, found[1]?.detail, "the two entries read alike");
+  assert.notEqual(found[0]?.link, found[1]?.link, "and so do the two links");
   assert.notEqual(found[0]?.href, found[1]?.href);
   // by seat number, the way the list is ordered: no. 154 is South 24 Parganas and no. 266 is Bankura
   assert.deepEqual(
-    found.map((e) => [e.href, e.text]),
+    found.map((e) => [e.href, e.name, e.detail]),
     [
-      ["/constituency/wb/assembly/wb.ac.154", "Bishnupur Assembly · South 24 Parganas"],
-      ["/constituency/wb/assembly/wb.ac.266", "Bishnupur Assembly · Bankura"],
+      ["/constituency/wb/assembly/wb.ac.154", "Bishnupur", "Assembly · South 24 Parganas"],
+      ["/constituency/wb/assembly/wb.ac.266", "Bishnupur", "Assembly · Bankura"],
     ],
+  );
+  assert.deepEqual(
+    found.map((e) => e.link),
+    ["Bishnupur — Assembly · South 24 Parganas", "Bishnupur — Assembly · Bankura"],
   );
 });
 
 test("a tie in one district adds the seat number, because the district does not tell the entries apart", () => {
   assert.deepEqual(
-    entries(render("/constituency", "wb/assembly/twin")).map((e) => e.text),
-    ["Twin Assembly · Bankura · no. 7", "Twin Assembly · Bankura · no. 8"],
+    entries(render("/constituency", "wb/assembly/twin")).map((e) => e.detail),
+    ["Assembly · Bankura · no. 7", "Assembly · Bankura · no. 8"],
   );
 });
 
 test("entries that names or bodies already tell apart are exactly what they were", () => {
   // the names differ, so the page is the page it was: a name, the body, nothing else
   assert.deepEqual(
-    entries(render("/constituency", "wb/assembly/coochbeharuttar")).map((e) => [e.href, e.markup]),
+    entries(render("/constituency", "wb/assembly/coochbeharuttar")).map((e) => [e.href, e.name, e.detail]),
     [
-      ["/constituency/wb/assembly/cooch-behar-uttar", "Cooch Behar Uttar<b>Assembly</b>"],
-      ["/constituency/wb/assembly/coochbehar-uttar", "Coochbehar Uttar<b>Assembly</b>"],
+      ["/constituency/wb/assembly/cooch-behar-uttar", "Cooch Behar Uttar", "Assembly"],
+      ["/constituency/wb/assembly/coochbehar-uttar", "Coochbehar Uttar", "Assembly"],
     ],
   );
   // a name in both bodies: the two Bishnupurs of one body are told apart and the Lok Sabha seat, told apart by its body, is not
   assert.deepEqual(
-    entries(render("/constituency/legacy", "wb/bishnupur")).map((e) => e.markup),
-    ["Bishnupur<b>Assembly · South 24 Parganas</b>", "Bishnupur<b>Assembly · Bankura</b>", "Bishnupur<b>Lok Sabha</b>"],
+    entries(render("/constituency/legacy", "wb/bishnupur")).map((e) => [e.name, e.detail]),
+    [["Bishnupur", "Assembly · South 24 Parganas"], ["Bishnupur", "Assembly · Bankura"], ["Bishnupur", "Lok Sabha"]],
   );
 });
 

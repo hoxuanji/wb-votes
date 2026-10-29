@@ -18,7 +18,7 @@ import { closeFights, foldStandings, seatsByParty, seatsWonBy } from "./election
 import { electionMapView, SHARED_FRAME } from "./election-map.ts";
 import { electionCoverage } from "./home.ts";
 import { placeView } from "./place-view.ts";
-import { partyVotes, readSeats, sourcesFor } from "./seat-results.ts";
+import { partyVotes, readSeats, sourcesFor, votesPolledWhereCounted } from "./seat-results.ts";
 import { searchAll } from "./search.ts";
 import { readRegistry } from "./session.ts";
 import { stateTrajectory } from "./trajectory.ts";
@@ -418,6 +418,22 @@ test("closeFights: a general election's fights are its seats, and a kind with no
 
 /* ────────────────────────────── the state trajectory ────────────────────────────── */
 
+test("votesPolledWhereCounted: the votes polled in the seats that have counts, standing in the winner's and runner-up's where none were polled", () => {
+  const d = memory();
+  try {
+    const over = (election: string) => votesPolledWhereCounted(readSeats(d, { elections: [election] }));
+    // Three seats with a turnout of 1,000 and c4, whose runner-up polled 300 in a seat with no turnout and no declared winner.
+    assert.deepEqual(over("ka-assembly-2018"), { voters: 3300, seats: 4 });
+    // 1,300 polled where the two candidates hold 1,300; and a winner alone, whose runner-up the registry does not hold.
+    assert.deepEqual(over("kl-assembly-2021"), { voters: 1300, seats: 1 });
+    assert.deepEqual(over("tn-assembly-2020"), { voters: 140000, seats: 1 });
+    // The turnout is there and nothing was counted, and nothing here may stand in for the votes: no base, so no share.
+    assert.deepEqual(over("wb-assembly-2026"), { voters: 0, seats: 0 });
+    assert.deepEqual(votesPolledWhereCounted([]), { voters: 0, seats: 0 });
+  } finally {
+    d.close();
+  }
+});
 test("stateTrajectory: seats and vote share per party per election, from the same winners and votes", () => {
   const d = memory();
   try {
@@ -429,8 +445,8 @@ test("stateTrajectory: seats and vote share per party per election, from the sam
     assert.equal(aaa?.label, "AAA");
     assert.deepEqual(aaa?.points.map((p) => p.seats), [2, 2]);
     assert.deepEqual(aaa?.points.map((p) => p.seatPct), [50, 50]);
-    // 2018: AAA polled 600 + 480 + 505 of the 1,000 + 1,000 + 1,000 + 300 candidate votes read, the runner-up of the
-    // seat with no declared winner among them.
+    // 2018: AAA polled 600 + 480 + 505 of the 1,000 + 1,000 + 1,000 votes polled in the three seats that have a turnout and
+    // the 300 that the runner-up of the seat with no declared winner (and no turnout) polled.
     assert.equal(aaa?.points[0]?.votePct, (100 * 1585) / 3300);
     assert.equal(aaa?.points[1]?.votePct, (100 * (640 + 502 + 300)) / (1000 + 1000 + 1000 + 1000));
     assert.equal(aaa?.latestSeats, 2);
@@ -617,7 +633,9 @@ test("electionMapView: scoped to a jurisdiction, every aggregate is over its sea
     assert.deepEqual(v.legend, [{ key: "CCC", label: "CCC", n: 1 }]);
     assert.deepEqual(plain(v.turnout), { state: "reported", pct: 62 });
     assert.equal(v.seats[0]?.href, "/constituency/kl/lok-sabha/seat-lp", "the body of the election decides the link");
-    assert.equal(v.voteSeat.find((r) => r.party.key === "AAA")?.votePct, (100 * 29000) / 59000);
+    // A share is over the 62,000 polled in the seat, not over the 59,000 its two candidates hold between them.
+    assert.equal(v.voteSeat.find((r) => r.party.key === "AAA")?.votePct, (100 * 29000) / 62000);
+    assert.equal(v.voteSeat.find((r) => r.party.key === "AAA")?.counted, 1);
   } finally {
     d.close();
   }
@@ -715,18 +733,18 @@ test("placeView: a district lists its seats, winner, member, margin and turnout"
   assert.deepEqual(d.sources.map((x) => x.id), ["s1", "s2"]);
 });
 
-test("placeView: an unverified election's seats are listed with the turnout the registry holds, as the Analysis floor prints it", async () => {
+test("placeView: an unverified election's seats say their turnout is pending verification, and a declared margin says it is declared", async () => {
   const read = at(onFile());
   const d = await placeView({ level: "district", state: "wb", district: "d1" }, {}, read);
   if (d.kind !== "parent" || d.level !== "district") return assert.fail("not a district view");
-  // Whether a district page should print West Bengal 2026's turnout is its own decision, not this one: the winners come
-  // from the seat results, and the turnout is still the held figure. The third seat has no declared winner.
+  // The turnout the registry holds for West Bengal 2026 is withheld as it is on the state, election and seat pages, and the
+  // margins are kept and labelled as the election page labels them. The third seat has no declared winner.
   assert.deepEqual(
     d.children.rows.map((r) => r.cols),
     [
-      ["1", "Seat W1 · General", "AAA", "Person a10", "321", "45.0%"],
-      ["2", "Seat W2 · General", "B Party", "Person b11", "12", "90.0%"],
-      ["3", "Seat W3 · General", "no result declared", "—", "—", "75.0%"],
+      ["1", "Seat W1 · General", "AAA", "Person a10", "321 (declared)", "verification pending"],
+      ["2", "Seat W2 · General", "B Party", "Person b11", "12 (declared)", "verification pending"],
+      ["3", "Seat W3 · General", "no result declared", "not reported", "not reported", "verification pending"],
     ],
   );
 });

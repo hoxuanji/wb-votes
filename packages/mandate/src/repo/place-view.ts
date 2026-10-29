@@ -9,14 +9,14 @@
 // registry:typecheck.
 
 import type { DatabaseSync } from "node:sqlite";
-import { inr, turnout_pct } from "../semantic/index.ts";
+import { inr, percent } from "../semantic/index.ts";
 import { all, get } from "../db/index.ts";
 // A const string, not a query: importing it here opens no database and keeps one definition of what
 // "newest first" means across every module that orders elections.
 import { CHRONO_DESC } from "./elections.ts";
 import { kindOfBody, stateHref } from "./routes.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
-import { getPlaceBrief, loadSources, marks, yearOf } from "./index.ts";
+import { getPlaceBrief, loadSources, yearOf } from "./index.ts";
 import type { PlaceAnalysis } from "./place-analysis.ts";
 import { getPlaceAnalysis } from "./place-analysis.ts";
 import type { ParsedFilters, Search } from "./place-filters.ts";
@@ -31,6 +31,7 @@ import { seatLocator } from "./seat-locator.ts";
 import type { SeatLocatorView } from "./seat-locator.ts";
 import { readSeats, sourceIdsFor } from "./seat-results.ts";
 import type { SeatResult } from "./seat-results.ts";
+import type { Turnout } from "./turnout-trust.ts";
 
 // ── the URL ──────────────────────────────────────────────────────────────────────────────────────
 
@@ -256,30 +257,16 @@ export async function placeView(
   return r.ok ? r.value : { kind: "unavailable", detail: r.detail };
 }
 
-/**
- * The turnout the registry holds for these seats, whether or not it is corroborated.
- *
- * Read here rather than taken from the seat results because those withhold an uncorroborated turnout and this
- * table has always printed it: the Analysis floor does too, and a test holds the two equal. Whether a district
- * should print West Bengal 2026's 93.0% is a separate decision from where its winners come from.
- */
-function heldTurnout(
-  db: DatabaseSync,
-  election: string | null,
-  seats: readonly SeatResult[],
-): Map<number, { voters: number | null; electors: number | null }> {
-  if (election === null || seats.length === 0) return new Map();
-  return new Map(
-    all<{ versionId: number; voters: number | null; electors: number | null }>(
-      db,
-      `SELECT c.place_version_id AS versionId, t.voters AS voters, t.electors AS electors
-         FROM contest c
-         JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-        WHERE c.election_id = ? AND c.place_version_id IN (${marks(seats.length)})`,
-      election,
-      ...seats.map((x) => x.versionId),
-    ).map((t) => [t.versionId, t]),
-  );
+/** A seat's turnout as a district's table cell: the figure only where it is corroborated, else the words the other pages use. */
+function turnoutCell(t: Turnout): string {
+  switch (t.state) {
+    case "reported":
+      return percent(t.pct);
+    case "unverified":
+      return "verification pending";
+    case "absent":
+      return "not reported";
+  }
 }
 
 /** Seats in the order a table lists them: by number, then name. A seat with no number goes first, as in SQL. */
@@ -344,7 +331,6 @@ function parentView(
 
   const scope = { elections: asked, district: place.id };
   const rows = bySeat(readSeats(db, scope));
-  const held = heldTurnout(db, election, rows);
   const tied = seatTies(db);
   // No place above an AC carries a claim, so `loadSources` on the subject ref alone comes back empty: a parent
   // level is cited from the same fact rows it renders.
@@ -359,10 +345,10 @@ function parentView(
     headline:
       rows.length === 0
         ? `No assembly seat in ${place.name} has a contest on record.`
-        : `${place.name} has ${inr(rows.length)} assembly seats` +
+        : `${place.name} has ${inr(rows.length)} assembly seat${rows.length === 1 ? "" : "s"}` +
           (lead === undefined
             ? `, and no declared winner in ${year}.`
-            : `; ${lead[0]} won ${inr(lead[1])} of them in ${year}.`),
+            : `; ${lead[0]} won ${rows.length === 1 ? "it" : `${inr(lead[1])} of them`} in ${year}.`),
     children: {
       caption:
         `Every assembly seat in ${place.name} with its ${year} result — ` +
@@ -382,14 +368,12 @@ function parentView(
           x.number === null ? "—" : String(x.number),
           x.name + (x.reservation == null ? "" : ` · ${RESERVATION[x.reservation] ?? x.reservation}`),
           x.winner?.party.label ?? "no result declared",
-          x.winner?.name ?? "—",
-          x.margin === null ? "—" : inr(Math.abs(x.margin.votes)),
-          turnout_pct.format(
-            turnout_pct.compute({
-              voters: held.get(x.versionId)?.voters ?? null,
-              electors: held.get(x.versionId)?.electors ?? null,
-            }),
-          ),
+          x.winner?.name ?? "not reported",
+          // A margin a source declared without counting the votes says so, as the election page's list does.
+          x.margin === null
+            ? "not reported"
+            : `${inr(Math.abs(x.margin.votes))}${x.margin.basis === "declared" ? " (declared)" : ""}`,
+          turnoutCell(x.turnout),
         ],
       })),
     },

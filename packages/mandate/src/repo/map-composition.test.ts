@@ -80,6 +80,8 @@ function fixture(db: DatabaseSync): DatabaseSync {
   const candidacy = db.prepare(
     `INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status) VALUES (?, ?, ?, ?, ?)`,
   );
+  // Votes polled, which a seat's margin share is taken over: an election with counts has them, one without has none to divide by.
+  const turnout = db.prepare(`INSERT INTO turnout (contest_id, scope, voters, electors, source_id) VALUES (?, 'contest', 1000, 2000, 's1')`);
   const result = db.prepare(
     `INSERT INTO result (contest_id, candidacy_id, revision, votes, "rank", is_winner, margin, source_id, ingested_at)
      VALUES (?, ?, 0, ?, ?, ?, ?, 's1', '2026-08-12')`,
@@ -91,6 +93,7 @@ function fixture(db: DatabaseSync): DatabaseSync {
   const contest = (electionId: string, versionId: number, winner: 1 | 2, margin: number, counted = true): void => {
     const id = `${electionId}:${versionId}`;
     contestRow.run(id, electionId, versionId);
+    if (counted) turnout.run(id);
     const won = (1000 + margin) / 2;
     for (const [who, pv, rank] of [["w", winner, 1], ["r", winner === 1 ? 2 : 1, 2]] as const) {
       if (!counted && rank === 2) continue;
@@ -181,8 +184,8 @@ test("the heading the map section used to print is there for a screen reader and
   assert.equal(html.split("<h1").length - 1, 1);
   assert.match(html, /<h2 id="map-h" class="iei-sr">[^<]*<\/h2><div class="iei-controls">/);
   assert.doesNotMatch(html, /<div class="iei-h"><div class="iei-h-title"><h2 id="map-h"/);
-  // The drawer still names what it is evidence for.
-  assert.match(html, /aria-label="Sources for Aa State · Winners: \d+"/);
+  // The drawer still names what it is evidence for, after the words it shows.
+  assert.match(html, /aria-label="\d+ sources? for Aa State · Winners"/);
 });
 
 test("the evidence drawer shares the header's eyebrow line, and is not a section heading's", () => {
@@ -233,8 +236,8 @@ test("the column beside the map opens with what the map answers, in the mode's o
 
 const CAVEAT_FACTS = [
   /No candidate vote counts were published for this election\./,
-  /Winners and turnout are on record;/,
-  /margins over votes polled, competitiveness and vote-to-seat conversion are not,/,
+  /Winners and declared margins are on record, and turnout is not reported;/,
+  /margins over votes polled, competitiveness and vote-to-seat conversion are not on record,/,
   /so a row says what is not reported,/,
   /a chart that needs them is left out or replaced by a sentence, never drawn as zero\./,
 ];
@@ -266,7 +269,9 @@ test("a Lok Sabha view of a state says what it is narrowed to, in the column wit
   const html = render("/state", "house=pc", "aa");
   const note = at(html, "narrowed to the seats in Aa State.");
   assert.ok(at(html, SIDE) < note && note < at(html, '<ul class="iei-list iei-list-tight"'));
-  assert.ok(html.includes("See the whole country"));
+  // This registry holds the Lok Sabha seat of Aa State and no other, so the election's own page would show the same one seat.
+  assert.doesNotMatch(html, /See the whole country/);
+  assert.match(html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " "), /The registry holds no seat of it outside Aa State\./);
 });
 
 test("with no map there is one column and nothing for a second to hold", () => {

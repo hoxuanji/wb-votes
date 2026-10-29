@@ -177,7 +177,7 @@ The number of votes cast in a seat, as its turnout row reports it. It is not the
 _Avoid_: Valid votes, total votes
 
 **Vote share**:
-A candidate's votes as a percentage of the votes polled in their seat: the figure the source published, or else the candidate's votes over the votes polled where those are on record. It is never taken over the candidates' own total, which for an election that published only its leading contestants would give them the whole.
+A candidate's votes as a percentage of the votes polled in their seat: the figure the source published, or else the candidate's votes over the votes polled where those are on record. It is never taken over the candidates' own total, which for an election that published only its leading contestants would give them the whole. A party's share of an election is taken the same way, over the votes polled in the seats that have candidate counts (a seat with counts and no votes polled adds what its winner and runner-up polled), while its share of the seats stays over every seat contested.
 _Avoid_: Share of the field
 
 **Not itemised**:
@@ -218,7 +218,7 @@ A seat with no counterpart in the other election under the same epoch, because i
 _Avoid_: Unmatched, redrawn (a paired seat with no declared winner was not redrawn)
 
 **Unknown**:
-A paired seat that is neither held nor flipped because one election, or both, declared no winner for it. The comparison lists it and which side is missing, but no page shows how many there are; the seat has no flip, and it is counted neither as a hold nor as a change.
+A paired seat that is neither held nor flipped because one election, or both, declared no winner for it. The comparison lists it and which side is missing, and a map page says how many there are; the seat flow's caption counts these seats in one sentence ("N left out because one of the two elections declared no winner there") and names none of them. The seat has no flip, and it is counted neither as a hold nor as a change.
 _Avoid_: Missing, incomparable
 
 **Held** and **flipped**:
@@ -230,7 +230,7 @@ The number of paired seats that are held or flipped, and so the denominator of "
 _Avoid_: Paired seats (an unknown seat is paired and outside this count)
 
 **Flip matrix**:
-The flipped seats counted by the party that lost them and the party that won them, the biggest count first.
+The flipped seats counted by the party that lost them and the party that won them, the biggest count first. A page lists the eight biggest and counts the rest in one line, and only the party that gained the seats links to them.
 _Avoid_: Transition matrix
 
 ### Reading a map
@@ -244,7 +244,7 @@ What the reader has narrowed a loaded map to: its mode, an isolation, a district
 _Avoid_: Map state
 
 **Mode**:
-How the map colours its seats: by winner, by flip, by margin or by runner-up. A map has no flip mode when there is no previous election of the same house to compare against.
+How the map colours its seats: by winner, by flip, by margin or by runner-up. A map has no flip mode when there is no previous election of the same house to compare against, and on the election page none for margin or runner-up where no seat has a margin share or a runner-up on record: its tab is offered as unavailable and a link to it shows the winners.
 _Avoid_: Layer (the front page's layer chooses the data, not how it is coloured)
 
 **Isolation**:
@@ -268,7 +268,7 @@ The order a map page holds the seats of an election in: by state, then by seat n
 _Avoid_: Natural order, default order
 
 **Seat arc**:
-The picture of a full-house election's whole house as a half ring of dots, one per seat, in the ink of the party that won it, with a seat that has no declared winner a hollow dot. Parties run largest first, which says nothing about left and right or alliances. A by-election has none, because it has no majority to be short of.
+The picture of a full-house election's whole house as a half ring of dots, one per seat, in the ink of the party that won it, with a seat that has no declared winner a hollow dot. Parties run largest first, which says nothing about left and right or alliances. A by-election has none, because it has no majority to be short of. A state's Lok Sabha seats, or a Lok Sabha of which the registry holds only some seats, are drawn the same way but named for their states and with no majority, because they are not the house.
 _Avoid_: Parliament chart, hemicycle
 
 **Seat flow**:
@@ -288,7 +288,7 @@ The parts of a link that choose which data a page shows, such as the front page'
 _Avoid_: Scope, which already names the elections a read covers
 
 **Choices**:
-What a loaded map makes selectable: its parties, margin bins or bands, districts and seats, and whether flips is a mode. A request for anything outside them is set aside, and the page shows its default instead. The state view's `choices` field is not these: it holds its offers, which are elections.
+What a loaded map makes selectable: its parties, margin bins or bands, districts and seats, and whether flips, margin and runner-up are modes. A request for anything outside them is set aside, and the page shows its default instead. The state view's `choices` field is not these: it holds its offers, which are elections.
 _Avoid_: Options
 
 **Move**:

@@ -3,10 +3,10 @@
 // WHAT IS AND IS NOT MEASURABLE HERE, stated first because the number is the point.
 //
 // Cycle 1's audit sampled the merges the resolver MADE and found 0 errors in the sample. That is
-// PRECISION. It says nothing about the merges it did NOT make, and 8,683 candidate pairs scored above
-// the queue floor (0.55) and below the auto-merge threshold (0.92) were left pending with no way for a
+// PRECISION. It says nothing about the merges it did NOT make: the candidate pairs scored above the queue
+// floor (0.55) and below the auto-merge threshold (0.92) were left pending with no way for a
 // human to look at them. Until someone does, every "6,167 people" figure this project publishes is an
-// upper bound with no error bar.
+// upper bound with no error bar. (The queue's size is on the page, counted: it moves with every resolve.)
 //
 // This module measures RECALL WITHIN CANDIDATE PAIRS. Two duplicates that never shared a blocking key
 // were never compared and are invisible to it, so the recall it reports is itself an upper bound on
@@ -14,13 +14,13 @@
 // `recallEstimate` returns it as a field rather than a footnote so a caller cannot print the number
 // without it.
 //
-// SAMPLING. 7,114 of the 8,683 pending pairs sit in the lowest band, just above the queue floor. A
-// uniform random sample would be 82% low-band, would burn a reviewer's attention where nearly every
-// pair is a non-match, and would estimate the high band — where the resolver's threshold decision
-// actually lives — from a handful of rows. So the queue is STRATIFIED by score band with an equal
-// target per band, and the population total is reassembled by weighting each band's observed rate by
-// that band's size. Equal allocation is deliberate: it minimises the worst per-band interval, which is
-// what a threshold argument needs, at the cost of a slightly wider interval on the total.
+// SAMPLING. The pending pairs are not spread evenly over the bands (ADR 0003 measured 8,683 queued in all on
+// 2026-08-08; the page prints each band's live size and names the one that holds most). A uniform random sample
+// would land mostly in that crowded band, would burn a reviewer's attention there, and would estimate the high
+// band — where the resolver's threshold decision actually lives — from a handful of rows. So the queue is
+// STRATIFIED by score band with an equal target per band, and the population total is reassembled by weighting
+// each band's observed rate by that band's size. Equal allocation is deliberate: it minimises the worst per-band
+// interval, which is what a threshold argument needs, at the cost of a slightly wider interval on the total.
 
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";
@@ -32,8 +32,8 @@ export const AUTO_MERGE_AT = 0.92;
 export const QUEUE_AT = 0.55;
 
 /** Reviews wanted per band. Four bands, so 160 decisions for a full estimate. Equal allocation, not
- *  proportional: the top band has 338 pairs and the bottom 7,114, and a proportional sample would
- *  give the top band 6 rows. */
+ *  proportional: the top band is a small fraction of the bottom, and a proportional sample would
+ *  give it a handful of rows. */
 export const TARGET_PER_BAND = 40;
 
 export type Band = { lo: number; hi: number; label: string };
@@ -48,6 +48,9 @@ export const BANDS: readonly Band[] = [
 ];
 
 export type Decision = "merged" | "rejected" | "deferred";
+
+/** Every decision, which is what the decide route accepts and what the page reports back. */
+export const DECISIONS: readonly Decision[] = ["merged", "rejected", "deferred"];
 
 /** One side of a pair, with everything a human needs to judge sameness and nothing else. */
 export type Candidate = {
@@ -203,7 +206,7 @@ export function nextForReview(db: DatabaseSync): Pair | null {
       .sort((a, b) => b.deficit - a.deficit);
 
     // Every band met its target — fall back to any pending pair so the queue never dead-ends while
-    // 8,683 rows are undecided.
+    // rows are undecided.
     const order = ranked.length > 0 ? ranked.map((x) => x.band) : BANDS;
 
     for (const b of order) {
@@ -263,7 +266,7 @@ export function reviewWritesEnabled(env: Readonly<Record<string, string | undefi
  *
  * The separation is deliberate: measuring recall needs recorded judgements, and mutating 6,167 person
  * rows from an HTTP handler needs a plan for the undo tape, the claims that move, and the ids that
- * die. `mandate resolve --apply-reviewed` is where that belongs. So this writes a decision and stops,
+ * die. Applying a judgement is not built: `mandate resolve` reads no decision. So this writes a decision and stops,
  * and the estimate below reads decisions, not merges.
  */
 export function recordDecision(

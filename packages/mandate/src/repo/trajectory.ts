@@ -6,8 +6,8 @@
 // 224 territories as in 2004. A trajectory that draws one unbroken line across that boundary is making the
 // exact claim the epoch gate exists to refuse, in a form a reader cannot argue with.
 //
-// So every point carries its epoch, and `segments()` splits the series wherever the epoch changes. The
-// renderer draws each segment separately and leaves the gap visible.
+// So every point carries its epoch, and the renderer (`Trajectory` in components/iei/Distribution.tsx) splits the seat series
+// wherever the epoch changes, draws each run separately and leaves the gap visible.
 //
 // WHAT SURVIVES A REDRAW AND WHAT DOES NOT, because the distinction is the whole design:
 //
@@ -24,7 +24,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
 import { CHRONO_DESC } from "./elections.ts";
-import { partyVotes, readSeats, tally, votesByParty } from "./seat-results.ts";
+import { partyVotes, readSeats, tally, votesByParty, votesPolledWhereCounted } from "./seat-results.ts";
 import { FULL_HOUSE } from "../core/election-kind.ts";
 
 /** One election in a state's run, for one party. */
@@ -63,27 +63,6 @@ export type StateTrajectory = {
 const RECENT = 3;
 /** Vote share that earns a party a row even with no seats. A party this size is a fact about the state. */
 const PRESENT_PCT = 5;
-
-/**
- * Split a party's points wherever the epoch changes.
- *
- * Returned as arrays of points rather than as indices, so a renderer cannot accidentally draw across a
- * break by iterating the flat list.
- */
-export function segments(points: readonly TrajectoryPoint[]): TrajectoryPoint[][] {
-  const out: TrajectoryPoint[][] = [];
-  let run: TrajectoryPoint[] = [];
-  for (const p of points) {
-    const prev = run.at(-1);
-    if (prev !== undefined && prev.epochId !== p.epochId) {
-      out.push(run);
-      run = [];
-    }
-    run.push(p);
-  }
-  if (run.length > 0) out.push(run);
-  return out;
-}
 
 /**
  * A state's whole run for one house.
@@ -128,10 +107,11 @@ export function stateTrajectory(
     );
     const voteRows = votesByParty(partyVotes(db, { elections: ids }));
 
-    const totalVotes = new Map<string, number>();
-    for (const r of voteRows) {
-      totalVotes.set(r.electionId, (totalVotes.get(r.electionId) ?? 0) + (r.votes ?? 0));
-    }
+    // A party's share of an election is over the votes polled where the candidates' votes are on record, as the election
+    // map's is, and not over the candidates' own sum, which the registry's leading-candidates-only seats leave short.
+    const totalVotes = new Map(
+      ids.map((id) => [id, votesPolledWhereCounted(results.filter((s) => s.electionId === id)).voters]),
+    );
     const voteOf = new Map(voteRows.map((r) => [`${r.electionId}|${r.party.key}`, r.votes]));
     const seatOf = new Map(seatRows.map((r) => [`${r.electionId}|${r.key}`, r.seats]));
     const labelOf = new Map<string, string>();

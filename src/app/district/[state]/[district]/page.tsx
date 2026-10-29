@@ -1,7 +1,17 @@
+import type { Metadata } from 'next';
+import { placeMetadata } from '../../../_place/metadata.ts';
 import { PlaceSurface } from '../../../_place/surface.tsx';
+import { placeTitle } from '../../../../../packages/mandate/src/repo/page-title.ts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
+
+export function generateMetadata({ params }: { params: { state: string; district: string } }): Metadata {
+  // The canonical address comes from the resolution (placeMetadata); the title is the shared page-title module's.
+  const title = placeTitle({ level: 'district', state: params.state, district: params.district });
+  const meta = placeMetadata({ level: 'district', state: params.state, district: params.district });
+  return title === undefined ? meta : { ...meta, title };
+}
 
 /**
  * A DISTRICT, carrying its state.

@@ -7,8 +7,8 @@
 // gained a seat, a component would have had to parse "BJP gained 30 seats, 79 to 109."
 //
 // That is the single reason the product looked like a database with charts bolted on. It was not a shortage
-// of data (63,334 contests carry a computable margin) and not a shortage of queries (47 analytical
-// functions). It was that the answers arrived as prose, and prose is a dead end for every renderer.
+// of data and not a shortage of queries. It was that the answers arrived as prose, and prose is a dead end
+// for every renderer.
 //
 // THE RULE HERE: a finding is a value with named fields and a discriminant. It says WHAT was concluded and
 // carries the numbers behind it. It says nothing about how it should look — no colour, no ordering
@@ -28,8 +28,6 @@
 //   · No `weight` on most types. Ranking is the caller's question and differs per surface; `watchSignals`
 //     keeps its own because its whole job is to rank across rule kinds.
 
-import type { Reservation } from "../core/entities/index.ts";
-
 /* ────────────────────────────────── the vocabulary ────────────────────────────────── */
 
 /** A party as any finding refers to one: the registry key, and the label a reader reads. */
@@ -39,54 +37,7 @@ export type PartyRef = {
   label: string;
 };
 
-/**
- * A seat's identity inside a finding, carrying the boundary it was fought under.
- *
- * `epochId` is not decoration: it is half of what makes two seats the same seat (see `seatKey`), so a
- * finding that names a seat without it cannot be checked for comparability by whoever receives it.
- */
-export type SeatRef = {
-  placeId: string;
-  epochId: string;
-  name: string;
-  number: number | null;
-  reservation: Reservation | null;
-  /** The seat's own page, where the place path can address it. Null where it cannot be addressed. */
-  href: string | null;
-};
-
 /* ─────────────────────────────────── the findings ─────────────────────────────────── */
-
-/**
- * A party's seat count moved between two elections.
- *
- * `then` and `now` are both present, so a renderer can draw a slope, a dumbbell or a diverging bar from
- * one value — none of which was possible from "gained 30 seats, 79 to 109".
- */
-export type SeatMovement = {
-  type: "seat_movement";
-  party: PartyRef;
-  then: number;
-  now: number;
-  /** now − then. Kept rather than derived so the sign is the finding's, not each renderer's arithmetic. */
-  delta: number;
-  previousYear: number | null;
-  year: number | null;
-};
-
-/**
- * A party won seats having won none last time, or lost every seat it held.
- *
- * Its own type rather than a `SeatMovement` with `then = 0`, because those are different sentences and
- * different marks: an arrival has no baseline to draw a slope from, and a wipeout's endpoint is zero.
- */
-export type PartyEntry = {
-  type: "party_arrival" | "party_wipeout";
-  party: PartyRef;
-  seats: number;
-  previousYear: number | null;
-  year: number | null;
-};
 
 /** One cell of a flip matrix: `count` seats went from `from` to `to`. */
 export type FlipPair = {
@@ -132,17 +83,6 @@ export type SeatsIncomparable = {
   epochId: string | null;
 };
 
-/** Turnout moved, as a share of electors on both sides. */
-export type TurnoutChange = {
-  type: "turnout_change";
-  nowPct: number;
-  thenPct: number;
-  /** Percentage points, one decimal. */
-  deltaPp: number;
-  previousYear: number | null;
-  year: number | null;
-};
-
 /** Whether the leading party holds the house outright — the fact a seat count alone does not settle. */
 export type MajorityFinding = {
   type: "majority";
@@ -169,57 +109,16 @@ export type VoteSeatEfficiency = {
   /** seatPct − votePct, or null where no vote count was published. */
   deltaPp: number | null;
   seats: number;
+  /** The seats the seat share is over: every seat contested. */
   contested: number;
+  /** The seats the vote share is over: those with candidate counts and votes polled, which can be fewer than `contested`. */
+  counted: number;
   /** Seats won per point of vote share. Null when the share is null or zero. */
   seatsPerPoint: number | null;
 };
 
-/**
- * One contest's winning margin, with the runner-up.
- *
- * The runner-up is the point. `result.margin` is populated for winners only (63,944 rows), but rank-1 and
- * rank-2 vote counts exist for 63,334 contests — so the margin AND who it was over are both available, and
- * the second half was never surfaced anywhere.
- */
-export type MarginFinding = {
-  type: "margin";
-  seat: SeatRef;
-  winner: PartyRef;
-  runnerUp: PartyRef | null;
-  winnerName: string | null;
-  marginVotes: number | null;
-  /** Over votes polled, never over the sum of the result rows. */
-  marginPct: number | null;
-  votesPolled: number | null;
-  electionId: string;
-  year: number | null;
-};
-
-/** A party's vote share moved between consecutive elections, with the seats that came with it. */
-export type ShareMovement = {
-  type: "share_movement";
-  party: PartyRef;
-  nowPct: number | null;
-  thenPct: number | null;
-  /** Percentage points. Null where the party did not contest the earlier election. */
-  deltaPp: number | null;
-  nowSeats: number;
-  thenSeats: number;
-  previousYear: number | null;
-  year: number | null;
-};
-
-/** Every kind of finding this registry produces. */
-export type Finding =
-  | SeatMovement
-  | PartyEntry
-  | SeatFlips
-  | SeatsIncomparable
-  | TurnoutChange
-  | MajorityFinding
-  | VoteSeatEfficiency
-  | MarginFinding
-  | ShareMovement;
+/** Every kind of finding the election map's view produces. */
+export type Finding = SeatFlips | SeatsIncomparable | MajorityFinding | VoteSeatEfficiency;
 
 /** Narrow a mixed list to one kind, keeping the type. The read pattern every renderer wants. */
 export function ofType<K extends Finding["type"]>(
@@ -259,14 +158,6 @@ const since = (y: number | null): string => (y === null ? "the previous election
  */
 export function summarise(f: Finding): string {
   switch (f.type) {
-    case "seat_movement":
-      return `${f.party.label} ${f.delta > 0 ? "gained" : "lost"} ${seats(Math.abs(f.delta))}, ${IN.format(
-        f.then,
-      )} to ${IN.format(f.now)}.`;
-    case "party_arrival":
-      return `${f.party.label} won ${seats(f.seats)}, having won none in ${since(f.previousYear)}.`;
-    case "party_wipeout":
-      return `${f.party.label} lost every one of the ${seats(f.seats)} it held in ${since(f.previousYear)}.`;
     case "seat_flips":
       return `${IN.format(f.flipped)} of ${seats(f.comparable)} changed hands.`;
     case "seats_incomparable":
@@ -274,11 +165,6 @@ export function summarise(f: Finding): string {
         `${seats(f.count)} cannot be compared: the constituencies were redrawn after ` +
         `${since(f.previousYear)}.`
       );
-    case "turnout_change":
-      return f.deltaPp === 0
-        ? `Turnout held at ${f.nowPct.toFixed(1)}%.`
-        : `Turnout ${f.deltaPp > 0 ? "rose" : "fell"} ${Math.abs(f.deltaPp).toFixed(1)} points, ` +
-            `${f.thenPct.toFixed(1)}% to ${f.nowPct.toFixed(1)}%.`;
     case "majority":
       return f.party === null
         ? `No winner is recorded for the ${seats(f.contested)} contested.`
@@ -290,17 +176,6 @@ export function summarise(f: Finding): string {
         ? `${f.party.label} won ${IN.format(f.seats)} of ${seats(f.contested)}; no vote count is on record.`
         : `${f.party.label} took ${pct1(f.votePct)} of the vote and ${pct1(f.seatPct)} of the seats ` +
           `(${pp(f.deltaPp)}).`;
-    case "margin":
-      return (
-        `${f.seat.name}: ${f.winner.label} ${f.runnerUp === null ? "won" : `over ${f.runnerUp.label}`}` +
-        `${f.marginPct === null ? "" : ` by ${pct1(f.marginPct)} of votes polled`}` +
-        `${f.marginVotes === null ? "" : `, ${IN.format(Math.abs(f.marginVotes))} votes`}.`
-      );
-    case "share_movement":
-      return f.deltaPp === null
-        ? `${f.party.label} took ${pct1(f.nowPct)}; it has no recorded share in ${since(f.previousYear)}.`
-        : `${f.party.label} moved ${pp(f.deltaPp)}, ${pct1(f.thenPct)} to ${pct1(f.nowPct)}, with ` +
-          `${IN.format(f.thenSeats)} seats becoming ${IN.format(f.nowSeats)}.`;
   }
 }
 

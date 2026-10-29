@@ -12,7 +12,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { blockingKeys } from "../core/index.ts";
@@ -20,7 +20,7 @@ import { open, openRead } from "../db/index.ts";
 import { ensureEpochs } from "../db/epochs.ts";
 import { migrate } from "../db/migrate.ts";
 import type { Envelope, Meta, Reply } from "./envelope.ts";
-import { personReply, placeReply, searchReply, unavailable } from "./envelope.ts";
+import { personReply, placeReply, searchLimit, searchReply, toResponse, unavailable, unknownEndpointReply } from "./envelope.ts";
 import { readRegistry } from "./session.ts";
 
 const AC = "wb.ac.001";
@@ -167,6 +167,26 @@ function buildTwoStateFixture(): string {
 const FIXTURE = buildFixture();
 const TWO_STATES = buildTwoStateFixture();
 const NAMESAKES = buildNamesakeFixture();
+
+/** Two people who share a phonetic key and not their letters, so a search for one finds the other only as a sound. */
+function buildSoundsFixture(): string {
+  const path = join(mkdtempSync(join(tmpdir(), "mandate-fixture-")), "registry.db");
+  const d = open(path);
+  migrate(d, NOW);
+  d.exec(`
+    INSERT INTO source (id,kind,publisher,title,url,retrieved_at,doc_hash,hash_kind,retrieval_kind)
+      VALUES ('src-results','eci_declaration','ECI','Results','repo:x','2026-07-01T00:00:00.000Z','h1','document_bytes','fetched');
+    INSERT INTO ingest_run (pipeline,parser_version,started_at,finished_at,status)
+      VALUES ('static:fixture','v1','${NOW}','${NOW}','ok');
+    INSERT INTO person (id,canonical_name,names,review_state,created_at) VALUES
+      ('sukanta-roy-000001','Sukanta Roy','{}','auto','${NOW}'), ('sukhanta-roy-000002','Sukhanta Roy','{}','auto','${NOW}');
+    INSERT INTO person_alias (person_id,name,script,norm_key,kind,source_id) VALUES
+      ${aliasRows("sukanta-roy-000001", "Sukanta Roy")}, ${aliasRows("sukhanta-roy-000002", "Sukhanta Roy")};
+  `);
+  d.close();
+  return path;
+}
+const SOUNDS = buildSoundsFixture();
 /** True when this machine also has the real registry — then the contract is asserted twice. */
 const live = await withDb(undefined, async () => {
   try {
@@ -306,6 +326,17 @@ async function assertContract(where: string, searchTerm: string): Promise<void> 
   assert.equal(none.status, 404, `${where}: no match`);
   if ("data" in none.body) assert.fail("a no-match search must not answer with an empty envelope");
 }
+
+test("a path under /v1 that no endpoint answers is a 404 problem document that names the endpoints that exist", () => {
+  const r = unknownEndpointReply("/v1/entity/election/wb-assembly-2026");
+  assert.equal(r.status, 404);
+  assert.equal(r.body.code, "unknown-endpoint");
+  assert.match(r.body.type, /^https?:\/\//);
+  assert.match(r.body.detail, /\/v1\/entity\/election\/wb-assembly-2026/);
+  for (const endpoint of ["/v1/search", "/v1/entity/person/", "/v1/entity/place/"]) assert.ok(r.body.detail.includes(endpoint), endpoint);
+  assert.equal(r.headers["Cache-Control"], "no-store", "a miss is not something an edge should keep");
+  assert.doesNotThrow(() => new Response(null, { status: r.status, headers: r.headers }));
+});
 
 test("503 names the command that fixes it", () => {
   const u = unavailable();
@@ -471,6 +502,73 @@ test("a retired name is a 404 and the current name is not", async () => {
   const current = ok200(await placeReply("nanjangud", read));
   assert.equal(current.data.place.id, "ka.ac.214");
   assert.equal(current.data.place.canonicalName, "NANJANGUD");
+});
+
+test("a name that sounds like the query is a suggestion beside the matches, never one of them", async () => {
+  const read = at(SOUNDS);
+  // Sukanta Roy's name contains the query; Sukhanta Roy shares its phonetic key and no more. `count` and `results` are
+  // what the registry holds under that name, so a client that takes the first rows or the count is not handed noise.
+  const both = ok200(await searchReply("Sukanta", 20, read));
+  assert.deepEqual(both.data.results.map((r) => [r.canonicalName, r.match]), [["Sukanta Roy", "name"]]);
+  assert.equal(both.data.count, 1);
+  assert.deepEqual(both.data.soundsLike.map((r) => [r.canonicalName, r.match]), [["Sukhanta Roy", "sounds-like"]]);
+  assert.ok(both.sources.length > 0, "a suggestion is cited like a match");
+  // Where nothing is named like it the answer is 200 with no match and the suggestions, not a 404 that drops them.
+  const only = ok200(await searchReply("Sukanth", 20, read));
+  assert.equal(only.data.count, 0);
+  assert.deepEqual(only.data.results, []);
+  assert.deepEqual(only.data.soundsLike.map((r) => r.canonicalName).sort(), ["Sukanta Roy", "Sukhanta Roy"]);
+  // And nothing at all is still the 404.
+  assert.equal((await searchReply("Zzzzqqq", 20, read)).status, 404);
+});
+
+test("an unknown place is not sent to a search that finds people only", async () => {
+  const read = at(FIXTURE);
+  const place = await placeReply("Nowhere", read);
+  assert.equal(place.status, 404);
+  if ("data" in place.body) return assert.fail("a 404 must not carry data");
+  assert.doesNotMatch(place.body.detail, /\/v1\/search/, "that search cannot find a seat");
+  assert.match(place.body.detail, /place id/);
+  // A person is what that search finds, so an unknown person is still pointed at it.
+  const person = await personReply("no-such-person", read);
+  if ("data" in person.body) return assert.fail("a 404 must not carry data");
+  assert.match(person.body.detail, /\/v1\/search\?q=no-such-person/);
+});
+
+test("a problem is sent as application/problem+json and data as application/json", async () => {
+  const replies: [string, Reply<unknown>][] = [
+    ["400", await searchReply("", 5, at(FIXTURE))],
+    ["404", await searchReply("zzzzqqqqxxxx", 5, at(FIXTURE))],
+    ["404 place", await placeReply("Nowhere", at(FIXTURE))],
+    ["300", await placeReply("aurangabad", at(NAMESAKES))],
+    ["503", await placeReply(AC, at(join(mkdtempSync(join(tmpdir(), "mandate-empty-")), "registry.db")))],
+    ["200", await searchReply("AA TEST WINNER", 5, at(FIXTURE))],
+  ];
+  assert.deepEqual(replies.map(([, r]) => r.status), [400, 404, 404, 300, 503, 200]);
+  for (const [label, r] of replies) {
+    const res = toResponse(r);
+    assert.equal(res.status, r.status, label);
+    assert.equal(res.headers.get("content-type"), r.status === 200 ? "application/json" : "application/problem+json", label);
+    assert.deepEqual(await res.json(), JSON.parse(JSON.stringify(r.body)), `${label}: the body is the reply's`);
+    for (const [k, v] of Object.entries(r.headers)) assert.equal(res.headers.get(k), v, `${label}: ${k}`);
+  }
+});
+
+test("every /v1 route, the catch-all for an unknown path included, answers through toResponse, so none can send a problem as plain JSON", () => {
+  for (const route of ["search/route.ts", "entity/place/[slug]/route.ts", "entity/person/[slug]/route.ts", "[[...rest]]/route.ts"]) {
+    const source = readFileSync(new URL(`../../../../src/app/v1/${route}`, import.meta.url), "utf8");
+    assert.match(source, /return toResponse\(r\)/, `${route} does not answer through toResponse`);
+    assert.doesNotMatch(source, /NextResponse\.json/, `${route} sends its reply as plain JSON`);
+  }
+});
+
+test("a search limit is 1 to 50, and 20 where it is absent, blank or not a number", () => {
+  for (const [raw, want] of [
+    [null, 20], ["", 20], ["  ", 20], ["abc", 20], ["NaN", 20], ["Infinity", 20],
+    ["0", 1], ["-3", 1], ["1000", 50], ["2.7", 2], ["1e1", 10], ["5", 5], [" 7 ", 7],
+  ] as const) {
+    assert.equal(searchLimit(raw), want, JSON.stringify(raw));
+  }
 });
 
 test("meta.epoch is the epoch in force for the response's jurisdiction, and absent when there is none", async () => {

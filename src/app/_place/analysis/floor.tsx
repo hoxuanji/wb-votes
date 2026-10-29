@@ -1,7 +1,10 @@
 import { inr } from "../../../../packages/mandate/src/repo/brief.ts";
+import { analysisCaveats } from "../../../../packages/mandate/src/repo/place-caveats.ts";
+import { partyNotices } from "../../../../packages/mandate/src/repo/place-filters.ts";
 import type { Card } from "../../../../packages/mandate/src/repo/place-presentation.ts";
 import { analysisCards } from "../../../../packages/mandate/src/repo/place-presentation.ts";
 import type { PlaceView } from "../../../../packages/mandate/src/repo/place-view.ts";
+import { ABSENT } from "../../../../packages/mandate/src/semantic/index.ts";
 import { Foot, Shell } from "../../../components/iei/Shell.tsx";
 import { Crumbs, DataList, DataRow, Panel, Table, Tabs } from "../../../components/iei/parts.tsx";
 import "../../iei.css";
@@ -24,6 +27,8 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
   const { analysis, brief, filters, trail } = view;
   const cards = analysisCards(analysis);
   const base = view.base.replace(/\/analysis$/, "");
+  // What was rejected, and what the party filter did to the cards: both are sentences, neither is silence.
+  const notes = [...filters.ignored, ...partyNotices(analysis)];
 
   return (
     <Shell here="place" reading>
@@ -46,7 +51,7 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
 
       <Panel
         title="Window"
-        question="Which elections and which parties are these measures computed over?"
+        question="Which elections, and which party's shares, do the cards below cover?"
         sources={analysis.sources}
       >
         {/* A GET form: the browser builds the query string, the server reads it. No client JS. */}
@@ -97,9 +102,9 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
             ]}
           />
         )}
-        {filters.ignored.length === 0 ? null : (
+        {notes.length === 0 ? null : (
           <ul className="iei-gaps iei-anom">
-            {filters.ignored.map((i) => (
+            {notes.map((i) => (
               <li key={i}>{i}</li>
             ))}
           </ul>
@@ -112,8 +117,8 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
 
       <Panel title="What these measures do not tell you" question="The limits of every figure above">
         <DataList label="Caveats">
-          {analysis.caveats.map((c) => (
-            <DataRow key={c} title={c} />
+          {analysisCaveats(analysis).map((c) => (
+            <DataRow key={c.label} title={c.label} detail={c.text} />
           ))}
         </DataList>
       </Panel>
@@ -158,7 +163,8 @@ function ChartCard({ card }: { card: Card }) {
                 </th>
               ) : (
                 <td className="iei-n" key={i}>
-                  {cell}
+                  {/* A figure carries a numeral; anything else is an absence, and an absence is words (ABSENT). */}
+                  {/\d/.test(cell) ? cell : <span className="iei-absent">{cell === ABSENT ? "not reported" : cell}</span>}
                 </td>
               ),
             )}

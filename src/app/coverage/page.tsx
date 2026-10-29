@@ -25,7 +25,8 @@ import '../iei.css';
  * `/coverage` — what this platform holds, and what it does not.
  *
  * This page exists because the product had no way to say what it was. Eighteen verticals are specified in
- * docs/platform/00-model.md; four have data. That gap is not something to bury on a methodology page.
+ * docs/platform/00-model.md; the headline counts how many have data. That gap is not something to bury on a
+ * methodology page.
  *
  * Every number here is computed at request time. No status is written down: a vertical is "present" because
  * a probe found rows, "empty" because a table exists and holds none, and "no model" because nothing in the
@@ -116,7 +117,7 @@ function Election({
           value={c.candidacies}
           hint={
             c.candidaciesWithoutResult - c.unopposed > 0
-              ? `${c.candidaciesWithoutResult - c.unopposed} of them carry no result row`
+              ? `${IN.format(c.candidaciesWithoutResult - c.unopposed)} of them carry no result row`
               : 'candidacies loaded'
           }
         />
@@ -220,7 +221,10 @@ function Body({
           }
         >
           <tr>
-            <th scope="row">States and union territories</th>
+            <th scope="row">
+              States and union territories
+              <span className="iei-rule">With a contest on record in either house.</span>
+            </th>
             <td className="iei-n">{g.statesLoaded}</td>
             <td className="iei-n">{INDIA.states}</td>
             <td className="iei-n">{g.statePct.toFixed(1)}%</td>
@@ -336,7 +340,7 @@ function Body({
           />
           <DataRow
             title="“Delivery” is a judgement."
-            detail="A promise marked kept or broken without a named assessor, a date and cited evidence is an opinion dressed as a fact. The model carries all three, which is why fourteen manifestos sitting in this repo are not published as a promises tracker."
+            detail="A promise marked kept or broken without a named assessor, a date and cited evidence is an opinion dressed as a fact. The model carries all three, which is why no promises tracker is published."
           />
           <DataRow
             title="Charged is not convicted."
@@ -349,12 +353,12 @@ function Body({
         </DataList>
       </Panel>
 
-      <footer className="iei-foot">
+      <div className="iei-foot">
         <p>
           Every figure here is computed when the page is requested. The model behind these tables is{' '}
           <code>docs/platform/00-model.md</code>. <Link href="/">India</Link>
         </p>
-      </footer>
+      </div>
     </>
   );
 }

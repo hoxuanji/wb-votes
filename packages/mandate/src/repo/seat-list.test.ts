@@ -144,13 +144,21 @@ test("a list that ranks nothing says why, in the place of a list", () => {
     listHead(NONE, { seats: [], of: 1, order: "margin" }).note,
     "This seat has no margin over votes polled, so it cannot be ranked.",
   );
-  // An election with no seats has nothing to explain, and a narrowing that matches nothing is "0 of 0".
+  // An election with no seats has nothing to explain. A narrowing that matches nothing is "0 of 0", and says so in a sentence:
+  // the heading names the selection, and the reader is left asking whether the list failed to load.
   assert.equal(listHead(NONE, { seats: [], of: 0, order: "margin" }).note, null);
   assert.deepEqual(listHead({ isolation: null, district: "Kolkata" }, { seats: [], of: 0, order: "margin" }), {
     title: "Seats in Kolkata, closest first",
     count: "0 of 0",
-    note: null,
+    note: "No seat matches this selection.",
   });
+  assert.deepEqual(listHead({ isolation: "decided by 4 to 6 percent", district: null }, { seats: [], of: 0, order: "seat" }), {
+    title: "Seats decided by 4 to 6 percent, in seat order",
+    count: "0 of 0",
+    note: "No seat matches this selection.",
+  });
+  // A narrowing that matches seats says nothing of the kind.
+  assert.equal(listHead({ isolation: "won by TMC", district: null }, list(3, 3, "margin")).note, null);
 });
 
 test("the heading is read from the builder's order, never from the data the page happens to hold", () => {

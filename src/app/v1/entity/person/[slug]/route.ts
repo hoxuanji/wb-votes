@@ -1,5 +1,4 @@
-import { NextResponse } from 'next/server';
-import { personReply } from '../../../../../../packages/mandate/src/repo/envelope.ts';
+import { personReply, toResponse } from '../../../../../../packages/mandate/src/repo/envelope.ts';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -16,5 +15,5 @@ export const dynamic = 'force-dynamic';
  */
 export async function GET(_req: Request, { params }: { params: { slug: string } }) {
   const r = await personReply(params.slug);
-  return NextResponse.json(r.body, { status: r.status, headers: r.headers });
+  return toResponse(r);
 }

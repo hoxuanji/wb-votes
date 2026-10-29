@@ -15,6 +15,8 @@ import { chronoAsc, chronoDesc } from "../core/election-kind.ts";
 import type { SourceRef } from "./index.ts";
 import { loadSources, marks, read, yearOf } from "./index.ts";
 import { seatHref, seatTies } from "./place-resolve.ts";
+import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
+import type { Turnout } from "./turnout-trust.ts";
 
 export type PersonBrief = {
   person: {
@@ -55,7 +57,15 @@ export type PersonBrief = {
     rank: number | null;
     isWinner: boolean;
     margin: number | null;
-    turnoutPct: number | null;
+    /**
+     * Who the contest was declared for, when it was someone else: null for the winner themself and for a contest with
+     * no declared winner. Read from the winner's `elected` status and not from a result row, because one 2026 seat has
+     * the first and not the second. For a candidacy with no result of its own it is the one thing the registry says
+     * about how the contest came out.
+     */
+    wonBy: { personId: string; name: string; partyShortName: string | null } | null;
+    /** A reading, never a bare percentage: West Bengal 2026's turnout is withheld (turnout-trust.ts). */
+    turnout: Turnout;
   }[];
   /** Oldest first — this is a series, and a series read backwards is a wrong delta. */
   affidavitTrail: {
@@ -75,6 +85,18 @@ export type PersonBrief = {
     decidedBy: string;
     decidedAt: string;
   }[];
+  /**
+   * The seat this row is recorded as sitting for (its `mla_term` claim), read only for a row with no candidacy of its
+   * own, where that claim is all there is to say. `placeHref` is null where the seat's state or body is not recorded.
+   */
+  sitting: {
+    term: string;
+    placeName: string;
+    placeHref: string | null;
+    party: string | null;
+    marginVotes: number | null;
+    asOf: string | null;
+  } | null;
   sources: SourceRef[];
 };
 
@@ -89,6 +111,8 @@ export type PersonRow = {
   latestPlaceName: string | null;
   latestPartyShortName: string | null;
   latestStatus: CandidacyStatus | null;
+  /** Who that contest was declared for, when it was someone else: the winner's name. Null otherwise (see the brief's `wonBy`). */
+  latestWonBy: string | null;
   latestVotes: number | null;
   latestVoteShare: number | null;
   isWinner: boolean;
@@ -113,10 +137,11 @@ type PersonRowSql = {
 };
 
 /**
- * Everything the Brief lens renders, in one call. SEVEN fixed queries — person, aliases,
- * candidacies, affidavits, person-level claims, merges, sources — never N+1 in the number of
- * candidacies, affidavits or sources. Asserted by person.test.ts's statement counter. Which seats share a name
- * (`seatTies`, for each candidacy's `placeHref`) is read once per registry file and kept, so it is not one of the seven.
+ * Everything the Brief lens renders, in one call. EIGHT fixed queries — person, aliases,
+ * candidacies, which of their elections' turnout is unverified, affidavits, person-level claims, merges, sources —
+ * never N+1 in the number of candidacies, affidavits or sources. Asserted by person.test.ts's statement counter. A row
+ * with no candidacy but a recorded seat reads that seat's name as a ninth. Which seats share a name (`seatTies`, for
+ * each candidacy's `placeHref`) is read once per registry file and kept, so it is not one of them.
  */
 export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | null {
   return read(() => {
@@ -161,6 +186,9 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
       electors: number | null;
       voters: number | null;
       turnout_source_id: string | null;
+      winner_id: string | null;
+      winner_name: string | null;
+      winner_party: string | null;
     }>(
       db,
       `SELECT ca.id AS candidacy_id, c.id AS contest_id, c.election_id, e.name AS election_name,
@@ -180,7 +208,8 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
               ca.status, ca.age_declared, ca.education_declared,
               r.votes, r.vote_share, r.rank, r.is_winner, r.margin,
               r.source_id AS result_source_id,
-              t.electors, t.voters, t.source_id AS turnout_source_id
+              t.electors, t.voters, t.source_id AS turnout_source_id,
+              wp.id AS winner_id, wp.canonical_name AS winner_name, wpt.short_name AS winner_party
          FROM candidacy ca
          JOIN contest c ON c.id = ca.contest_id
          JOIN election e ON e.id = c.election_id
@@ -191,12 +220,23 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
          LEFT JOIN result r ON r.candidacy_id = ca.id
               AND r.revision = (SELECT MAX(r2.revision) FROM result r2 WHERE r2.candidacy_id = ca.id)
          LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
+         -- WHO THE CONTEST WENT TO, when not to this person. By status, not by result row: 2026 has no vote counts, and
+         -- one of its seats has an elected candidacy and no result row at all.
+         LEFT JOIN candidacy wc ON wc.id = (SELECT MIN(w.id) FROM candidacy w
+                                             WHERE w.contest_id = c.id AND w.status = 'elected' AND w.id <> ca.id)
+         LEFT JOIN person wp ON wp.id = wc.person_id
+         LEFT JOIN party_version wpv ON wpv.id = wc.party_version_id
+         LEFT JOIN party wpt ON wpt.id = wpv.party_id
         WHERE ca.person_id = ?
         -- newest first is by YEAR, not by id (see repo/index.ts yearOf): a career spanning
         -- 'ls-2019' and 'up-assembly-2017' came back as two separately-descending runs.
         ORDER BY ${chronoDesc()}, c.id`,
       slug,
     );
+
+    // Decided once per election, like every other surface that prints a turnout, so this page cannot give the figure a
+    // seat page withholds.
+    const unverified = unverifiedTurnout(db, [...new Set(cand.map((c) => c.election_id))]);
 
     const aff = all<{
       id: string;
@@ -227,16 +267,22 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
     );
 
     // Declared pending cases are person-level claims carrying the filing vintage in as_of, not
-    // affidavit_field rows — so the trail row picks up the claim with its own year.
+    // affidavit_field rows — so the trail row picks up the claim with its own year. The seat a row sits for is a
+    // claim too, and the same read gets it.
     const casesByYear = new Map<number, number>();
-    for (const cl of all<{ object_value: string; as_of: string | null }>(
+    let term: { object_value: string; as_of: string | null } | undefined;
+    let termMargin: number | null = null;
+    for (const cl of all<{ predicate: string; object_value: string; as_of: string | null }>(
       db,
-      `SELECT object_value, as_of FROM claim
-        WHERE subject_ref = ? AND predicate = 'pending_cases_declared' ORDER BY as_of`,
+      `SELECT predicate, object_value, as_of FROM claim
+        WHERE subject_ref = ? AND predicate IN ('pending_cases_declared', 'mla_term', 'mla_margin_votes')
+        ORDER BY as_of`,
       `person:${slug}`,
     )) {
       const n = Number(cl.object_value);
-      if (Number.isFinite(n)) casesByYear.set(cl.as_of === null ? 0 : yearOf(cl.as_of), n);
+      if (cl.predicate === "mla_term") term = cl;
+      else if (cl.predicate === "mla_margin_votes") termMargin = Number.isFinite(n) ? n : null;
+      else if (Number.isFinite(n)) casesByYear.set(cl.as_of === null ? 0 : yearOf(cl.as_of), n);
     }
 
     const merges = all<{
@@ -300,7 +346,11 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
         rank: c.rank,
         isWinner: c.is_winner === 1,
         margin: c.margin,
-        turnoutPct: pct(c.voters, c.electors),
+        wonBy:
+          c.winner_id === null || c.winner_name === null
+            ? null
+            : { personId: c.winner_id, name: c.winner_name, partyShortName: c.winner_party },
+        turnout: turnoutReading(c.voters, c.electors, unverified.has(c.election_id)),
       })),
       affidavitTrail: aff.map((a) => {
         const year = yearOf(a.election_id);
@@ -322,9 +372,49 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
         decidedBy: m.decided_by,
         decidedAt: m.decided_at,
       })),
+      sitting: cand.length > 0 || term === undefined ? null : sittingOf(db, tied, term, termMargin),
       sources: loadSources(db, directIds, subjectRefs),
     };
   });
+}
+
+/**
+ * The seat an `mla_term` claim names, said in words, or null where the claim does not name a seat the registry has.
+ * The claim's own seat id is a registry id, so its name and its address come from the newest version of that seat.
+ */
+function sittingOf(
+  db: DatabaseSync,
+  tied: ReadonlySet<number>,
+  claim: { object_value: string; as_of: string | null },
+  margin: number | null,
+): PersonBrief["sitting"] {
+  const v = ((): unknown => {
+    try {
+      return JSON.parse(claim.object_value);
+    } catch {
+      return null;
+    }
+  })() as { term?: unknown; placeId?: unknown; party?: unknown } | null;
+  if (v === null || typeof v.term !== "string" || typeof v.placeId !== "string") return null;
+  const seat = get<{ id: number; name: string; state: string | null; kind: string }>(
+    db,
+    `SELECT pv.id, pv.canonical_name AS name, pv.jurisdiction_id AS state, pv.kind
+       FROM place_version pv JOIN boundary_epoch be ON be.id = pv.epoch_id
+      WHERE pv.place_id = ? ORDER BY be.effective_from DESC, pv.id DESC LIMIT 1`,
+    v.placeId,
+  );
+  if (seat === undefined) return null;
+  return {
+    term: v.term,
+    placeName: seat.name,
+    placeHref:
+      seat.state === null
+        ? null
+        : seatHref(tied, { versionId: seat.id, placeId: v.placeId, stateId: seat.state, kind: seat.kind, name: seat.name }),
+    party: typeof v.party === "string" && v.party !== "" ? v.party : null,
+    marginVotes: margin,
+    asOf: claim.as_of,
+  };
 }
 
 /**
@@ -436,38 +526,61 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
   if (keys.length === 0 && like === null) return [];
   // A term with no phonetic key still gets its substring tier, and vice versa, so neither branch may
   // assume the other produced anything.
-  const keyClause =
-    keys.length > 0
-      ? `p.id IN (SELECT person_id FROM person_alias WHERE norm_key IN (${marks(keys.length)}))`
-      : "0";
+  //
   // Aliases only. A person whose CANONICAL name matches while no alias does would be missed — measured
   // across "md salim", "mamata banerjee", "salim" and "banerjee", that set is empty, because ingest
   // mirrors the canonical spelling into the alias table. Scanning `person` as well would be a second
   // full pass to find nobody.
-  const likeClause =
-    like === null
-      ? "0"
-      : `p.id IN (SELECT person_id FROM person_alias WHERE ${SPELLING("name")} LIKE ? ESCAPE '\\')`;
+  //
+  // BOTH TIERS IN ONE SUBQUERY, because two IN-lists OR'd in the WHERE were each computed twice, and the contains
+  // test cannot use an index, so each computation is a scan of the whole alias table (539,020 rows in the full registry).
+  const aliasClause = [
+    keys.length > 0 ? `norm_key IN (${marks(keys.length)})` : null,
+    like === null ? null : `${SPELLING("name")} LIKE ? ESCAPE '\\'`,
+  ]
+    .filter((c) => c !== null)
+    .join(" OR ");
 
   return read(() =>
     all<PersonListSql>(
       db,
-      `SELECT p.id, p.canonical_name, p.sex, p.review_state,
-              (SELECT COUNT(*) FROM candidacy x WHERE x.person_id = p.id) AS candidacy_count,
-              (SELECT a.source_id FROM person_alias a
-                 WHERE a.person_id = p.id AND a.source_id IS NOT NULL
-                 ORDER BY a.source_id LIMIT 1) AS name_source_id,
-              (SELECT MAX(r4.is_winner) FROM candidacy c4
-                 JOIN result r4 ON r4.candidacy_id = c4.id AND r4.revision = 0
-                WHERE c4.person_id = p.id) AS ever_won,
-              ${closenessSql} AS closeness,
+      // TWO PHASES. `hits` ranks and cuts to the limit on columns that are cheap for one person; only then is the
+      // latest candidacy read, and for those few. It used to be a window over every candidacy in the registry,
+      // computed before the LIMIT, whatever the term. MATERIALIZED, or sqlite inlines `hits` into the IN below and
+      // runs the whole match a second time.
+      `WITH hits AS MATERIALIZED (
+         SELECT p.id, p.canonical_name, p.sex, p.review_state,
+                (SELECT COUNT(*) FROM candidacy x WHERE x.person_id = p.id) AS candidacy_count,
+                (SELECT a.source_id FROM person_alias a
+                   WHERE a.person_id = p.id AND a.source_id IS NOT NULL
+                   ORDER BY a.source_id LIMIT 1) AS name_source_id,
+                (SELECT MAX(r4.is_winner) FROM candidacy c4
+                   JOIN result r4 ON r4.candidacy_id = c4.id AND r4.revision = 0
+                  WHERE c4.person_id = p.id) AS ever_won,
+                ${closenessSql} AS closeness
+           FROM person p
+          WHERE p.id IN (SELECT person_id FROM person_alias WHERE ${aliasClause})
+          ORDER BY closeness DESC,
+                   -- Prominence, as far as this registry can honestly measure it. "Has ever won a
+                   -- seat" is stable; "won the most recent one" is not — Mamata Banerjee did not win
+                   -- her latest recorded contest, so ranking on that pushed a winning namesake above
+                   -- the Chief Minister. There is no attention or news signal here, so no better
+                   -- proxy exists, and ties fall to a deterministic case-insensitive name order
+                   -- rather than to whatever order sqlite happened to scan.
+                   ever_won DESC,
+                   candidacy_count DESC,
+                   lower(p.canonical_name),
+                   p.id
+          LIMIT ?)
+       SELECT h.id, h.canonical_name, h.sex, h.review_state, h.candidacy_count, h.name_source_id, h.ever_won,
+              h.closeness,
               latest.election_id, latest.place_name, latest.party_short_name,
-              latest.status, latest.votes, latest.vote_share, latest.is_winner,
+              latest.status, latest.winner_name, latest.votes, latest.vote_share, latest.is_winner,
               latest.result_source_id
-         FROM person p
+         FROM hits h
          LEFT JOIN (
            SELECT ca.person_id, c.election_id, pl.canonical_name AS place_name,
-                  pt.short_name AS party_short_name, ca.status,
+                  pt.short_name AS party_short_name, ca.status, wp.canonical_name AS winner_name,
                   r.votes, r.vote_share, r.is_winner, r.source_id AS result_source_id,
                   ROW_NUMBER() OVER (PARTITION BY ca.person_id
                                      ORDER BY ${chronoDesc()}, c.id) AS rn
@@ -479,20 +592,13 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
              LEFT JOIN party_version pver ON pver.id = ca.party_version_id
              LEFT JOIN party pt ON pt.id = pver.party_id
              LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
-         ) latest ON latest.person_id = p.id AND latest.rn = 1
-        WHERE ${keyClause} OR ${likeClause}
-        ORDER BY closeness DESC,
-                 -- Prominence, as far as this registry can honestly measure it. "Has ever won a
-                 -- seat" is stable; "won the most recent one" is not — Mamata Banerjee did not win
-                 -- her latest recorded contest, so ranking on that pushed a winning namesake above
-                 -- the Chief Minister. There is no attention or news signal here, so no better
-                 -- proxy exists, and ties fall to a deterministic case-insensitive name order
-                 -- rather than to whatever order sqlite happened to scan.
-                 ever_won DESC,
-                 candidacy_count DESC,
-                 lower(p.canonical_name),
-                 p.id
-        LIMIT ?`,
+             -- Who the contest went to, when not to this person (getPersonBrief reads it the same way).
+             LEFT JOIN candidacy wc ON wc.id = (SELECT MIN(w.id) FROM candidacy w
+                                                 WHERE w.contest_id = c.id AND w.status = 'elected' AND w.id <> ca.id)
+             LEFT JOIN person wp ON wp.id = wc.person_id
+            WHERE ca.person_id IN (SELECT id FROM hits)
+         ) latest ON latest.person_id = h.id AND latest.rn = 1
+        ORDER BY h.closeness DESC, h.ever_won DESC, h.candidacy_count DESC, lower(h.canonical_name), h.id`,
       // Bind order follows the SELECT, then the WHERE, then the LIMIT.
       // closeness: exact form, prefix pattern, and the contains pattern (only when there is one).
       exact,
@@ -517,6 +623,7 @@ type PersonListSql = {
   place_kind: string | null;
   party_short_name: string | null;
   status: CandidacyStatus | null;
+  winner_name: string | null;
   votes: number | null;
   vote_share: number | null;
   is_winner: number | null;
@@ -546,6 +653,7 @@ function toPersonRow(r: PersonListSql): PersonRow {
     latestPlaceName: r.place_name,
     latestPartyShortName: r.party_short_name,
     latestStatus: r.status,
+    latestWonBy: r.winner_name,
     latestVotes: counted(r.votes),
     latestVoteShare: counted(r.vote_share),
     isWinner: r.is_winner === 1,

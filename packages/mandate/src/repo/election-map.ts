@@ -8,15 +8,15 @@
 //
 // WHAT IT ADDS OVER A LIST OF WINNERS, and each one is a question no surface has answered:
 //
-//   THE RUNNER-UP.  `result.margin` exists for winners only, but rank-1 and rank-2 vote counts exist for
-//                   63,334 of 64,021 contests. So the margin AND who it was over are both computable, and
-//                   the second half has never been shown anywhere.
+//   THE RUNNER-UP.  `result.margin` exists for winners only, but rank-1 and rank-2 vote counts exist for every
+//                   contest a source published counts for. So the margin AND who it was over are both
+//                   computable, and the second half had never been shown anywhere.
 //   THE FLIP.       Per seat, the party that held it before — THROUGH THE EPOCH GATE, so a seat whose
 //                   boundary was redrawn is `comparable: false` and carries no flip rather than a false one.
 //   VOTE TO SEATS.  Each party's share of the vote against its share of the seats. Karnataka 2023: INC
 //                   43.2% of the vote and 60.3% of the seats; BJP 36.1% and 29.0%. Neither figure appears
 //                   anywhere in the product today.
-//   THE MARGIN'S SHAPE. 63,334 computable margins currently surface as a list of five. Binned here, so the
+//   THE MARGIN'S SHAPE. The computable margins surfaced as a list of five. Binned here, so the
 //                   distribution is drawable and a bin is addressable from a URL.
 //
 // ONE READ FOR THE SEATS (seat-results.ts), one for the previous election's winners, one for the outlines the
@@ -34,7 +34,7 @@ import { CHRONO_DESC, previousElection } from "./elections.ts";
 import type { Finding, PartyRef, SeatFlips, VoteSeatEfficiency } from "./findings.ts";
 import { NATIONAL, parse, simplified } from "../viz/simplify.ts";
 import { compareSeats } from "./seat-comparison.ts";
-import { partyVotes, readSeats, sourcesFor, tally, turnoutOf, votesByParty } from "./seat-results.ts";
+import { partyVotes, readSeats, sourcesFor, tally, turnoutOf, votesByParty, votesPolledWhereCounted } from "./seat-results.ts";
 import { electionContext } from "./election-context.ts";
 import type { ElectionContext, SeatStanding } from "./election-context.ts";
 import { tally as tallySeats } from "./map-selection.ts";
@@ -229,6 +229,7 @@ export type ElectionMapView = {
   marginBins: MarginBin[];
   /** The flip summary and the refusal, both from `findings.ts`, both epoch-gated. */
   flips: SeatFlips | null;
+  /** Seats with no counterpart in the previous election under the same boundary. Zero where there is no previous election. */
   incomparableSeats: number;
   sources: SourceRef[];
   geometry: {
@@ -568,13 +569,16 @@ export function electionMapView(
 
     // Votes per party across the whole election. Its own read: a seat result holds the winner and the
     // runner-up, and a party's vote share is over every candidate it ran, not just the ones who won.
+    // The share is of the votes polled where the candidates' votes are on record (`votesPolledWhereCounted`), not of the
+    // candidates' own sum, which the registry's leading-candidates-only seats leave short. The seat share stays over every
+    // seat contested, the house the rest of the page is about, so the plot says which seats each is over.
     const voted = votesByParty(partyVotes(db, { elections: [electionId], ...within }));
-    const totalVotes = voted.reduce((t, r) => t + (r.votes ?? 0), 0);
+    const polled = votesPolledWhereCounted(results);
     const contested = seats.length;
     const voteSeat: VoteSeatEfficiency[] = voted
       .map((r) => {
         const seatCount = seatsWon.get(r.party.key) ?? 0;
-        const votePct = totalVotes > 0 && r.votes !== null ? (100 * r.votes) / totalVotes : null;
+        const votePct = polled.voters > 0 && r.votes !== null ? (100 * r.votes) / polled.voters : null;
         const seatPct = contested > 0 ? (100 * seatCount) / contested : 0;
         return {
           type: "vote_seat_efficiency" as const,
@@ -584,6 +588,7 @@ export function electionMapView(
           deltaPp: votePct === null ? null : seatPct - votePct,
           seats: seatCount,
           contested,
+          counted: polled.seats,
           seatsPerPoint: votePct === null || votePct === 0 ? null : seatCount / votePct,
         };
       })
@@ -694,12 +699,13 @@ export function electionMapView(
       voteSeat,
       marginBins,
       flips,
-      // ZERO FOR A BY-ELECTION, not "all of them". With no comparison event every seat lands in the
-      // incomparable pile by construction, and the caption then blamed a delimitation for the absence of a
-      // comparison that was never possible. Nothing was redrawn; there is simply nothing to compare to.
+      // ZERO WITH NO PREVIOUS ELECTION, not "all of them". A by-election has none (`previousId` is null above) and so
+      // has the first election of a house on record: every seat lands in the incomparable pile by construction, and
+      // the page then blamed a delimitation for the absence of a comparison that was never possible. Nothing was
+      // redrawn; there is simply nothing to compare to.
       // Only a seat with no counterpart under the same boundary is counted: one whose winner is undeclared on
       // either side is unknown, not redrawn.
-      incomparableSeats: ctx?.kind === "bypoll" ? 0 : compared.incomparable.length,
+      incomparableSeats: previousId === null ? 0 : compared.incomparable.length,
       sources,
       geometry: {
         /**
@@ -871,8 +877,8 @@ function partiesOf(v: {
 
 /**
  * What a state's map can be narrowed to: the same parties and the same rule for flips, but the margin is judged in the
- * five named bands (D19: the two vocabularies stay), and a district or a seat of the election can be focused. A district
- * is offered only if a seat lies in it, which is the districts the map's own list of them holds.
+ * five named bands (the election page's two-point bins stay a second vocabulary), and a district or a seat of the election
+ * can be focused. A district is offered only if a seat lies in it, which is the districts the map's own list of them holds.
  */
 export function stateChoicesOf(v: {
   legend: readonly { key: string }[];

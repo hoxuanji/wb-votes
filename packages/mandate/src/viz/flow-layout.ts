@@ -11,7 +11,8 @@
 //
 // A TAIL IS FOLDED, NOT DROPPED. A side shows its six biggest parties and the rest as one "Others (n)" box, but only when that saves
 // something: seven parties are seven boxes, because "Others (1)" would hide a name to save none. Ribbons into or out of the fold are
-// added together, and a ribbon from the fold to the fold is "mixed", since it holds some holds and some moves.
+// added together, and one is "held" only if every seat in it is a hold, "moved" only if none is, and otherwise "mixed", since a ribbon
+// whose two ends are different boxes can still hold the seats a party kept.
 
 export const FLOW_H = 260;
 /** Between two boxes of a column, as the 2px that separates every touching mark. */
@@ -106,15 +107,20 @@ export function flowLayout(flows: readonly Input[], labelOf: (key: string) => st
   const toAt = new Map(to.map((n, i) => [n.key, i]));
   const unitOf = (nodes: readonly FlowNode[]): number => (FLOW_H - NODE_GAP * (nodes.length - 1)) / total;
 
-  // The ribbons between boxes: flows into or out of the fold are added together.
-  const cells = new Map<string, { from: string; to: string; n: number }>();
+  // The ribbons between boxes: flows into or out of the fold are added together, and a cell remembers how many of its seats were held,
+  // because its two ends being different boxes does not say that none of them was.
+  const cells = new Map<string, { from: string; to: string; n: number; held: number }>();
   for (const f of flows) {
     const a = keptFrom.has(f.from) ? f.from : OTHERS;
     const b = keptTo.has(f.to) ? f.to : OTHERS;
     const id = `${a}\u0000${b}`;
     const cell = cells.get(id);
-    if (cell === undefined) cells.set(id, { from: a, to: b, n: f.n });
-    else cell.n += f.n;
+    const held = f.from === f.to ? f.n : 0;
+    if (cell === undefined) cells.set(id, { from: a, to: b, n: f.n, held });
+    else {
+      cell.n += f.n;
+      cell.held += held;
+    }
   }
   const list = [...cells.values()];
 
@@ -152,7 +158,7 @@ export function flowLayout(flows: readonly Input[], labelOf: (key: string) => st
         from: c.from,
         to: c.to,
         n: c.n,
-        movement: c.from === OTHERS && c.to === OTHERS ? "mixed" : c.from === c.to ? "held" : "moved",
+        movement: c.held === c.n ? "held" : c.held === 0 ? "moved" : "mixed",
         fromY0,
         fromY1,
         toY0,

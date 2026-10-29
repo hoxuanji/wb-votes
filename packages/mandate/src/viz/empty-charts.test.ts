@@ -51,7 +51,7 @@ function assertSentence(html: string, label: string): void {
 
 /* ───────────────────────────── the data, literally ───────────────────────────── */
 
-const vs = (key: string, votePct: number | null, seatPct: number, seats: number) => ({
+const vs = (key: string, votePct: number | null, seatPct: number, seats: number, counted = 8) => ({
   type: "vote_seat_efficiency",
   party: { key, label: key },
   votePct,
@@ -59,6 +59,7 @@ const vs = (key: string, votePct: number | null, seatPct: number, seats: number)
   deltaPp: votePct === null ? null : seatPct - votePct,
   seats,
   contested: 10,
+  counted,
   seatsPerPoint: votePct === null || votePct === 0 ? null : seats / votePct,
 });
 
@@ -109,12 +110,21 @@ test("with one vote share known the plot is drawn: the frame, the parity line, o
     { component: "VoteSeatPlot", props: { rows: [vs("TMC", 40, 50, 5), vs("BJP", null, 50, 5)] } },
     { component: "VoteSeatPlot", props: { rows: [vs("TMC", 40, 50, 5), vs("BJP", 30, 50, 5)] } },
   ]) as [string, string];
-  assert.match(one, /^<figure class="iei-fig iei-vs"><svg viewBox="0 0 400 400" role="img" aria-label="Vote share against seat share\. TMC 40\.0% of the vote and 50\.0% of the seats\./);
+  assert.match(one, /^<figure class="iei-fig iei-vs"><svg viewBox="0 0 400 400" role="group" aria-label="Vote share against seat share\. TMC 40\.0% of the vote and 50\.0% of the seats\./);
   assert.match(one, /class="iei-vs-parity"/);
   assert.equal(one.match(/<circle /g)?.length, 1, "the party with no vote share is not a marker");
   assert.match(one, /vote share →/);
-  assert.match(one, /<figcaption>Above the line, a party won a larger share of seats than of votes\. Select a party to find its seats on the map\.<\/figcaption><\/figure>$/);
+  assert.match(one, /<figcaption>Above the line, a party won a larger share of seats than of votes\. Vote share is of the votes polled in the 8 seats with candidate counts; seat share is of all 10\. Select a party to find its seats on the map\.<\/figcaption><\/figure>$/);
   assert.equal(many.match(/<circle /g)?.length, 2);
+});
+
+test("the plot says what each share is over, and says once that they are over the same seats when they are", () => {
+  const [same, oneSeat] = renderAll([
+    { component: "VoteSeatPlot", props: { rows: [vs("TMC", 40, 50, 5, 10), vs("BJP", 30, 50, 5, 10)] } },
+    { component: "VoteSeatPlot", props: { rows: [{ ...vs("TMC", 40, 100, 1, 1), contested: 3 }] } },
+  ]) as [string, string];
+  assert.match(same, /<figcaption>Above the line, a party won a larger share of seats than of votes\. Both shares are over all 10 seats\. /);
+  assert.match(oneSeat, /Vote share is of the votes polled in the 1 seat with candidate counts; seat share is of all 3\./);
 });
 
 /* ───────────────────────────── the margin distribution ───────────────────────────── */
@@ -127,7 +137,9 @@ test("with no seat in any bin the histogram is a sentence, and with one seat it 
   ]) as [string, string, string];
   assertSentence(none, "all bins empty");
   assertSentence(noBins, "no bins");
-  assert.match(one, /^<figure class="iei-fig iei-dist"><svg viewBox="0 0 100 34" role="img"/);
+  assert.match(one, /^<figure class="iei-fig iei-dist"><svg viewBox="0 0 100 34" role="group"/);
+  // The bars are links, and a link inside an image is the one thing that `role="img"` forbids (nested-interactive).
+  assert.doesNotMatch(one, /role="img"/);
   assert.equal(one.match(/<title>/g)?.length, 21, "one hit area per bin");
   assert.match(one, /<title>4–6% — 1 seat<\/title>/);
   assert.match(one, /<span>40%\+<\/span>/);
@@ -142,7 +154,7 @@ test("with no seat in any band the bands are a sentence, and with one seat they 
     { component: "MarginBands", props: { bands: bands([0, 1, 0, 0, 0]) } },
   ]) as [string, string];
   assertSentence(none, "all bands empty");
-  assert.match(one, /^<div class="iei-bands"><div class="iei-bands-bar" role="img" aria-label="Winning margins across 1 seats: 1 decided by band 1to2\.">/);
+  assert.match(one, /^<div class="iei-bands"><div class="iei-bands-bar" role="group" aria-label="Winning margins across 1 seat: 1 decided by band 1to2\.">/);
   assert.match(one, /<ul class="iei-bands-key">/);
 });
 
@@ -156,6 +168,22 @@ test("with no pair the flip matrix is a sentence, and with one pair it is the li
   assertSentence(none, "no pairs");
   assert.match(one, /^<ul class="iei-flipmx" aria-label="Seats that changed hands/);
   assert.equal(one.match(/<li>/g)?.length, 1);
+});
+
+test("a flip list cut at eight pairs says how many smaller moves and seats are not in it, and one that is not cut says nothing", () => {
+  // 2021's list showed eight of fourteen pairs beside a headline of 119 seats that changed hands, and the eight summed to 113.
+  const many = Array.from({ length: 10 }, (_, i) => ({ from: { key: `F${i}`, label: `F${i}` }, to: { key: "BJP", label: "BJP" }, count: 10 - i }));
+  const [cut, whole, exactly] = renderAll([
+    { component: "FlipMatrix", props: { pairs: many } },
+    { component: "FlipMatrix", props: { pairs: many.slice(0, 3) } },
+    { component: "FlipMatrix", props: { pairs: many.slice(0, 8) } },
+  ]) as [string, string, string];
+  assert.equal(cut.match(/<li>/g)?.length, 8, "the eight largest are the rows");
+  assert.match(cut, /<li class="iei-arc-rest">\+ 2 smaller moves · 3 seats<\/li><\/ul>$/, "the other two are 2 + 1 seats");
+  assert.doesNotMatch(whole, /smaller/);
+  assert.doesNotMatch(exactly, /smaller/);
+  const one = renderAll([{ component: "FlipMatrix", props: { pairs: [...many.slice(0, 8), { ...pair, count: 1 }] } }])[0] as string;
+  assert.match(one, /<li class="iei-arc-rest">\+ 1 smaller move · 1 seat<\/li>/);
 });
 
 /* ───────────────────────────── the trajectory ───────────────────────────── */

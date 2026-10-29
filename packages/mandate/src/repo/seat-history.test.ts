@@ -582,7 +582,9 @@ test("on every seat of the registry the strip says what the headline and the til
         if (!same) disagree.push(`${at}: ${r.contestId} against the seat results`);
       }
       const tile = placeTiles(brief, analysis).find((t) => t.label === "Changed hands")?.value;
-      if (tile !== (h.handOffs === 0 ? "never" : times(h.handOffs))) disagree.push(`${at}: tile ${tile} against ${h.handOffs}`);
+      // "Never" is said only where every election declared a winner and there are two to compare, as the strip says it.
+      const none = h.held.length === 1 ? "not comparable" : h.undeclared === 0 ? "never" : "none on record";
+      if (tile !== (h.handOffs === 0 ? none : times(h.handOffs))) disagree.push(`${at}: tile ${tile} against ${h.handOffs}`);
       // The headline says it in words, or not at all where the seat never changed hands.
       const sentence = placeHeadline(brief);
       const said = /changed hands (once|twice|[\d,]+ times)/.exec(sentence)?.[1];
@@ -590,6 +592,8 @@ test("on every seat of the registry the strip says what the headline and the til
       if (said !== undefined ? said !== times(h.handOffs) : every ? h.handOffs !== h.held.length - 1 : h.handOffs !== 0) {
         disagree.push(`${at}: headline "${sentence}" against ${h.handOffs}`);
       }
+      // Nor does it call an undeclared election's predecessor a holder, or count a gap as an election nobody lost.
+      if (/changed hands 0 times|from the previous holder/.test(sentence)) disagree.push(`${at}: headline "${sentence}"`);
     }
     return { checked, disagree };
   });

@@ -74,8 +74,13 @@ import type { Body } from "../core/election-kind.ts";
    function of the party key, which means it needs no view model, no plumbing through HomeView, and no
    `ink` argument: see viz/party-ink.ts, and `fillFor` below. */
 
-/** The magnitude ramp: one hue, light to dark, for the layers that encode a number rather than an identity. */
-export const SEQUENTIAL = ["#241d38", "#3a2c5c", "#523d80", "#6e54a8", "#8f74cf", "#b39ae8"] as const;
+/**
+ * The magnitude ramp: one hue, light to dark, for the layers that encode a number rather than an identity.
+ *
+ * Every step is a mark: at least 3:1 on every surface and well apart from the no-data ink (home.test.ts holds both), because a step that
+ * fell toward the page would read as a place with no figure. The six are about 7.5 apart in OKLab, which is what six bands can afford.
+ */
+export const SEQUENTIAL = ["#7055b0", "#8669cd", "#9d80e7", "#b399fb", "#c7b6fe", "#dad0fe"] as const;
 
 /** "No election of this kind is loaded here." Deliberately below the mark floor: absence is not a mark. */
 export const NO_DATA_HUE = NOT_HELD;
@@ -186,6 +191,14 @@ export type Cell = {
   href: string;
   electionId: string | null;
   year: number | null;
+  /**
+   * The leader's seats and the seats its house contested, of THIS layer's election, or null where the layer does not name a party.
+   *
+   * A magnitude layer colours a figure, so no seat count has an owner in its row. The Lok Sabha layer's are the Lok Sabha's: a row's
+   * seats are not looked up in the assembly's standings.
+   */
+  leaderSeats: number | null;
+  seatsContested: number | null;
 };
 
 export type Layer = {
@@ -198,6 +211,8 @@ export type Layer = {
   legend: Swatch[];
   /** Jurisdictions the layer cannot colour, and why. Stated, never shaded. */
   unknown: number;
+  /** How many of them have no election loaded; the rest are loaded, and their source gave this layer no figure. */
+  unloaded: number;
   unknownWhy: string;
   /** False when NOTHING in the registry can feed this layer. Computed from the cells, never declared. */
   available: boolean;
@@ -275,7 +290,9 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
   const meta = LAYERS.find((l) => l.key === key) ?? LAYERS[0] as (typeof LAYERS)[number];
   const cells: Cell[] = [];
   let legend: Swatch[] = [];
-  let unknownWhy = "no election of this kind is loaded for them";
+  // An unshaded cell is one of two things, and the caption says which: no election is loaded for it, or one is and has nothing for this layer.
+  let whyNot = "no election of this kind is loaded for them";
+  let whyLoaded = "an election is loaded and no winner is recorded";
 
   const base = (j: JurisdictionState): Omit<Cell, "label" | "fill" | "detail"> & { detail: string[] } => ({
     jurisdictionId: j.id,
@@ -283,6 +300,8 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     href: stateHref(j.id),
     electionId: null,
     year: null,
+    leaderSeats: null,
+    seatsContested: null,
     detail: [],
     partyKey: null,
   });
@@ -290,6 +309,7 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
   if (key === "government" || key === "loksabha") {
     const rows = key === "government" ? spine.standings : spine.houseStandings;
     const byId = new Map(rows.map((r) => [r.jurisdictionId, r]));
+    const house = key === "government" ? "Assembly" : "Lok Sabha";
     // The party breakdown behind each polygon, from the winners-only read already in the spine. Three
     // parties, because a hover card that lists sixteen is a table in a tooltip — and the leader alone
     // ("INC 135 of 224") does not tell a reader who came second, which is the thing they want next.
@@ -300,8 +320,19 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     }
     for (const j of spine.states) {
       const s = byId.get(j.id);
-      if (s === undefined || s.leaderKey === null) {
+      if (s === undefined) {
         cells.push({ ...base(j), label: null, fill: NO_DATA_HUE, detail: [] });
+        continue;
+      }
+      if (s.leaderKey === null) {
+        // Loaded and nothing declared in it: on record, which is not the same as not loaded.
+        cells.push({
+          ...base(j),
+          label: null,
+          fill: NO_DATA_HUE,
+          electionId: s.electionId,
+          detail: [`${house} ${s.year}`, "no winner recorded"],
+        });
         continue;
       }
       cells.push({
@@ -311,8 +342,10 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
         partyKey: s.leaderKey,
         electionId: s.electionId,
         year: s.year,
+        leaderSeats: s.leaderSeats,
+        seatsContested: s.seatsContested,
         detail: [
-          `${key === "government" ? "Assembly" : "Lok Sabha"} ${s.year} · ${s.seatsContested} seats`,
+          `${house} ${s.year} · ${s.seatsContested} seats`,
           ...[...(breakdown.get(j.id) ?? [])]
             .sort((a, b) => b.seats - a.seats || a.key.localeCompare(b.key))
             .slice(0, 3)
@@ -340,7 +373,7 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
         fill: fillFor(k),
         note: `${v.n} ${v.n === 1 ? "state" : "states"}`,
       }));
-    unknownWhy =
+    whyNot =
       key === "government"
         ? "no assembly election is loaded for them, or they have no assembly"
         : "no seat of the latest Lok Sabha is loaded for them";
@@ -443,7 +476,7 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
       });
     }
     legend = values.length === 0 ? [] : bandLegend(lo, hi, unit, key === "margin");
-    unknownWhy =
+    whyLoaded =
       key === "voteshare"
         ? "their source published a winner and no vote counts, which is not a share of zero"
         : [...per.values()].some((v) => v.withheld !== null)
@@ -451,7 +484,9 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
           : "their source reports no figure, which is not a figure of zero";
   }
 
-  const unknown = cells.filter((c) => c.label === null).length;
+  const unshaded = cells.filter((c) => c.label === null);
+  const unknown = unshaded.length;
+  const unloaded = unshaded.filter((c) => c.electionId === null).length;
   return {
     key,
     label: meta.label,
@@ -460,7 +495,15 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
     cells,
     legend,
     unknown,
-    unknownWhy,
+    unloaded,
+    // A source is spoken of only for the cells that have one: "their source published no counts" about a state nobody loaded is a claim about
+    // nothing.
+    unknownWhy:
+      unloaded === unknown
+        ? whyNot
+        : unloaded === 0
+          ? whyLoaded
+          : `no election is loaded for ${unloaded} of them; for the rest, ${whyLoaded}`,
     // Derived, never declared: a layer is unavailable when nothing in the registry can colour a single
     // jurisdiction. That is the seam a future layer with no data arrives through.
     available: unknown < cells.length,
@@ -839,12 +882,9 @@ export type ElectionCoverage = {
   /**
    * Candidacies with no result row of any kind.
    *
-   * `unopposed` of these are legitimate — an unopposed winner has no votes to record. Anything BEYOND that
-   * is an orphan, and the 2024 Lok Sabha has 19 of them: West Bengal placeholder candidacies carrying the
-   * seed's own id scheme and `status = 'elected'`, left behind when the ECI import superseded the
-   * placeholder RESULTS but created new candidacies for the seats where the person did not match. They
-   * inflate any raw count of "candidate records" by 19, so the count is reported beside them rather than
-   * on its own.
+   * Most are no defect. A source that published winners alone (West Bengal 2026) leaves every other candidacy, `status = 'contesting'`
+   * from the nomination file, without a row, and an unopposed winner has none to record. Only an ELECTED candidacy beyond the unopposed
+   * ones is an anomaly: it won and nothing says how.
    */
   candidaciesWithoutResult: number;
   turnoutRows: number;
@@ -860,9 +900,8 @@ export type ElectionCoverage = {
   /**
    * What is PRESENT AND WRONG — a different question, and one that must not be answered by the same word.
    *
-   * The 2024 Lok Sabha holds 19 orphaned candidacies and its results are nonetheless complete: 543 of 543
-   * constituencies, 542 numeric plus one cited unopposed. Letting an orphaned row downgrade the election to
-   * "Partial" would tell a reader something is missing when nothing is, which is as misleading as the
+   * An elected candidacy with no result row is wrong, and it does not make an otherwise complete election less complete: letting it
+   * downgrade the election to "Partial" would tell a reader something is missing when nothing is, which is as misleading as the
    * reverse. Anomalies are reported in full and change no verdict.
    */
   anomalies: string[];
@@ -905,6 +944,14 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
         WHERE c.election_id = ?`,
       e.id,
     );
+    // Contests whose rows are a winner and a declared margin and no vote count at all, which is all a source that publishes winners alone has.
+    const declaredOnly = n(
+      `SELECT COUNT(DISTINCT c.id) AS n FROM contest c
+         JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1 AND r.margin IS NOT NULL
+        WHERE c.election_id = ?
+          AND NOT EXISTS (SELECT 1 FROM result v WHERE v.contest_id = c.id AND v.revision = 0 AND v.votes IS NOT NULL)`,
+      e.id,
+    );
     // An unopposed seat: an elected candidacy, no result row of any kind, and a claim that says so. All
     // three, because the first two alone are also what a missing import looks like.
     const unopposed = n(
@@ -923,6 +970,12 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     const candidaciesWithoutResult = n(
       `SELECT COUNT(*) AS n FROM candidacy cd JOIN contest c ON c.id = cd.contest_id
         WHERE c.election_id = ?
+          AND NOT EXISTS (SELECT 1 FROM result r WHERE r.candidacy_id = cd.id)`,
+      e.id,
+    );
+    const electedWithoutResult = n(
+      `SELECT COUNT(*) AS n FROM candidacy cd JOIN contest c ON c.id = cd.contest_id
+        WHERE c.election_id = ? AND cd.status = 'elected'
           AND NOT EXISTS (SELECT 1 FROM result r WHERE r.candidacy_id = cd.id)`,
       e.id,
     );
@@ -964,9 +1017,8 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
 
     // Today's elected strength for this house, whether or not `expected` could be established. It is a
     // separate field because it answers a different question: `expected` is "what should be loaded", this
-    // is "what the house holds now", and the two disagreeing is itself worth printing. West Bengal's
-    // 2011/2016/2021 elections each hold 307 contests for a 294-seat assembly — a pre-existing defect in
-    // the imported geography that this line surfaces instead of averaging away.
+    // is "what the house holds now", and the two disagreeing is itself worth printing rather than averaging
+    // away.
     const referenceSeats =
       facet.fill === "bypoll" ? null : facet.body === "lok-sabha" && e.j === "in"
         ? INDIA_TOTALS.lokSabhaSeats
@@ -974,7 +1026,7 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
           ? (ref?.assemblySeats ?? null)
           : (ref?.lokSabhaSeats ?? null);
 
-    const plural = (n: number, one: string, many: string): string => `${n} ${n === 1 ? one : many}`;
+    const plural = (n: number, one: string, many: string): string => `${IN_NUM.format(n)} ${n === 1 ? one : many}`;
 
     const gaps: string[] = [];
     if (expected !== null && contests < expected) {
@@ -982,7 +1034,12 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     }
     const accounted = numericResults + unopposed;
     if (contests > 0 && accounted < contests) {
-      gaps.push(`${plural(contests - accounted, "contest", "contests")} carry no vote count and no stated reason`);
+      // A stated reason is a cited unopposed claim, and the registry has none for these. What it holds for them is said beside the count:
+      // a winners-only source gave a winner and a margin and nothing else, and that is not a contest nobody accounted for.
+      gaps.push(
+        `${plural(contests - accounted, "contest carries", "contests carry")} no vote count and no stated reason` +
+          (declaredOnly === 0 ? "" : `; ${IN_NUM.format(declaredOnly)} of them hold a declared winner and margin and no other result`),
+      );
     }
     if (contests > 0 && turnoutRows < contests) {
       gaps.push(`${plural(contests - turnoutRows, "contest has", "contests have")} no turnout row`);
@@ -994,11 +1051,12 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
         `${contests} contests for a house of ${referenceSeats} — ${contests - referenceSeats} more constituencies than this jurisdiction elects today`,
       );
     }
-    // Orphans are candidacies with no result beyond the unopposed ones that legitimately have none.
-    const orphaned = candidaciesWithoutResult - unopposed;
+    // An elected candidacy with no result row, beyond the unopposed ones that legitimately have none. A candidacy that only stood
+    // (`contesting`) has no row where its source published winners alone, which is what that source holds and no anomaly.
+    const orphaned = electedWithoutResult - unopposed;
     if (orphaned > 0) {
       anomalies.push(
-        `${plural(orphaned, "candidacy carries", "candidacies carry")} no result row and no unopposed claim — placeholders left behind when an import superseded their results`,
+        `${plural(orphaned, "elected candidacy carries", "elected candidacies carry")} no result row and no unopposed claim`,
       );
     }
 
@@ -1331,7 +1389,7 @@ export function headline(snap: Snapshot, parties: PartyLandscape): string {
   const top = parties.rows[0];
   const held = `${snap.jurisdictionsWithResults} of ${snap.jurisdictionsTotal} states and union territories`;
   if (top === undefined || top.governs === 0) {
-    return `${held} have results on record, across ${IN_NUM.format(snap.elections)} elections.`;
+    return `${held} have results on record, across ${IN_NUM.format(snap.elections)} ${snap.elections === 1 ? "election" : "elections"}.`;
   }
   const second = parties.rows[1];
   // The denominator is ASSEMBLIES on record, not jurisdictions with any result. Using the latter read
@@ -1339,9 +1397,11 @@ export function headline(snap: Snapshot, parties: PartyLandscape): string {
   // five jurisdictions are on record through the Lok Sabha alone, and three of them have no assembly.
   const of = snap.assembliesOnRecord;
   const lead =
-    second === undefined || second.governs === 0
-      ? `${top.label} leads ${top.governs} of the ${of} assemblies on record`
-      : `${top.label} leads ${top.governs} of the ${of} assemblies on record, and ${second.label} ${second.governs}`;
+    of === 1
+      ? `${top.label} leads the only assembly on record`
+      : second === undefined || second.governs === 0
+        ? `${top.label} leads ${top.governs} of the ${of} assemblies on record`
+        : `${top.label} leads ${top.governs} of the ${of} assemblies on record, and ${second.label} ${second.governs}`;
   // "— DERIVED, NOT ANNOUNCED" USED TO BE THE END OF THIS SENTENCE, and it was a methodology clause inside the
   // largest type on the page. It is not a loss of honesty to drop it: "on a five-year count" already says the
   // figure is arithmetic on a past date rather than a schedule, and the Upcoming module — which is where a

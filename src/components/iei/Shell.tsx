@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { Children, isValidElement } from 'react';
 import { CommandKey } from './CommandKey.tsx';
 
 /**
@@ -11,7 +12,7 @@ import { CommandKey } from './CommandKey.tsx';
  *    one — eighteen subject areas, per-election completeness, geography against India's own totals — but it
  *    is INFRASTRUCTURE METADATA, and it was sitting in the two slots a product reserves for what it is FOR.
  *    A reader arriving at an election intelligence platform met "COVERAGE" before they met an election. It is
- *    linked from the footer of every page as `Data & coverage`, keeps its route, and keeps its deep link.
+ *    linked from the footer of the content pages as `Data & coverage`, keeps its route, and keeps its deep link.
  *
  * That leaves the honest answer to "where can I go next": a field that reaches states, elections,
  * constituencies, people and parties, and a wordmark that goes home. The hierarchy inside a state is carried
@@ -21,8 +22,8 @@ import { CommandKey } from './CommandKey.tsx';
  * what this field already reaches and what the state pages already own, and the answer to clutter is not
  * another page.
  *
- * STRUCTURAL ONLY — it opens no database and holds no list of states. The same shell serves `/`,
- * `/pl/<path>`, `/p/<person>`, `/search` and `/coverage`.
+ * STRUCTURAL ONLY — it opens no database and holds no list of states. Every page mounts it itself, the 404 and the
+ * registry-is-missing notice included; the root layout does not.
  *
  * THE LIVE INDICATOR IS CONDITIONAL AND CURRENTLY ABSENT. `election.lifecycle` is 'declared' for all 1,202
  * rows and `election_phase` holds none, so there is no election running and the dot does not appear. A
@@ -30,7 +31,7 @@ import { CommandKey } from './CommandKey.tsx';
  * the same prop lights it.
  */
 
-export type Section = 'india' | 'coverage' | 'search' | 'place' | 'person';
+export type Section = 'india' | 'coverage' | 'search' | 'place' | 'person' | 'election' | 'review';
 
 export function Shell({
   here,
@@ -40,7 +41,7 @@ export function Shell({
   live = false,
   children,
 }: {
-  /** Which surface this is. Marks the wordmark as current on `/`; carries no navigation any more. */
+  /** Which surface this is. Only the front page's, `india`, does anything: it marks the wordmark as current, on the page it links to. */
   here: Section;
   /** The current query, so the bar shows what was searched rather than emptying itself. */
   q?: string;
@@ -49,6 +50,11 @@ export function Shell({
   live?: boolean;
   children: React.ReactNode;
 }) {
+  // THE FOOTER IS NOT INSIDE <main>. A <footer> that is a descendant of main is not the page's contentinfo landmark,
+  // and every page handed it over as the last child of the shell. They still do, and it is set apart here, in the
+  // same frame as main so that it keeps the column it had. A footer wrapped in another component stays where it is.
+  const parts = Children.toArray(children);
+  const isFoot = (c: React.ReactNode): boolean => isValidElement(c) && (c.type === Foot || c.type === 'footer');
   return (
     <div className="iei">
       {/* Skip link first in the tab order: the shell has a search field before the content, which is less
@@ -89,15 +95,18 @@ export function Shell({
         ) : null}
       </header>
       <CommandKey target="iei-q" />
-      <main className={reading ? 'iei-body iei-body-read' : 'iei-body'} id="main">
-        {children}
-      </main>
+      <div className={reading ? 'iei-body iei-body-read' : 'iei-body'}>
+        <main id="main">{parts.filter((c) => !isFoot(c))}</main>
+        {parts.filter(isFoot)}
+      </div>
     </div>
   );
 }
 
 /**
- * The one line at the foot of every surface, and the only place the data ledger is linked.
+ * The one line at the foot of a content page, and the way from any of them to the data ledger. A page that has
+ * a reason to point at `/coverage` says so where it does (the search page's empty state, an evidence drawer that
+ * holds more sources than it lists); this is the one that is always there.
  *
  * It replaced five different footers, each of which explained something about the software: what the product
  * is "a registry of", why coverage is honest by construction, what the ⓘ does, why the Analysis floor is

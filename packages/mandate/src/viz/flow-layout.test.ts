@@ -91,13 +91,58 @@ test("exactly seven parties on a side are all named: one folded into Others (1) 
   assert.ok(l.from.every((n) => n.key !== OTHERS));
 });
 
+test("a party kept on one side and folded on the other has the seats it held drawn as held, and the seats it lost as moved", () => {
+  // F is a box on the left and folded into Others on the right, and all 3 of its seats were held. A's seats
+  // went to six parties on the right, of which only N1 is big enough to keep a box.
+  const flows = [
+    flow("A", "A", 30),
+    ...["N1", "N2", "N3", "N4", "N5", "N6"].map((p) => flow("A", p, 4)),
+    flow("F", "F", 3),
+    flow("B", "B", 20),
+    flow("C", "C", 15),
+    flow("D", "D", 10),
+    flow("E", "E", 6),
+    flow("G", "G", 1),
+    flow("H", "H", 1),
+  ];
+  const l = flowLayout(flows, label);
+  const at = (from: string, to: string) => l.ribbons.find((r) => r.from === from && r.to === to);
+  assert.equal(at("F", OTHERS)?.n, 3);
+  assert.equal(at("F", OTHERS)?.movement, "held", "3 seats F kept, drawn as seats that changed hands");
+  assert.equal(at("A", OTHERS)?.n, 20);
+  assert.equal(at("A", OTHERS)?.movement, "moved", "every seat in it is one A lost");
+});
+
+test("a ribbon into the fold that carries a hold and a move is mixed", () => {
+  // T is a box on the left. On the right its one held seat is below the six boxes kept, and so are five of the
+  // parties that took its other seats.
+  const flows = [
+    ...["P1", "P2", "P3", "P4", "P5"].map((p, i) => flow(p, p, 30 - i)),
+    flow("T", "T", 1),
+    ...["Z1", "Z2", "Z3", "Z4", "Z5", "Z6"].map((p) => flow("T", p, 2)),
+  ];
+  const l = flowLayout(flows, label);
+  const into = l.ribbons.find((r) => r.from === "T" && r.to === OTHERS);
+  assert.equal(into?.n, 11, "the hold and ten seats lost");
+  assert.equal(into?.movement, "mixed");
+});
+
 test("ribbons between two folded boxes are mixed, since they hold some holds and some moves", () => {
   const small = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"];
-  const flows = [...small.map((p, i) => flow(p, p, 10 - i)), flow("S1", "S2", 1)];
+  const flows = [...small.map((p, i) => flow(p, p, 10 - i)), flow("S7", "S8", 1)];
   const l = flowLayout(flows, label);
   const mixed = l.ribbons.filter((r) => r.from === OTHERS && r.to === OTHERS);
   assert.equal(mixed.length, 1);
   assert.equal(mixed[0]!.movement, "mixed");
+});
+
+test("a ribbon between two folded boxes that holds only holds is held, and only moves is moved", () => {
+  const small = ["S1", "S2", "S3", "S4", "S5", "S6", "S7", "S8"];
+  const heldOnly = flowLayout(small.map((p, i) => flow(p, p, 10 - i)), label);
+  assert.equal(heldOnly.ribbons.find((r) => r.from === OTHERS && r.to === OTHERS)?.movement, "held");
+  // S7 and S8 lose their seats to each other, so the fold is folded on both sides and nothing in it is held.
+  const movedOnly = flowLayout([...small.slice(0, 6).map((p, i) => flow(p, p, 10 - i)), flow("S7", "S8", 4), flow("S8", "S7", 3)], label);
+  assert.equal(movedOnly.ribbons.find((r) => r.from === OTHERS && r.to === OTHERS)?.movement, "moved");
 });
 
 test("one party that held every seat is a box the height of the column and one ribbon straight across", () => {

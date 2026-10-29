@@ -26,7 +26,7 @@
 // (the election page has two-point bins, the state page five named bands) and both survive as variants. A param that
 // was asked and not honoured is named in `ignored`, always, though no page shows it yet.
 //
-// Imports nothing from `src/`, no React and no database (ADR 0002). It sits in the package, not beside the pages,
+// Imports nothing from `src/` (ADR 0002), and no React and no database. It sits in the package, not beside the pages,
 // because `npm test` runs only the package's tests.
 
 /* ─────────────────────────────── the modes ─────────────────────────────── */
@@ -133,9 +133,29 @@ export type Choices = {
   seats?: ReadonlySet<string>;
   /** Whether there is a previous election to flip against. Without one, flips is not a mode a reader can have. */
   flips?: boolean;
+  /** Whether any seat has a margin to shade by, and whether any has a runner-up to colour by. False is no reading to have; absent is an offer. */
+  margin?: boolean;
+  runnerup?: boolean;
   /** Whether enough seats have an outline to place tiles by. Without that, tiles is not a shape a reader can have. */
   tiles?: boolean;
 };
+
+/**
+ * Whether a view offers a reading of its map. Winners always. Flips only where the view says so. Margin and runner-up unless the view
+ * says no seat can fill them: a map painted one ink says nothing, and the state page, which does not say, still offers both.
+ */
+export function offersMode(choices: Choices, mode: MapMode): boolean {
+  switch (mode) {
+    case "flips":
+      return choices.flips === true;
+    case "margin":
+      return choices.margin !== false;
+    case "runnerup":
+      return choices.runnerup !== false;
+    case "winners":
+      return true;
+  }
+}
 
 /** At most one of these, and the parse is what makes it so. */
 export type Isolation =
@@ -157,7 +177,7 @@ export type Isolation =
  *   district   focus it, and drop the seat focus, which belonged to the district before
  *   election   another election, with every selection dropped: each is a statement about one election
  *
- * Everything not named stays as the ask had it, mode included (D20: switching mode keeps the party, and the party
+ * Everything not named stays as the ask had it, mode included (switching mode keeps the party, and the party
  * then means the runner-up in the runner-up mode). A value that is not offered is not refused here; `ignored` on the
  * page it leads to says so, and the round-trip test is how a dead link is found.
  */
@@ -218,7 +238,7 @@ export function readSelection(
   let mode: MapMode = "winners";
   if (askedMode !== undefined) {
     // A mode nobody can read is not offered: without a previous election there is nothing to flip against.
-    if (isMode(askedMode) && (askedMode !== "flips" || choices.flips === true)) mode = askedMode;
+    if (isMode(askedMode) && offersMode(choices, askedMode)) mode = askedMode;
     else ignored.push("mode");
   }
 

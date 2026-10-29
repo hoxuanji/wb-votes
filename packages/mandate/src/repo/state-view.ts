@@ -28,7 +28,7 @@
 // elections contested a seat inside this jurisdiction", asked once, and it serves both houses.
 //
 // Eager on purpose: the map and the trajectory are always read, because a page that gets `ready` renders both.
-// Read-only, no clock, portable SQL (ADR 0001); imports nothing from `src/` and no React (ADR 0002).
+// Read-only, no clock, portable SQL (ADR 0001); imports nothing from `src/` (ADR 0002) and no React.
 
 import type { DatabaseSync } from "node:sqlite";
 import { all, get } from "../db/index.ts";

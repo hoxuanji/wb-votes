@@ -1143,14 +1143,19 @@ function ingest(
     for (const [candId, fact] of facts) if (prev.facts.get(candId) !== fact) return prev.revision + 1;
     return prev.revision;
   };
-  // historical-results.ts contains 40 (year, constituencyId) keys twice: upstream assigned two
-  // different seats the same AC id (c0049/2011 carries both Malatipur's winner and Manikchak's,
-  // with different totalVotes). Writing both onto one contest gives it two rank-1 winners and
-  // corrupts ring 2, and there is no way to tell which row belongs to this seat. So ONE row is
-  // written and every other one is recorded verbatim as an anomaly.
+  // A (year, constituencyId) key is meant to appear once in historical-results.json. It appeared
+  // twice 40 times, and 41 rows sat on another seat's id: 38 under the source's own AC number, which
+  // in constituencies.json is another seat (c0049/2011 carried both Malatipur's winner and
+  // Manikchak's), and 3 as South 24 Parganas's Bishnupur under Bankura's, the one name it repeats.
+  // The seed is corrected and seed-historical.test.ts keeps it so; this is what the ingest does with
+  // a seed that regresses.
+  // Writing both rows onto one contest gives it two rank-1 winners and corrupts ring 2, and nothing
+  // in a row says which seat it belongs to. So ONE row is written and every other one is recorded
+  // verbatim as an anomaly. The row kept is a guess and can be the other seat's: Bankura's
+  // Bishnupur kept South 24 Parganas's winners for three elections.
   //
   // Which one survives is decided by CONTENT, never by array position: highest totalVotes, then
-  // the lowest contentId of the row's own JSON. historical-results.ts is auto-generated from
+  // the lowest contentId of the row's own JSON. historical-results.json was generated from
   // Lokdhaba CSVs, so "whichever came first" made the registry's recorded winner for 40 contests a
   // function of the generator's row order — swapping two array elements changed the declared winner
   // of Chakdaha 2011, and a seeded shuffle changed 20 of 1,135 contests, the person count and even

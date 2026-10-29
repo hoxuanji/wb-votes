@@ -46,6 +46,7 @@ const vs = (key: string, votePct: number | null, seatPct: number, seats = 1) => 
   deltaPp: votePct === null ? null : seatPct - votePct,
   seats,
   contested: 100,
+  counted: 100,
   seatsPerPoint: null,
 });
 

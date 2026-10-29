@@ -10,7 +10,7 @@
 // order it applied and `listHead` says that order; nothing between the two reads the election or the data again. Which
 // seats a builder keeps, and in which order, is what each page already did.
 //
-// Imports nothing from `src/`, no React and no database (ADR 0002).
+// Imports nothing from `src/` (ADR 0002), and no React and no database.
 
 import type { MapMode, TalliedSeat } from "./map-selection.ts";
 import { tally } from "./map-selection.ts";
@@ -123,7 +123,9 @@ export function listHead(narrowing: Narrowing, list: SeatList<unknown>): ListHea
   const what = `Seats${isolation === null ? "" : ` ${isolation}`}${district === null ? "" : ` in ${district}`}`;
   const how =
     list.order === "seat" ? "in seat order" : list.order === "margin" ? "closest first" : "closest first, then those with no margin";
-  return { title: `${what}, ${how}`, count, note: null };
+  // A selection nothing is in (a margin bin with no seat, or a party that won none on the tab being read) is "0 of 0" under a
+  // heading that names it; the sentence is what says the list did not fail to load.
+  return { title: `${what}, ${how}`, count, note: list.of === 0 ? "No seat matches this selection." : null };
 }
 
 /* ─────────────────────────────── the rows ─────────────────────────────── */

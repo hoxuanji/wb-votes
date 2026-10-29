@@ -107,7 +107,9 @@ fixable with one column that also improves the product.
 alias that names it.
 
 **B. Rows the ingest discards (1,655 values).** The 40 duplicate `(year, AC)` keys in
-`historical-results.json`, kept one apiece.
+`historical-results.json`, kept one apiece. *Resolved 2026-10-28:* they were rows filed under another seat's
+number, not duplicates. They are refiled, `seed-historical.test.ts` holds the seed to it, nothing is discarded
+and the ingested figure went from 95.1% to 96.8%.
 
 **C. No column exists (1,813 values).** `constituencies.nameBn` / `districtBn` (588 — the ingest
 drops a Bengali label identical to the Latin one, and in this seed it always is); `parties.color`

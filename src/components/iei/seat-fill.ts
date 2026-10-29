@@ -13,8 +13,7 @@ import type { ElectionSeat } from '../../../packages/mandate/src/repo/election-m
 const IN = new Intl.NumberFormat('en-IN');
 
 /** One decimal, and a real-but-small value never rounds away to nothing. */
-function pct(v: number | null): string {
-  if (v === null) return '—';
+function pct(v: number): string {
   if (v !== 0 && Number(v.toFixed(1)) === 0) return '<0.1%';
   return `${v.toFixed(1)}%`;
 }
@@ -25,7 +24,7 @@ function pct(v: number | null): string {
  * Inverted deliberately, and it is the same argument `home.ts` makes for its own margin layer — a knife-edge
  * seat is the finding, so it has to be the loud mark. On a near-black surface the loud end of a sequential
  * ramp is its LIGHTEST step, not its darkest, so a tight seat gets `SEQUENTIAL`'s last entry and a safe seat
- * recedes into the canvas.
+ * its first, which is dimmer and still a mark.
  */
 function marginFill(marginPct: number | null): string {
   if (marginPct === null) return NOT_HELD;
@@ -54,23 +53,29 @@ export function seatFill(s: ElectionSeat, mode: MapMode): string {
 /**
  * The hover card: ONE line, and different per mode, because the mode is the question being asked.
  *
- * Short on purpose. The full result — winner, runner-up, both vote counts, turnout — is in the list beside
- * the map, once.
+ * Short on purpose. The full result — winner, runner-up, both vote counts, turnout — is on the seat's own page, which the
+ * seat is a link to, and the list beside the map gives it for the seats it shows.
+ *
+ * A figure is said for what it is. The margin is a percentage of the votes polled and sits beside a party's name, where it
+ * reads as that party's vote share, so it says "won by" and "margin". Where it is not known the line says the votes, or that
+ * there is no margin, and never a bare dash.
  */
 export function seatTitle(s: ElectionSeat, mode: MapMode): string {
   const where = s.name.toUpperCase();
   if (s.partyLabel === null) return `${where} — no winner recorded`;
   switch (mode) {
     case 'winners':
-      return `${where} — ${s.partyLabel}${s.marginPct === null ? '' : `, ${pct(s.marginPct)}`}`;
+      return `${where} — ${s.partyLabel}${s.marginPct === null ? '' : `, won by ${pct(s.marginPct)}`}`;
     case 'runnerup':
       return s.runnerUpLabel === null
         ? `${where} — no runner-up recorded`
         : `${where} — 2nd: ${s.runnerUpLabel}`;
-    case 'margin':
-      return `${where} — ${pct(s.marginPct)}${
-        s.marginVotes === null ? '' : `, ${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`
-      }`;
+    case 'margin': {
+      const votes =
+        s.marginVotes === null ? null : `${IN.format(s.marginVotes)} votes${s.marginBasis === 'declared' ? ' (declared)' : ''}`;
+      if (votes === null) return `${where} — margin not reported`;
+      return `${where} — ${s.marginPct === null ? votes : `${pct(s.marginPct)} margin, ${votes}`}`;
+    }
     case 'flips':
       if (!s.comparable) return `${where} — boundary redrawn, not comparable`;
       if (s.flip === null) return `${where} — no comparison`;

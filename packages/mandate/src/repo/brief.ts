@@ -63,7 +63,10 @@ export function headline(b: PersonBrief): string {
   const cands = b.candidacies;
   const name = b.person.canonicalName;
   if (cands.length === 0) {
-    return `No contest is on record for ${name}, so there is nothing to judge yet.`;
+    const s = b.sitting;
+    return s === null
+      ? `No contest is on record for ${name}, so there is nothing to judge yet.`
+      : `No contest is on record for ${name}, but the registry records them as the sitting member for ${s.placeName}, ${s.term}${s.party === null ? "" : `, party ${s.party}`}.`;
   }
   const decided = cands.filter(isDecided);
   const pending = cands.filter((c) => !isDecided(c));
@@ -85,9 +88,10 @@ export function headline(b: PersonBrief): string {
 /**
  * An outcome, or the absence of one. 2,627 candidacies in this registry are status='contesting' and
  * NOT ONE has a row in `result`, so partitioning a career on `isWinner` publishes "lost" and "never
- * elected" for people whose contest was never decided. Only these two statuses are a result;
- * 'contesting', 'filed', 'withdrawn', 'rejected' and 'disqualified' are not, and a withdrawal is
- * not a defeat.
+ * elected" for a candidate whose own result is not on record, though every one of those contests has
+ * its winner. Only these two statuses are a result; 'contesting', 'filed', 'withdrawn', 'rejected'
+ * and 'disqualified' are not, and a withdrawal is not a defeat. What may be said instead is who the
+ * contest was declared for (`wonBy`), and no more.
  */
 export function isDecided(c: Candidacy): boolean {
   return c.status === "elected" || c.status === "defeated";
@@ -99,10 +103,29 @@ export function won(c: Candidacy): boolean {
   return c.isWinner || c.status === "elected";
 }
 
+/** The winner as the seat page names one: the name, and the party in brackets where there is one. */
+function winnerPhrase(w: NonNullable<Candidacy["wonBy"]>): string {
+  return w.partyShortName === null ? w.name : `${w.name} (${w.partyShortName})`;
+}
+
+/** How many of these contests were declared for someone else. */
+function settledIn(open: readonly Candidacy[]): number {
+  return open.filter((c) => c.wonBy !== null).length;
+}
+
 function pendingPhrase(open: readonly Candidacy[]): string {
   const n = open.length;
-  const where = n === 1 && open[0] !== undefined ? ` at ${seatPhrase(open[0])}` : "";
-  return `${inr(n)} contest${n === 1 ? "" : "s"} on record${where} ${n === 1 ? "has" : "have"} no declared result`;
+  const one = open[0];
+  if (n === 1 && one !== undefined) {
+    return one.wonBy === null
+      ? `1 contest on record at ${seatPhrase(one)} has no declared result`
+      : `1 contest on record at ${seatPhrase(one)} was won by ${winnerPhrase(one.wonBy)}`;
+  }
+  const settled = settledIn(open);
+  if (settled === n) return `${inr(n)} contests on record were won by other candidates`;
+  return settled === 0
+    ? `${inr(n)} contests on record have no declared result`
+    : `${inr(n)} contests on record, ${inr(settled)} won by other candidates and ${inr(n - settled)} with no declared result`;
 }
 
 function record(
@@ -111,11 +134,18 @@ function record(
   open: readonly Candidacy[],
 ): string {
   if (decided.length === 0) {
-    // Nothing has been decided: state the standing as a fact, and characterise nothing.
+    // No result of their own: state what is on record, who the contest went to, and characterise nothing.
     const one = open[0];
-    return open.length === 1 && one !== undefined
-      ? `Standing at ${seatPhrase(one)}, with no result declared`
-      : `Standing in ${inr(open.length)} contests, none of them with a declared result`;
+    if (open.length === 1 && one !== undefined) {
+      return one.wonBy === null
+        ? `Standing at ${seatPhrase(one)}, with no result declared`
+        : `Stood at ${seatPhrase(one)}, where ${winnerPhrase(one.wonBy)} won`;
+    }
+    const settled = settledIn(open);
+    if (settled === open.length) return `Stood in ${inr(open.length)} contests, each won by another candidate`;
+    return settled === 0
+      ? `Standing in ${inr(open.length)} contests, none of them with a declared result`
+      : `Stood in ${inr(open.length)} contests, ${inr(settled)} won by another candidate and ${inr(open.length - settled)} with no declared result`;
   }
   // "decided" only earns its place in the sentence when some contest is NOT decided; on a settled
   // career it is noise.
@@ -184,6 +214,26 @@ export function tiles(b: PersonBrief): Tile[] {
   const wins = decided.filter(won);
   const ys = years(cands);
   const out: Tile[] = [];
+  // A row with no contest of its own: the seat claim is the only figure it has, and it is a claim, so it is dated.
+  const sitting = b.sitting;
+  if (sitting !== null) {
+    out.push({
+      label: "Sitting member for",
+      value: sitting.placeName,
+      unit: null,
+      note: `${sitting.term}${sitting.party === null ? "" : `, party ${sitting.party}`}`,
+      source: null,
+    });
+    if (sitting.marginVotes !== null) {
+      out.push({
+        label: "Margin recorded",
+        value: inr(sitting.marginVotes),
+        unit: "votes",
+        note: sitting.asOf === null ? null : `as of ${isoDay(sitting.asOf)}`,
+        source: null,
+      });
+    }
+  }
   if (cands.length > 0) {
     out.push({
       label: "Contests fought",
@@ -193,8 +243,8 @@ export function tiles(b: PersonBrief): Tile[] {
       source: rs,
     });
   }
-  // Only a decided contest can be won or lost, so the record tile counts those and the undecided
-  // rows get their own tile rather than being folded in as losses.
+  // Only a decided contest can be won or lost, so the record tile counts those and the rest get tiles of their
+  // own rather than being folded in as losses: a seat declared for someone else, and a contest nobody has won.
   if (decided.length > 0) {
     out.push({
       label: "Contests won",
@@ -204,13 +254,25 @@ export function tiles(b: PersonBrief): Tile[] {
       source: rs,
     });
   }
-  if (open.length > 0) {
-    const one = open[0];
+  const settled = open.filter((c) => c.wonBy !== null);
+  const waiting = open.filter((c) => c.wonBy === null);
+  if (settled.length > 0) {
+    const one = settled[0];
+    out.push({
+      label: "Won by another candidate",
+      value: inr(settled.length),
+      unit: settled.length === 1 ? "contest" : "contests",
+      note: settled.length === 1 && one !== undefined ? seatPhrase(one) : "own result not reported",
+      source: rs,
+    });
+  }
+  if (waiting.length > 0) {
+    const one = waiting[0];
     out.push({
       label: "Awaiting a result",
-      value: inr(open.length),
-      unit: open.length === 1 ? "contest" : "contests",
-      note: open.length === 1 && one !== undefined ? seatPhrase(one) : "no result declared",
+      value: inr(waiting.length),
+      unit: waiting.length === 1 ? "contest" : "contests",
+      note: waiting.length === 1 && one !== undefined ? seatPhrase(one) : "no result declared",
       source: rs,
     });
   }
@@ -242,8 +304,9 @@ export function tiles(b: PersonBrief): Tile[] {
     out.push({
       label: "Declared assets",
       value: rupees(assets.assetsTotal ?? 0),
-      unit: "self-declared",
-      note: `affidavit ${assets.year}`,
+      // In the hint and not the unit: as a unit it broke at its hyphen and made this tile a line taller than its row.
+      unit: null,
+      note: `self-declared, affidavit ${assets.year}`,
       source: byId(b.sources, assets.sourceId),
     });
   }
@@ -279,12 +342,14 @@ export function tiles(b: PersonBrief): Tile[] {
       source: rs,
     });
   }
-  const turnout = cands.find((c) => c.turnoutPct !== null);
-  if (turnout?.turnoutPct != null) {
+  // The newest contest with a turnout row. If its turnout is withheld the tile says so, and does not fall back to an
+  // older election's: that is no substitute for this one's (turnout-trust.ts), and a seat page says the same.
+  const turnout = cands.find((c) => c.turnout.state !== "absent");
+  if (turnout !== undefined) {
     out.push({
       label: "Turnout where they stood",
-      value: `${turnout.turnoutPct}%`,
-      unit: "of electors",
+      value: turnout.turnout.state === "reported" ? `${Math.round(turnout.turnout.pct * 10) / 10}%` : "verification pending",
+      unit: turnout.turnout.state === "reported" ? "of electors" : null,
       note: seatPhrase(turnout),
       source: rs,
     });

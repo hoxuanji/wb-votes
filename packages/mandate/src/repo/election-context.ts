@@ -184,8 +184,8 @@ export function electionContext(
        * the case rather than printing whatever arithmetic returns.
        *
        * And from seatsCONTESTED for a general election, not from `seatsInHouse` — deliberately. Reference
-       * data holds only TODAY'S house strength, while West Bengal returned 251 seats in 1962 and 294 now.
-       * Dividing today's figure would have announced a 1962 majority of 148 against a house of 251.
+       * data holds only TODAY'S house strength, while West Bengal returned about 252 seats in 1962 and 294 now.
+       * Dividing today's figure would have announced a 1962 majority of 148 against a house of about 252.
        * A full-house election's contest count IS its house.
        */
       majority: majorityOf(e.seats, kind),
@@ -196,7 +196,7 @@ export function electionContext(
        * PARTIAL MEANS "DID NOT FILL ITS HOUSE", and only a by-election can be known to be that.
        *
        * This read `seatsContested < seatsInHouse` and flagged West Bengal 1962 — a completed general
-       * election that returned 252 members to a house that HAD about 252 seats then and has 294 now.
+       * election that returned about 252 members to a house that HAD about 252 seats then and has 294 now.
        * Reference data holds only today's strength, so for any election but the most recent that comparison
        * measures how much the house has GROWN, not whether the event was partial. A by-election is partial
        * by definition and needs no arithmetic to say so.

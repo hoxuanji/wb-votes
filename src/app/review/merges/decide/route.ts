@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { recordDecision, reviewWritesEnabled } from '../../../../../packages/mandate/src/repo/review.ts';
+import { DECISIONS, recordDecision, reviewWritesEnabled } from '../../../../../packages/mandate/src/repo/review.ts';
 import type { Decision } from '../../../../../packages/mandate/src/repo/review.ts';
 import { writeRegistry } from '../../../../../packages/mandate/src/repo/session.ts';
 
@@ -22,7 +22,7 @@ import { writeRegistry } from '../../../../../packages/mandate/src/repo/session.
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const VALID: ReadonlySet<string> = new Set<Decision>(['merged', 'rejected', 'deferred']);
+const VALID: ReadonlySet<string> = new Set(DECISIONS);
 
 export async function POST(request: Request): Promise<Response> {
   // First, so that a deployment without the switch answers the same way whatever the request holds, and never

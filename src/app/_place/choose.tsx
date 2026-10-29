@@ -1,9 +1,9 @@
-import Link from "next/link";
-import { Shell } from "../../components/iei/Shell.tsx";
-import { Crumbs, Panel } from "../../components/iei/parts.tsx";
+import { Foot, Shell } from "../../components/iei/Shell.tsx";
+import { Crumbs, DataList, DataRow, Panel } from "../../components/iei/parts.tsx";
 import type { Apart, Place, SeatPlace } from "../../../packages/mandate/src/repo/place-resolve.ts";
-import { tellApart } from "../../../packages/mandate/src/repo/place-resolve.ts";
+import { placeIndex, tellApart } from "../../../packages/mandate/src/repo/place-resolve.ts";
 import { bodyOfKind, stateHref } from "../../../packages/mandate/src/repo/routes.ts";
+import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
 import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import "../iei.css";
 
@@ -21,6 +21,10 @@ import "../iei.css";
  * registry id, so those entries are two links to two seats and not two links back to this page. They would also read
  * alike, so each says its district, and its seat number where its district is not enough (`tellApart`); an entry
  * that a name or a body already tells from the rest says only its body.
+ *
+ * The entries are rows of the product's list, and not the small grey grid the district chooser uses: this page has one
+ * job, to be chosen from, and a row that does not look like a link does it badly. What tells a row from the other is
+ * also in its link, for a reader who hears the links out of their rows.
  */
 export function Choose({ places: found }: { places: readonly Place[] }) {
   // A tie is between seats: a state or a district is named by its id and has nothing to tie with.
@@ -29,12 +33,14 @@ export function Choose({ places: found }: { places: readonly Place[] }) {
   if (first === undefined) return null;
   const bodies = new Set(places.map((p) => p.kind));
   const apart = tellApart(places);
+  // The state as the registry names it, as every other page's trail does; its id only where the registry has no name.
+  const named = readRegistry((db) => placeIndex(db).states.find((s) => s.id === first.stateId)?.name);
   return (
     <Shell here="place" reading>
       <Crumbs
         trail={[
           { label: "India", href: "/" },
-          { label: first.stateId.toUpperCase(), href: stateHref(first.stateId) },
+          { label: (named.ok ? named.value : undefined) ?? first.stateId.toUpperCase(), href: stateHref(first.stateId) },
           { label: first.name },
         ]}
       />
@@ -50,24 +56,29 @@ export function Choose({ places: found }: { places: readonly Place[] }) {
         </p>
       </div>
       <Panel title="Which did you mean?">
-        <ul className="iei-district-list">
+        <DataList label="Constituencies that share this name">
           {places.map((p, i) => {
             const { district, number } = apart[i] as Apart;
+            const what = [bodyWord(bodyOfKind(p.kind)), district, number === null ? null : `no. ${number}`]
+              .filter((part) => part !== null)
+              .join(" · ");
             return (
-              <li key={p.versionId}>
-                <Link href={p.href}>
-                  {p.name}
-                  <b>
-                    {[bodyWord(bodyOfKind(p.kind)), district, number === null ? null : `no. ${number}`]
-                      .filter((part) => part !== null)
-                      .join(" · ")}
-                  </b>
-                </Link>
-              </li>
+              <DataRow
+                key={p.versionId}
+                href={p.href}
+                title={
+                  <>
+                    {p.name}
+                    <span className="iei-sr"> — {what}</span>
+                  </>
+                }
+                detail={what}
+              />
             );
           })}
-        </ul>
+        </DataList>
       </Panel>
+      <Foot />
     </Shell>
   );
 }

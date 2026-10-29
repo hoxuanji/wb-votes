@@ -412,7 +412,7 @@ test("a second result row for the same seat and year never gives a contest two w
   const db = open(":memory:");
   migrate(db, NOW);
   const b = fixture();
-  // the real defect: historical-results.json assigns two different seats the same AC id 40 times
+  // the defect the seed had until it was refiled: two different seats under one AC id, 40 times
   const collided: StaticBundle = {
     ...b,
     historicalResults: [

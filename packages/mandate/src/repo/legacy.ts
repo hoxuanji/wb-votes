@@ -9,7 +9,7 @@
 // `c0001` and `wb.ac.001` do happen to agree on all 294 seats — that was measured, not assumed — but agreeing today
 // is not a mapping, and a delimitation that renumbers a seat would silently redirect readers to the wrong
 // constituency. The number is asked of the place index (place-resolve.ts), among the CURRENT West Bengal assembly
-// seats: the previous product held those and nothing else (D28), so an id never names a seat of another state or a
+// seats: the previous product held those and nothing else, so an id never names a seat of another state or a
 // Lok Sabha seat, which have numbers of their own.
 
 import type { DatabaseSync } from "node:sqlite";
@@ -50,7 +50,7 @@ export function pathQuery(segments: readonly string[]): PlaceQuery | null {
 // ── the ids ──────────────────────────────────────────────────────────────────────────────────────
 
 /**
- * The seat an old id named: `c0001` is West Bengal's assembly seat number 1 as the registry holds it now (D28).
+ * The seat an old id named: `c0001` is West Bengal's assembly seat number 1 as the registry holds it now.
  *
  * Only a current seat answers (D26), and a number that no current seat holds, or that two do, names nothing.
  */
@@ -163,7 +163,7 @@ function queryOf(search: Search): string {
 
 /**
  * Run `fn` on the registry. A registry that cannot answer must not produce a redirect to a guess, and it is not a 404
- * either: a crawler keeps a 404 and drops the redirect for good (D8). It is thrown, which a crawler retries.
+ * either: a crawler keeps a 404 and drops the redirect for good. It is thrown, which a crawler retries.
  */
 function inRegistry<T>(session: typeof readRegistry, fn: (db: DatabaseSync) => T): T {
   const r = session(fn);

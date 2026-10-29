@@ -15,7 +15,7 @@ import { MARGIN_BANDS, bandOf, binOf, choicesOf, electionChoices, electionMapVie
 import { layerChoices, leaderOf } from "./home.ts";
 import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
-import { MODES, SHAPES, isMode, isShape, queryHref, readAsk, readSelection, tally } from "./map-selection.ts";
+import { MODES, SHAPES, isMode, isShape, offersMode, queryHref, readAsk, readSelection, tally } from "./map-selection.ts";
 import type { Choices, Isolation, MapMode, MapSelection, MapShape, Move, TalliedSeat, SeatFacts } from "./map-selection.ts";
 
 /* ─────────────────────────────────── literals ─────────────────────────────────── */
@@ -186,6 +186,22 @@ test("flips is a mode only where there is a previous election to flip against", 
   assert.deepEqual(read("mode=winners").ignored, []);
 });
 
+test("margin and runner-up are modes only where a seat can fill them, and a view that does not say offers them", () => {
+  for (const mode of ["margin", "runnerup"] as const) {
+    assert.equal(read(`mode=${mode}`).mode, mode);
+    assert.equal(read(`mode=${mode}`, { ...FULL, [mode]: true }).mode, mode);
+    const empty = { ...FULL, [mode]: false };
+    const sel = read(`mode=${mode}`, empty);
+    assert.equal(sel.mode, "winners");
+    assert.deepEqual(sel.ignored, ["mode"]);
+    assert.equal(offersMode(empty, mode), false);
+    assert.equal(offersMode(FULL, mode), true);
+    assert.equal(offersMode({ parties: FULL.parties }, mode), true, "silence is an offer: the state page says nothing of either");
+  }
+  assert.equal(offersMode({ ...FULL, margin: false, runnerup: false }, "winners"), true, "winners is always a reading");
+  assert.equal(offersMode({ parties: FULL.parties }, "flips"), false, "flips is not, unless the view says so");
+});
+
 test("a dimension the view does not offer is ignored, so each page keeps its own margin vocabulary", () => {
   assert.deepEqual(read("band=under1", ELECTION).ignored, ["band"]);
   assert.equal(read("band=under1", ELECTION).isolation, null);
@@ -265,7 +281,7 @@ test("a party isolates the seats it won, or on the runner-up tab the seats where
   assert.deepEqual(ids(read("party=BJP&mode=flips").narrow(SEATS)), ["p1", "p4", "p6"]);
 });
 
-test("switching mode keeps the party, and the party then means the other side of the seat (D20)", () => {
+test("switching mode keeps the party, and the party then means the other side of the seat", () => {
   const winners = read("party=BJP&mode=winners");
   const there = follow(winners.href({ mode: "runnerup" }));
   assert.deepEqual(there.isolation, { by: "party", key: "BJP" });

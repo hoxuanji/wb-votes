@@ -3,6 +3,7 @@ import Link from "next/link";
 import type { PersonBrief } from "../../../../packages/mandate/src/repo/index.ts";
 import type { Problem } from "../../../../packages/mandate/src/repo/envelope.ts";
 import { personReply } from "../../../../packages/mandate/src/repo/envelope.ts";
+import { personTitle } from "../../../../packages/mandate/src/repo/page-title.ts";
 import {
   deltas,
   headline,
@@ -13,6 +14,7 @@ import {
   tiles,
   won,
 } from "../../../../packages/mandate/src/repo/brief.ts";
+import { electionHref, personHref } from "../../../../packages/mandate/src/repo/routes.ts";
 import { Foot, Shell } from "../../../components/iei/Shell.tsx";
 import {
   Crumbs,
@@ -29,6 +31,10 @@ import "../../iei.css";
 // Constraint 7: .data/ is gitignored, so this route can never be prerendered.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+export function generateMetadata({ params }: { params: { person: string } }) {
+  return { title: personTitle(params.person) };
+}
 
 /**
  * `/p/<person>` — one person, and everything the registry holds about them.
@@ -65,8 +71,9 @@ export default async function PersonBriefPage({ params }: { params: { person: st
   ];
   // Where this person most recently stood, so the breadcrumb puts them somewhere rather than nowhere. A
   // person is not IN the place tree — they contest seats in it — so the trail ends at the seat and the
-  // person's own name is the leaf.
-  const latest = brief.candidacies.at(0);
+  // person's own name is the leaf. A row with no contest has the seat it is recorded as sitting for, if any.
+  const latest = brief.candidacies.at(0) ?? brief.sitting ?? undefined;
+  const figures = tiles(brief);
 
   return (
     <Shell here="person" reading>
@@ -108,24 +115,31 @@ export default async function PersonBriefPage({ params }: { params: { person: st
         question="Declared figures and the record behind them"
         sources={brief.sources}
       >
-        <Metrics>
-          {tiles(brief).map((t) => (
-            <Metric
-              key={t.label}
-              label={t.label}
-              text={t.value}
-              unit={t.unit ?? undefined}
-              hint={t.note}
-            />
-          ))}
-        </Metrics>
+        {figures.length === 0 ? (
+          <p className="iei-note">No figure for this person is in the registry.</p>
+        ) : (
+          <Metrics>
+            {figures.map((t) => (
+              <Metric
+                key={t.label}
+                label={t.label}
+                text={t.value}
+                unit={t.unit ?? undefined}
+                hint={t.note}
+              />
+            ))}
+          </Metrics>
+        )}
       </Panel>
 
       {brief.candidacies.length === 0 ? null : (
         <Panel title="Career" question="Every contest on record, newest first">
           <Table
             label="Career"
-            caption={`${inr(brief.candidacies.length)} contest${brief.candidacies.length === 1 ? "" : "s"} on record. The seat links to its brief.`}
+            caption={
+              `${inr(brief.candidacies.length)} contest${brief.candidacies.length === 1 ? "" : "s"} on record.` +
+              (brief.candidacies.some((c) => c.placeHref !== null) ? " The seat links to its brief." : "")
+            }
             captionVisible
             tight={brief.candidacies.length > 12}
             // 194 contests is a real record in this registry, and without its own scroll region it makes a
@@ -155,16 +169,29 @@ export default async function PersonBriefPage({ params }: { params: { person: st
               const decided = isDecided(c);
               return (
                 <tr key={`${c.contestId}-${c.electionId}`}>
-                  <th scope="row">{c.year}</th>
+                  <th scope="row">
+                    <Link href={electionHref(c.electionId)}>{c.year}</Link>
+                  </th>
                   <td>
-                    {c.placeName}
+                    {c.placeHref === null ? c.placeName : <Link href={c.placeHref}>{c.placeName}</Link>}
                     {c.placeNumber !== null && <span className="iei-of"> no. {c.placeNumber}</span>}
                   </td>
                   <td>
                     <Party short={c.partyShortName} symbol={c.partySymbolRef} />
                   </td>
                   <td className={won(c) ? "iei-up" : undefined}>
-                    {won(c) ? "Won" : decided ? "Lost" : <span className="iei-absent">no result declared</span>}
+                    {won(c) ? (
+                      "Won"
+                    ) : decided ? (
+                      "Lost"
+                    ) : c.wonBy !== null ? (
+                      <>
+                        <span className="iei-absent">seat won by </span>
+                        <Link href={personHref(c.wonBy.personId)}>{c.wonBy.name}</Link>
+                      </>
+                    ) : (
+                      <span className="iei-absent">no result declared</span>
+                    )}
                     {decided && !won(c) && c.rank !== null && <span className="iei-rule">rank {c.rank}</span>}
                   </td>
                   <td className="iei-n">
