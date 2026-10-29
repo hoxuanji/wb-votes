@@ -35,9 +35,11 @@ what each node **shows** and what it **stops showing**.
 `COVERAGE` leaves the primary navigation. It is infrastructure metadata and it was sitting where a product
 feature goes. `INDIA` leaves it too: it linked to the page the wordmark already links to.
 
-There is no `/elections`, `/parties` or `/people` index. Each would be a new dashboard listing what the
+There is no `/elections` or `/parties` index, and no list of every person. Each would be a new dashboard listing what the
 search field already reaches and what the state pages already own — and "the answer to clutter is not another
-page".
+page". The one exception is `/candidates` (2026-10-29): who stood in ONE election, narrowed by party, district, the shape of
+a career and a name, ordered by name or by seat and by nothing else. It is scoped to an election so that it is a list of a field and
+not a ranking of people, and it carries no figure per person beyond a declared winner's own margin.
 
 ## `/` — India
 
@@ -84,7 +86,8 @@ record. The `Analysis` lens beneath it owns every chart in the product.
 
 ## `/p/<person>` — a person
 
-**Owns:** every contest on record for one person, their party history, and their affidavit trail.
+**Owns:** every contest on record for one person, the run of the seat's elections with that person marked in each, who they stood
+against, and what they declared in their affidavit.
 
 ## `/search` — one field, five kinds
 

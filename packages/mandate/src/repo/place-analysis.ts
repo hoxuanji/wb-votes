@@ -159,6 +159,7 @@ export type PlaceAnalysis = {
 
 type PlaceSql = {
   id: string;
+  kind: string;
   place_version_id: number;
   canonical_name: string;
   parent_id: string | null;
@@ -229,17 +230,18 @@ export function getPlaceAnalysis(
       // Named from the VERSION, and scoped to it: a seat number is not an identity across
       // delimitation, so both the name and the analysis belong to one set of boundaries. See
       // docs/model/electoral-geography.md.
-      `SELECT pl.id, pv.id AS place_version_id, pv.canonical_name, pl.parent_id,
-              d.canonical_name AS district_name, d.parent_id AS state_id,
+      `SELECT pl.id, pv.id AS place_version_id, pv.canonical_name, pl.parent_id, pv.kind AS kind,
+              -- A pc has no district: its parent is the STATE. Reading the parent as a district named West Bengal the district of a Lok Sabha
+              -- seat and India its state, over a turnout baseline that was the assembly seats'.
+              CASE WHEN pv.kind = 'ac' THEN d.canonical_name END AS district_name,
+              CASE WHEN pv.kind = 'ac' THEN d.parent_id ELSE pl.parent_id END AS state_id,
               st.canonical_name AS state_name,
               pv.number, pv.reservation, pv.epoch_id, be.name AS epoch_name
          FROM place_version pv
          JOIN place pl ON pl.id = pv.place_id
          LEFT JOIN place d ON d.id = COALESCE(pv.district_place_id, pl.parent_id)
-         LEFT JOIN place st ON st.id = d.parent_id
+         LEFT JOIN place st ON st.id = CASE WHEN pv.kind = 'ac' THEN d.parent_id ELSE pl.parent_id END
          LEFT JOIN boundary_epoch be ON be.id = pv.epoch_id
-        -- Either body. A pc has no district, so the district baseline below returns nothing for one and the
-        -- surface already renders that as absent rather than as a comparison against zero.
         WHERE pv.id = ? AND pv.kind IN ('ac', 'pc')`,
       versionId,
     );
@@ -268,7 +270,9 @@ export function getPlaceAnalysis(
 
     // The two baselines §6.5 asks for, in one grouped pass over the same turnout rows. Aggregated
     // through turnout_pct.compute like the seat figure, so all three columns are the same measure.
-    const baselines = all<BaselineSql>(
+    // An assembly seat has a district and a state of assembly seats to be set against; a Lok Sabha seat has neither, and would be set against the
+    // assembly seats of its state, which are other offices.
+    const baselines = p.kind !== "ac" ? [] : all<BaselineSql>(
       db,
       `SELECT c.election_id,
               SUM(CASE WHEN pl.parent_id = ? THEN t.voters END)   AS d_voters,
@@ -321,7 +325,7 @@ export function getPlaceAnalysis(
       place: {
         id: p.id,
         canonicalName: p.canonical_name,
-        districtId: p.parent_id,
+        districtId: p.kind === "ac" ? p.parent_id : null,
         districtName: p.district_name,
         stateName: p.state_name,
         stateId: p.state_id,

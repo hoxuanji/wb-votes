@@ -1,44 +1,62 @@
-import { inr } from "../../../../packages/mandate/src/repo/brief.ts";
 import { analysisCaveats } from "../../../../packages/mandate/src/repo/place-caveats.ts";
-import { partyNotices } from "../../../../packages/mandate/src/repo/place-filters.ts";
-import type { Card } from "../../../../packages/mandate/src/repo/place-presentation.ts";
-import { analysisCards } from "../../../../packages/mandate/src/repo/place-presentation.ts";
+import { placeStory } from "../../../../packages/mandate/src/repo/place-story.ts";
 import type { PlaceView } from "../../../../packages/mandate/src/repo/place-view.ts";
-import { ABSENT } from "../../../../packages/mandate/src/semantic/index.ts";
+import { resultRetrieved } from "../../../../packages/mandate/src/repo/seat-story.ts";
 import { Foot, Shell } from "../../../components/iei/Shell.tsx";
-import { Crumbs, DataList, DataRow, Panel, Table, Tabs } from "../../../components/iei/parts.tsx";
+import { AnalysisHead, GapPanels, LeavesOut, MarginHero, Notes, Tables, TurnoutRows, VoteLadder } from "../../../components/iei/Dash.tsx";
+import { Crumbs, Panel, Tabs } from "../../../components/iei/parts.tsx";
 import "../../iei.css";
 
 /**
  * Floor 2 — Analysis. "How did this seat get this way?"
  *
- * Every card is a question, a chart from the viz primitives, and the table that is the accessible chart —
- * rendered, not collapsed, because a closed `<details>` is invisible to a screen reader and the table IS the
- * chart for anyone who cannot see it.
+ * It opens on one computed sentence and the picture that proves it (repo/place-story.ts chooses the sentence by a printed rule), then answers the
+ * next question with one picture each: where the vote went, how close it was, whether the state did it, whether people turned out; then what is
+ * worth a second look, what the page leaves out, and the exact table behind every picture, open, at the foot.
  *
- * 0 KB of client JS: the window filter is a GET form and the chips are links, so filter state is in the URL
- * and a link restores the view. Nothing here is interactive in the JavaScript sense, so there is nothing to
- * hydrate.
- *
- * It wears the product's chrome now, like every other surface, and the provenance paragraph that used to sit
- * above the first chart is the `ⓘ` in each panel header.
+ * It used to open on a three-select form and eight cards, 6,167px of them, and say nothing: it plotted a turnout the Brief withheld, coloured parties
+ * by rank, folded the party list twice and called a state the district of a Lok Sabha seat. The window is still a GET form and the chips and presets
+ * are links, so filter state is in the URL and a link restores the view; 0 KB of client JS. The finding is always computed from the whole record, so
+ * a filter never silently changes what the page says is its point.
  */
 export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kind: "ac" }> }) {
-  const { analysis, brief, filters, trail } = view;
-  const cards = analysisCards(analysis);
+  const { analysis, brief, filters, trail, history } = view;
   const base = view.base.replace(/\/analysis$/, "");
-  // What was rejected, and what the party filter did to the cards: both are sentences, neither is silence.
-  const notes = [...filters.ignored, ...partyNotices(analysis)];
+  const name = analysis.place.canonicalName;
+  const story = placeStory({
+    brief,
+    history,
+    analysis,
+    ranks: view.ranks,
+    stateShares: view.stateShares,
+    asked: filters.filters.party ?? null,
+  });
+  // What was rejected, and a followed party the window cannot show: both are sentences, neither is silence.
+  const asked = filters.filters.party;
+  const notes = [
+    ...filters.ignored,
+    ...(asked !== undefined && story.followed?.label !== asked
+      ? [`${asked} has no result at ${name} in this window, so ${story.followed?.label ?? "no party"} is followed instead.`]
+      : []),
+  ];
+
+  // The window as links. "Counted only" ends at the last election that has candidate votes, which is where every picture below can be drawn.
+  const counted = history.results.filter((r) => r.evidence === "counted").map((r) => r.year);
+  const lastCounted = counted.length === 0 ? null : Math.max(...counted);
+  const f = filters.filters;
+  const preset = f.party !== undefined ? "" : f.fromYear === undefined && f.toYear === undefined ? "all" : f.fromYear === undefined && f.toYear === lastCounted ? "counted" : "";
+  const withParty = (label: string): string => {
+    const q = new URLSearchParams();
+    if (f.fromYear !== undefined) q.set("from", String(f.fromYear));
+    if (f.toYear !== undefined) q.set("to", String(f.toYear));
+    q.set("party", label);
+    return `${view.base}?${q.toString()}`;
+  };
 
   return (
-    <Shell here="place" reading>
+    <Shell here="place">
       <Crumbs trail={trail} />
-      <div className="iei-head">
-        {/* No district here: the breadcrumb one line above already names it, and a page whose first two
-            lines both say BAGALKOT has said it once too often. */}
-        <p className="iei-eyebrow">Constituency · analysis</p>
-        <h1 className="iei-answer">How {analysis.place.canonicalName} got this way</h1>
-      </div>
+      <AnalysisHead name={name} story={story} />
 
       <Tabs
         label="Lens"
@@ -51,47 +69,58 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
 
       <Panel
         title="Window"
-        question="Which elections, and which party's shares, do the cards below cover?"
+        question="Which elections do the pictures below cover?"
+        /* ONE DRAWER FOR THE PAGE'S SOURCES, with the retrieval date of the results beside it. */
         sources={analysis.sources}
       >
-        {/* A GET form: the browser builds the query string, the server reads it. No client JS. */}
-        <form className="iei-filters" method="get" action={view.base}>
-          <div>
-            <label htmlFor="from">From</label>
-            <select id="from" name="from" defaultValue={filters.filters.fromYear ?? ""}>
-              <option value="">earliest ({Math.min(...view.years)})</option>
-              {view.years.map((y) => (
-                <option value={y} key={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="to">To</label>
-            <select id="to" name="to" defaultValue={filters.filters.toYear ?? ""}>
-              <option value="">latest ({Math.max(...view.years)})</option>
-              {view.years.map((y) => (
-                <option value={y} key={y}>
-                  {y}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label htmlFor="party">Party</label>
-            <select id="party" name="party" defaultValue={filters.filters.party ?? ""}>
-              <option value="">every party</option>
-              {view.parties.map((p) => (
-                <option value={p} key={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
-          </div>
-          <button type="submit">Apply</button>
-        </form>
-
+        <Tabs
+          label="Elections shown"
+          current={preset}
+          choices={[
+            { key: "all", label: "All", href: view.base },
+            ...(lastCounted === null ? [] : [{ key: "counted", label: "Counted only", href: `${view.base}?to=${lastCounted}` }]),
+          ]}
+        />
+        <details className="iei-twin iei-an-custom">
+          <summary>Custom</summary>
+          {/* A GET form: the browser builds the query string, the server reads it. No client JS. */}
+          <form className="iei-filters" method="get" action={view.base}>
+            <div>
+              <label htmlFor="from">From</label>
+              <select id="from" name="from" defaultValue={filters.filters.fromYear ?? ""}>
+                <option value="">earliest ({Math.min(...view.years)})</option>
+                {view.years.map((y) => (
+                  <option value={y} key={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="to">To</label>
+              <select id="to" name="to" defaultValue={filters.filters.toYear ?? ""}>
+                <option value="">latest ({Math.max(...view.years)})</option>
+                {view.years.map((y) => (
+                  <option value={y} key={y}>
+                    {y}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label htmlFor="party">Follow</label>
+              <select id="party" name="party" defaultValue={filters.filters.party ?? ""}>
+                <option value="">the party in the finding</option>
+                {view.parties.map((p) => (
+                  <option value={p} key={p}>
+                    {p}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button type="submit">Apply</button>
+          </form>
+        </details>
         {filters.chips.length === 0 ? null : (
           <Tabs
             label="Filters applied"
@@ -111,17 +140,13 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
         )}
       </Panel>
 
-      {cards.map((c) => (
-        <ChartCard card={c} key={c.question} />
-      ))}
-
-      <Panel title="What these measures do not tell you" question="The limits of every figure above">
-        <DataList label="Caveats">
-          {analysisCaveats(analysis).map((c) => (
-            <DataRow key={c.label} title={c.label} detail={c.text} />
-          ))}
-        </DataList>
-      </Panel>
+      <VoteLadder story={story} followHref={withParty} />
+      <MarginHero story={story} retrieved={resultRetrieved(brief)} />
+      <GapPanels story={story} stateName={analysis.place.stateName ?? "the state"} />
+      <TurnoutRows story={story} district={analysis.place.districtName} state={analysis.place.stateName} />
+      <Notes story={story} />
+      <LeavesOut story={story} caveats={analysisCaveats(analysis)} />
+      <Tables story={story} stateName={analysis.place.stateName ?? "the state"} district={analysis.place.districtName} />
 
       <Foot>
         <a className="iei-body-link" href={base}>
@@ -129,48 +154,5 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
         </a>
       </Foot>
     </Shell>
-  );
-}
-
-function ChartCard({ card }: { card: Card }) {
-  const { chart } = card;
-  return (
-    <Panel title={card.question} note={card.note ?? undefined}>
-      {chart.fact === null ? (
-        // charts.ts returns a complete, pre-escaped <svg>; every string in `table` is raw text that JSX
-        // escapes. These are the only bytes on the page that bypass JSX, and they never contain caller text
-        // unescaped (marks.ts escapeXml). `chart.svg` is the chart drawn at several widths; `.iei-chart` shows one.
-        <div className="iei-fig iei-chart" dangerouslySetInnerHTML={{ __html: chart.svg }} />
-      ) : (
-        <p className="iei-sub">{chart.fact}</p>
-      )}
-      <Table
-        label={`${card.question} — as a table`}
-        caption={chart.table.caption}
-        captionVisible
-        head={chart.table.headers.map((h, i) => (
-          <th scope="col" className={i > 0 ? "iei-n" : undefined} key={h}>
-            {h}
-          </th>
-        ))}
-      >
-        {chart.table.rows.map((r) => (
-          <tr key={r.join("|")}>
-            {r.map((cell, i) =>
-              i === 0 ? (
-                <th scope="row" key={i}>
-                  {cell}
-                </th>
-              ) : (
-                <td className="iei-n" key={i}>
-                  {/* A figure carries a numeral; anything else is an absence, and an absence is words (ABSENT). */}
-                  {/\d/.test(cell) ? cell : <span className="iei-absent">{cell === ABSENT ? "not reported" : cell}</span>}
-                </td>
-              ),
-            )}
-          </tr>
-        ))}
-      </Table>
-    </Panel>
   );
 }

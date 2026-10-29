@@ -30,6 +30,8 @@ import type { SeatHistory } from "./seat-history.ts";
 import { readSeatField } from "./seat-field.ts";
 import type { SeatField } from "./seat-field.ts";
 import type { Widest } from "./seat-story.ts";
+import { marginRanks, stateShares } from "./place-baselines.ts";
+import type { MarginRank } from "./place-baselines.ts";
 import { bodyWord } from "../core/election-kind.ts";
 import { seatLocator } from "./seat-locator.ts";
 import type { SeatLocatorView } from "./seat-locator.ts";
@@ -124,6 +126,10 @@ export type PlaceView =
       field: SeatField;
       /** Where a one-election seat's margin stands among its election's, or null (seat-story.ts). */
       widest: Widest | null;
+      /** Where the seat's margin stands among its election's, by election id (place-baselines.ts). */
+      ranks: ReadonlyMap<string, MarginRank | null>;
+      /** The state's share of the votes polled by party, by election id; empty for a Lok Sabha seat (place-baselines.ts). */
+      stateShares: ReadonlyMap<string, ReadonlyMap<string, number>>;
       trail: Crumb[];
     }
   | {
@@ -261,6 +267,11 @@ export async function placeView(
       history: readSeatHistory(db, hit.versionId),
       field: readSeatField(db, hit.versionId),
       widest: widestOf(db, brief, hit.versionId),
+      ranks:
+        brief.place.jurisdictionId === null
+          ? new Map()
+          : marginRanks(db, hit.versionId, brief.place.jurisdictionId, brief.contests.map((c) => c.electionId)),
+      stateShares: brief.place.kind === "ac" && brief.place.jurisdictionId !== null ? stateShares(db, brief.place.jurisdictionId, "ac") : new Map(),
       trail: trailOf(index, hit, spelled),
     };
   });

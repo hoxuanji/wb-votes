@@ -217,3 +217,35 @@ Not met, or not tested:
 - **On a phone** the arc's dots are about 6px across for 294 seats, and `/election` is one row of tabs lower (352 to 385) because the new control has no
   year strip to share a row with.
 - **The Task 8 commit message calls the 29.5px cell "a 29px tile":** the tile inside it is 26.6px.
+
+
+## Redesign of the front page, the seat, the person and the Analysis (2026-10-29)
+
+Four pages were rebuilt from design briefs written against the audited defects: `/`, the seat page, the person page and the Analysis lens, plus a new
+`/candidates`. Each opens on one computed sentence (a *finding*, repo/finding.ts) and the picture that proves it, answers the next question with one
+picture each, keeps the exact table of every picture, and says what its record cannot say once.
+
+**What changed**
+
+- **`/`** opens on the story of the one state that has results (repo/home-story.ts picks it by rule): four houses on one scale with a half-house line,
+  four doors, and chapters for what changed, where, votes against seats, how close, and who was always there. The map, the elections and the parties
+  are the coda.
+- **The seat page** leads with a finding (rise, narrow, hands, hold, lone or the old headline), a hero margin with the previous election's margin and a
+  trend line in which a declared figure is a hollow ring, the winner's share against half the votes polled, every election on one scale, the whole 2026
+  field with what each candidate declared, and the Flagged rules evaluated over every election. Every 2026 candidate is a link.
+- **The person page** has a finding with eight rules, the run with margins on one scale (a declared margin is a dashed bar), who they stood against,
+  the field, the record and the affidavit. `/candidates` lists one election's field with facets whose counts honour each other.
+- **The Analysis** has the finding and its rule, a vote ladder with ribbons only between counted elections, a margin hero ranked by votes, the seat
+  against the state, turnout against its district and state on an axis that does not start at zero, notes that print their rules, and four tables.
+
+**Decisions taken by default** (each is a named constant or a one-rule change): the 1340px width for the seat Brief and the Analysis, so the tabs do
+not change the page's width; the roster orders by name or party or age and by nothing the candidate declared; a dashed mark means "no declared winner"
+and a hollow ring or dashed bar means "declared, with nothing counted behind it"; one close-call rule (0.5 point); one margin rank (by votes); one state
+share (the trajectory's); `.iei-tab` and the facet rows are 44px high under `pointer: coarse` and unchanged on a desktop.
+
+**What was measured:** every sentence is audited on every seat (336) and every person (6,167): every number is in its inputs, "declared" sits beside a
+margin without counts, and no pronoun, "never", "first time" or "only" appears. The all-seats and all-people runs found two defects of ours before any reader did (a headline that gave a declared margin without the word, and the word "only" in a line under a sentence).
+
+**Not built:** the seat's photo-finish ruler and margin-rank strip, the Analysis's field strips, a compare view, and any asset or case ordering or
+dot, on purpose. **Not tested:** hover, focus order, screen readers, other browsers, and motion in sequence (the captures freeze animation; first and
+last frames only); 320px; the person page's twin-tied seats in a real browser.

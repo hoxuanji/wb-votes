@@ -80,36 +80,6 @@ export function parseFilters(
   return { filters: { fromYear, toYear, party }, chips, ignored };
 }
 
-/**
- * What the party filter did to the cards, in words. It narrows the share, votes and swing cards and nothing else, and a
- * party the seat never fielded in the window empties them: a card that is missing, or names no one, with no sentence
- * to say why, reads as a fault. Not `ignored`: the filter was accepted, and it is not a rejected parameter.
- */
-export function partyNotices(a: PlaceAnalysis): string[] {
-  const party = a.filters.party;
-  if (party === undefined) return [];
-  const notices = [
-    `${party} narrows the share, votes and swing cards. Turnout, margin and effective parties are for every party.`,
-  ];
-  const years = a.turnoutSeries.map((t) => t.year);
-  const [lo, hi] = [Math.min(...years), Math.max(...years)];
-  if (a.partyShareSeries.length > 0 && a.partyShareSeries.every((s) => s.parties.length === 0)) {
-    notices.push(
-      `${party} has no result at ${a.place.canonicalName} in ${lo === hi ? lo : `${lo}–${hi}`}, so the cards ` +
-        `below show everyone else together and no swing is drawn.`,
-    );
-    return notices;
-  }
-  // A swing is drawn for the parties of the LATER election of a pair, so a pair whose later election has no result for
-  // the party has no card.
-  for (const r of a.retention) {
-    if (!a.swingSeries.some((s) => s.year === r.year && s.previousYear === r.previousYear)) {
-      notices.push(`No swing card for ${r.previousYear}–${r.year}: ${party} has no result in ${r.year}.`);
-    }
-  }
-  return notices;
-}
-
 /* ─────────────────────────── the roster's order ─────────────────────────── */
 
 /** How a seat's roster of candidates may be ordered. Not by assets, cases or margin: a list sorted by what people declared they owe or are accused of is a leaderboard. */

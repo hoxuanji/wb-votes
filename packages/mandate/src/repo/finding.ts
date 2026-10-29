@@ -30,7 +30,7 @@ export function plain(parts: readonly Part[]): string {
 }
 
 /** Shapes whose sentence this codebase composed from the record, and so the ones that must keep the rules below. */
-const GENERATED = new Set(["narrow", "rise", "lone", "recent", "first"]);
+const GENERATED = new Set(["narrow", "rise", "lone", "won-one", "stood-one", "lost-then-won", "rose", "won-then-not", "won-all", "record", "press", "close", "every", "held", "won"]);
 
 const BANNED = /\b(defeated|lost to|beat|beaten|first time|he|she|his|her|him)\b/i;
 

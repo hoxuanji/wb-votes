@@ -323,6 +323,109 @@ test("a seat with no 2026 result row says so, and a seat whose contests have nob
   assert.doesNotMatch(lok, /Turnout 2024 not held/, "the old tile that read as the election not having been held is back");
 });
 
+test("the nine reference person pages render, withhold what the record withholds, and give every swatch its code", live, () => {
+  const NINE = [
+    "pulak-roy-0d657a",
+    "niamot-sheikh-21a0df",
+    "dadhiram-ray-a22815",
+    "dr-shashi-panja-80cf23",
+    "hiten-barman-ca794e",
+    "debangshu-panda-208a83",
+    "manoj-tigga-9fd1fd",
+    "humayun-kabir-1af54d",
+    "adhikary-paresh-chandra-b3d5dc",
+  ];
+  const pages = new Map(NINE.map((slug) => [slug, render("/p", "", slug)]));
+  for (const [slug, html] of pages) {
+    const t = text(html);
+    assert.ok(html.length < 340_000, `${slug}: ${html.length} bytes`);
+    for (const bad of [/Standing at/, /96\.6%/, /Turnout where they stood/, /npm run mandate/, /Awaiting a result/, /never been elected/, /\bdefeated\b/i]) {
+      assert.doesNotMatch(t, bad, `${slug} prints ${String(bad)}`);
+    }
+    const body = html.slice(html.indexOf("<main"));
+    const swatches = [...body.matchAll(/<span class="iei-sw"[^>]*><\/span>/g)].length;
+    const withCode = [...body.matchAll(/<span class="iei-sw"[^>]*><\/span>(?=<span class="iei-chip">|<b>|[A-Za-z])/g)].length;
+    assert.equal(withCode, swatches, `${slug}: a swatch is not followed by its party's code`);
+  }
+  const pulak = pages.get("pulak-roy-0d657a")!;
+  assert.equal((pulak.match(/iei-pp-mb-declared/g) ?? []).length, 1, "Pulak's 2026 margin is declared: one dashed bar");
+  assert.ok(pulak.includes(fillFor("AITC")), "TMC is inked by its key (curated), not by its name");
+  assert.match(text(pulak).replace(/\s+/g, " "), /Won Uluberia Dakshin for TMC at all 4 elections on record, 2011 to 2026\./);
+
+  const hiten = pages.get("hiten-barman-ca794e")!;
+  assert.ok(new Set([...hiten.matchAll(/href="\/p\/([^"]+)"/g)].map((m) => m[1])).size >= 10, "the other ten candidates are not reachable from Hiten Barman's page");
+  assert.match(text(hiten).replace(/\s+/g, " "), /won by Dadhiram Ray BJP by a declared 29,584 votes/);
+  assert.doesNotMatch(hiten, /iei-pp-mb\b/, "a person with no margin of their own has a margin frame");
+
+  const humayun = text(pages.get("humayun-kabir-1af54d")!);
+  assert.doesNotMatch(humayun, /The run|The record in full|Declared in/, "a press-only person has an empty frame");
+
+  assert.match(text(pages.get("adhikary-paresh-chandra-b3d5dc")!), /2 other records may be the same person:/);
+  assert.match(text(pages.get("debangshu-panda-208a83")!).replace(/\s+/g, " "), /Won Falta \(Assembly\)/);
+  assert.match(text(pages.get("manoj-tigga-9fd1fd")!).replace(/\s+/g, " "), /Won Alipurduars \(Lok Sabha\) for BJP in 2024 by a declared 75,447 votes/);
+  assert.doesNotMatch(pages.get("manoj-tigga-9fd1fd")!, /iei-res-bar/, "a Lok Sabha-only person has bars for an election that published no counts");
+});
+
+test("the candidates index renders a page of its list and its facets, in words and links, with no rank and no figure per person", live, () => {
+  const html = render("/candidates");
+  const t = text(html).replace(/\s+/g, " ");
+  assert.ok(html.length < 120_000, `${html.length} bytes for a page of 50 rows`);
+  assert.match(t, /2,921 candidates stood for 294 seats in the Assembly 2026 election\. 316 had stood before on record\./);
+  assert.match(t, /Nothing here is ranked/);
+  assert.equal((html.match(/<tr>/g) ?? []).length, 1 + 50, "a page is the head row and fifty candidates");
+  // Every swatch has its code, and every person is a link to their page.
+  const swatches = [...html.matchAll(/<span class="iei-sw"[^>]*><\/span>/g)].length;
+  const withCode = [...html.matchAll(/<span class="iei-sw"[^>]*><\/span>(?=<span class="iei-chip">|<b>|[A-Za-z])/g)].length;
+  assert.equal(withCode, swatches);
+  assert.equal([...html.matchAll(/href="\/p\/[^"]+"/g)].length >= 50, true);
+  // Only a declared winner has a figure, and it says declared; nobody is ranked by what they declared.
+  assert.match(t, /declared winner, margin 18,960 declared/);
+  assert.doesNotMatch(t, /richest|most cases|closest|\brank(?:ed)? \d|assets/i);
+  // A narrowed view keeps its filters as links that remove them.
+  const narrowed = render("/candidates", "party=AITC&repeat=1");
+  assert.match(text(narrowed).replace(/\s+/g, " "), /Party TMC ×.*Repeat contestants ×.*Clear all/);
+  const none = text(render("/candidates", "q=zzzzzz-nobody")).replace(/\s+/g, " ");
+  assert.match(none, /No candidate matches Name contains .zzzzzz-nobody. in the Assembly 2026 election\./);
+});
+
+test("the Analysis pages open on a finding, print no withheld figure, and each says what it cannot draw", live, () => {
+  const seats: [string, string][] = [
+    ["wb/assembly/mekliganj", "Mekliganj"],
+    ["wb/assembly/dinhata", "Dinhata"],
+    ["wb/lok-sabha/baharampur", "Baharampur"],
+    ["wb/assembly/falta", "Falta"],
+    ["wb/assembly/154", "Bishnupur"],
+  ];
+  for (const [segments, name] of seats) {
+    const html = render("/constituency/analysis", "", segments);
+    const t = text(html).replace(/\s+/g, " ");
+    assert.ok(html.length < 340_000, `${name}: ${html.length} bytes`);
+    assert.equal((html.match(/<h1\b/g) ?? []).length, 1, `${name}: not one h1`);
+    assert.doesNotMatch(html, /<script/i, `${name}: a script`);
+    for (const bad of [/96\.6/, /13\.6%/, /31\.9%/, /\b93\.0/, /Others \(\d/]) assert.doesNotMatch(t, bad, `${name} prints ${String(bad)}`);
+    assert.match(t, new RegExp(`How ${name} got this way`));
+    assert.match(t, /Why this finding:/);
+    assert.match(t, /What this page leaves out/);
+    // Every swatch has its code, and a party is inked by its key.
+    const swatches = [...html.matchAll(/<span class="iei-sw"[^>]*><\/span>/g)].length;
+    const withCode = [...html.matchAll(/<span class="iei-sw"[^>]*><\/span>(?=<span class="iei-chip">|<b>|[A-Za-z])/g)].length;
+    assert.equal(withCode, swatches, `${name}: a swatch is not followed by its code`);
+    assert.ok(!html.includes(fillFor("TMC")) || fillFor("TMC") === fillFor("AITC"), `${name}: TMC is inked by its name`);
+  }
+  const mek = text(render("/constituency/analysis", "", "wb/assembly/mekliganj")).replace(/\s+/g, " ");
+  assert.match(mek, /verification pending/);
+  assert.match(mek, /2016 was the close one: 47th closest of 275/);
+  assert.match(mek, /beat the district and the state at every election on record/);
+
+  const lok = render("/constituency/analysis", "", "wb/lok-sabha/baharampur");
+  assert.match(text(lok).replace(/\s+/g, " "), /Not drawn, and why/);
+  assert.doesNotMatch(text(lok), /India · | in West Bengal, the district|district of West Bengal/);
+  assert.doesNotMatch(lok, /iei-an-seg/, "a Lok Sabha seat with no candidate votes draws a proportional segment");
+
+  const none = text(render("/constituency/analysis", "", "wb/assembly/154")).replace(/\s+/g, " ");
+  assert.doesNotMatch(none, /took the seat from/, "a hand-off is claimed across elections that declared nobody");
+});
+
 test("the table beside the map prints the seats of the layer it sits beside, and none where the layer names no party", live, () => {
   // The seats column read the ASSEMBLY standings whatever layer was shown, so the Lok Sabha layer printed "TMC 192 of 294": the Lok Sabha
   // leader's name over the assembly leader's seats. The registry's own count of contests is what the denominator has to be.
