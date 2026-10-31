@@ -13,7 +13,9 @@
 //   * CHECK (col IN ('a','b')) matches the type's const array exactly, both directions
 // ponytail: NOT NULL WITH a default is also "req" — a read always yields a value, and these are
 // read shapes. Split the rule only when a write shape (a POST body) needs the looser one.
-// Tables absent from MAP are not checked; adding 004/005 cannot fail this test.
+// Tables absent from MAP are not checked; adding 004/005 cannot fail this test. MAP holds the row types that some
+// code consumes (C4 step 8): the tables nothing reads as a typed row are checked where they are written, by
+// putRows against the catalog, which is the DDL itself and cannot drift from it.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -23,49 +25,32 @@ import { migrate } from "../../db/migrate.ts";
 import {
   BIRTH_YEAR_CONFIDENCES,
   CANDIDACY_STATUSES,
-  CASE_STAGES,
-  CROSSWALK_METHODS,
   ELECTION_HOUSES,
   ELECTION_KINDS,
   ELECTION_LEVELS,
   ELECTION_LIFECYCLES,
   ELECTORATE_KINDS,
   PARTY_KINDS,
-  PARTY_LINEAGE_KINDS,
   PLACE_KINDS,
-  PLACE_VERSION_LINK_KINDS,
   RESERVATIONS,
   REVIEW_STATES,
   SEXES,
 } from "./index.ts";
 import type {
   Affidavit,
-  AffidavitField,
   Alliance,
-  AllianceVersion,
-  BoothResult,
-  BoundaryEpoch,
   Candidacy,
   Contest,
   Election,
-  ElectionPhase,
-  LegalCase,
   Party,
-  PartyLineage,
-  PartyVersion,
   Person,
-  PersonAlias,
   Place,
-  PlaceCrosswalk,
-  PlaceVersion,
-  PlaceVersionLink,
   Result,
-  RoundResult,
   Symbol as SymbolRow,
   Turnout,
 } from "./index.ts";
-import { CONFIDENCES, HASH_KINDS, INGEST_RUN_STATUSES, RETRIEVAL_KINDS, SOURCE_KINDS } from "../citation/index.ts";
-import type { Citation, Claim, Correction, IngestRun, Source } from "../citation/index.ts";
+import { HASH_KINDS, RETRIEVAL_KINDS, SOURCE_KINDS } from "../citation/index.ts";
+import type { Citation, Source } from "../citation/index.ts";
 
 /** "req" for every property whose type rejects null, "null" for every one that admits it. `-?`
  *  makes optional properties mandatory here too, so an optional property must still be labelled and
@@ -90,17 +75,6 @@ const MAP = {
     licence: "null",
     publisherNote: "null",
   } satisfies Shape<Source>,
-  boundary_epoch: {
-    id: "req",
-    name: "req",
-    effectiveFrom: "req",
-    effectiveTo: "null",
-    sourceId: "null",
-    jurisdictionId: "null",
-    orderDate: "null",
-    orderReference: "null",
-    effectiveDateBasis: "req",
-  } satisfies Shape<BoundaryEpoch>,
   place: {
     id: "req",
     kind: "req",
@@ -110,39 +84,6 @@ const MAP = {
     lgdCode: "null",
     eciCode: "null",
   } satisfies Shape<Place>,
-  place_version: {
-    id: "req",
-    placeId: "req",
-    jurisdictionId: "req",
-    kind: "req",
-    epochId: "req",
-    number: "null",
-    canonicalName: "req",
-    districtPlaceId: "null",
-    reservation: "null",
-    geometryRef: "null",
-    electorsAtCreation: "null",
-    sourceConstituencyKey: "null",
-    nameSourceId: "null",
-    nameConflict: "req",
-    nameVariants: "req",
-  } satisfies Shape<PlaceVersion>,
-  place_version_link: {
-    fromPlaceVersionId: "req",
-    toPlaceVersionId: "req",
-    kind: "req",
-    basis: "req",
-    sourceId: "null",
-  } satisfies Shape<PlaceVersionLink>,
-  place_crosswalk: {
-    fromPlaceVersionId: "req",
-    toPlaceVersionId: "req",
-    areaShare: "req",
-    populationShare: "null",
-    electorShare: "null",
-    method: "req",
-    sourceId: "null",
-  } satisfies Shape<PlaceCrosswalk>,
   person: {
     id: "req",
     canonicalName: "req",
@@ -154,15 +95,6 @@ const MAP = {
     reviewState: "req",
     createdAt: "req",
   } satisfies Shape<Person>,
-  person_alias: {
-    personId: "req",
-    name: "req",
-    script: "req",
-    normKey: "req",
-    kind: "req",
-    firstSeen: "null",
-    sourceId: "null",
-  } satisfies Shape<PersonAlias>,
   symbol: {
     id: "req",
     name: "req",
@@ -180,28 +112,7 @@ const MAP = {
     registeredOn: "null",
     dissolvedOn: "null",
   } satisfies Shape<Party>,
-  party_version: {
-    id: "req",
-    partyId: "req",
-    validFrom: "req",
-    validTo: "null",
-    name: "req",
-    symbolId: "null",
-  } satisfies Shape<PartyVersion>,
-  party_lineage: {
-    fromPartyId: "req",
-    toPartyId: "req",
-    kind: "req",
-    effectiveOn: "req",
-    sourceId: "null",
-  } satisfies Shape<PartyLineage>,
   alliance: { id: "req", name: "req", names: "req" } satisfies Shape<Alliance>,
-  alliance_version: {
-    id: "req",
-    allianceId: "req",
-    validFrom: "req",
-    validTo: "null",
-  } satisfies Shape<AllianceVersion>,
   election: {
     id: "req",
     kind: "req",
@@ -224,12 +135,6 @@ const MAP = {
     forecastGateFrom: "null",
     forecastGateTo: "null",
   } satisfies Shape<Election>,
-  election_phase: {
-    electionId: "req",
-    n: "req",
-    pollDate: "req",
-    seatCount: "null",
-  } satisfies Shape<ElectionPhase>,
   contest: {
     id: "req",
     electionId: "req",
@@ -258,28 +163,6 @@ const MAP = {
     filedOn: "null",
     sourceId: "req",
   } satisfies Shape<Affidavit>,
-  affidavit_field: {
-    affidavitId: "req",
-    path: "req",
-    valueNumeric: "null",
-    valueText: "null",
-    unit: "null",
-    pageNo: "null",
-    rect: "null",
-    parserVersion: "req",
-  } satisfies Shape<AffidavitField>,
-  legal_case: {
-    id: "req",
-    personId: "req",
-    court: "null",
-    caseNo: "null",
-    sections: "null",
-    stage: "req",
-    filedOn: "null",
-    lastHearingOn: "null",
-    disposedOn: "null",
-    sourceId: "req",
-  } satisfies Shape<LegalCase>,
   // ── 002_facts.sql ──────────────────────────────────────────────────────────
   result: {
     contestId: "req",
@@ -297,21 +180,6 @@ const MAP = {
     sourceId: "req",
     ingestedAt: "req",
   } satisfies Shape<Result>,
-  round_result: {
-    contestId: "req",
-    roundNo: "req",
-    candidacyId: "req",
-    votesCumulative: "req",
-    sourceId: "req",
-    observedAt: "req",
-  } satisfies Shape<RoundResult>,
-  booth_result: {
-    contestId: "req",
-    boothPlaceId: "req",
-    candidacyId: "req",
-    votes: "req",
-    sourceId: "req",
-  } satisfies Shape<BoothResult>,
   turnout: {
     contestId: "req",
     scope: "req",
@@ -325,16 +193,6 @@ const MAP = {
     sourceId: "req",
   } satisfies Shape<Turnout>,
   // ── 003_provenance.sql ─────────────────────────────────────────────────────
-  claim: {
-    id: "req",
-    subjectRef: "req",
-    predicate: "req",
-    objectValue: "req",
-    unit: "null",
-    asOf: "null",
-    confidence: "req",
-    contentKey: "null",
-  } satisfies Shape<Claim>,
   citation: {
     claimId: "req",
     sourceId: "req",
@@ -343,28 +201,6 @@ const MAP = {
     parserVersion: "req",
     extractedAt: "req",
   } satisfies Shape<Citation>,
-  ingest_run: {
-    id: "req",
-    pipeline: "req",
-    parserVersion: "req",
-    startedAt: "req",
-    finishedAt: "null",
-    rowsIn: "null",
-    rowsOut: "null",
-    anomalies: "req",
-    status: "req",
-  } satisfies Shape<IngestRun>,
-  correction: {
-    id: "req",
-    entityRef: "req",
-    field: "req",
-    oldValue: "null",
-    newValue: "null",
-    reason: "req",
-    sourceId: "null",
-    correctedAt: "req",
-    publicSlug: "req",
-  } satisfies Shape<Correction>,
 };
 
 /** The CHECK'd columns of the mapped tables. A missing entry means "the column has no CHECK". */
@@ -373,15 +209,10 @@ const VOCAB: Record<string, readonly string[]> = {
   "source.hash_kind": HASH_KINDS,
   "source.retrieval_kind": RETRIEVAL_KINDS,
   "place.kind": PLACE_KINDS,
-  "place_version.reservation": RESERVATIONS,
-  "place_version.kind": PLACE_KINDS,
-  "place_version_link.kind": PLACE_VERSION_LINK_KINDS,
-  "place_crosswalk.method": CROSSWALK_METHODS,
   "person.sex": SEXES,
   "person.birth_year_confidence": BIRTH_YEAR_CONFIDENCES,
   "person.review_state": REVIEW_STATES,
   "party.kind": PARTY_KINDS,
-  "party_lineage.kind": PARTY_LINEAGE_KINDS,
   "election.kind": ELECTION_KINDS,
   "election.house": ELECTION_HOUSES,
   "election.level": ELECTION_LEVELS,
@@ -389,9 +220,6 @@ const VOCAB: Record<string, readonly string[]> = {
   "election.lifecycle": ELECTION_LIFECYCLES,
   "contest.lifecycle": ELECTION_LIFECYCLES,
   "candidacy.status": CANDIDACY_STATUSES,
-  "legal_case.stage": CASE_STAGES,
-  "claim.confidence": CONFIDENCES,
-  "ingest_run.status": INGEST_RUN_STATUSES,
 };
 
 const snake = (prop: string): string => prop.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);

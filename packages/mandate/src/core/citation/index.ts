@@ -66,23 +66,6 @@ export type Source = {
 export const CONFIDENCES = ["verified", "provisional", "disputed", "retracted"] as const;
 export type Confidence = (typeof CONFIDENCES)[number];
 
-export type Claim = {
-  id: number;
-  /** 'person:mamata-banerjee', 'contest:wb-assembly-2026:c0001'. */
-  subjectRef: string;
-  predicate: string;
-  /** JSON text, NOT NULL. Opaque: a claim's object can be any shape, so it is not parsed here. */
-  objectValue: string;
-  unit: string | null;
-  asOf: ISODate | null;
-  confidence: Confidence;
-  /** UNIQUE and the claim's identity, so a citation cannot outlive the fact it cites: core/ids.ts `claimKey` of
-   *  (subjectRef, predicate, asOf, unit), the VALUE excluded, so a corrected value is the same claim restated
-   *  (decision D29, migration 019). Nullable in the schema only because rings 1-3 predate the column (005);
-   *  migration 019 gave every stored row a key. */
-  contentKey: string | null;
-};
-
 export type Citation = {
   claimId: number;
   sourceId: string;
@@ -96,36 +79,6 @@ export type Citation = {
 /** Something the pipeline could not resolve but must not drop — e.g. a declared party label with
  *  no matching party row. Recorded, then surfaced in the audit report. */
 export type Anomaly = { kind: string; ref: string; detail: string };
-
-export const INGEST_RUN_STATUSES = ["running", "ok", "partial", "failed"] as const;
-/** 'partial' is the one the ingest writes whenever it records an anomaly, i.e. always so far. */
-export type IngestRunStatus = (typeof INGEST_RUN_STATUSES)[number];
-
-export type IngestRun = {
-  id: number;
-  pipeline: string;
-  parserVersion: string;
-  startedAt: ISOTimestamp;
-  finishedAt: ISOTimestamp | null;
-  rowsIn: number | null;
-  rowsOut: number | null;
-  anomalies: Anomaly[];
-  status: IngestRunStatus;
-};
-
-export type Correction = {
-  id: number;
-  entityRef: string;
-  field: string;
-  /** JSON text, like claim.objectValue — opaque, nullable. */
-  oldValue: string | null;
-  newValue: string | null;
-  reason: string;
-  sourceId: string | null;
-  correctedAt: ISOTimestamp;
-  /** Public, permanent URL slug — a correction nobody can read is not a correction. */
-  publicSlug: string;
-};
 
 /** P2 in the type system: a value travels with its provenance or it does not travel. The tuple is
  *  the point — `{ value, citations: [] }` is a type error, not a runtime surprise. */
