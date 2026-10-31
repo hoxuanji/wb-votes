@@ -240,7 +240,7 @@ export async function placeView(
       `SELECT DISTINCT COALESCE(pt.short_name, ca.party_raw) AS name
          FROM contest c
          JOIN place_version pv ON pv.id = c.place_version_id
-         JOIN result r ON r.contest_id = c.id AND r.revision = 0
+         JOIN current_result r ON r.contest_id = c.id
          JOIN candidacy ca ON ca.id = r.candidacy_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id

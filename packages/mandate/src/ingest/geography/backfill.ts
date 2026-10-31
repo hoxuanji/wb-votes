@@ -102,7 +102,7 @@ function resultOwners(db: DatabaseSync): Map<number, { sourceId: string; fromSou
     db,
     `SELECT c.place_version_id AS vid, r.source_id, COUNT(*) AS n
        FROM contest c
-       JOIN result r ON r.contest_id = c.id AND r.revision = 0
+       JOIN current_result r ON r.contest_id = c.id
       GROUP BY c.place_version_id, r.source_id`,
   );
   const best = new Map<number, { sourceId: string; n: number }>();

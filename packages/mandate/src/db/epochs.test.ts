@@ -310,7 +310,8 @@ test("migration 017 applies to a registry that already holds data, and rebuilds 
   `);
   const count = (t: string): number => Number(all<{ n: number }>(d, `SELECT COUNT(*) AS n FROM ${t}`)[0]?.n);
   const before = ["boundary_epoch", "place_version", "election", "contest"].map((t) => count(t));
-  assert.deepEqual(migrate(d, NOW), ["017_voting_epoch.sql"]);
+  // 017 is the first migration pending, and any later one (018 and on) is applied after it; the test is about 017.
+  assert.equal(migrate(d, NOW)[0], "017_voting_epoch.sql");
   assert.deepEqual(["boundary_epoch", "place_version", "election", "contest"].map((t) => count(t)), before);
   assert.deepEqual([...votingEpochs(d)], [["wb ac", "delim-2008"]]);
   d.close();

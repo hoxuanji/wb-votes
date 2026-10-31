@@ -212,7 +212,7 @@ export function validateGeography(db: DatabaseSync, opts?: { manifestPath?: stri
     "contests with no winner or several, and contests outside their election's jurisdiction",
     sql(
       `SELECT c.id || ' has ' || COUNT(*) || ' winners' AS ex
-         FROM contest c JOIN result r ON r.contest_id = c.id AND r.is_winner = 1 AND r.revision = 0
+         FROM contest c JOIN current_result r ON r.contest_id = c.id AND r.is_winner = 1
         GROUP BY c.id HAVING COUNT(*) > c.seats_available
        UNION ALL
        SELECT c.id || ' is in ' || v.jurisdiction_id || ' but its election is scoped to ' ||

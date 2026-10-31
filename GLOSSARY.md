@@ -232,8 +232,9 @@ _Avoid_: Suspect election, bad data
 The elections a read covers, optionally narrowed to the seats inside one jurisdiction or one district. A general election narrowed to one state is that state's share of it.
 _Avoid_: Filter
 
-**Current revision**:
-The revision of a result that a read takes as the result. It is a placeholder constant, 0, so seat results are read as the original; whether a later revision supersedes revision 0 is not yet decided, and 0 is not an answer to it.
+**Current result**:
+A contest's current result is the whole field at its highest revision, the `current_result` view (migration 018, decision D11, 2026-11-01). A correction is a new row at the next revision and the row it replaced stays in `result` as the record of what was said before. The highest revision is a property of the contest, never of a candidacy: wb-static rewrites the whole field at each revision, so a candidate a correction leaves out has no current result. A reader never spells a revision; `current-result.test.ts` fails on one that does.
+_Avoid_: Current revision (a number a reader could hard-code)
 
 ### Comparing two elections
 

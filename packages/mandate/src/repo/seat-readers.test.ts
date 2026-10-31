@@ -3,7 +3,7 @@
 //
 // Each of them used to carry its own copy of who won, what party that was, by how much and on what turnout. The
 // fixture is built in memory because the seed registry cannot show the cases that matter: it has no winner the
-// registry can only name by the source's string, no revision above 0, and one unverified election with no other
+// registry can only name by the source's string, no contest corrected at a higher revision, and one unverified election with no other
 // state to be compared with. What the registry-backed half checks against the old readers is in read-seats.test.ts.
 
 import assert from "node:assert/strict";
@@ -35,7 +35,8 @@ type Standing = {
   win?: boolean;
   margin?: number | null;
   src?: string;
-  revision?: number;
+  /** What an earlier source said first, at revision 0, before this row (revision 1, `src`) corrected the whole field. */
+  supersedes?: { votes: number; margin: number | null; src: string };
 };
 
 /**
@@ -43,7 +44,8 @@ type Standing = {
  *
  *   ka-assembly-2018  verified. ka.ac.001 and .002 are in district North, .003 in South, .004 hangs off the state.
  *     c1 AAA 600 beat BBB 400 (margin 200)   c2 CCC 520 beat AAA 480 (40)   c3 AAA 505 beat CCC 495 (10)
- *     c4 NO DECLARED WINNER: a rank 2 row and no turnout.  c1 also has a revision-1 row nothing reads (source s4).
+ *     c4 NO DECLARED WINNER: a rank 2 row and no turnout.  c1 was first said by source s4 (598 to 402)
+ *       and corrected by s1 at revision 1 to the 600 to 400 above, so s4's rows are the record and nothing reads them.
  *   ka-assembly-2023  verified. ka.ac.003 is fought under the NEW boundaries (epoch e2), so it has no predecessor.
  *     c5 AAA 640 beat BBB 360   c6 BBB 550 beat CCC 450   c7 AAA 502 beat CCC 498   c8 an IND the registry cannot name
  *     past the source's string, 700 to AAA's 300.  ka.ac.004 had no declared winner in 2018, so it has no predecessor.
@@ -53,7 +55,7 @@ type Standing = {
  *     declared one: 44,751 of 140,000 polled is 31.965%, a tie at the third decimal that SQLite's ROUND rounds down.
  *   ls-2024           verified, a general election: one seat in Karnataka and one in Kerala.
  *
- * Sources: s1 the results, s2 the turnout, s3 the outlines, s4 a revision nobody reads, s5 and s6 the results and the
+ * Sources: s1 the results, s2 the turnout, s3 the outlines, s4 a first statement that a correction replaced, s5 and s6 the results and the
  * turnout of ka.ac.003 alone, so that a scope narrower than the election cites fewer of them.
  */
 function fixture(db: DatabaseSync): DatabaseSync {
@@ -140,7 +142,9 @@ function fixture(db: DatabaseSync): DatabaseSync {
       const cid = `${id}-${r.who}`;
       person.run(`p-${cid}`, `Person ${r.who}`);
       candidacy.run(cid, id, `p-${cid}`, r.pv, r.win === true ? "elected" : "defeated", r.raw ?? null);
-      result.run(id, cid, r.revision ?? 0, r.votes, r.rank, r.win === true ? 1 : 0, r.margin ?? null, r.src ?? "s1");
+      const win = r.win === true ? 1 : 0;
+      if (r.supersedes !== undefined) result.run(id, cid, 0, r.supersedes.votes, r.rank, win, r.supersedes.margin, r.supersedes.src);
+      result.run(id, cid, r.supersedes === undefined ? 0 : 1, r.votes, r.rank, win, r.margin ?? null, r.src ?? "s1");
     }
     if (t !== undefined) turnout.run(id, t[0], t[1], t[2] ?? "s2");
   };
@@ -151,7 +155,7 @@ function fixture(db: DatabaseSync): DatabaseSync {
     who, pv, votes, rank: 2, ...over,
   });
 
-  contest("c1", "ka-assembly-2018", 1, [w("a1", 1, 600, 200), r2("b1", 2, 400), w("late", 3, 999, 1, { revision: 1, src: "s4" })], [1000, 2000]);
+  contest("c1", "ka-assembly-2018", 1, [w("a1", 1, 600, 200, { supersedes: { votes: 598, margin: 196, src: "s4" } }), r2("b1", 2, 400, { supersedes: { votes: 402, margin: null, src: "s4" } })], [1000, 2000]);
   contest("c2", "ka-assembly-2018", 2, [w("c2", 3, 520, 40), r2("a2", 1, 480)], [1000, 2000]);
   contest("c3", "ka-assembly-2018", 3, [w("a3", 1, 505, 10, { src: "s5" }), r2("c3", 3, 495, { src: "s5" })], [1000, 1600, "s6"]);
   contest("c4", "ka-assembly-2018", 4, [r2("b4", 2, 300)]);
@@ -246,7 +250,7 @@ test("partyVotes: a party's votes over every candidate it ran, under the same sc
       ["ls-2024", "kl", "AAA", 29000],
       ["ls-2024", "kl", "CCC", 30000],
     ]);
-    // One district: Seat A and Seat B only, and the revision-1 row names a third party that is not counted.
+    // One district: Seat A and Seat B only, each counted at its current revision.
     assert.deepEqual(votes({ elections: ["ka-assembly-2018"], district: "ka.d1" }), [
       ["ka-assembly-2018", "ka", "AAA", 600 + 480],
       ["ka-assembly-2018", "ka", "BBB", 400],
@@ -648,7 +652,7 @@ test("sourcesFor: the sources of the results read, plus the turnout and outlines
   try {
     const ids = (scope: Parameters<typeof sourcesFor>[1], cited?: Parameters<typeof sourcesFor>[2], limit?: number) =>
       sourcesFor(d, scope, cited, limit).map((s) => s.id);
-    // s4 cites a result of revision 1, which nothing reads, so it is cited by nothing.
+    // s4 cites the revision-0 rows that revision 1 replaced, which nothing reads, so it is cited by nothing.
     assert.deepEqual(ids({ elections: ["ka-assembly-2018"] }), ["s1", "s5"]);
     assert.deepEqual(ids({ elections: ["ka-assembly-2018"] }, { turnout: true }), ["s1", "s2", "s5", "s6"]);
     assert.deepEqual(ids({ elections: ["ka-assembly-2018"] }, { geometry: true }), ["s1", "s3", "s5"]);

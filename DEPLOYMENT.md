@@ -90,6 +90,16 @@ closure earned 94.1 → 95.0 by deriving a field the registry already held rathe
 filing every historical result under its own seat earned 95.0 → 96.8. If it goes red, the registry gives back less of
 data/seed/ than it did; `docs/release/PHASE-3-FINAL.md` records how the last move was earned.
 
+## A migration the pages read must reach the registry before the code does
+
+The registry on the Fly volume is a read-only file built offline and uploaded, so the web code and the registry's schema ship
+together. A migration that only the CLI reads (017's `voting_epoch`) can lag. One that a page reads cannot: **migration 018
+creates `current_result`, which every seat, person, election and state page now joins**, and a registry without it answers those
+pages with a 500 (defects fail loudly, D6). Before `fly deploy` of a build that includes 018, bring the file you upload up to date:
+`MANDATE_DB_PATH=<the file> npm run registry:migrate` applies only the migrations it lacks and touches no data (the view has
+nothing to backfill), or rebuild from scratch as below. Check with
+`sqlite3 <the file> "SELECT count(*) FROM current_result"`: it equals `SELECT count(*) FROM result` until a correction is ingested.
+
 ## Rebuilding the registry from scratch
 
 **`registry:ingest` IS NOT IDEMPOTENT. Rebuild; never re-ingest over a working registry.** Running it against

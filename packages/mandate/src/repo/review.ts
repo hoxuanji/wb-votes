@@ -129,7 +129,7 @@ function loadCandidate(db: DatabaseSync, id: string): Candidate {
        JOIN place pl ON pl.id = pv.place_id
        LEFT JOIN party_version pver ON pver.id = ca.party_version_id
        LEFT JOIN party pt ON pt.id = pver.party_id
-       LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
+       LEFT JOIN current_result r ON r.candidacy_id = ca.id
       WHERE ca.person_id = ?
       ORDER BY ${chronoDesc()}`,
     id,

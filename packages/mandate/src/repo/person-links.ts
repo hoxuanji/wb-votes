@@ -54,7 +54,7 @@ export function possibleSamePerson(db: DatabaseSync, personId: string): SamePers
          JOIN election e ON e.id = c.election_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
-         LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
+         LEFT JOIN current_result r ON r.candidacy_id = ca.id
         WHERE ca.person_id IN (${ids.map(() => "?").join(",")})
         ORDER BY e.year, c.id`,
       ...ids,

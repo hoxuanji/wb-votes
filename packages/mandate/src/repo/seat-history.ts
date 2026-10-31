@@ -31,7 +31,7 @@ import { displayName } from "./display-name.ts";
 import { read, yearOf } from "./index.ts";
 import { counted } from "./person.ts";
 import { times } from "./place-presentation.ts";
-import { CURRENT_REVISION, marginFrom, partyRef } from "./seat-results.ts";
+import { marginFrom, partyRef } from "./seat-results.ts";
 import type { PartyColumns, PartyRef, SeatMargin } from "./seat-results.ts";
 
 /** One candidate's result row, as stored. A null or zero count is "no count was published" (person.ts `counted`). */
@@ -383,7 +383,7 @@ type Row = {
 /**
  * The history of the seat version `versionId`, from the registry.
  *
- * Every result row of every contest of the seat at `CURRENT_REVISION`, not the top two the brief reads, so a bar can hold
+ * Every result row of every contest of the seat in `current_result`, not the top two the brief reads, so a bar can hold
  * the candidates the source listed. The votes polled are the contest's turnout. An election whose turnout is unverified
  * (turnout-trust.ts) is one that published no candidate counts at all, so there is no vote here to divide by it.
  */
@@ -398,7 +398,7 @@ export function readSeatHistory(db: DatabaseSync, versionId: number): SeatHistor
          FROM contest c
          JOIN election e ON e.id = c.election_id
          LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-         LEFT JOIN result r ON r.contest_id = c.id AND r.revision = ${CURRENT_REVISION}
+         LEFT JOIN current_result r ON r.contest_id = c.id
          LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
          LEFT JOIN person per ON per.id = ca.person_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id

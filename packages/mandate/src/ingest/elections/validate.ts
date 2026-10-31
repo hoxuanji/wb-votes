@@ -57,7 +57,7 @@ export function validateElections(db: DatabaseSync, opts?: { manifestPath?: stri
     sql(
       `SELECT c.election_id || ' / ' || c.id || ' has ' || COUNT(*) || ' winners' AS ex
          FROM contest c
-         JOIN result r ON r.contest_id = c.id AND r.is_winner = 1 AND r.revision = 0
+         JOIN current_result r ON r.contest_id = c.id AND r.is_winner = 1
         GROUP BY c.id HAVING COUNT(*) > c.seats_available`,
     ),
   );
@@ -164,7 +164,7 @@ export function validateElections(db: DatabaseSync, opts?: { manifestPath?: stri
     duplicateWinnerContests: num(
       `SELECT COUNT(*) FROM (
          SELECT c.id FROM contest c
-         JOIN result r ON r.contest_id = c.id AND r.is_winner = 1 AND r.revision = 0
+         JOIN current_result r ON r.contest_id = c.id AND r.is_winner = 1
          GROUP BY c.id HAVING COUNT(*) > c.seats_available)`,
     ),
   };

@@ -17,7 +17,7 @@ import { all } from "../db/index.ts";
 import { displayName } from "./display-name.ts";
 import { read, yearOf } from "./index.ts";
 import { counted } from "./person.ts";
-import { CURRENT_REVISION, partyRef } from "./seat-results.ts";
+import { partyRef } from "./seat-results.ts";
 import type { PartyRef } from "./seat-results.ts";
 
 export type Elsewhere = { year: number; contestId: string; rank: number | null; won: boolean };
@@ -127,7 +127,7 @@ export function readSeatField(db: DatabaseSync, versionId: number): SeatField {
          LEFT JOIN person per ON per.id = ca.person_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
-         LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = ${CURRENT_REVISION}
+         LEFT JOIN current_result r ON r.candidacy_id = ca.id
         WHERE c.place_version_id = ?
         ORDER BY ${chronoDesc()}, c.id`,
       versionId,

@@ -225,8 +225,7 @@ export function getPersonBrief(db: DatabaseSync, slug: string): PersonBrief | nu
          JOIN place pl ON pl.id = pv.place_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
-         LEFT JOIN result r ON r.candidacy_id = ca.id
-              AND r.revision = (SELECT MAX(r2.revision) FROM result r2 WHERE r2.candidacy_id = ca.id)
+         LEFT JOIN current_result r ON r.candidacy_id = ca.id
          LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
          -- WHO THE CONTEST WENT TO, when not to this person. By status, not by result row: 2026 has no vote counts, and
          -- one of its seats has an elected candidacy and no result row at all.
@@ -584,7 +583,7 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
                    WHERE a.person_id = p.id AND a.source_id IS NOT NULL
                    ORDER BY a.source_id LIMIT 1) AS name_source_id,
                 (SELECT MAX(r4.is_winner) FROM candidacy c4
-                   JOIN result r4 ON r4.candidacy_id = c4.id AND r4.revision = 0
+                   JOIN current_result r4 ON r4.candidacy_id = c4.id
                   WHERE c4.person_id = p.id) AS ever_won,
                 ${closenessSql} AS closeness
            FROM person p
@@ -620,7 +619,7 @@ export function searchPersons(db: DatabaseSync, term: string, limit = 20): Perso
              JOIN place pl ON pl.id = pv.place_id
              LEFT JOIN party_version pver ON pver.id = ca.party_version_id
              LEFT JOIN party pt ON pt.id = pver.party_id
-             LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = 0
+             LEFT JOIN current_result r ON r.candidacy_id = ca.id
              -- Who the contest went to, when not to this person (getPersonBrief reads it the same way).
              LEFT JOIN candidacy wc ON wc.id = (SELECT MIN(w.id) FROM candidacy w
                                                  WHERE w.contest_id = c.id AND w.status = 'elected' AND w.id <> ca.id)

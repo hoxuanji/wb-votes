@@ -92,7 +92,7 @@ export type SeatsByParty = {
  * Lok Sabha; read one election at a time that is 60-odd scans of `result`, and the page had four sections
  * each paying for it again.
  *
- * Only the results at `CURRENT_REVISION` count: revision is the supersession column, and without it a corrected
+ * Only the results in `current_result` count: a correction is a higher revision, and without the view a corrected
  * result would be counted alongside the row it replaced.
  */
 export function seatsByParty(db: DatabaseSync, electionIds: readonly string[]): SeatsByParty[] {
