@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import { Fragment } from 'react';
 import type { CSSProperties } from 'react';
 import { dumbbell } from '../../../packages/mandate/src/viz/story.ts';
@@ -9,9 +10,10 @@ import { fillFor, tokenFor } from '../../../packages/mandate/src/viz/party-ink.t
 import { ribbonInk } from '../../../packages/mandate/src/viz/ribbon-ink.ts';
 import { displayName } from '../../../packages/mandate/src/repo/display-name.ts';
 import type { PlaceStory } from '../../../packages/mandate/src/repo/place-story.ts';
+import type { MarginStrip } from '../../../packages/mandate/src/repo/seat-proof.ts';
 import { ordinal } from '../../../packages/mandate/src/repo/seat-story.ts';
 import { Finding } from './Finding.tsx';
-import { MarginFigure, PartyChip, PersonLink } from './marks.tsx';
+import { MarginFigure, PartyChip, PersonLink, TableTwin } from './marks.tsx';
 import { Panel, Table, Tabs } from './parts.tsx';
 
 /**
@@ -228,6 +230,107 @@ export function MarginHero({ story, retrieved }: { story: PlaceStory; retrieved:
         )}
       </div>
       {retrieved === null ? null : <p className="iei-rule">Results retrieved {retrieved}</p>}
+    </Panel>
+  );
+}
+
+/* ───────────────────────────── where does that margin sit among every seat's ───────────────────────────── */
+
+const pcOf = (f: number): string => `${Math.round(f * 10000) / 100}%`;
+
+/**
+ * One dot for each seat of the election the hero is about, on a LOG axis: where the seat's margin sits in the field of every other seat's. A dot is
+ * inked by the winner's party and has the party's code in its hover text and in the exact table under the figure; a margin that was only declared is a
+ * hollow dot; a seat with no declared winner has no margin and so no dot, and a sentence counts them. The seat is ringed and named.
+ *
+ * Dots are stacked into rows so none overlaps, and the stack is computed for three track widths (viz/seat-strip.ts): each dot carries its row in all
+ * three, and the stylesheet picks one by viewport. Nothing moves.
+ */
+export function MarginStripPanel({ s }: { s: MarginStrip }) {
+  const L = s.strip;
+  const me = L.dots.find((d) => d.self);
+  const dotStyle = (d: (typeof L.dots)[number]): CSSProperties =>
+    ({ '--x': pcOf(d.x), '--ls': d.lane.s, '--lm': d.lane.m, '--ll': d.lane.l, '--ink': d.key === null ? undefined : fillFor(d.key) }) as CSSProperties;
+  return (
+    <Panel id="field" title="How does that margin compare with every other seat's?" question={`${s.of} ${s.scope} seats in ${s.year}: each winning margin is a dot.`}>
+      <figure className="iei-st" style={{ '--rs': L.lanes.s * 2 + 1, '--rm': L.lanes.m * 2 + 1, '--rl': L.lanes.l * 2 + 1 } as CSSProperties}>
+        <div className="iei-st-plot" role="img" aria-label={s.ariaLabel}>
+          <div className="iei-st-top">
+            {me === undefined ? null : (
+              <span className="iei-st-self" style={{ '--x': pcOf(me.x) } as CSSProperties}>
+                <b>{s.self.name}</b>
+                <span>{IN.format(s.self.votes)} votes</span>
+              </span>
+            )}
+          </div>
+          <div className="iei-st-swarm">
+            {L.ticks.filter((t) => t.major).map((t) => (
+              <i key={t.value} className="iei-st-grid" style={{ '--x': pcOf(t.x) } as CSSProperties} />
+            ))}
+            {me === undefined ? null : <i className="iei-st-lead" style={{ '--x': pcOf(me.x) } as CSSProperties} />}
+            {L.dots.map((d) => (
+              <i key={d.id} className={[d.basis === 'declared' ? 'iei-st-dot iei-st-dot-d' : 'iei-st-dot', d.self ? 'iei-st-dot-me' : ''].filter(Boolean).join(' ')} style={dotStyle(d)} title={d.tip} />
+            ))}
+          </div>
+          <ol className="iei-st-axis" aria-hidden="true">
+            {L.ticks.map((t) => (
+              <li key={t.value} className={t.major ? 'iei-st-t iei-st-t-major' : 'iei-st-t'} style={{ '--x': pcOf(t.x) } as CSSProperties}>
+                {t.major ? <span>{IN.format(t.value)}</span> : null}
+              </li>
+            ))}
+          </ol>
+        </div>
+        <p className="iei-st-unit">Winning margin, in votes, on a log scale</p>
+        <ul className="iei-rk-key">
+          {s.keys.map((k) => (
+            <li key={k.key}>
+              <PartyChip partyId={k.key} code={k.code} /> <span>{k.n}</span>
+            </li>
+          ))}
+        </ul>
+        <figcaption className="iei-note">{s.caption}</figcaption>
+        {s.left === null ? null : (
+          <p className="iei-note iei-st-left">
+            <i className="iei-st-none" aria-hidden="true" /> {s.left}
+          </p>
+        )}
+      </figure>
+      <TableTwin summary={`All ${s.of} margins, closest first`}>
+        <Table
+          label={`All ${s.of} margins of ${s.year}`}
+          caption={`The ${s.of} ${s.scope} margins of ${s.year}, closest first, each seat linked.`}
+          captionVisible
+          tight
+          tall
+          head={
+            <>
+              <th scope="col" className="iei-n">
+                Place
+              </th>
+              <th scope="col">Seat</th>
+              <th scope="col">Won by</th>
+              <th scope="col" className="iei-n">
+                Margin, votes
+              </th>
+            </>
+          }
+        >
+          {s.rows.map((r) => (
+            <tr key={r.placeId} aria-current={r.placeId === s.self.placeId ? 'true' : undefined}>
+              <th scope="row" className="iei-n">
+                {r.rank}
+              </th>
+              <td>{r.placeId === s.self.placeId ? <b>{r.name}</b> : <Link href={r.href}>{r.name}</Link>}</td>
+              <td>
+                <PartyChip partyId={r.party.key} code={r.party.label} />
+              </td>
+              <td className="iei-n">
+                <MarginFigure votes={r.votes} basis={r.basis} />
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </TableTwin>
     </Panel>
   );
 }

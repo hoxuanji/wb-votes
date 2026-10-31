@@ -4,6 +4,7 @@ import { inr, marginText } from "../../../packages/mandate/src/repo/brief.ts";
 import { readOrder } from "../../../packages/mandate/src/repo/place-filters.ts";
 import { seatGlow } from "../../../packages/mandate/src/repo/seat-glow.ts";
 import { resultRetrieved, seatFinding, seatFlags, seatLimits, seatNumbers } from "../../../packages/mandate/src/repo/seat-story.ts";
+import { marginRankFigure, photoFinishOf } from "../../../packages/mandate/src/repo/seat-proof.ts";
 import { turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import type { Tile } from "../../../packages/mandate/src/repo/brief.ts";
 import { placeView } from "../../../packages/mandate/src/repo/place-view.ts";
@@ -21,7 +22,7 @@ import { Foot, Shell } from "../../components/iei/Shell.tsx";
 import { HeldBy } from "../../components/iei/SeatHistory.tsx";
 import { Finding } from "../../components/iei/Finding.tsx";
 import { MarginFigure, PartyChip, PersonLink } from "../../components/iei/marks.tsx";
-import { SeatFlags, SeatKpis, SeatLimits, SeatPanels, SeatRoster } from "../../components/iei/Seat.tsx";
+import { SeatFlags, SeatKpis, SeatLimits, SeatMarginRank, SeatPanels, SeatPhotoFinish, SeatRoster } from "../../components/iei/Seat.tsx";
 import { SeatLocator } from "../../components/iei/SeatLocator.tsx";
 import {
   Crumbs,
@@ -236,6 +237,9 @@ export async function PlaceSurface({
   const base = view.base.replace(/\/analysis$/, "");
   const story = { brief, history, field, widest };
   const finding = seatFinding(story);
+  // The proof of a finding that a sentence cannot show: a ruler for a narrow result, the list of every margin for a lone one.
+  const finish = photoFinishOf(story, finding);
+  const rank = marginRankFigure(story, finding, view.margins);
   const nums = seatNumbers(story);
   const flags = seatFlags(story);
   const limits = seatLimits(story);
@@ -287,6 +291,9 @@ export async function PlaceSurface({
       >
         <SeatKpis nums={nums} retrieved={retrieved} />
       </Panel>
+
+      {finish === null ? null : <SeatPhotoFinish finish={finish} />}
+      {rank === null ? null : <SeatMarginRank figure={rank} />}
 
       {field.elections.length === 0 ? null : (
         <Panel title="How each election divided the vote" question="Who stood, and how did the votes fall?">

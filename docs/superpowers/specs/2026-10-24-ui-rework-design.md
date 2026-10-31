@@ -368,3 +368,58 @@ test and the label markup test. The failing set of the whole suite is the 51 nam
 **Not tested:** Safari and Firefox (`paint-order` on SVG shapes, `:has`, `inset`), forced-colors (the ribbons' `fill` and `stroke` were not looked at under it), a
 screen reader over the sparklines, focus (the flow picture is hidden from assistive technology and has no focusable ribbon, as before), hover on the ladder (it has
 none), a seat with more than four elections drawn from real data, and the Brief with a registry that has place geometry loaded beyond the 19 rows the seed has.
+
+
+## Proof figures (2026-10-31)
+
+The three figures the 2026-10-29 redesign left out on purpose (seat brief, chunk 12; Analysis brief, chunk 6), each the proof of one sentence that a
+number cannot show by itself. A figure is built only for the finding that needs it, from the inputs that finding reads (`seatFinding`'s own `shape`), so
+a page cannot draw a ruler for a seat whose sentence is about something else. Pure geometry is in `viz/seat-ruler.ts` and `viz/seat-strip.ts`, the
+words and view data in `repo/seat-proof.ts`, the components in `Seat.tsx` (`SeatPhotoFinish`, `SeatMarginRank`) and `Dash.tsx` (`MarginStripPanel`),
+and the CSS is one block at the foot of `iei.css` under `/* seat proof figures: ruler, rank, strip */`.
+
+**What was built.**
+
+- **Photo finish** (the 22 seats whose finding is `narrow`; Dinhata 2021 is the model). Two bars on one zero-based scale, visibly the same length, and a
+  ruler that magnifies the stretch the two totals sit in (115,900 to 116,100 for 116,035 against 115,978, on a grid of 50, the largest 1, 2 or 5 times
+  a power of ten no more than the gap), the gap bracketed and labelled, a funnel from the ruler's window to the same stretch on the bars' scale, and a
+  caption that says it is a ruler and not a bar and does not start at zero. "Latest election is counted" is read as "the election the finding cites is
+  counted": all 22 narrow seats are narrow in 2011 to 2021, and the latest election of every one of them (2026) is declared, so the literal reading
+  would draw nothing. A tie has nothing to magnify and draws nothing.
+- **Margin among all** (the 42 `lone` Lok Sabha seats). One thin bar for each seat of the election, widest first, from zero, in the winner's ink, the
+  seat's outlined and named, the extremes named under the plot, a party key with counts, and a table twin of all 42 with every seat linked. Drawn only
+  if every contest of the election is in the list; otherwise one sentence says how many are missing (none are missing for the 2024 Lok Sabha; an
+  assembly election with a contest like Falta's 2026 would be withheld, and no assembly seat is `lone` today). A declared margin is a dashed bar, so all 42 are dashed, and the caption says why once.
+- **Margin field strip** (the Analysis of all 336 seats: 293 on 2026, 42 on 2024, Falta's on 2021). A dot for each seat of the hero's election, in the
+  winner's party ink, on a log axis (ends on the 1-2-5 ladder, a labelled tick at each power of ten), the seat ringed and named with a line to its ring,
+  stacked into rows so that no two dots overlap, hollow where the margin was only declared, and a dashed ring in the sentence that counts the contests
+  with no declared winner (they have no margin, so no dot). Lok Sabha first (42 dots, 5,567 to 710,930); the assembly option is kept, because it reads
+  (see below). It is the hero's election only, so its rank is the hero's rank.
+
+**One rank.** `place-baselines.ts` now has `marginFields` (an election's margins in the one order: closest first, ties by seat number), `rankIn` and
+`widestRank`. The Analysis's rank, the Brief's "24th widest of 42" (`place-view.ts` `widestOf` no longer sorts for itself) and the figures all read it, and
+the property test holds that the closest-first and widest-first places of a seat add to one more than the field, on all 42 Lok Sabha seats.
+
+**Decisions taken by default.** A declared margin is a dashed bar and a hollow dot, so every dot on the Lok Sabha and 2026 strips is hollow; the seat is the
+ink ring (the winner's device elsewhere). The strip lays itself out for three track widths (270, 519 and 950px, the swarm's measured width at 360, 641 and
+1081px of viewport; dots are 6px on a phone) by giving each dot its row in all three (`--ls`, `--lm`, `--ll`); no script. The ruler's dots and gap arrive after
+the bars grow (`iei-grow`, then `iei-arrive`, delay capped at 300ms); the list and the strip do not move. Tables are `iei-twin`; no `iei-ev` drawer was added.
+
+**What was measured** (headless Chromium over a pipe, each request answered with the saved page; the saved pages freeze animation, which was read from
+computed style on a copy without the freeze). No horizontal overflow of the page at 1440, 1024, 768, 390 or 360 with every twin open; the 293-row twin scrolls
+inside its own region at 390 as every table does. Figure heights (twin closed) at 1440 / 390: ruler 388 / 538px, list 316 / 359px, 42-dot strip 285 / 377px, 293-dot
+strip 483 / 698px (the swarm of 293 dots is 210px tall at 1440, 310px at 768 and 315px at 390; the swarm of 42 is 50px and 77px). Type in the figures is 11, 12.5, 13.5 and 18px, the tokens.
+Hover: the element at the centre of every mark is the mark (0 of 2, 42, 42 and 293 blocked, at 1440 and 390; at 768 for the 293), each with its text in `title`;
+the twin opens on click and a seat's link lands on that seat. Computed motion on the ruler is `iei-grow` 0.36s on the two bars and `iei-arrive` 0.36s delayed 0.3s on
+the dots, segment and gap, and none under `prefers-reduced-motion: reduce`; the list and strip have none. Markup (bytes, before to after): Dinhata Brief 114,068
+to 118,999; Baharampur Brief 43,229 to 67,692 and Analysis 11,125 to 35,030; Mekliganj Analysis 32,285 to 182,696 (the 293-row twin is about half of it), all far
+under 340,000. Tests: `seat-ruler.test.ts` and `seat-strip.test.ts` on literals and a log-normal swarm of 293 (no overlap in any layout), `seat-proof.test.ts`
+on all 336 seats (the ruler exactly for the narrow seats and from the sentence's totals, the list exactly for the lone seats and at the sentence's place, one ring
+and the hero's rank on every strip, every digit of every printed sentence in its inputs or its geometry, no banned word, no press margin for Falta), and
+`seat-proof-page.test.ts` on a registry built for the withheld list and the left-off contest and on the live pages.
+
+**Not tested.** Safari and Firefox (the funnel is a `clip-path` polygon with `calc()`, the pale fill of a dashed bar is `color-mix()`; without either the figure
+loses its funnel or its fill and keeps its marks), 320px (the phone layout assumes a track of 270px or more, so below 360px dots touch), forced-colors rendering,
+the native tooltip being drawn (the text is in `title` and the pointer reaches the mark, but a headless shot cannot show a tooltip), screen readers (each plot is
+`role="img"` with a sentence and its numbers are in the twin), focus order through the twins, motion in sequence (only the computed timing was read), and ties
+in the strip (the two ties in 2011 and 2016 are not on a strip, which draws the hero's election only; a tie would rank by seat number and sit at the same x).

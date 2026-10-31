@@ -7030,3 +7030,696 @@ ul.iei-tiles b {
 .iei-seat-spl > .iei-seat-sp-nf[data-at='end'] {
   transform: translate(-100%, calc(-100% - 6px));
 }
+
+
+/* seat proof figures: ruler, rank, strip */
+/* ══════════════════════════ the three proof figures: iei-pf-*, iei-rk-*, iei-st-* ══════════════════════════
+   A sentence says something a number cannot show, and each figure here is the proof of one sentence:
+
+   · iei-pf-*  the PHOTO FINISH on a seat whose finding is a narrow counted result. Two bars on one zero-based scale, which are visibly the
+               same length, and under them a RULER that magnifies the stretch the two totals sit in. A bar must start at zero or it lies, and at
+               zero a gap of 57 in 1.16 lakh is a third of a pixel; a ruler claims a position and not a proportion, so it may start away from
+               zero, and its caption says that it does. The funnel joins the ruler's window to the same stretch on the bars' scale.
+   · iei-rk-*  the MARGIN AMONG ALL on a seat with one election: a thin bar for each seat of that election, widest first, from zero, the seat's
+               outlined. A margin declared with no counts behind it is a dashed bar. No motion: the claim is static.
+   · iei-st-*  the MARGIN FIELD STRIP on the Analysis: a dot for each seat of the hero's election on a LOG axis, inked by the winner's party, the
+               seat ringed. A hollow dot is a margin declared with no counts. The dots are stacked into rows so none overlaps; the stack is
+               computed for three track widths (viz/seat-strip.ts) and each dot carries its row in all three (--ls, --lm, --ll), so the one
+               picture is laid out by viewport without a line of script.
+
+   Tokens and the existing marks only; hue is the party's ink on a dot or a bar and nowhere else; a mark that is ink alone also has its label,
+   its hover text and its row in the exact table. */
+
+/* ───────── the photo finish ───────── */
+
+.iei-pf {
+  margin: 0;
+  display: grid;
+  gap: var(--iei-2);
+}
+
+.iei-pf-row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 15rem) minmax(0, 1fr) 6rem;
+  column-gap: var(--iei-4);
+  align-items: center;
+}
+
+.iei-pf-who {
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--iei-1) var(--iei-2);
+  font-size: var(--iei-f-data);
+}
+
+.iei-pf-who a {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px solid var(--iei-line-2);
+}
+
+.iei-pf-who a:hover {
+  border-bottom-color: var(--iei-ink);
+}
+
+.iei-pf-who a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-pf-role {
+  flex-basis: 100%;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+.iei-pf-track {
+  position: relative;
+  display: block;
+  height: var(--iei-4);
+  background: var(--iei-line);
+  border-radius: 0 var(--iei-r) var(--iei-r) 0;
+}
+
+/* A bar is square at its zero and rounded where the data ends. */
+.iei-pf-bar {
+  display: block;
+  height: 100%;
+  min-width: 2px;
+  border-radius: 0 var(--iei-r) var(--iei-r) 0;
+}
+
+.iei-pf-n {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+/* The bars' own scale, from zero. */
+.iei-pf-axis {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  height: var(--iei-6);
+}
+
+.iei-pf-axis li {
+  position: absolute;
+  left: var(--p);
+  top: 0;
+  width: 1px;
+  height: 6px;
+  background: var(--iei-line-2);
+}
+
+.iei-pf-axis span {
+  position: absolute;
+  top: var(--iei-2);
+  left: 0;
+  transform: translateX(-50%);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+  white-space: nowrap;
+}
+
+/* The numbers at the two ends stay inside the figure: the first starts at its tick and the last ends at its tick. */
+.iei-pf-axis li:first-child span,
+.iei-pf-tl li:first-child {
+  transform: none;
+}
+
+.iei-pf-axis li:last-child span,
+.iei-pf-tl li:last-child {
+  transform: translateX(-100%);
+}
+
+/* The funnel: the ruler's window on the bars' scale, opened out to the width of the ruler. */
+.iei-pf-zoom {
+  display: block;
+  height: var(--iei-6);
+  background: var(--iei-line-2);
+  opacity: 0.55;
+  clip-path: polygon(var(--a) 0, var(--b) 0, calc(100% - var(--iei-4)) 100%, var(--iei-4) 100%);
+}
+
+.iei-pf-mag {
+  align-self: end;
+  padding-bottom: var(--iei-6);
+}
+
+/* The ruler: names above the dots, the line with its dots, the gap bracketed under them, then the ticks' numbers. */
+.iei-pf-ruler {
+  position: relative;
+  min-width: 0;
+  margin-inline: var(--iei-4);
+}
+
+.iei-pf-names {
+  position: relative;
+  height: 3.5rem;
+}
+
+.iei-pf-nm {
+  position: absolute;
+  bottom: var(--iei-1);
+  width: max-content;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-size: var(--iei-f-meta);
+  line-height: 1.25;
+}
+
+.iei-pf-nm b {
+  font-size: var(--iei-f-data);
+  font-weight: 600;
+}
+
+.iei-pf-nm span {
+  font-family: var(--iei-mono);
+  font-variant-numeric: tabular-nums;
+  color: var(--iei-ink-2);
+  white-space: nowrap;
+}
+
+/* The nearer total's label ends at its dot and the further one's begins at its dot, so they run away from each other whatever the gap. */
+.iei-pf-nm-l {
+  right: calc(100% - var(--p));
+  max-width: var(--p);
+  padding-right: var(--iei-2);
+  align-items: flex-end;
+  text-align: right;
+}
+
+.iei-pf-nm-r {
+  left: var(--p);
+  max-width: calc(100% - var(--p));
+  padding-left: var(--iei-2);
+  align-items: flex-start;
+  text-align: left;
+}
+
+.iei-pf-line {
+  position: relative;
+  height: var(--iei-4);
+}
+
+.iei-pf-line::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 1px;
+  background: var(--iei-line-2);
+}
+
+.iei-pf-tick {
+  position: absolute;
+  left: var(--p);
+  top: 50%;
+  width: 1px;
+  height: 6px;
+  background: var(--iei-ink-3);
+}
+
+/* The gap itself, drawn between the two dots in the interface's own ink. */
+.iei-pf-seg {
+  position: absolute;
+  left: var(--p);
+  width: var(--w);
+  top: 50%;
+  height: 2px;
+  margin-top: -1px;
+  background: var(--iei-ink);
+}
+
+.iei-pf-dot {
+  position: absolute;
+  left: var(--p);
+  top: 50%;
+  width: var(--iei-4);
+  height: var(--iei-4);
+  margin: calc(var(--iei-4) / -2) 0 0 calc(var(--iei-4) / -2);
+  border-radius: 50%;
+  outline: 2px solid var(--iei-raised);
+}
+
+/* The winner is the dot with the ink ring: the same device as the outlined winner in the ladder and the arc. */
+.iei-pf-dot-w {
+  outline-color: var(--iei-ink);
+}
+
+.iei-pf-gaprow {
+  position: relative;
+  height: calc(var(--iei-8) + var(--iei-1));
+}
+
+.iei-pf-gap {
+  position: absolute;
+  left: var(--p);
+  width: var(--w);
+  top: var(--iei-2);
+  height: var(--iei-2);
+  box-sizing: border-box;
+  border: 1px solid var(--iei-ink-3);
+  border-top: none;
+}
+
+.iei-pf-gap > span {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  margin-top: var(--iei-1);
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-pf-tl {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  position: relative;
+  height: var(--iei-4);
+}
+
+.iei-pf-tl li {
+  position: absolute;
+  left: var(--p);
+  transform: translateX(-50%);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+  white-space: nowrap;
+}
+
+/* ───────── the margin among all ───────── */
+
+.iei-rk {
+  --rk-h: 9rem;
+  --rk-zone: 3.5rem;
+  margin: 0;
+}
+
+.iei-rk-plot {
+  position: relative;
+  height: calc(var(--rk-h) + var(--rk-zone));
+  border-bottom: 1px solid var(--iei-ink-3);
+}
+
+.iei-rk-cols {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  display: flex;
+  gap: 2px;
+  align-items: stretch;
+}
+
+.iei-rk-col {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: flex-end;
+}
+
+.iei-rk-bar {
+  display: block;
+  box-sizing: border-box;
+  width: 100%;
+  height: calc(var(--f) * var(--rk-h));
+  min-height: 1px;
+  border-radius: 1px;
+  background: var(--ink, var(--iei-ink-3));
+}
+
+/* Declared, with no counts behind it: a dashed edge round a pale fill of the same ink. A dashed bar is never a measured one. */
+.iei-rk-bar-d {
+  background: color-mix(in srgb, var(--ink, var(--iei-ink-3)) 30%, transparent);
+  border: 1px dashed var(--ink, var(--iei-ink-3));
+  border-bottom: none;
+}
+
+/* The seat: its column is lifted across the whole plot, its bar is outlined, and its name sits above the bars. */
+.iei-rk-self {
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 1px;
+}
+
+.iei-rk-self .iei-rk-bar {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-rk-label {
+  position: absolute;
+  top: var(--iei-1);
+  width: max-content;
+  max-width: 18rem;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.25;
+}
+
+.iei-rk-label b {
+  font-size: var(--iei-f-data);
+  font-weight: 600;
+}
+
+.iei-rk-label span {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+/* The caption's gap before the table twin's summary. */
+.iei-pf > .iei-note,
+.iei-rk > .iei-note,
+.iei-st > .iei-note {
+  margin-bottom: var(--iei-4);
+}
+
+.iei-rk-label-center {
+  left: 50%;
+  transform: translateX(-50%);
+  align-items: center;
+  text-align: center;
+}
+
+.iei-rk-label-start {
+  left: 0;
+  align-items: flex-start;
+  text-align: left;
+}
+
+.iei-rk-label-end {
+  right: 0;
+  align-items: flex-end;
+  text-align: right;
+}
+
+.iei-rk-ends {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: var(--iei-1) var(--iei-4);
+  margin: var(--iei-2) 0 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-rk-ends b {
+  font-family: var(--iei-mono);
+  font-weight: 600;
+  color: var(--iei-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-rk-key {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1) var(--iei-4);
+  margin: var(--iei-3) 0 0;
+  padding: 0;
+  font-size: var(--iei-f-data);
+}
+
+.iei-rk-key li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--iei-1);
+}
+
+.iei-rk-key li > span {
+  font-family: var(--iei-mono);
+  color: var(--iei-ink-2);
+}
+
+/* ───────── the margin field strip ───────── */
+
+.iei-st {
+  --st-dot: var(--iei-2);
+  --st-step: calc(var(--iei-2) + 2px);
+  --rows: var(--rl);
+  margin: 0;
+}
+
+.iei-st-plot {
+  margin-inline: var(--iei-6);
+}
+
+/* Above the swarm: the seat's name, kept inside the plot at either end, with a leader down to its ring. */
+.iei-st-top {
+  position: relative;
+  height: 3rem;
+}
+
+.iei-st-self {
+  position: absolute;
+  bottom: 0;
+  left: clamp(5rem, var(--x), calc(100% - 5rem));
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: 10rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  text-align: center;
+  line-height: 1.25;
+}
+
+.iei-st-self b {
+  font-size: var(--iei-f-data);
+  font-weight: 600;
+}
+
+.iei-st-self span {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-st-swarm {
+  position: relative;
+  height: calc(var(--rows) * var(--st-step));
+}
+
+.iei-st-grid {
+  position: absolute;
+  left: var(--x);
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--iei-line);
+}
+
+.iei-st-dot {
+  --lane: var(--ll);
+  position: absolute;
+  left: var(--x);
+  top: calc(50% + var(--lane) * var(--st-step));
+  box-sizing: border-box;
+  width: var(--st-dot);
+  height: var(--st-dot);
+  margin: calc(var(--st-dot) / -2) 0 0 calc(var(--st-dot) / -2);
+  border-radius: 50%;
+  background: var(--ink, var(--iei-ink-3));
+}
+
+/* A margin declared with no counts behind it is a hollow dot. */
+.iei-st-dot-d {
+  background: transparent;
+  border: 2px solid var(--ink, var(--iei-ink-3));
+}
+
+.iei-st-dot-me {
+  z-index: 1;
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+/* The line from the seat's name down to its ring runs behind every dot (it comes first in the markup), and takes no pointer. */
+.iei-st-lead {
+  position: absolute;
+  left: var(--x);
+  top: 0;
+  height: 50%;
+  width: 1px;
+  background: var(--iei-ink-3);
+  pointer-events: none;
+}
+
+.iei-st-axis {
+  list-style: none;
+  margin: var(--iei-2) 0 0;
+  padding: 0;
+  position: relative;
+  height: var(--iei-6);
+  border-top: 1px solid var(--iei-line-2);
+}
+
+.iei-st-t {
+  position: absolute;
+  left: var(--x);
+  top: 0;
+  width: 1px;
+  height: var(--iei-1);
+  background: var(--iei-ink-3);
+}
+
+.iei-st-t-major {
+  height: var(--iei-2);
+}
+
+.iei-st-t span {
+  position: absolute;
+  top: var(--iei-3);
+  left: 50%;
+  transform: translateX(-50%);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+  white-space: nowrap;
+}
+
+.iei-st-unit {
+  margin: var(--iei-2) 0 0;
+  text-align: center;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+}
+
+/* What is left off the strip: a dashed ring, the same mark as a seat with no declared winner elsewhere. */
+.iei-st-left {
+  display: flex;
+  align-items: baseline;
+  gap: var(--iei-2);
+}
+
+.iei-st-none {
+  flex: none;
+  display: inline-block;
+  box-sizing: border-box;
+  width: var(--iei-2);
+  height: var(--iei-2);
+  border: 1px dashed var(--iei-ink-3);
+  border-radius: 50%;
+}
+
+/* ───────── narrow screens ───────── */
+
+@media (max-width: 1080px) {
+  .iei-st {
+    --rows: var(--rm);
+  }
+
+  .iei-st-dot {
+    --lane: var(--lm);
+  }
+}
+
+@media (max-width: 640px) {
+  .iei-pf-row {
+    grid-template-columns: minmax(0, 1fr) auto;
+    row-gap: var(--iei-1);
+  }
+
+  .iei-pf-track {
+    grid-column: 1 / -1;
+    grid-row: 2;
+  }
+
+  .iei-pf-axisrow,
+  .iei-pf-zoomrow,
+  .iei-pf-rulerrow {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .iei-pf-sp {
+    display: none;
+  }
+
+  .iei-pf-mag {
+    padding-bottom: 0;
+  }
+
+  /* Every other number is dropped from a tick row that would otherwise run its labels into each other; the ticks stay. */
+  .iei-pf-axis li:nth-child(even) span,
+  .iei-pf-tl li:nth-child(even) {
+    visibility: hidden;
+  }
+
+  .iei-rk {
+    --rk-h: 7rem;
+    --rk-zone: 4rem;
+  }
+
+  .iei-rk-cols {
+    gap: 1px;
+  }
+
+  .iei-rk-label {
+    max-width: 14rem;
+  }
+
+  .iei-rk-label span {
+    white-space: normal;
+  }
+
+  .iei-st {
+    --rows: var(--rs);
+    --st-dot: 6px;
+    --st-step: 7px;
+  }
+
+  .iei-st-dot {
+    --lane: var(--ls);
+  }
+
+  .iei-st-plot {
+    margin-inline: var(--iei-4);
+  }
+}
+
+/* ───────── motion: the bars grow together from zero, then the ruler's marks arrive; nothing else moves ───────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .iei-pf-bar {
+    transform-origin: 0 50%;
+    animation: iei-grow var(--iei-t-2) var(--iei-ease) backwards;
+  }
+
+  .iei-pf-dot,
+  .iei-pf-seg,
+  .iei-pf-gap {
+    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i, 3) * 100ms), 300ms);
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-pf-bar,
+  .iei-pf-dot,
+  .iei-rk-bar,
+  .iei-st-dot {
+    border: 1px solid CanvasText;
+  }
+}
