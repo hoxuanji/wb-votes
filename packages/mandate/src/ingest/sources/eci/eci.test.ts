@@ -30,6 +30,7 @@ import {
 import { validateStaged } from "./validate.ts";
 import { readSeats } from "../../../repo/seat-results.ts";
 import { validateElections } from "../../elections/validate.ts";
+import { claimKey } from "../../../core/ids.ts";
 import { eciRevisionFor, importStaged, type PriorRow } from "./import.ts";
 
 const NOW = "2026-08-11T00:00:00.000Z";
@@ -815,5 +816,23 @@ test("after the supersession the seat reads ECI's winner, and the elections vali
   assert.equal(seat?.margin?.votes, 100, "and a counted margin from the votes");
   const v = validateElections(db);
   assert.equal(v.metrics.duplicateWinnerContests, 0, "the placeholder at revision 0 is not a second winner");
+  db.close();
+});
+
+test("ECI's claims are keyed by what they claim, carry no sentence in `unit`, and keep ECI's sentence as a claim of its own", () => {
+  const db = fixtureRegistry();
+  const staged = fixtureStaged();
+  importStaged(db, staged, { nowIso: NOW });
+  const claims = db.prepare("SELECT subject_ref AS s, predicate AS p, object_value AS v, unit, as_of AS a, content_key AS k FROM claim ORDER BY predicate").all() as
+    { s: string; p: string; v: string; unit: string | null; a: string | null; k: string }[];
+  assert.deepEqual(claims.map((c) => c.p), ["elected_unopposed", "elected_unopposed.eci_note", "name_variant_eci_2024"]);
+  for (const c of claims) {
+    assert.equal(c.unit, null, `${c.p}: a claim's unit is a unit, never a sentence`);
+    assert.equal(c.k, claimKey(c.s, c.p, c.a, c.unit), `${c.p}: the one claim identity`);
+  }
+  const note = claims.find((c) => c.p === "elected_unopposed.eci_note");
+  assert.equal(JSON.parse(note?.v ?? "null"), staged.eciSuratNote, "ECI's own words, verbatim");
+  const cited = db.prepare("SELECT COUNT(*) AS n FROM citation ci JOIN claim c ON c.id = ci.claim_id WHERE c.predicate = 'elected_unopposed.eci_note'").get() as { n: number };
+  assert.equal(cited.n, 1, "the sentence cites the report it came from");
   db.close();
 });

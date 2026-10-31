@@ -34,6 +34,7 @@ import { epochById } from "../../../core/epochs.ts";
 import { candidacyId, contestId, slug } from "../../../core/ids.ts";
 import { blockingKeys, detectScript } from "../../../core/indic/index.ts";
 import { JURISDICTIONS } from "../../india.ts";
+import { putClaim } from "../../claim.ts";
 import { ingestRun } from "../../run.ts";
 import { versionId } from "../lokdhaba.ts";
 import { ECI_STATISTICAL_DISCLAIMER, type RawArtefact } from "./acquire.ts";
@@ -437,11 +438,16 @@ export function importStaged(
       }
 
       if (c.unopposed) {
-        claims += claim(db, `contest:${cid}`, "elected_unopposed", "true", now, suratSource, s.eciSuratNote);
+        claims += claim(db, `contest:${cid}`, "elected_unopposed", "true", now, suratSource);
+        // ECI's own sentence about the result, verbatim, as a claim of its own: it used to ride in `unit`, which is part
+        // of a claim's identity and was never a place for a sentence.
+        claims += claim(db, `contest:${cid}`, "elected_unopposed.eci_note", JSON.stringify(s.eciSuratNote), now, suratSource);
       }
       if (c.nameMismatch !== null) {
         // Recorded, never reconciled: two cited sources spelling one seat differently is a fact.
-        claims += claim(db, `place_version:${pvId}`, "name_variant_eci_2024", JSON.stringify(c.rawName), now, winnerSource, c.nameMismatch);
+        // The value is ECI's spelling and the registry's is the place version's own name, so the "registry X vs ECI Y"
+        // sentence the staged document carries (`nameMismatch`) restates the two and is not stored again.
+        claims += claim(db, `place_version:${pvId}`, "name_variant_eci_2024", JSON.stringify(c.rawName), now, winnerSource);
       }
 
       if (!hooked && opts.hook !== undefined) {
@@ -513,29 +519,9 @@ function sourceOf(sources: readonly RawArtefact[], reportNo: string): string {
   return a.sourceId;
 }
 
-/** A claim with its citation, keyed on content so a re-run rebinds nothing. Returns 1 if written. */
-function claim(
-  db: DatabaseSync,
-  subject: string,
-  predicate: string,
-  value: string,
-  now: string,
-  sourceId: string,
-  note: string,
-): number {
-  const contentKey = `${subject}|${predicate}|${value}`;
-  db.prepare(
-    `INSERT INTO claim (subject_ref, predicate, object_value, unit, as_of, confidence, content_key)
-       VALUES (?, ?, ?, ?, ?, 'verified', ?) ON CONFLICT (content_key) DO NOTHING`,
-  ).run(subject, predicate, value, note.slice(0, 300), "2024-06-04", contentKey);
-  const id = get<{ id: number }>(db, "SELECT id FROM claim WHERE content_key = ?", contentKey)?.id;
-  if (id === undefined) return 0;
-  db.prepare(
-    // page_no is NOT NULL and a spreadsheet has no pages; 0 is what the rest of the registry uses for
-    // "the whole document" rather than a page within it.
-    `INSERT INTO citation (claim_id, source_id, page_no, parser_version, extracted_at)
-       VALUES (?, ?, 0, ?, ?) ON CONFLICT DO NOTHING`,
-  ).run(id, sourceId, PARSER_VERSION, now);
+/** A claim with its citation, keyed on what is claimed (core/ids.ts claimKey), so a re-run rebinds nothing. Returns 1. */
+function claim(db: DatabaseSync, subject: string, predicate: string, value: string, now: string, sourceId: string): number {
+  putClaim(db, { subject, predicate, value, asOf: "2024-06-04" }, { sourceId, parserVersion: PARSER_VERSION, extractedAt: now });
   return 1;
 }
 

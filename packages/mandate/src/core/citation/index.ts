@@ -76,8 +76,10 @@ export type Claim = {
   unit: string | null;
   asOf: ISODate | null;
   confidence: Confidence;
-  /** UNIQUE content hash of (subjectRef, predicate, asOf): the claim's real identity, so a citation
-   *  cannot outlive the fact it cites. Nullable — rings 1-3 predate the column (005). */
+  /** UNIQUE and the claim's identity, so a citation cannot outlive the fact it cites: core/ids.ts `claimKey` of
+   *  (subjectRef, predicate, asOf, unit), the VALUE excluded, so a corrected value is the same claim restated
+   *  (decision D29, migration 019). Nullable in the schema only because rings 1-3 predate the column (005);
+   *  migration 019 gave every stored row a key. */
   contentKey: string | null;
 };
 

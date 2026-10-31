@@ -31,6 +31,7 @@ import { join } from "node:path";
 import { all, get } from "../../db/index.ts";
 import { EPOCHS, inForce } from "../../core/epochs.ts";
 import { ECI_CACHE_DIR } from "../sources/eci/acquire.ts";
+import { putClaim } from "../claim.ts";
 import { sha256Hex } from "../raw/index.ts";
 import { ingestRun } from "../run.ts";
 
@@ -460,19 +461,8 @@ export function applyDelimitation(
 
     // ── the statutory chain ───────────────────────────────────────────────────────────────────────
     for (const c of CHAIN) {
-      const contentKey = `${c.subject}|${c.predicate}`;
-      db.prepare(
-        `INSERT INTO claim (subject_ref, predicate, object_value, as_of, confidence, content_key)
-           VALUES (?, ?, ?, NULL, 'verified', ?) ON CONFLICT (content_key) DO UPDATE SET object_value=excluded.object_value`,
-      ).run(c.subject, c.predicate, c.value, contentKey);
-      const id = get<{ id: number }>(db, "SELECT id FROM claim WHERE content_key = ?", contentKey)?.id;
-      if (id !== undefined) {
-        db.prepare(
-          `INSERT INTO citation (claim_id, source_id, page_no, parser_version, extracted_at)
-             VALUES (?, ?, 0, ?, ?) ON CONFLICT DO NOTHING`,
-        ).run(id, c.sourceId, PARSER_VERSION, opts.nowIso);
-        report.chainClaims += 1;
-      }
+      putClaim(db, { subject: c.subject, predicate: c.predicate, value: c.value }, { sourceId: c.sourceId, parserVersion: PARSER_VERSION, extractedAt: opts.nowIso });
+      report.chainClaims += 1;
     }
 
     run.finish({
