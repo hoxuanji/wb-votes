@@ -6654,3 +6654,110 @@ ul.iei-tiles b {
     font-size: var(--iei-f-lead);
   }
 }
+
+/* legibility: ribbons and sparkline labels */
+/* WHY THIS BLOCK EXISTS (2026-10-31). Two legibility defects the look pass (above) found and left:
+
+   · RIBBONS WERE MUDDY. The seat-flow picture and the Analysis's vote ladder drew a ribbon as a party's ink at 14% to 70% opacity, and
+     translucent ink over a card is grey-brown, a crossing is a blend that is no party's, and the same opacity was a legible green and
+     an invisible blue. A ribbon's fill is now an opaque tint computed in viz/ribbon-ink.ts (the ink's hue and chroma at a stated contrast
+     against the card), so nothing here sets an opacity to make a ribbon fainter: the tier is in the fill. What this block adds is the gap
+     line between ribbons that touch, in the card's own colour and under the fill (so a one-seat ribbon, under a pixel tall, is not eaten
+     by it), and the pick-out on hover, which dims the rest as before.
+
+   · THE SPARKLINE'S LABELS WERE SVG TEXT in a viewBox scaled to the tile, so they rendered at 7.5px to 11.5px at 1440 and 8.2px at 390.
+     They are HTML over the picture now, positioned by percentage of its box, so the type is the mark token at every width; only the
+     line and its dots scale. (The comment above `.iei-seat-sp` describes the old arrangement and the `fill` in `.iei-seat-sp-yr` and
+     `.iei-seat-sp-val` no longer does anything; both are left where they are.) */
+
+.iei-flow-held,
+.iei-flow-moved,
+.iei-flow-mixed {
+  opacity: 1;
+}
+
+.iei-flow-ribbons path,
+.iei-an-rib polygon {
+  stroke: var(--iei-panel);
+  stroke-width: 2;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Pointing at a ribbon picks it out and dims the rest, as before. The dim is the only translucent state a ribbon has, and a dimmed ribbon painted
+   over the one picked out tints it where they cross, so it is kept low: at 12% the tint is not seen, and the shapes of the rest still are. */
+.iei-flow-ribbons:has(path:hover) path:not(:hover) {
+  opacity: 0.12;
+}
+
+.iei-flow-ribbons path:hover {
+  opacity: 1;
+}
+
+/* THE SPARKLINE'S LABELS. The wrapper holds the picture's width (the SVG no longer carries it) and the labels are laid over it in the
+   same box, so a percentage of the box is a point of the frame. `.iei-seat-sp-val` and `.iei-seat-sp-yr` keep the font rules above (mono,
+   the mark token, which is now the size on screen); their `fill` is an SVG property and does nothing to HTML, so the ink is set here.
+   The labels take no pointer, so the dots under them still show their title. */
+.iei-seat-spw {
+  position: relative;
+  max-width: 420px;
+  margin: var(--iei-3) 0;
+}
+
+.iei-seat-spw > .iei-seat-sp {
+  max-width: none;
+  margin: 0;
+}
+
+.iei-seat-spl {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.iei-seat-spl > span {
+  position: absolute;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+/* A figure sits above its dot, starting at it for the oldest and ending at it for the newest. */
+.iei-seat-spl > .iei-seat-sp-val {
+  color: var(--iei-ink);
+  transform: translate(0, calc(-100% - 6px));
+}
+
+.iei-seat-spl > .iei-seat-sp-val[data-at='end'] {
+  transform: translate(-100%, calc(-100% - 6px));
+}
+
+/* Where the line leaves the oldest dot upward (or arrives at the newest from above) the figure goes beside the dot, under the line. */
+.iei-seat-spl > .iei-seat-sp-val[data-by='beside'] {
+  transform: translate(var(--iei-4), calc(-50% + 2px));
+}
+
+.iei-seat-spl > .iei-seat-sp-val[data-by='beside'][data-at='end'] {
+  transform: translate(calc(-100% - var(--iei-4)), calc(-50% + 2px));
+}
+
+/* A year is under its point, on the bottom edge of the box, clear of the baseline above the row (viz/spark.ts PAD_BOTTOM). */
+.iei-seat-spl > .iei-seat-sp-yr {
+  bottom: 0;
+  color: var(--iei-ink-3);
+  transform: translateX(-50%);
+}
+
+/* "no figure" is above the baseline at the gap's line: centred on it, or, at either end, running inward so it stays inside the box. */
+.iei-seat-spl > .iei-seat-sp-nf {
+  bottom: auto;
+  transform: translate(-50%, calc(-100% - 6px));
+}
+
+.iei-seat-spl > .iei-seat-sp-nf[data-at='start'] {
+  transform: translate(0, calc(-100% - 6px));
+}
+
+.iei-seat-spl > .iei-seat-sp-nf[data-at='end'] {
+  transform: translate(-100%, calc(-100% - 6px));
+}

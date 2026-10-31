@@ -19,8 +19,10 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { CATEGORICAL, OTHERS } from "../viz/palette.ts";
+import { CATEGORICAL, OTHERS, SURFACE } from "../viz/palette.ts";
 import { fillFor } from "../viz/party-ink.ts";
+import { contrastOf } from "../viz/colour.ts";
+import { ribbonInk } from "../viz/ribbon-ink.ts";
 
 const ROOT = new URL("../../../../", import.meta.url).pathname;
 
@@ -148,6 +150,19 @@ test("the Analysis prints no figure built on 2026's unverified turnout: not the 
   assert.match(text(brief), /verification pending/);
 });
 
+test("the Brief's lines are SVG for the line and HTML for every label, placed by percentage of the picture, so a label keeps the type token's size", () => {
+  const brief = render("", "/constituency");
+  const at = brief.indexOf('class="iei-seat-spw"');
+  assert.notEqual(at, -1, "the margin line is not drawn");
+  const line = brief.slice(at, brief.indexOf("</div></div>", at) + 12);
+  assert.doesNotMatch(line, /<text/, "a label is SVG text, which scales with the frame");
+  const labels = [...line.matchAll(/<span class="(iei-seat-sp-(?:val|yr)[^"]*)"([^>]*)>([^<]*)<\/span>/g)].map((m) => ({ cls: m[1] as string, attrs: m[2] as string, text: m[3] as string }));
+  assert.deepEqual(labels.filter((l) => l.cls === "iei-seat-sp-yr").map((l) => l.text), ["2016", "2021", "2026"]);
+  assert.deepEqual(labels.filter((l) => l.cls === "iei-seat-sp-val").map((l) => l.text), ["230", "777"], "the oldest and the newest figure");
+  for (const l of labels) assert.match(l.attrs, /style="left:[\d.]+%/, `${l.text} is not placed by percentage`);
+  assert.match(line, /<div class="iei-seat-spl" aria-hidden="true">/, "the labels are read twice: in the picture's name and over it");
+});
+
 test("the Brief keeps the declared margin in votes and withholds its share: in the hero, in the headline and in the flags", () => {
   // Alpha: 777 votes over 1,900 voters is 40.9%, and Beta's 8 votes over them is 0.4%, a recount-scale margin that exists only
   // over a turnout nobody can corroborate.
@@ -200,8 +215,22 @@ test("a party is the colour of its identity: TMC is the ink the maps give party 
   for (const id of ["AITC", "BJP", "AIFB"]) assert.ok(ladder.includes(fillFor(id)), `${id}'s ink is not in the ladder`);
   assert.notEqual(fillFor("AITC"), fillFor("TMC"));
   assert.ok(!ladder.includes(fillFor("TMC")), "TMC is inked by its name, which is a third green");
-  assert.match(ladder, /<polygon[^>]*fill-opacity/, "no ribbon joins the counted rows");
+  // CHANGED 2026-10-31, on purpose: a ribbon was `fill-opacity` on the party's ink (0.14, or 0.5 for the party followed) and is now an opaque tint
+  // of it (viz/ribbon-ink.ts), because translucent ink over the card went grey-brown. A ribbon is still drawn between two counted rows.
+  assert.match(ladder, /<polygon[^>]*style="fill:#[0-9a-f]{6}"/, "no ribbon joins the counted rows");
+  assert.doesNotMatch(ladder, /<polygon[^>]*opacity/, "a ribbon is drawn with an opacity again");
   assert.equal((ladder.match(/<polygon/g) ?? []).length > 0, true);
+});
+
+test("the party followed has the brightest ribbon and the others are the faint tier, all opaque", () => {
+  const fills = (page: string): string[] => [...page.slice(page.indexOf('id="ladder"'), page.indexOf('id="close"')).matchAll(/<polygon[^>]*style="fill:(#[0-9a-f]{6})"/g)].map((m) => m[1] as string);
+  const faint = ["AIFB", "BJP", "BSP", "INC", "AITC"].map((k) => ribbonInk(fillFor(k), "faint"));
+  const bright = ribbonInk(fillFor("INC"), "bright");
+  const inc = fills(render("party=INC"));
+  assert.ok(inc.length >= 2, "fewer than two ribbons between the counted rows");
+  assert.equal(inc.filter((f) => f === bright).length, 1, "the followed party has one bright ribbon between two counted rows");
+  assert.ok(inc.every((f) => f === bright || faint.includes(f)), `a ribbon that is not followed is not the faint tier: ${inc.join(" ")}`);
+  assert.ok(contrastOf(bright, SURFACE) > contrastOf(ribbonInk(fillFor("INC"), "faint"), SURFACE) + 1.5, "bright is not brighter than faint");
 });
 
 test("an election with no candidate votes is a dashed row with one sentence, and nothing proportional, and its table cells say why they are empty", () => {

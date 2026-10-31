@@ -6,6 +6,7 @@ import { shareText } from '../../../packages/mandate/src/viz/bullet.ts';
 import { turnoutDots } from '../../../packages/mandate/src/viz/turnout-dots.ts';
 import { voteLadder } from '../../../packages/mandate/src/viz/vote-ladder.ts';
 import { fillFor, tokenFor } from '../../../packages/mandate/src/viz/party-ink.ts';
+import { ribbonInk } from '../../../packages/mandate/src/viz/ribbon-ink.ts';
 import { displayName } from '../../../packages/mandate/src/repo/display-name.ts';
 import type { PlaceStory } from '../../../packages/mandate/src/repo/place-story.ts';
 import { ordinal } from '../../../packages/mandate/src/repo/seat-story.ts';
@@ -20,8 +21,10 @@ import { Panel, Table, Tabs } from './parts.tsx';
  * Every party is inked by its KEY, with its code beside every swatch; a figure the record does not hold is a dashed mark or a sentence, never a
  * zero, an empty frame or an interpolation; nothing is drawn for a 2026 candidate's share, turnout or runner-up, because none is on record.
  *
- * Ribbons join the same party across two counted elections and say nothing about voters moving. The only motion is the ladder's rows arriving in
- * election order (iei.css); everything below the first screen is still.
+ * Ribbons join the same party across two counted elections and say nothing about voters moving. They are opaque tints of the party's ink
+ * (viz/ribbon-ink.ts), the followed party's brightest and the rest fainter, and not the ink at a fraction of opacity, which went grey-brown over
+ * the card; with no party followed they are all in between. The only motion is the ladder's rows arriving in election order (iei.css);
+ * everything below the first screen is still.
  */
 
 const IN = new Intl.NumberFormat('en-IN');
@@ -88,7 +91,11 @@ export function VoteLadder({ story, followHref }: { story: PlaceStory; followHre
                     {(ribbons[i] ?? []).length === 0 ? null : (
                       <svg className="iei-an-rib" viewBox="0 0 100 20" preserveAspectRatio="none">
                         {(ribbons[i] ?? []).map((rb) => (
-                          <polygon key={rb.key} points={rb.points} style={{ fill: fillFor(rb.key), fillOpacity: rb.followed ? 0.5 : 0.14 }} />
+                          <polygon
+                            key={rb.key}
+                            points={rb.points}
+                            style={{ fill: ribbonInk(fillFor(rb.key), rb.followed ? 'bright' : followedKey === null ? 'mid' : 'faint') }}
+                          />
                         ))}
                       </svg>
                     )}

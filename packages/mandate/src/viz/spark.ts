@@ -5,8 +5,22 @@
 // reached by a dashed stub, because nothing is counted behind it; a point with NO VALUE is a gap with its label and never a mark on the baseline,
 // which would read as zero; nothing is interpolated across a gap; and a line of fewer than MIN_POINTS valued points is not drawn at all, because
 // two points are a difference and not a trend.
+//
+// THE LABELS ARE NOT DRAWN IN THE SVG. The line is drawn in a frame of `width` units that scales with its tile, so type set inside it scales
+// too: at 11px in the frame it rendered at 7.5px to 11.5px at 1440 and 8.2px at 390. The component puts the labels in HTML over the picture,
+// at the percentages this gives, so they keep the type token's size; and since type that keeps its size does not shrink with the picture, this
+// decides which labels fit: a year label that would touch its neighbour at the narrowest the line is drawn is dropped (the newest is kept,
+// then every second or third before it), and so is the word "no figure" where it would run over the neighbouring dots. Every point keeps its dot,
+// its title and its place in the table beside the line; only the label is dropped.
 
 export const MIN_POINTS = 3;
+
+/** The narrowest a line is drawn, in CSS px: a phone about 330px wide, less the padding of its card and its tile. Labels are fitted to this. */
+export const NARROWEST_PX = 240;
+/** What an 11px mono label needs: four digits of a year, nine characters of "no figure", and the air between two labels. */
+export const YEAR_PX = 27;
+export const WORD_PX = 60;
+export const AIR_PX = 8;
 
 export type SparkPoint = {
   label: string;
@@ -32,16 +46,18 @@ export type Spark = {
   /** SVG path data of each dashed stub, from the valued point just before a declared one to it. */
   stubs: string[];
   dots: SparkDot[];
-  gaps: { x: number; label: string }[];
-  /** Every point's x and label, for the year ticks under the line. */
-  ticks: { x: number; label: string }[];
+  gaps: { x: number; label: string; /** The word "no figure" fits beside the gap's line. */ word: boolean }[];
+  /** Every point's x and label, for the year ticks under the line; `show` is false for a label that would touch its neighbour. */
+  ticks: { x: number; label: string; show: boolean }[];
   /** The y of the baseline: the bottom of the plotted area. */
   baseline: number;
 };
 
 const PAD_X = 20;
 const PAD_TOP = 14;
-const PAD_BOTTOM = 22;
+// The year row under the baseline is 28 units tall (it was 22 for 11-unit type that scaled with the frame). The years are 11px type now and the
+// frame is drawn at 0.6 to 1.05 of its units, so at 0.6 the row is 16.8px: 11px of label and about 6px between it and the baseline.
+const PAD_BOTTOM = 28;
 
 const r1 = (n: number): number => Math.round(n * 10) / 10;
 
@@ -60,6 +76,10 @@ export function sparkline(i: { width: number; height: number; zero: boolean; poi
   const y = (v: number): number => (hi === lo ? (top + bottom) / 2 : r1(bottom - ((v - lo) / (hi - lo)) * (bottom - top)));
   const step = points.length > 1 ? (width - 2 * PAD_X) / (points.length - 1) : 0;
   const x = (k: number): number => r1(PAD_X + k * step);
+  // How far apart two neighbouring points are at the narrowest the line is drawn, in CSS px, and so which labels fit.
+  const pitch = (step * NARROWEST_PX) / width;
+  const stride = pitch > 0 ? Math.max(1, Math.ceil((YEAR_PX + AIR_PX) / pitch)) : 1;
+  const wordFits = pitch >= WORD_PX + AIR_PX;
 
   const dots: SparkDot[] = [];
   const gaps: Spark["gaps"] = [];
@@ -73,7 +93,7 @@ export function sparkline(i: { width: number; height: number; zero: boolean; poi
   points.forEach((p, k) => {
     if (p.value === null) {
       flush();
-      gaps.push({ x: x(k), label: p.label });
+      gaps.push({ x: x(k), label: p.label, word: wordFits });
       return;
     }
     const px = x(k);
@@ -97,6 +117,6 @@ export function sparkline(i: { width: number; height: number; zero: boolean; poi
     stubs,
     dots,
     gaps,
-    ticks: points.map((p, k) => ({ x: x(k), label: p.label })),
+    ticks: points.map((p, k) => ({ x: x(k), label: p.label, show: (points.length - 1 - k) % stride === 0 })),
   };
 }

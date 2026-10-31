@@ -31,55 +31,93 @@ const arrow = (n: number): string => (n > 0 ? '▲' : n < 0 ? '▼' : '■');
 
 /* ───────────────────────────── the line ───────────────────────────── */
 
+/** A position in the picture as a percentage of its box: the frame scales with the tile, and a label placed this way keeps its place. */
+const pc = (v: number, of: number): string => `${Math.round((v / of) * 10000) / 100}%`;
+
+/**
+ * Where the figure at one end of the line goes: above its dot, or beside it when the line leaves (or arrives at) the dot steeply from above, where a
+ * figure above would sit on the line. The oldest figure starts at its dot and the newest ends at it, so "beside" is under the line, away from it.
+ * A figure is about 35px wide and 8px clear of its dot, so a line rising by more than a fifth of its run crosses it.
+ */
+const STEEP = 0.2;
+
+function sideOf(dots: Spark['dots'], at: number): 'above' | 'beside' {
+  const d = dots[at];
+  const next = dots[at === 0 ? 1 : at - 1];
+  if (d === undefined || next === undefined || next.x === d.x) return 'above';
+  return (d.y - next.y) / Math.abs(next.x - d.x) >= STEEP ? 'beside' : 'above';
+}
+
+/**
+ * The line is SVG and its labels are HTML over it. A label inside the SVG is scaled with the frame: set at 11px in a 400-unit frame it
+ * rendered at 7.5px to 11.5px at 1440 and 8.2px at 390. Over it, the label is the mark type token at every width, and only the line and
+ * its dots scale. Which labels fit is decided in viz/spark.ts (`show`, `word`); the labels are hidden from assistive technology because the
+ * picture's own name and the table beside it carry the same numbers.
+ */
 function SeatSpark({ spark, label, ink, format }: { spark: Spark; label: string; ink: string | null; format: (v: number) => string }) {
   if (!spark.enough) return <p className="iei-seat-fact">{spark.fact}</p>;
   const first = spark.dots[0];
   const last = spark.dots[spark.dots.length - 1];
   const fill = ink === null ? undefined : { fill: ink };
+  const edge = (x: number): 'start' | 'mid' | 'end' => (x <= spark.width / 4 ? 'start' : x >= (spark.width * 3) / 4 ? 'end' : 'mid');
   return (
-    <svg className="iei-seat-sp" viewBox={`0 0 ${spark.width} ${spark.height}`} role="img" aria-label={label}>
-      <line className="iei-seat-sp-base" x1={0} x2={spark.width} y1={spark.baseline} y2={spark.baseline} />
-      {spark.gaps.map((g) => (
-        <g key={g.label}>
-          <line className="iei-seat-sp-gap" x1={g.x} x2={g.x} y1={8} y2={spark.baseline} />
-        </g>
-      ))}
-      {spark.runs.map((d) => (
-        <path key={d} className="iei-seat-sp-run" d={d} />
-      ))}
-      {spark.stubs.map((d) => (
-        <path key={d} className="iei-seat-sp-stub" d={d} />
-      ))}
-      {spark.dots.map((d) => (
-        <circle
-          key={d.label}
-          className={d.basis === 'declared' ? 'iei-seat-sp-dot iei-seat-sp-ring' : 'iei-seat-sp-dot'}
-          cx={d.x}
-          cy={d.y}
-          r={4}
-          style={d.basis === 'declared' ? (ink === null ? undefined : { stroke: ink }) : fill}
-        >
-          <title>{d.tip}</title>
-        </circle>
-      ))}
-      {[first, last].map((d, i) =>
-        d === undefined || (i === 1 && d === first) ? null : (
-          <text key={i} className="iei-seat-sp-val" x={d.x} y={d.y - 9} textAnchor={i === 0 ? 'start' : 'end'}>
-            {format(d.value)}
-          </text>
-        ),
-      )}
-      {spark.ticks.map((t) => (
-        <text key={t.label} className="iei-seat-sp-yr" x={t.x} y={spark.height - 6} textAnchor="middle">
-          {t.label}
-        </text>
-      ))}
-      {spark.gaps.map((g) => (
-        <text key={`g-${g.label}`} className="iei-seat-sp-yr" x={g.x} y={spark.baseline - 8} textAnchor="middle">
-          no figure
-        </text>
-      ))}
-    </svg>
+    <div className="iei-seat-spw">
+      <svg className="iei-seat-sp" viewBox={`0 0 ${spark.width} ${spark.height}`} role="img" aria-label={label}>
+        <line className="iei-seat-sp-base" x1={0} x2={spark.width} y1={spark.baseline} y2={spark.baseline} />
+        {spark.gaps.map((g) => (
+          <g key={g.label}>
+            <line className="iei-seat-sp-gap" x1={g.x} x2={g.x} y1={8} y2={spark.baseline} />
+          </g>
+        ))}
+        {spark.runs.map((d) => (
+          <path key={d} className="iei-seat-sp-run" d={d} />
+        ))}
+        {spark.stubs.map((d) => (
+          <path key={d} className="iei-seat-sp-stub" d={d} />
+        ))}
+        {spark.dots.map((d) => (
+          <circle
+            key={d.label}
+            className={d.basis === 'declared' ? 'iei-seat-sp-dot iei-seat-sp-ring' : 'iei-seat-sp-dot'}
+            cx={d.x}
+            cy={d.y}
+            r={4}
+            style={d.basis === 'declared' ? (ink === null ? undefined : { stroke: ink }) : fill}
+          >
+            <title>{d.tip}</title>
+          </circle>
+        ))}
+      </svg>
+      <div className="iei-seat-spl" aria-hidden="true">
+        {[first, last].map((d, i) =>
+          d === undefined || (i === 1 && d === first) ? null : (
+            <span
+              key={i}
+              className="iei-seat-sp-val"
+              data-at={i === 0 ? 'start' : 'end'}
+              data-by={sideOf(spark.dots, i === 0 ? 0 : spark.dots.length - 1)}
+              style={{ left: pc(d.x, spark.width), top: pc(d.y, spark.height) }}
+            >
+              {format(d.value)}
+            </span>
+          ),
+        )}
+        {spark.ticks
+          .filter((t) => t.show)
+          .map((t) => (
+            <span key={t.label} className="iei-seat-sp-yr" style={{ left: pc(t.x, spark.width) }}>
+              {t.label}
+            </span>
+          ))}
+        {spark.gaps
+          .filter((g) => g.word)
+          .map((g) => (
+            <span key={`g-${g.label}`} className="iei-seat-sp-yr iei-seat-sp-nf" data-at={edge(g.x)} style={{ left: pc(g.x, spark.width), top: pc(spark.baseline, spark.height) }}>
+              no figure
+            </span>
+          ))}
+      </div>
+    </div>
   );
 }
 

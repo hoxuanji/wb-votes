@@ -276,3 +276,52 @@ says what every row of a list lacks once, above it, and a gap only some rows hav
 
 **Not done.** The Sankey ribbons (muddy at low opacity), the 8px labels inside the seat page's small sparklines (a viewBox scaled down), a per-page glow
 in the colour of the leading party, the coverage page's long ledger, and any check in Safari or Firefox. Hover and click were exercised on the home map only.
+
+## Legibility fixes (2026-10-31)
+
+Two of the defects the look pass left, fixed and measured in a real browser (Playwright's library over a pipe to headless Chromium, each request
+answered from the app's own renderer, dev registry) at 1440 and 390, and at 1280, 1024, 768, 360 and 320 for the labels.
+
+**Ribbons.** Both were a party's ink at a fraction of opacity: the seat-flow picture's at 0.3 held, 0.45 mixed and 0.7 changed hands, the vote ladder's
+at 0.14 and 0.5 for the party followed. Looked at, both were muddy for the same reason and in different places: where flow ribbons cross, the blend is
+a colour that is no party's (olive, where green meets saffron) and the held ones are dark grey-brown; the ladder's 0.14 over a 16px band is barely there
+and its 0.5 is brown. A ribbon's fill is now opaque (`viz/ribbon-ink.ts`): the ink's own hue (within 1.4 degrees over 460 parties) at a lightness found from
+its contrast against the card with `colour.ts`. The brightest tier is the ink, calmed to at most 6:1; mid keeps 70% and faint 42% of the contrast above
+1, so "fainter" is the same fraction for every party and a party with a dark ink keeps it (CPI is not lifted toward CPM's red, which `party-ink.ts`
+separates it from on lightness). Saffron is 6.0 / 4.5 / 3.1:1 over the card; across the 60 curated parties the brightest tier is 3.3 to 6.1:1 and the
+faintest 2.0 to 3.1:1 (36 of the 60 reach 3.0), across 400 generated ones 3.4 and 2.0 at the lowest. In the flow, changed hands is the brightest tier,
+a ribbon of both the middle one and held the faintest, and the brighter ribbon is painted over the fainter where they cross, so a crossing has an order and
+no blend; in the ladder the party followed is the brightest and the others the faintest. A 2px line in the card's colour, painted under the fill
+(`paint-order: stroke`, so a one-seat ribbon under a pixel tall is not eaten by it), separates ribbons that touch. Pointing at a flow ribbon still picks
+it out and dims the rest, to 12% (it was 8%); the dim is the one translucent state left, and at 12% the tint it leaves where a dimmed ribbon crosses the
+picked one is not seen. What the pictures say is unchanged: the captions, titles and tables are the same words and numbers, and a ribbon is still the
+same party across two counted elections and not a count of voters who moved. No text sits over a ribbon in either picture (the DOM audit finds none of
+the text on the election, state, home and Analysis pages inside a ribbon's box at 1440 and 390), so the 4.5:1 for a label is not in question.
+
+**Sparkline labels.** The seat page's two small lines drew their years, their oldest and newest figures and "no figure" as SVG text in a 400-unit frame that
+scales with its tile. The census took every label of the margin and turnout lines on six seats (Mekliganj, Amta, Arambag, Amdanga, Asansol Dakshin,
+Alipurduars) at seven widths, 504 labels, as computed font size times the scale of the text's CTM. Before: 7.49px at 1440 (the turnout tile is 273px wide
+there; the margin line's 11.55), 7.08 at 1280, 11.55 at 1024, 8.39 at 768, 8.19 at 390, 7.37 at 360 and 6.27 at 320; 321 of 504 under 11px. After: all 504 are
+11.0px. The labels are HTML over the picture, placed by percentage of its box and hidden from assistive technology (the picture keeps its name and the
+twin list beside the margin line carries the numbers), and only the line and its dots scale. Because type that keeps its size does not shrink with the
+picture, `viz/spark.ts` decides which labels fit at the narrowest width a line is drawn (240px): a year that would touch its neighbour is dropped, newest
+first kept, and "no figure" is dropped where it would run over the dots beside it (more than four elections); the dot, its title and its gap line remain. The
+oldest and newest figures sit above their dots, or beside them, under the line, when the line leaves them steeply. The year row under the baseline is 28 units
+tall instead of 22 to give 11px type room. No label box meets another label or a dot, none leaves its card, and the page does not overflow sideways at any of
+the seven widths. Four elections is what the seed has; a 17-election line was checked on a hand-built copy of the markup, where the labels thin to every third
+year without touching.
+
+**The other charts' labels.** The India map's state codes on `/` are 9.58px at 1440, 1280 and 1024 and 8.62px at 768 (hidden at 390): the same cause (a code
+in a viewBox scaled to the map; `LABEL_FRACTION` is 1/58) but raising it to about 1/50 changes which states have room for a label, and the home page is not in this
+change, so it is left. The seat locator's name is 13.5px down to 360 and 12.5px at 320. The votes-against-seats plot (`Distribution.tsx`) sets 12.5 to 15px type in a
+400-unit frame, which at a phone's column is about 0.75, 9 to 11px; no page of the seed registry draws it, so this is computed and not measured, and not
+changed. `viz/charts.ts` draws its charts at three widths by design and no component renders it today.
+
+**Tests.** `viz/ribbon-ink.test.ts` (opaque, the share of contrast, hue, lightness order, the neutral ribbon is the stylesheet's token, the stylesheet sets no
+ribbon opacity and has the gap line) and three in `viz/spark.test.ts` are new. Four existing assertions changed on purpose, each with a comment: the ribbon fills
+in `seat-flows-page.test.ts` (two tests, a tint instead of the ink) and the ribbon opacity in `place-analysis-page.test.ts`, which also gains the followed-party
+test and the label markup test. The failing set of the whole suite is the 51 names of `9b9ec0a`, unchanged.
+
+**Not tested:** Safari and Firefox (`paint-order` on SVG shapes, `:has`, `inset`), forced-colors (the ribbons' `fill` and `stroke` were not looked at under it), a
+screen reader over the sparklines, focus (the flow picture is hidden from assistive technology and has no focusable ribbon, as before), hover on the ladder (it has
+none), a seat with more than four elections drawn from real data, and the Brief with a registry that has place geometry loaded beyond the 19 rows the seed has.
