@@ -12,7 +12,8 @@ import { money, ordinal, panelScale, rosterLead } from '../../../packages/mandat
 import type { Flag, Limit, SeatNumbers } from '../../../packages/mandate/src/repo/seat-story.ts';
 import { ROSTER_ORDERS } from '../../../packages/mandate/src/repo/place-filters.ts';
 import type { RosterOrder } from '../../../packages/mandate/src/repo/place-filters.ts';
-import { Limits, MarginFigure, PartyChip, PersonLink } from './marks.tsx';
+import type { MarginRankFigure, PhotoFinish } from '../../../packages/mandate/src/repo/seat-proof.ts';
+import { Limits, MarginFigure, PartyChip, PersonLink, TableTwin } from './marks.tsx';
 import { DataList, DataRow, Panel, Table, Tabs } from './parts.tsx';
 
 /**
@@ -28,6 +29,9 @@ const IN = new Intl.NumberFormat('en-IN');
 const at = (i: number): CSSProperties => ({ '--i': i }) as CSSProperties;
 const sign = (n: number): string => (n > 0 ? '+' : n < 0 ? '−' : '±');
 const arrow = (n: number): string => (n > 0 ? '▲' : n < 0 ? '▼' : '■');
+/** A fraction of a track as a CSS percentage, to two decimals, so the markup is the same on every request. */
+const pc = (f: number): string => `${Math.round(f * 10000) / 100}%`;
+const vars = (o: Record<string, string | number>): CSSProperties => o as CSSProperties;
 
 /* ───────────────────────────── the line ───────────────────────────── */
 
@@ -463,6 +467,245 @@ export function SeatRoster({ election, order, dir, base }: { election: FieldElec
         Cases declared is the count of pending cases the candidate wrote in the affidavit. It records nothing about their stage, court or outcome, and it is not a criminal
         record. Self-declared{election.declaredAsOf === null ? '' : `, as of ${election.declaredAsOf}`}.
       </p>
+    </Panel>
+  );
+}
+
+/* ───────────────────────────── the photo finish: a ruler, not a bar ───────────────────────────── */
+
+/**
+ * A result decided by a few votes, drawn twice. The bars are the two totals measured from zero on one scale, which is why they look the same
+ * length: that is the finding. The ruler under them magnifies the stretch the two totals sit in, so the gap can be seen, and says in its caption
+ * that it is not a bar and does not start at zero. The funnel between them joins the ruler's window to the same stretch on the bars' scale.
+ *
+ * The exact figures are in the table twin. The bars grow together from zero once on load; the ruler's dots arrive after them (iei.css).
+ */
+export function SeatPhotoFinish({ finish }: { finish: PhotoFinish }) {
+  const g = finish.geometry;
+  const r = g.ruler;
+  const sides = [
+    { who: finish.winner, role: 'winner', frac: g.bars.fracA, pos: r.posA },
+    { who: finish.runnerUp, role: 'runner-up', frac: g.bars.fracB, pos: r.posB },
+  ];
+  const [near, far] = [...sides].sort((a, b) => a.pos - b.pos);
+  const span = r.hi - r.lo;
+  return (
+    <Panel id="finish" title="How close was it?" question={`${finish.label}: the two leading totals, and the gap between them.`}>
+      <figure className="iei-pf">
+        {sides.map((x) => (
+          <div className="iei-pf-row" key={x.role}>
+            <span className="iei-pf-who">
+              <PartyChip partyId={x.who.party.key} code={x.who.party.label} /> <PersonLink id={x.who.personId} name={x.who.name} />
+              <span className="iei-pf-role">{x.role}</span>
+            </span>
+            <span className="iei-pf-track" aria-hidden="true">
+              <span className="iei-pf-bar" style={{ width: pc(x.frac), background: fillFor(x.who.party.key) }} />
+            </span>
+            <span className="iei-pf-n">{IN.format(x.who.votes)}</span>
+          </div>
+        ))}
+        <div className="iei-pf-row iei-pf-axisrow" aria-hidden="true">
+          <span className="iei-pf-sp" />
+          <ol className="iei-pf-axis">
+            {g.bars.ticks.map((t) => (
+              <li key={t} style={vars({ '--p': pc(t / g.bars.max) })}>
+                <span>{IN.format(t)}</span>
+              </li>
+            ))}
+          </ol>
+          <span className="iei-pf-sp" />
+        </div>
+        <div className="iei-pf-row iei-pf-zoomrow" aria-hidden="true">
+          <span className="iei-pf-sp" />
+          <div className="iei-pf-zoom" style={vars({ '--a': pc(g.zoom.from), '--b': pc(g.zoom.to) })} />
+          <span className="iei-pf-sp" />
+        </div>
+        <div className="iei-pf-row iei-pf-rulerrow">
+          <span className="iei-pf-who iei-pf-mag">
+            Magnified
+            <span className="iei-pf-role">
+              {IN.format(r.lo)} to {IN.format(r.hi)} votes
+            </span>
+          </span>
+          <div className="iei-pf-ruler" role="img" aria-label={finish.ariaLabel}>
+            <div className="iei-pf-names" aria-hidden="true">
+              {[near, far].map((x, i) =>
+                x === undefined ? null : (
+                  <span key={x.role} className={i === 0 ? 'iei-pf-nm iei-pf-nm-l' : 'iei-pf-nm iei-pf-nm-r'} style={vars({ '--p': pc(x.pos) })}>
+                    <b>{x.who.display}</b>
+                    <span>
+                      {x.who.party.label} · {IN.format(x.who.votes)}
+                    </span>
+                  </span>
+                ),
+              )}
+            </div>
+            <div className="iei-pf-line" aria-hidden="true">
+              {r.ticks.map((t) => (
+                <i key={t} className="iei-pf-tick" style={vars({ '--p': pc((t - r.lo) / span) })} />
+              ))}
+              <i className="iei-pf-seg" style={vars({ '--p': pc(near?.pos ?? 0), '--w': pc(r.gap / span) })} />
+              {sides.map((x) => (
+                <i
+                  key={x.role}
+                  className={x.role === 'winner' ? 'iei-pf-dot iei-pf-dot-w' : 'iei-pf-dot'}
+                  style={vars({ '--p': pc(x.pos), background: fillFor(x.who.party.key) })}
+                  title={`${x.who.display} (${x.who.party.label}): ${IN.format(x.who.votes)} votes`}
+                />
+              ))}
+            </div>
+            <div className="iei-pf-gaprow" aria-hidden="true">
+              <span className="iei-pf-gap" style={vars({ '--p': pc(near?.pos ?? 0), '--w': pc(r.gap / span) })}>
+                <span>
+                  {IN.format(finish.gap)} {finish.gap === 1 ? 'vote' : 'votes'}
+                </span>
+              </span>
+            </div>
+            <ol className="iei-pf-tl" aria-hidden="true">
+              {r.ticks.map((t) => (
+                <li key={t} style={vars({ '--p': pc((t - r.lo) / span) })}>
+                  {IN.format(t)}
+                </li>
+              ))}
+            </ol>
+          </div>
+          <span className="iei-pf-sp" />
+        </div>
+        <figcaption className="iei-note">{finish.caption}</figcaption>
+      </figure>
+      <TableTwin summary="The exact figures">
+        <Table
+          label="The two leading totals"
+          caption={`The two leading totals in ${finish.label} and the gap between them.`}
+          captionVisible
+          tight
+          head={
+            <>
+              <th scope="col">Candidate</th>
+              <th scope="col">Party</th>
+              <th scope="col" className="iei-n">
+                Votes
+              </th>
+            </>
+          }
+        >
+          {sides.map((x) => (
+            <tr key={x.role}>
+              <th scope="row">
+                <PersonLink id={x.who.personId} name={x.who.name} /> <span className="iei-of">{x.role}</span>
+              </th>
+              <td>
+                <PartyChip partyId={x.who.party.key} code={x.who.party.label} />
+              </td>
+              <td className="iei-n">{IN.format(x.who.votes)}</td>
+            </tr>
+          ))}
+          <tr>
+            <th scope="row">Gap</th>
+            <td>{finish.share === null ? <span className="iei-absent">not reported</span> : <span>{finish.share}% of the votes polled</span>}</td>
+            <td className="iei-n">{IN.format(finish.gap)}</td>
+          </tr>
+        </Table>
+      </TableTwin>
+    </Panel>
+  );
+}
+
+/* ───────────────────────────── one margin among all of them ───────────────────────────── */
+
+/**
+ * A lone margin set among its neighbours: one thin bar for each seat of its election, widest first, from zero, in the winner's ink, the seat's
+ * outlined and named. A bar that was declared and not counted is dashed. The list under it is the exact form, linking every seat.
+ *
+ * Nothing moves: the claim it carries is static, and 42 bars arriving one at a time would be motion with nothing to say.
+ */
+export function SeatMarginRank({ figure }: { figure: MarginRankFigure }) {
+  if (figure.shape === 'withheld') {
+    return (
+      <Panel id="rank" title="Where does that margin stand?" question={`Among the other seats of ${figure.year}.`}>
+        <p className="iei-note">{figure.text}</p>
+      </Panel>
+    );
+  }
+  const f = figure;
+  return (
+    <Panel id="rank" title="Where does that margin stand?" question={`The ${f.of} ${f.scope} margins of ${f.year}, widest first.`}>
+      <figure className="iei-rk">
+        <div className="iei-rk-plot" role="img" aria-label={f.ariaLabel}>
+          <ol className="iei-rk-cols">
+            {f.bars.map((b) => (
+              <li
+                key={b.id}
+                className={b.self ? 'iei-rk-col iei-rk-self' : 'iei-rk-col'}
+                style={vars({ '--f': Math.round(b.frac * 10000) / 10000, '--ink': fillFor(b.party.key) })}
+                title={`${b.name} · ${b.party.label} · ${IN.format(b.votes)} votes (${b.basis}) · ${ordinal(b.rank)} widest of ${f.of}`}
+              >
+                <span className={b.dashed ? 'iei-rk-bar iei-rk-bar-d' : 'iei-rk-bar'} />
+                {b.self ? (
+                  <span className={`iei-rk-label iei-rk-label-${f.align}`}>
+                    <b>{b.name}</b>
+                    <span>
+                      {IN.format(b.votes)} · {ordinal(b.rank)} widest of {f.of}
+                    </span>
+                  </span>
+                ) : null}
+              </li>
+            ))}
+          </ol>
+        </div>
+        <p className="iei-rk-ends">
+          <span>
+            Widest: {f.widest.name}, <b>{IN.format(f.widest.votes)}</b>
+          </span>
+          <span>
+            Narrowest: {f.narrowest.name}, <b>{IN.format(f.narrowest.votes)}</b>
+          </span>
+        </p>
+        <ul className="iei-rk-key">
+          {f.keys.map((k) => (
+            <li key={k.key}>
+              <PartyChip partyId={k.key} code={k.code} /> <span>{k.n}</span>
+            </li>
+          ))}
+        </ul>
+        <figcaption className="iei-note">{f.caption}</figcaption>
+      </figure>
+      <TableTwin summary={`All ${f.of} margins`}>
+        <Table
+          label={`All ${f.of} margins of ${f.year}`}
+          caption={`The ${f.of} ${f.scope} margins of ${f.year}, widest first, each seat linked.`}
+          captionVisible
+          tight
+          tall
+          head={
+            <>
+              <th scope="col" className="iei-n">
+                Place
+              </th>
+              <th scope="col">Seat</th>
+              <th scope="col">Won by</th>
+              <th scope="col" className="iei-n">
+                Margin, votes
+              </th>
+            </>
+          }
+        >
+          {f.bars.map((b) => (
+            <tr key={b.id} aria-current={b.self ? 'true' : undefined}>
+              <th scope="row" className="iei-n">
+                {b.rank}
+              </th>
+              <td>{b.self ? <b>{b.name}</b> : <Link href={b.href}>{b.name}</Link>}</td>
+              <td>
+                <PartyChip partyId={b.party.key} code={b.party.label} />
+              </td>
+              <td className="iei-n">
+                <MarginFigure votes={b.votes} basis={b.basis} />
+              </td>
+            </tr>
+          ))}
+        </Table>
+      </TableTwin>
     </Panel>
   );
 }

@@ -30,8 +30,8 @@ import type { SeatHistory } from "./seat-history.ts";
 import { readSeatField } from "./seat-field.ts";
 import type { SeatField } from "./seat-field.ts";
 import type { Widest } from "./seat-story.ts";
-import { marginRanks, stateShares } from "./place-baselines.ts";
-import type { MarginRank } from "./place-baselines.ts";
+import { marginFields, rankIn, stateShares, widestRank } from "./place-baselines.ts";
+import type { MarginField, MarginRank } from "./place-baselines.ts";
 import { bodyWord } from "../core/election-kind.ts";
 import { seatLocator } from "./seat-locator.ts";
 import type { SeatLocatorView } from "./seat-locator.ts";
@@ -128,6 +128,8 @@ export type PlaceView =
       widest: Widest | null;
       /** Where the seat's margin stands among its election's, by election id (place-baselines.ts). */
       ranks: ReadonlyMap<string, MarginRank | null>;
+      /** Every margin of each of the seat's elections in its state, in the one rank order, by election id (place-baselines.ts). */
+      margins: ReadonlyMap<string, MarginField>;
       /** The state's share of the votes polled by party, by election id; empty for a Lok Sabha seat (place-baselines.ts). */
       stateShares: ReadonlyMap<string, ReadonlyMap<string, number>>;
       trail: Crumb[];
@@ -255,6 +257,11 @@ export async function placeView(
     const filters = parseFilters(search, { base, years, parties });
     const analysis = getPlaceAnalysis(db, hit.versionId, filters.filters);
     if (analysis === null) return { kind: "not-found" };
+    // The margins of every election the seat stood in, read once: the rank, the sentence's "24th widest" and the figures that draw the list all use it.
+    const margins =
+      brief.place.jurisdictionId === null
+        ? new Map<string, MarginField>()
+        : marginFields(db, brief.place.jurisdictionId, brief.contests.map((c) => c.electionId), brief.place.kind);
     return {
       kind: "ac",
       brief,
@@ -266,11 +273,9 @@ export async function placeView(
       locator: seatLocator(db, hit.versionId),
       history: readSeatHistory(db, hit.versionId),
       field: readSeatField(db, hit.versionId),
-      widest: widestOf(db, brief, hit.versionId),
-      ranks:
-        brief.place.jurisdictionId === null
-          ? new Map()
-          : marginRanks(db, hit.versionId, brief.place.jurisdictionId, brief.contests.map((c) => c.electionId)),
+      widest: widestOf(db, brief, margins, hit.versionId),
+      ranks: new Map([...margins].map(([id, f]) => [id, rankIn(f, hit.versionId)] as const)),
+      margins,
       stateShares: brief.place.kind === "ac" && brief.place.jurisdictionId !== null ? stateShares(db, brief.place.jurisdictionId, "ac") : new Map(),
       trail: trailOf(index, hit, spelled),
     };
@@ -281,18 +286,18 @@ export async function placeView(
 /**
  * Where the margin of a seat with ONE election on record stands among the margins of every seat of that election in its state, widest first.
  * Null for a seat with more elections than one (it has a trend to say instead), or with no margin. The margins ranked are the winners' own, which a
- * source with no counts still declares, so the ranking holds for an election like West Bengal's 2026 and the 2024 Lok Sabha.
+ * source with no counts still declares, so the ranking holds for an election like West Bengal's 2026 and the 2024 Lok Sabha. It is the one margin rank
+ * (place-baselines.ts) counted from the other end, so the sentence and the figure that draws the whole list cannot disagree.
  */
-function widestOf(db: DatabaseSync, brief: PlaceBrief, versionId: number): Widest | null {
+function widestOf(db: DatabaseSync, brief: PlaceBrief, margins: ReadonlyMap<string, MarginField>, versionId: number): Widest | null {
   const only = brief.contests.length === 1 ? brief.contests[0] : undefined;
   const state = brief.place.jurisdictionId;
   if (only === undefined || only.margin === null || state === null) return null;
-  const seats = readSeats(db, { elections: [only.electionId], within: state }).filter((s) => s.margin !== null);
-  const sorted = [...seats].sort((a, b) => Math.abs(b.margin!.votes) - Math.abs(a.margin!.votes) || a.versionId - b.versionId);
-  const at = sorted.findIndex((s) => s.versionId === versionId);
-  if (at < 0) return null;
+  const field = margins.get(only.electionId);
+  const rank = field === undefined ? null : widestRank(field, versionId);
+  if (field === undefined || rank === null) return null;
   const name = get<{ name: string }>(db, "SELECT canonical_name AS name FROM place WHERE id = ?", state)?.name ?? state;
-  return { rank: at + 1, of: sorted.length, scope: `${name} ${bodyWord(brief.place.kind === "pc" ? "lok-sabha" : "assembly")}` };
+  return { rank, of: field.seats.length, scope: `${name} ${bodyWord(brief.place.kind === "pc" ? "lok-sabha" : "assembly")}` };
 }
 
 /** A seat's turnout as a district's table cell: the figure only where it is corroborated, else the words the other pages use. */

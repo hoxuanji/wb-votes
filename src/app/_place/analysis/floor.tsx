@@ -1,9 +1,10 @@
 import { analysisCaveats } from "../../../../packages/mandate/src/repo/place-caveats.ts";
 import { placeStory } from "../../../../packages/mandate/src/repo/place-story.ts";
 import type { PlaceView } from "../../../../packages/mandate/src/repo/place-view.ts";
+import { marginStripOf } from "../../../../packages/mandate/src/repo/seat-proof.ts";
 import { resultRetrieved } from "../../../../packages/mandate/src/repo/seat-story.ts";
 import { Foot, Shell } from "../../../components/iei/Shell.tsx";
-import { AnalysisHead, GapPanels, LeavesOut, MarginHero, Notes, Tables, TurnoutRows, VoteLadder } from "../../../components/iei/Dash.tsx";
+import { AnalysisHead, GapPanels, LeavesOut, MarginHero, MarginStripPanel, Notes, Tables, TurnoutRows, VoteLadder } from "../../../components/iei/Dash.tsx";
 import { Crumbs, Panel, Tabs } from "../../../components/iei/parts.tsx";
 import "../../iei.css";
 
@@ -31,6 +32,8 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
     stateShares: view.stateShares,
     asked: filters.filters.party ?? null,
   });
+  // Where the hero's margin sits among every other seat's of its election, as a dot each (null where the seat is not ranked).
+  const strip = marginStripOf(story, view.margins, brief);
   // What was rejected, and a followed party the window cannot show: both are sentences, neither is silence.
   const asked = filters.filters.party;
   const notes = [
@@ -142,6 +145,7 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
 
       <VoteLadder story={story} followHref={withParty} />
       <MarginHero story={story} retrieved={resultRetrieved(brief)} />
+      {strip === null ? null : <MarginStripPanel s={strip} />}
       <GapPanels story={story} stateName={analysis.place.stateName ?? "the state"} />
       <TurnoutRows story={story} district={analysis.place.districtName} state={analysis.place.stateName} />
       <Notes story={story} />

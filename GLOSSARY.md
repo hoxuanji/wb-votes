@@ -184,6 +184,14 @@ _Avoid_: Knife edge, nail-biter
 Where a seat's margin stands among the margins of the other seats of its election, by votes, closest first, ties by seat number. It is always printed with its denominator, and ranks only the contests that have a declared winner and a margin.
 _Avoid_: Closeness score
 
+**Margin field**:
+Every margin of one election in one state, in the one order of the margin rank: the list a seat's rank is a place in. It has the contests of the election and the seats among them that have a declared winner and a margin, and the difference is said, never drawn as a zero. A figure that draws the whole field (the list of margins on a one-election seat's page, the strip on its Analysis) draws it only as far as it is the whole field.
+_Avoid_: Distribution, league table
+
+**Photo finish**:
+The figure on a seat whose finding is a close call: the two leading totals as bars on one scale from zero, and a ruler that magnifies the stretch they sit in. The ruler is not a bar and does not start at zero, and says so; it is drawn only for a counted election, because a declared margin has no totals to put on it.
+_Avoid_: Showdown
+
 **The run**:
 The elections of one seat laid side by side, with one person marked in each: who held the seat, whether the person won, was counted second or was not the declared winner, and by how much. A year with no candidacy on record is blank, which is not the same as not having stood.
 _Avoid_: Career line, trajectory
