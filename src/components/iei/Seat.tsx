@@ -36,7 +36,7 @@ const vars = (o: Record<string, string | number>): CSSProperties => o as CSSProp
 /* ───────────────────────────── the line ───────────────────────────── */
 
 /** A position in the picture as a percentage of its box: the frame scales with the tile, and a label placed this way keeps its place. */
-const pc = (v: number, of: number): string => `${Math.round((v / of) * 10000) / 100}%`;
+const pcOf = (v: number, of: number): string => `${Math.round((v / of) * 10000) / 100}%`;
 
 /**
  * Where the figure at one end of the line goes: above its dot, or beside it when the line leaves (or arrives at) the dot steeply from above, where a
@@ -100,7 +100,7 @@ function SeatSpark({ spark, label, ink, format }: { spark: Spark; label: string;
               className="iei-seat-sp-val"
               data-at={i === 0 ? 'start' : 'end'}
               data-by={sideOf(spark.dots, i === 0 ? 0 : spark.dots.length - 1)}
-              style={{ left: pc(d.x, spark.width), top: pc(d.y, spark.height) }}
+              style={{ left: pcOf(d.x, spark.width), top: pcOf(d.y, spark.height) }}
             >
               {format(d.value)}
             </span>
@@ -109,14 +109,14 @@ function SeatSpark({ spark, label, ink, format }: { spark: Spark; label: string;
         {spark.ticks
           .filter((t) => t.show)
           .map((t) => (
-            <span key={t.label} className="iei-seat-sp-yr" style={{ left: pc(t.x, spark.width) }}>
+            <span key={t.label} className="iei-seat-sp-yr" style={{ left: pcOf(t.x, spark.width) }}>
               {t.label}
             </span>
           ))}
         {spark.gaps
           .filter((g) => g.word)
           .map((g) => (
-            <span key={`g-${g.label}`} className="iei-seat-sp-yr iei-seat-sp-nf" data-at={edge(g.x)} style={{ left: pc(g.x, spark.width), top: pc(spark.baseline, spark.height) }}>
+            <span key={`g-${g.label}`} className="iei-seat-sp-yr iei-seat-sp-nf" data-at={edge(g.x)} style={{ left: pcOf(g.x, spark.width), top: pcOf(spark.baseline, spark.height) }}>
               no figure
             </span>
           ))}
