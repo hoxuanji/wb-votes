@@ -28,7 +28,9 @@ import {
   readReports, sex, stageLs2024, typeReservation, type Staged, type StagedContest,
 } from "./stage.ts";
 import { validateStaged } from "./validate.ts";
-import { importStaged } from "./import.ts";
+import { readSeats } from "../../../repo/seat-results.ts";
+import { validateElections } from "../../elections/validate.ts";
+import { eciRevisionFor, importStaged, type PriorRow } from "./import.ts";
 
 const NOW = "2026-08-11T00:00:00.000Z";
 const CACHE = ".data/cache/eci";
@@ -684,14 +686,14 @@ test("the registry holds the imported election, with one winner per seat", { ski
 
   // No duplicate winners anywhere on this election, and no duplicate results.
   const dupWinners = db.prepare(
-    `SELECT COUNT(*) AS n FROM (SELECT c.id FROM contest c JOIN result r ON r.contest_id = c.id
-       WHERE c.election_id = 'ls-2024' AND r.is_winner = 1 AND r.revision = 0
+    `SELECT COUNT(*) AS n FROM (SELECT c.id FROM contest c JOIN current_result r ON r.contest_id = c.id
+       WHERE c.election_id = 'ls-2024' AND r.is_winner = 1
        GROUP BY c.id HAVING COUNT(*) > 1)`,
   ).get() as { n: number };
   assert.equal(dupWinners.n, 0);
   const winners = one<{ n: number }>(
-    `SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id
-      WHERE c.election_id='ls-2024' AND r.is_winner=1 AND r.revision=0`,
+    `SELECT COUNT(*) AS n FROM current_result r JOIN contest c ON c.id = r.contest_id
+      WHERE c.election_id='ls-2024' AND r.is_winner=1`,
   );
   assert.equal(winners.n, 542, "542 counted winners plus Surat, which has no result to count");
 
@@ -702,13 +704,116 @@ test("the registry holds the imported election, with one winner per seat", { ski
   );
   assert.equal(ages.n, 8359);
   const cited = one<{ n: number }>(
+    `SELECT COUNT(*) AS n FROM current_result r JOIN contest c ON c.id = r.contest_id
+      WHERE c.election_id='ls-2024' AND r.source_id NOT LIKE 'eci:%'`,
+  );
+  assert.equal(cited.n, 0, "every CURRENT result on this election cites an ECI artefact");
+
+  // The superseded placeholders are in the public ledger, and still in `result` at their revision as the record
+  // of what the seed said: superseded by revision (D30), not deleted. (Written for this registry; the synthetic
+  // registry above runs the same rule without the cache.)
+  const ledger = one<{ n: number }>("SELECT COUNT(*) AS n FROM correction WHERE public_slug LIKE 'eci-ls2024-supersede-%'");
+  assert.equal(ledger.n, 42, "the seed's 42 count-less West Bengal winners were superseded, and recorded");
+  const kept = one<{ n: number }>(
     `SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id
       WHERE c.election_id='ls-2024' AND r.source_id NOT LIKE 'eci:%'`,
   );
-  assert.equal(cited.n, 0, "every result on this election cites an ECI artefact");
+  assert.equal(kept.n, ledger.n, "each superseded row is still in the table, at the revision it was written");
+  db.close();
+});
 
-  // The superseded placeholders are in the public ledger rather than simply gone.
-  const ledger = one<{ n: number }>("SELECT COUNT(*) AS n FROM correction WHERE public_slug LIKE 'eci-ls2024-supersede-%'");
-  assert.equal(ledger.n, 42, "the seed's 42 count-less West Bengal winners were superseded, and recorded");
+/* ───────── a replaced result is a revision, never a DELETE (decision D30, 2026-11-01) ───────── */
+
+const prior = (candidacy: string, revision: number, votes: number | null): PriorRow => ({
+  candidacy_id: candidacy, revision, votes, margin: votes === null ? 100 : 50, source_id: "seed", is_winner: 1,
+});
+
+test("eciRevisionFor: vote-less placeholders are superseded by the next revision, counted rows are a conflict left alone", () => {
+  assert.deepEqual(eciRevisionFor([], null), { revision: 0, supersedes: [] }, "nothing else reported the contest");
+  const seed = [prior("a", 0, null)];
+  assert.deepEqual(eciRevisionFor(seed, null), { revision: 1, supersedes: seed }, "the placeholder stays at 0 and ECI's field is 1");
+  const corrected = [prior("a", 0, null), prior("a", 2, null)];
+  assert.deepEqual(eciRevisionFor(corrected, null), { revision: 3, supersedes: [corrected[1]] }, "after the newest field, whatever its number");
+  const counted = [prior("a", 0, 600)];
+  assert.deepEqual(eciRevisionFor(counted, null), { revision: 0, supersedes: [] }, "two counted sources: neither is picked here");
+  const newestIsPlaceholder = [prior("a", 0, 600), prior("a", 1, null)];
+  assert.equal(eciRevisionFor(newestIsPlaceholder, null).revision, 2, "only the contest's current field decides");
+  assert.deepEqual(eciRevisionFor(seed, 1), { revision: 1, supersedes: [] }, "a second run writes where the first did");
+});
+
+function placeholderRegistry(votes: number | null = null): ReturnType<typeof open> {
+  const db = fixtureRegistry();
+  db.exec(`
+    INSERT INTO contest (id, election_id, place_version_id, lifecycle) VALUES ('ls-2024:ap-pc001','ls-2024',9001,'declared');
+    INSERT INTO person (id, canonical_name, created_at) VALUES ('p-seed','Seed Winner','${NOW}');
+    INSERT INTO candidacy (id, contest_id, person_id, party_version_id, status, party_raw)
+      VALUES ('ls-2024:ap-pc001:seed','ls-2024:ap-pc001','p-seed',1,'elected','YSRCP');
+  `);
+  db.prepare(
+    `INSERT INTO result (contest_id, candidacy_id, revision, votes, "rank", is_winner, margin, source_id, ingested_at)
+     VALUES ('ls-2024:ap-pc001','ls-2024:ap-pc001:seed',0,?,1,1,77,'seed',?)`,
+  ).run(votes, NOW);
+  return db;
+}
+
+const rowsOf = (db: ReturnType<typeof open>, table: "result" | "current_result", contest = "ls-2024:ap-pc001") =>
+  db.prepare(`SELECT candidacy_id AS c, revision AS r, votes AS v, is_winner AS w, source_id AS s FROM ${table} WHERE contest_id = ? ORDER BY revision, "rank"`).all(contest) as
+    { c: string; r: number; v: number | null; w: number; s: string }[];
+
+test("the seed's count-less winner is superseded by ECI's field as revision 1: kept as the record, not current, and in the ledger", () => {
+  const db = placeholderRegistry();
+  const report = importStaged(db, fixtureStaged(), { nowIso: NOW });
+  assert.equal(report.superseded, 1);
+
+  const all = rowsOf(db, "result");
+  assert.deepEqual(all.map((x) => [x.r, x.s === "seed" ? "seed" : "eci", x.v]), [[0, "seed", null], [1, "eci", 200], [1, "eci", 100]],
+    "nothing was deleted: the placeholder is still revision 0, and ECI's two candidates are revision 1");
+
+  const now = rowsOf(db, "current_result");
+  assert.deepEqual(now.map((x) => [x.r, x.v, x.w]), [[1, 200, 1], [1, 100, 0]], "the contest reads ECI's field alone");
+  assert.equal(now.filter((x) => x.w === 1).length, 1, "so there is exactly one declared winner, which was the point of superseding");
+
+  const ledger = db.prepare(`SELECT entity_ref, old_value, new_value, reason FROM correction WHERE public_slug LIKE 'eci-ls2024-supersede-%'`).all() as
+    { entity_ref: string; old_value: string; new_value: string; reason: string }[];
+  assert.equal(ledger.length, 1);
+  assert.equal(ledger[0]?.entity_ref, "result:ls-2024:ap-pc001:ls-2024:ap-pc001:seed");
+  assert.deepEqual(JSON.parse(ledger[0]?.old_value ?? "{}"), { votes: null, margin: 77, isWinner: 1, sourceId: "seed", revision: 0 });
+  assert.equal((JSON.parse(ledger[0]?.new_value ?? "{}") as { revision: number }).revision, 1, "the ledger says which revision replaced it");
+  assert.match(ledger[0]?.reason ?? "", /stays at its revision/);
+  db.close();
+});
+
+test("a second run of the import leaves the superseded record and the ledger as they were", () => {
+  const db = placeholderRegistry();
+  importStaged(db, fixtureStaged(), { nowIso: NOW });
+  const before = JSON.stringify(rowsOf(db, "result"));
+  const second = importStaged(db, fixtureStaged(), { nowIso: NOW });
+  assert.equal(JSON.stringify(rowsOf(db, "result")), before, "ECI's rows are upserted where they were, never beside the placeholder at revision 0");
+  assert.equal(second.superseded, 0, "nothing new is superseded");
+  const n = db.prepare(`SELECT COUNT(*) AS n FROM correction WHERE public_slug LIKE 'eci-ls2024-supersede-%'`).get() as { n: number };
+  assert.equal(n.n, 1);
+  db.close();
+});
+
+test("a prior result that carries votes is a conflict this import does not settle: it refuses to commit and the registry is untouched", () => {
+  const db = placeholderRegistry(555);
+  const before = JSON.stringify(rowsOf(db, "result"));
+  assert.throws(
+    () => importStaged(db, fixtureStaged(), { nowIso: NOW }),
+    /refusing to commit: results written 2, present 3; winners written 1, present 2/,
+    "ECI's field would sit at the same revision as a counted result from another source, and the import's own reconciliation sees rows it did not write",
+  );
+  assert.equal(JSON.stringify(rowsOf(db, "result")), before, "rolled back: no ECI row, no deleted row");
+  db.close();
+});
+
+test("after the supersession the seat reads ECI's winner, and the elections validator finds no duplicate winner", () => {
+  const db = placeholderRegistry();
+  importStaged(db, fixtureStaged(), { nowIso: NOW });
+  const seat = readSeats(db, { elections: ["ls-2024"] }).find((x) => x.contestId === "ls-2024:ap-pc001");
+  assert.equal(seat?.winner?.votes, 200, "the page reads ECI's counted winner, not the seed's count-less one");
+  assert.equal(seat?.margin?.votes, 100, "and a counted margin from the votes");
+  const v = validateElections(db);
+  assert.equal(v.metrics.duplicateWinnerContests, 0, "the placeholder at revision 0 is not a second winner");
   db.close();
 });

@@ -10,7 +10,7 @@
  *   contest       ls-2024:<jurisdiction>-pc<number>
  *   person        found through person_identifier(eci_candidate_id) — see personFor
  *   candidacy     <contest>:<person>
- *   result        (contest, candidacy, revision 0)
+ *   result        (contest, candidacy, revision) — revision 0, or the one after the placeholders it supersedes
  * So a second run UPSERTs the identical values over themselves. There is no "have I run before?" check to
  * get wrong, and a half-finished run is completed rather than duplicated by re-running it.
  *
@@ -61,13 +61,52 @@ export type ImportReport = {
   partiesUnresolved: number;
   symbols: number;
   claims: number;
-  /** Placeholder results from an earlier source, replaced and written to the correction ledger. */
+  /** Placeholder result rows from an earlier source, superseded by this report's revision and written to the correction ledger. */
   superseded: number;
   /** Person pairs sent to the review queue rather than merged. */
   queuedForReview: number;
   unresolvedContests: { seat: string; why: string }[];
   warnings: string[];
 };
+
+/** A result row another source already left in a contest, as the import reads it. */
+export type PriorRow = {
+  candidacy_id: string;
+  revision: number;
+  votes: number | null;
+  margin: number | null;
+  source_id: string;
+  is_winner: number;
+};
+
+/**
+ * Which revision the report's whole field of one contest goes in at, and which earlier rows it supersedes (decision D30,
+ * 2026-11-01: a replaced result is a new revision, never a DELETE; ADR 0001 D4).
+ *
+ * `prior` is every result row the contest holds from a source other than ECI, at every revision. `eciHas` is the revision
+ * an earlier run of this import already wrote, or null.
+ *
+ *  - A second run writes where the first did (`eciHas`), so the import stays idempotent by key.
+ *  - A contest nothing else reported is revision 0.
+ *  - The seed asserted a winner with a margin and NO vote counts. Leaving that beside ECI's counted results at the same
+ *    revision would give the contest two `is_winner` rows, the duplicate-winner defect the election-identity repair spent
+ *    a migration removing. So when the field the contest holds is ALL vote-less, ECI's field is the next revision and the
+ *    placeholders stay at theirs as the record of what was said before. `current_result` then reads ECI.
+ *  - A row that DOES carry votes is a genuine conflict between two sources. This importer does not pick a winner: ECI's
+ *    field is written at the same revision, so both would be current, and the import's own reconciliation (it counts
+ *    what the election holds against what it wrote) refuses to commit and rolls the whole run back.
+ */
+export function eciRevisionFor(
+  prior: readonly PriorRow[],
+  eciHas: number | null,
+): { revision: number; supersedes: PriorRow[] } {
+  if (eciHas !== null) return { revision: eciHas, supersedes: [] };
+  if (prior.length === 0) return { revision: 0, supersedes: [] };
+  const top = Math.max(...prior.map((r) => r.revision));
+  const field = prior.filter((r) => r.revision === top);
+  if (field.every((r) => r.votes === null)) return { revision: top + 1, supersedes: field };
+  return { revision: top, supersedes: [] };
+}
 
 /**
  * Write the staged election.
@@ -256,19 +295,19 @@ export function importStaged(
     const stResult = db.prepare(resultSql);
     const stTurnout = db.prepare(turnoutSql);
     const stSymbol = db.prepare(symbolSql);
-    const stDeleteResult = db.prepare("DELETE FROM result WHERE contest_id = ? AND candidacy_id = ? AND revision = 0");
     const stCorrection = db.prepare(
       `INSERT INTO correction (entity_ref, field, old_value, new_value, reason, source_id, corrected_at, public_slug)
-         VALUES (?, 'result', ?, NULL, ?, ?, ?, ?) ON CONFLICT (public_slug) DO NOTHING`,
+         VALUES (?, 'result', ?, ?, ?, ?, ?, ?) ON CONFLICT (public_slug) DO NOTHING`,
     );
     const stQueue = db.prepare(
       `INSERT INTO person_merge_candidate (person_a_id, person_b_id, score, evidence, blocked_by, state, queued_at)
          VALUES (?, ?, ?, ?, ?, 'pending', ?) ON CONFLICT (person_a_id, person_b_id) DO NOTHING`,
     );
-    const stOldResults = db.prepare(
-      `SELECT candidacy_id, votes, margin, source_id, is_winner FROM result
-        WHERE contest_id = ? AND revision = 0 AND votes IS NULL AND source_id NOT LIKE 'eci:%'`,
+    const stPriorRows = db.prepare(
+      `SELECT candidacy_id, revision, votes, margin, source_id, is_winner FROM result
+        WHERE contest_id = ? AND source_id NOT LIKE 'eci:%'`,
     );
+    const stEciRevision = db.prepare(`SELECT MAX(revision) AS r FROM result WHERE contest_id = ? AND source_id LIKE 'eci:%'`);
     const stPriorNames = db.prepare(
       `SELECT ca.id, ca.person_id, p.canonical_name FROM candidacy ca JOIN person p ON p.id = ca.person_id
         WHERE ca.contest_id = ?`,
@@ -293,25 +332,23 @@ export function importStaged(
       contests += 1;
 
       /**
-       * Supersede a placeholder result from an earlier source.
+       * Supersede a placeholder result from an earlier source, by revision (eciRevisionFor holds the rule).
        *
-       * The seed already asserted 42 West Bengal winners for this election with a margin and NO vote
-       * counts. Leaving them beside ECI's counted results would give those contests two `is_winner` rows —
-       * the duplicate-winner defect the election-identity repair spent a migration removing. So a prior
-       * result with no vote count, from a non-ECI source, for a contest ECI now reports in full, is
-       * superseded: deleted, and written to the public correction ledger with what it said and why it went.
-       *
-       * A prior result that DOES carry votes is left alone. Two sources reporting different counts for one
-       * seat is a genuine conflict, and validation check 5 will fail on it rather than have this importer
-       * pick a winner.
+       * The seed already asserted 42 West Bengal winners for this election with a margin and NO vote counts. They stay
+       * in `result` at revision 0 as the record, ECI's counted field is revision 1, `current_result` reads ECI, and
+       * each superseded row is written to the public correction ledger with what it said, why it is no longer
+       * current, and the revision that replaced it.
        */
-      for (const old of stOldResults.all(cid) as unknown as { candidacy_id: string; votes: number | null; margin: number | null; source_id: string; is_winner: number }[]) {
-        stDeleteResult.run(cid, old.candidacy_id);
+      const priorRows = stPriorRows.all(cid) as unknown as PriorRow[];
+      const eciHas = (stEciRevision.get(cid) as { r: number | null } | undefined)?.r ?? null;
+      const { revision: eciRevision, supersedes } = eciRevisionFor(priorRows, eciHas);
+      for (const old of supersedes) {
         stCorrection.run(
           `result:${cid}:${old.candidacy_id}`,
-          JSON.stringify({ votes: old.votes, margin: old.margin, isWinner: old.is_winner, sourceId: old.source_id }),
+          JSON.stringify({ votes: old.votes, margin: old.margin, isWinner: old.is_winner, sourceId: old.source_id, revision: old.revision }),
+          JSON.stringify({ revision: eciRevision, sourceId: primary }),
           "superseded by the ECI statistical report for the 2024 Lok Sabha, which reports the vote counts " +
-            "this row asserted a winner without",
+            "this row asserted a winner without; the row stays at its revision as the record of what was said",
           primary,
           now,
           `eci-ls2024-supersede-${slug(cid)}-${slug(old.candidacy_id)}`,
@@ -383,7 +420,7 @@ export function importStaged(
           continue;
         }
         stResult.run(
-          cid, caId, 0, x.totalVotes, x.postalVotes, x.evmVotes, x.shareOfValid, x.rank,
+          cid, caId, eciRevision, x.totalVotes, x.postalVotes, x.evmVotes, x.shareOfValid, x.rank,
           x.isWinner ? 1 : 0, x.margin, x.totalVotes === null ? suratSource : primary, now,
         );
         results += 1;
@@ -425,8 +462,8 @@ export function importStaged(
       Number((db.prepare(sql).get(s.electionId) as { n: number } | undefined)?.n ?? 0);
     const actual = {
       contests: inDb("SELECT COUNT(*) AS n FROM contest WHERE election_id = ?"),
-      results: inDb("SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = ? AND r.revision = 0"),
-      winners: inDb("SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = ? AND r.is_winner = 1 AND r.revision = 0"),
+      results: inDb("SELECT COUNT(*) AS n FROM current_result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = ?"),
+      winners: inDb("SELECT COUNT(*) AS n FROM current_result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = ? AND r.is_winner = 1"),
     };
     const expected = { contests, results, winners };
     const drift = Object.entries(expected).filter(([k, v]) => actual[k as keyof typeof actual] !== v);

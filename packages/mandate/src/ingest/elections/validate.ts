@@ -158,7 +158,7 @@ export function validateElections(db: DatabaseSync, opts?: { manifestPath?: stri
     withoutYear: num("SELECT COUNT(*) FROM election WHERE year IS NULL"),
     withoutSource: num("SELECT COUNT(*) FROM election WHERE source_id IS NULL"),
     contests: num("SELECT COUNT(*) FROM contest"),
-    results: num("SELECT COUNT(*) FROM result"),
+    results: num("SELECT COUNT(*) FROM current_result"),
     missingFromRegistry,
     notInSource,
     duplicateWinnerContests: num(
@@ -178,7 +178,7 @@ export function perEvent(db: DatabaseSync, limit = 15): { id: string; contests: 
     db,
     `SELECT e.id,
             (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS contests,
-            (SELECT COUNT(*) FROM result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = e.id) AS results
+            (SELECT COUNT(*) FROM current_result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = e.id) AS results
        FROM election e
       ORDER BY e.year DESC, e.polling_month DESC, e.occurrence
       LIMIT ?`,

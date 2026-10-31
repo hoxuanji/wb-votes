@@ -198,31 +198,75 @@ test("getPersonBrief: a candidate the correction left out has no result on their
   }
 });
 
+/* ───────────────────────────────── the guards ───────────────────────────────── */
+
+const SRC = new URL("../../../../", import.meta.url); // the repository root
+
+/** Every non-test .ts/.tsx source under the given directories of the repository, as [path from the root, lines]. */
+function sources(dirs: readonly string[]): [string, string[]][] {
+  const out: [string, string[]][] = [];
+  const walk = (rel: string): void => {
+    for (const e of readdirSync(new URL(rel, SRC), { withFileTypes: true })) {
+      const path = `${rel}${e.name}`;
+      if (e.isDirectory()) walk(`${path}/`);
+      else if (/\.tsx?$/.test(e.name) && !e.name.endsWith(".test.ts")) out.push([path, readFileSync(new URL(path, SRC), "utf8").split("\n")]);
+    }
+  };
+  for (const d of dirs) walk(d);
+  return out;
+}
+const isComment = (line: string): boolean => /^\s*(\/\/|\*|\/\*)/.test(line);
+
 /**
- * THE GUARD. Which revision is current is said once, in the view. A reader that spells `revision = 0` or takes its own
+ * Which revision is current is said once, in the view. A reader that spells `revision = 0` or takes its own
  * MAX(revision) is the same bug as the twenty-odd that did, and it agrees with the others only until the first
  * correction is ingested. Writers (ingest/sources) name revisions because they allocate them; a reader never does.
  * The allow-list is empty and must stay empty.
  */
-test("no reader spells a revision: the repo layer and the validators read current_result", () => {
-  const roots = [
-    new URL("./", import.meta.url),
-    new URL("../ingest/elections/", import.meta.url),
-    new URL("../ingest/geography/", import.meta.url),
-  ];
+test("no reader spells a revision: the repo layer, the validators, the report, the export and the coverage probes read current_result", () => {
   const spelled = /\.?\brevision\s*=\s*\d|MAX\(\s*\w*\.?revision\s*\)|CURRENT_REVISION/;
-  const allowed = new Set<string>([]);
   const found: string[] = [];
-  for (const root of roots) {
-    for (const name of readdirSync(root)) {
-      if (!name.endsWith(".ts") || name.endsWith(".test.ts")) continue;
-      readFileSync(new URL(name, root), "utf8")
-        .split("\n")
-        .forEach((line, i) => {
-          if (line.trimStart().startsWith("//") || line.trimStart().startsWith("*")) return;
-          if (spelled.test(line) && !allowed.has(`${name}:${i + 1}`)) found.push(`${name}:${i + 1}  ${line.trim().slice(0, 100)}`);
-        });
-    }
+  for (const [path, lines] of sources([
+    "packages/mandate/src/repo/",
+    "packages/mandate/src/ingest/elections/",
+    "packages/mandate/src/ingest/geography/",
+    "packages/mandate/src/ingest/release/",
+    "src/",
+  ])) {
+    lines.forEach((line, i) => {
+      if (!isComment(line) && spelled.test(line)) found.push(`${path}:${i + 1}  ${line.trim().slice(0, 100)}`);
+    });
+  }
+  for (const file of ["export.ts", "field-coverage.ts"]) {
+    const path = `packages/mandate/src/ingest/${file}`;
+    readFileSync(new URL(path, SRC), "utf8").split("\n").forEach((line, i) => {
+      if (!isComment(line) && spelled.test(line)) found.push(`${path}:${i + 1}  ${line.trim().slice(0, 100)}`);
+    });
   }
   assert.deepEqual(found, []);
+});
+
+/**
+ * THE DIRECT READERS OF `result`. A superseded row stays in the table (D4, D30), so a query over `result` sees the
+ * placeholder and the correction beside each other, counts both winners, and shows a dropped candidate a result. Code
+ * that wants THE results joins `current_result`; this lists, with the reason, the only files that read the table
+ * itself, because they mean every row that was ever written. A new file on this list is a decision, made here.
+ */
+test("the only code that reads `result` itself is on the list, and each says why every row is meant", () => {
+  const allowed: Record<string, string> = {
+    "packages/mandate/bin/mandate.ts": "stats: how many rows the table holds",
+    "packages/mandate/src/ingest/elections/identity.ts": "the repair tool moves and deletes every row of an election it splits",
+    "packages/mandate/src/ingest/geography/validate.ts": "every row cites a source, superseded or not",
+    "packages/mandate/src/ingest/release/report.ts": "rows in the table and rows that cite a source, superseded or not",
+    "packages/mandate/src/ingest/resolve/index.ts": "invariants hold per revision: each revision is internally consistent, not only the current one",
+    "packages/mandate/src/ingest/sources/eci/import.ts": "reads what other sources left, at every revision, to choose its own",
+    "packages/mandate/src/ingest/sources/lokdhaba.ts": "a contest another source reported at any revision is not this import's to restate",
+    "packages/mandate/src/ingest/sources/wb-static.ts": "allocates revisions, so reads all of them; checks every row's source",
+  };
+  const reads = /\b(?:FROM|JOIN)\s+result\b/i;
+  const found = new Set<string>();
+  for (const [path, lines] of sources(["packages/mandate/src/", "packages/mandate/bin/", "src/"])) {
+    if (lines.some((l) => !isComment(l) && reads.test(l))) found.add(path);
+  }
+  assert.deepEqual([...found].sort(), Object.keys(allowed).sort());
 });

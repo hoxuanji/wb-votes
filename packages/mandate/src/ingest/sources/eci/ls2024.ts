@@ -133,8 +133,8 @@ export function formatReport(r: PipelineResult, db: DatabaseSync): string {
     lines.push("");
     lines.push("  In the registry now");
     put("  contests on this election", rows("SELECT COUNT(*) AS n FROM contest WHERE election_id = ?", s.electionId));
-    put("  results", rows("SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = ?", s.electionId));
-    put("  declared winners", rows("SELECT COUNT(*) AS n FROM result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = ? AND r.is_winner = 1", s.electionId));
+    put("  results", rows("SELECT COUNT(*) AS n FROM current_result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = ?", s.electionId));
+    put("  declared winners", rows("SELECT COUNT(*) AS n FROM current_result r JOIN contest c ON c.id = r.contest_id WHERE c.election_id = ? AND r.is_winner = 1", s.electionId));
     put("  candidacies with a declared age", rows("SELECT COUNT(*) AS n FROM candidacy ca JOIN contest c ON c.id = ca.contest_id WHERE c.election_id = ? AND ca.age_declared IS NOT NULL", s.electionId));
     put("  turnout rows", rows("SELECT COUNT(*) AS n FROM turnout t JOIN contest c ON c.id = t.contest_id WHERE c.election_id = ?", s.electionId));
     put("  sources carrying ECI's caveat", rows("SELECT COUNT(*) AS n FROM source WHERE publisher_note IS NOT NULL AND id LIKE 'eci:%'"));
