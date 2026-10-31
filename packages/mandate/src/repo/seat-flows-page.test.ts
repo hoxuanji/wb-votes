@@ -18,6 +18,9 @@ import type { DatabaseSync } from "node:sqlite";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { fillFor } from "../viz/party-ink.ts";
+import { contrastOf } from "../viz/colour.ts";
+import { SURFACE } from "../viz/palette.ts";
+import { NEUTRAL_RIBBON_INK, ribbonInk } from "../viz/ribbon-ink.ts";
 import { seatFlows } from "./seat-flows.ts";
 
 const ROOT = new URL("../../../../", import.meta.url).pathname;
@@ -147,9 +150,23 @@ test("a ribbon is inked by the party that won the seats, and brighter where the 
   const moved = rs.find((r) => r.title.startsWith("BBB → TMC"));
   assert.ok(moved !== undefined, "no ribbon from BBB to TMC");
   assert.equal(moved.cls, "iei-flow-moved");
-  assert.equal(moved.fill, fillFor("AITC"));
+  // CHANGED 2026-10-31, on purpose: a ribbon's fill was the winner's ink with the opacity in CSS; it is now an opaque tint of that ink at a stated
+  // contrast against the card (viz/ribbon-ink.ts), because translucent ink over a card goes grey-brown. What is still held: the ribbon is the
+  // winner's hue, and a ribbon that changed hands is brighter than the party's held ribbon.
+  assert.equal(moved.fill, ribbonInk(fillFor("AITC"), "bright"));
+  const held = rs.find((r) => r.title.startsWith("TMC → TMC"));
+  assert.equal(held?.fill, ribbonInk(fillFor("AITC"), "faint"));
+  assert.ok(contrastOf(moved.fill, SURFACE) > contrastOf(held?.fill ?? "#000000", SURFACE) + 1, "changed hands is not brighter than held");
+  assert.doesNotMatch(moved.fill, /rgba|opacity/, "a ribbon's fill is opaque");
   assert.match(moved.title, /BBB → TMC · 2 seats, changed hands/);
-  assert.match(rs.find((r) => r.title.startsWith("TMC → TMC"))?.title ?? "", /TMC → TMC · 2 seats, held/);
+  assert.match(held?.title ?? "", /TMC → TMC · 2 seats, held/);
+});
+
+test("where two ribbons cross the brighter one is painted over the fainter, so a crossing is one party's colour and not a blend", () => {
+  const order = ribbons(flow(render("/election", "", ELECTION))).map((r) => r.cls);
+  const lastHeld = order.lastIndexOf("iei-flow-held");
+  const firstMoved = order.indexOf("iei-flow-moved");
+  assert.ok(lastHeld < firstMoved, `a held ribbon is painted after a moved one: ${order.join(" ")}`);
 });
 
 test("the sentence says how many seats are in the picture and how many were left out and why, and never says all", () => {
@@ -253,9 +270,11 @@ test("ribbons into the smaller-parties box are grey, not a party's ink, and the 
   const ribbons = [...html.matchAll(/<path class="([^"]*)" style="fill:([^"]*)"[^>]*><title>([^<]*)</g)].map((m) => ({ cls: m[1], fill: m[2], title: m[3] as string }));
   const intoFold = ribbons.filter((r) => r.title.includes("→ Others"));
   assert.ok(intoFold.length > 0, "no ribbon goes into the fold");
-  for (const r of intoFold) assert.equal(r.fill, "var(--iei-ink-3)", r.title);
-  assert.notEqual(fillFor(""), "var(--iei-ink-3)", "the empty key is the unattached ink, which is what the fold used to be painted in");
-  assert.equal(ribbons.find((r) => r.title.startsWith("P1 → P2"))?.fill, fillFor("P2"), "a named party keeps its own ink");
+  // CHANGED 2026-10-31, on purpose: the grey is the neutral ink's opaque tint now (viz/ribbon-ink.ts), not `var(--iei-ink-3)` under an opacity. It is
+  // still no party's: it is neither the unattached ink nor a tint of a named party's.
+  for (const r of intoFold) assert.ok([ribbonInk(NEUTRAL_RIBBON_INK, "bright"), ribbonInk(NEUTRAL_RIBBON_INK, "mid"), ribbonInk(NEUTRAL_RIBBON_INK, "faint")].includes(r.fill as string), `${r.title}: ${r.fill}`);
+  assert.notEqual(fillFor(""), NEUTRAL_RIBBON_INK, "the empty key is the unattached ink, which is what the fold used to be painted in");
+  assert.equal(ribbons.find((r) => r.title.startsWith("P1 → P2"))?.fill, ribbonInk(fillFor("P2"), "bright"), "a named party keeps its own hue");
   assert.match(text(html), /Grey ribbons go to the smaller parties together/);
 });
 

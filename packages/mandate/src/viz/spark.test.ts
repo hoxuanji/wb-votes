@@ -1,8 +1,9 @@
 // The small trend line and the bar against a threshold, on literal numbers.
 
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
-import { MIN_POINTS, sparkline } from "./spark.ts";
+import { AIR_PX, MIN_POINTS, NARROWEST_PX, WORD_PX, YEAR_PX, sparkline } from "./spark.ts";
 import type { SparkPoint } from "./spark.ts";
 import { bullet, shareText } from "./bullet.ts";
 
@@ -76,4 +77,39 @@ test("a share one decimal would round onto the line keeps the decimals that tell
   assert.equal(shareText(49.999), "49.999");
   assert.equal(shareText(41.349), "41.3");
   assert.equal(shareText(50), "50.0");
+});
+
+// THE LABELS ARE HTML OVER THE PICTURE (2026-10-31). Type inside the scaled frame rendered at 7.5px to 11.5px, so the component lays labels in HTML
+// at the percentages this geometry gives and spark.ts decides which fit.
+
+test("every year is labelled while the labels fit, and when they do not the newest is kept and the rest thinned evenly", () => {
+  const four = make([pt("2011", 10), pt("2016", 20), pt("2021", 15), pt("2026", 30)]);
+  assert.ok(four.ticks.every((t) => t.show), "a line of four elections drops a year");
+
+  const many = make(Array.from({ length: 18 }, (_, i) => pt(String(1951 + i * 4), i + 1)));
+  const shown = many.ticks.filter((t) => t.show);
+  assert.ok(shown.length < many.ticks.length && shown.length >= 3, `${shown.length} of ${many.ticks.length} labelled`);
+  assert.equal(many.ticks.at(-1)?.show, true, "the newest election is not labelled");
+  for (let i = 1; i < shown.length; i += 1) {
+    const px = ((shown[i]!.x - shown[i - 1]!.x) * NARROWEST_PX) / many.width;
+    assert.ok(px >= YEAR_PX + AIR_PX - 0.01, `two labels ${px.toFixed(1)}px apart at the narrowest the line is drawn`);
+  }
+});
+
+test("a gap says 'no figure' only where the word clears its neighbours at the narrowest the line is drawn", () => {
+  const four = make([pt("2011", 10), pt("2016", 20), pt("2021", 15), pt("2026", null)]);
+  assert.equal(four.gaps[0]?.word, true);
+  const eight = make(Array.from({ length: 8 }, (_, i) => pt(String(2000 + i), i === 7 ? null : i + 1)));
+  assert.equal(eight.gaps[0]?.word, false, "the word runs over the dots beside it");
+  assert.equal(eight.gaps.length, 1, "the gap itself is still drawn, with its year");
+  assert.equal(eight.dots.length, 7);
+  assert.ok(WORD_PX > YEAR_PX, "the word is shorter than a year");
+});
+
+test("the stylesheet sets a sparkline's labels in the mark token, in HTML over the picture, and the mark token is 11px or more", () => {
+  const css = readFileSync(new URL("../../../../src/app/iei.css", import.meta.url), "utf8");
+  assert.match(css, /--iei-f-mark:\s*(1[1-9]|[2-9]\d)px/, "the smallest type token is under 11px");
+  assert.match(/\.iei-seat-sp-yr,\s*\.iei-seat-sp-val\s*\{[^}]*\}/.exec(css)?.[0] ?? "", /font-size:\s*var\(--iei-f-mark\)/, "the labels are not set in the mark token");
+  assert.match(/\.iei-seat-spl\s*\{[^}]*\}/.exec(css)?.[0] ?? "", /position:\s*absolute/, "the labels are not laid over the picture");
+  assert.match(/\.iei-seat-spl\s*\{[^}]*\}/.exec(css)?.[0] ?? "", /pointer-events:\s*none/, "the labels take the pointer from the dots' titles");
 });
