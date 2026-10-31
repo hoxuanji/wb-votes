@@ -1,6 +1,7 @@
 import { analysisCaveats } from "../../../../packages/mandate/src/repo/place-caveats.ts";
 import { placeStory } from "../../../../packages/mandate/src/repo/place-story.ts";
 import type { PlaceView } from "../../../../packages/mandate/src/repo/place-view.ts";
+import { seatGlow } from "../../../../packages/mandate/src/repo/seat-glow.ts";
 import { resultRetrieved } from "../../../../packages/mandate/src/repo/seat-story.ts";
 import { Foot, Shell } from "../../../components/iei/Shell.tsx";
 import { AnalysisHead, GapPanels, LeavesOut, MarginHero, Notes, Tables, TurnoutRows, VoteLadder } from "../../../components/iei/Dash.tsx";
@@ -54,7 +55,8 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
   };
 
   return (
-    <Shell here="place">
+    // The same light as the Brief's, from the seat's whole history: a window narrows the pictures and never changes who holds the seat.
+    <Shell here="place" glow={seatGlow(history)?.colour ?? null}>
       <Crumbs trail={trail} />
       <AnalysisHead name={name} story={story} />
 

@@ -6654,3 +6654,271 @@ ul.iei-tiles b {
     font-size: var(--iei-f-lead);
   }
 }
+
+/* glow and the coverage ledger */
+
+/* THE LIGHT ALONG THE TOP OF THE PAGE is a custom property with the skin's own colour as its default. `Shell` sets `--iei-glow` on the page wrapper
+   for a seat's page and its Analysis, in the ink of the party that holds the seat (repo/seat-glow.ts); every other page, and a seat with no holder on
+   record or a holder with no recorded colour, never sets it and paints exactly what the skin paints. It is decoration: nothing is said by it that the
+   page does not say in words, and its alpha is chosen so that the dimmest ink a label may use stays above 4.6:1 under it. */
+.iei {
+  background:
+    radial-gradient(80% 32% at 50% 0, var(--iei-glow, rgba(132, 132, 255, 0.13)), transparent 72%) no-repeat,
+    radial-gradient(40% 20% at 12% 4%, rgba(255, 255, 255, 0.04), transparent 70%) no-repeat,
+    var(--iei-bg);
+}
+
+/* THE COVERAGE LEDGER (/coverage, "The eighteen subject areas") is three groups by status, not eighteen rows in the spec's order. Eleven of the
+   eighteen said "Not modelled", "none" and "no <x> model exists yet" in turn, three more said "Table, no rows" and "none", and the four with data were
+   scattered among them; at 390px three of the table's five columns were behind a sideways scroll. A group says once what every row of it lacks
+   (repo/coverage-ledger.ts), a subject with data or a table keeps its row, and a subject with no model is a name, with its caveat only where it has
+   one. The exact table of all eighteen rows is a disclosure under the groups (`.iei-twin`), so nothing the groups leave out is left out of the page. */
+.iei-led {
+  display: grid;
+  gap: var(--iei-6);
+  margin-bottom: var(--iei-4);
+}
+
+.iei-led-group {
+  min-width: 0;
+}
+
+.iei-caveat + .iei-led {
+  margin-top: var(--iei-6);
+}
+
+.iei-led-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--iei-1) var(--iei-4);
+  margin-bottom: var(--iei-3);
+  padding-bottom: var(--iei-2);
+  border-bottom: 1px solid var(--iei-line);
+}
+
+.iei-led-head h3 {
+  display: inline-flex;
+  align-items: baseline;
+  gap: var(--iei-3);
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.iei-led-n {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-led-meaning {
+  margin: 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+/* A subject with data or a table: its name and question, then what it holds, how far that reaches, and the source it still needs. */
+.iei-led-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.iei-led-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 2fr) minmax(0, 1fr);
+  gap: var(--iei-2) var(--iei-6);
+  padding: var(--iei-3) 0;
+}
+
+.iei-led-row + .iei-led-row {
+  border-top: 1px solid var(--iei-line);
+}
+
+.iei-led-row.iei-led-has {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0.8fr) minmax(0, 2fr) minmax(0, 1fr);
+}
+
+.iei-led-who b {
+  display: block;
+  font-size: var(--iei-f-body);
+  font-weight: 600;
+}
+
+.iei-led-who span {
+  display: block;
+  margin-top: var(--iei-1);
+  font-size: var(--iei-f-data);
+  line-height: 1.5;
+  color: var(--iei-ink-3);
+}
+
+/* The column names, once per group (`.iei-led-cols`, hidden from a screen reader because each cell carries its own name as `.iei-led-k`). */
+.iei-led-cols {
+  padding-top: 0;
+  padding-bottom: var(--iei-1);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-led-k {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.iei-led-rows {
+  margin: 0;
+}
+
+.iei-led-rows b {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-lead);
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The measured reach is a phrase, not a mark: it wraps (`.iei-chip` is nowrap, for a party's code). */
+.iei-led-reach .iei-chip {
+  display: block;
+  white-space: normal;
+  font-size: var(--iei-f-data);
+  line-height: 1.5;
+}
+
+.iei-led-reach .iei-rule {
+  margin-top: var(--iei-1);
+  font-family: var(--iei-sans);
+  font-size: var(--iei-f-data);
+  line-height: 1.55;
+  color: var(--iei-ink-2);
+}
+
+.iei-led-src {
+  margin: 0;
+  font-size: var(--iei-f-data);
+  line-height: 1.5;
+}
+
+/* A subject with no model is a name. */
+.iei-led-names {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-2);
+}
+
+.iei-led-names li {
+  padding: var(--iei-1) var(--iei-3);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  background: rgba(255, 255, 255, 0.03);
+  font-size: var(--iei-f-data);
+}
+
+.iei-led-wait {
+  margin: var(--iei-3) 0 0;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+}
+
+.iei-led-more {
+  list-style: none;
+  margin: var(--iei-3) 0 0;
+  padding: 0;
+  display: grid;
+  gap: var(--iei-3) var(--iei-6);
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.iei-led-more li {
+  min-width: 0;
+  padding-left: var(--iei-3);
+  border-left: 2px solid var(--iei-line-2);
+  font-size: var(--iei-f-data);
+  line-height: 1.55;
+  color: var(--iei-ink-2);
+}
+
+.iei-led-more b {
+  font-weight: 600;
+  color: var(--iei-ink);
+}
+
+.iei-led + .iei-twin {
+  margin-top: var(--iei-4);
+}
+
+/* On a phone a row is a stack, so the column names are not columns: each cell names itself in sight, the header row goes, and a subject's row count
+   sits beside its name (a number and its unit are two short lines) instead of under it. */
+@media (max-width: 900px) {
+  .iei-led-row,
+  .iei-led-row.iei-led-has {
+    grid-template-columns: minmax(0, 1fr);
+    gap: var(--iei-2);
+  }
+
+  .iei-led-row.iei-led-has {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+
+  .iei-led-has .iei-led-reach,
+  .iei-led-has .iei-led-src {
+    grid-column: 1 / -1;
+  }
+
+  .iei-led-has .iei-led-rows {
+    grid-column: 2;
+    grid-row: 1;
+    text-align: right;
+  }
+
+  .iei-led-has .iei-led-rows .iei-of {
+    display: block;
+  }
+
+  .iei-led-cols {
+    display: none;
+  }
+
+  /* The source is one short line, and its name runs in with it. The reach needs no name in sight: a bold phrase and the caveat under it, below a
+     subject's own name, read as what they are, and the name is still there for a screen reader. */
+  .iei-led-src .iei-led-k {
+    position: static;
+    width: auto;
+    height: auto;
+    overflow: visible;
+    clip-path: none;
+    display: inline;
+    margin: 0 var(--iei-2) 0 0;
+    font-family: var(--iei-mono);
+    font-size: var(--iei-f-mark);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--iei-ink-3);
+  }
+
+  .iei-led-rows b {
+    font-size: var(--iei-f-title);
+  }
+
+  .iei-led-names {
+    gap: var(--iei-1) var(--iei-2);
+  }
+
+  .iei-led-names li {
+    padding: var(--iei-1) var(--iei-2);
+  }
+}

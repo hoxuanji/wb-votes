@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { inr, marginText } from "../../../packages/mandate/src/repo/brief.ts";
 import { readOrder } from "../../../packages/mandate/src/repo/place-filters.ts";
+import { seatGlow } from "../../../packages/mandate/src/repo/seat-glow.ts";
 import { resultRetrieved, seatFinding, seatFlags, seatLimits, seatNumbers } from "../../../packages/mandate/src/repo/seat-story.ts";
 import { turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import type { Tile } from "../../../packages/mandate/src/repo/brief.ts";
@@ -245,7 +246,8 @@ export async function PlaceSurface({
   const retrieved = resultRetrieved(brief);
 
   return (
-    <Shell here="place">
+    // The light along the top is the colour of the party that holds the seat, where the record names one (repo/seat-glow.ts).
+    <Shell here="place" glow={seatGlow(history)?.colour ?? null}>
       <Crumbs trail={view.trail} />
       {/* BESIDE THE HEADER where there is room, below it where there is not, and not there at all where the seat has no
           outline to draw: the header is then the markup it always was, with no frame in its place. */}

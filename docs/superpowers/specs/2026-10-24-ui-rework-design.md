@@ -276,3 +276,45 @@ says what every row of a list lacks once, above it, and a gap only some rows hav
 
 **Not done.** The Sankey ribbons (muddy at low opacity), the 8px labels inside the seat page's small sparklines (a viewBox scaled down), a per-page glow
 in the colour of the leading party, the coverage page's long ledger, and any check in Safari or Firefox. Hover and click were exercised on the home map only.
+
+## Glow and the coverage ledger (2026-10-31)
+
+Two items the look pass left over. **The glow** (repo/seat-glow.ts): the lit edge along the top of the page is tinted with the ink of the party that holds the
+seat, on the seat page and its Analysis and on no other page (the front page stays neutral, as the owner asked on 2026-10-29). `Shell` takes a `glow` colour
+and sets `--iei-glow` on the page wrapper; the stylesheet's block "glow and the coverage ledger" paints `.iei` with that property, defaulting to the skin's
+own colour. The colour is the party's ink (`party-ink`) at the strongest alpha, up to the neutral glow's 0.13, at which `--iei-ink-3` still measures 4.6:1
+over the brightest the page can get under it (glow over the top-left highlight over the canvas): a pale yellow gets a weaker glow than a saturated saffron.
+Three defaults were taken. The party is the declared winner of the seat's newest election, and **a newest election with no declared winner is neutral**: read
+as "the latest election that has a declared winner", Falta, whose page says in words that 2026 has no declared winner, would be lit in 2021's green. A winner
+declared with nothing counted is a winner (335 of 336 current seats have exactly that as their newest result, so waiting for counts would light none). And
+**an independent, a candidacy with no party, and a party whose colour is derived from a hash of its id are neutral**: the ink gives them a grey or "this
+party's own colour is not recorded here", and a page-wide light in an invented hue would say more than the record does. 314 of the 336 seats are lit (204
+BJP, 106 AITC, 3 INC, 1 CPI(M)); 22 keep the neutral light: Falta, the 18 held by independents, 2 held by Aam Janata Unnayan Party and 1 by the All India
+Secular Front.
+
+**The ledger** (repo/coverage-ledger.ts): "The eighteen subject areas" was eighteen rows in the spec's order, eleven of which said "Not modelled", "none" and
+"no <x> model exists yet" in turn, three "Table, no rows" and "none", with the four that hold data scattered among them (rows 1 to 3 and 5); at 390px three of
+its five columns were behind a sideways scroll. It is now three groups by status (data, a table with nothing in it, no model), each headed once with its
+count of eighteen and what every subject in it lacks said once in the head (the pattern of `sharedGaps`: "On every subject in this group: no rows · no reach
+measured."). A subject with data or a table keeps its row (question, rows, measured reach, caveat, source); a subject with no model is a name, with its
+caveat only where the caveat says more than the missing model, and the three that wait on one fiscal model are named together once. The exact table of all
+eighteen rows and five columns is under the groups as an `iei-twin` disclosure, so every question and source the groups do not print is still on the page.
+The builder is pure and tested against the verticals word for word (coverage-ledger.test.ts) and the rendered page against the fixture registry
+(coverage-page.test.ts).
+
+**What was measured**, in a real browser (Chromium over a pipe, each route rendered by the app's own renderer): the glow, on Mekliganj and its Analysis (BJP),
+Baharampur (AITC), Domkal (CPI(M)), Farakka (INC), Falta (no declared winner), Naoda (a party with no recorded colour) and Sitalkuchi (an independent), at 1440
+and 390. Contrast of every visible text box against the pixel actually behind it (text made transparent, the page screenshotted): text on the page itself
+5.15 to 5.46 under a glow against 5.20 to 5.45 under the neutral one, text on a card 4.96 to 5.29 and identical with and without the glow (cards are opaque); the
+translucent top bar is the only surface that shows the glow through. The pages that must not change (a seat with no lit colour, the Analysis of one, the front
+page, a person, a state, an election, `/candidates`) are pixel-identical at 1440 and 390 under the committed stylesheet and the new one. The ledger:
+the section is 1,849px at 1440 and 2,841px at 390 before, 1,373px and 2,627px after, and the page 4,042px to 3,566px and 6,563px to 6,348px; the page does not
+scroll sideways at 390 with the exact table closed or open (the table scrolls in its own region when opened: 980px in 332px); every text size in the ledger is
+on the scale, and the lowest contrast in it is 5.82:1. Its length at a phone's width fell by 8%, far less than at a desktop's (26%), because at 390px the old
+table showed two of its five columns.
+
+**Not tested:** Safari and Firefox (the glow is a `var()` in a gradient and the ledger a grid, nothing newer); the glow with forced colours or a printer; a
+second state (only West Bengal is loaded, so no seat has a different party in a different state); keyboard order and a screen reader through the ledger (each
+cell names itself in a visually hidden label; no assistive technology was run); a real click on the exact table's summary (the `open` property was set);
+and 320px. The ledger's `LACKS` pattern reads the missing model from the first clause of a caveat and keeps the whole caveat when it does not match; a test
+holds that all eleven do today.
