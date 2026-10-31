@@ -3,6 +3,8 @@ import type { FlowNode } from '../../../packages/mandate/src/viz/flow-layout.ts'
 import { leftOut } from '../../../packages/mandate/src/repo/seat-flows.ts';
 import type { SeatFlows } from '../../../packages/mandate/src/repo/seat-flows.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
+import { NEUTRAL_RIBBON_INK, ribbonInk } from '../../../packages/mandate/src/viz/ribbon-ink.ts';
+import type { RibbonTier } from '../../../packages/mandate/src/viz/ribbon-ink.ts';
 import { Table } from './parts.tsx';
 
 /**
@@ -21,6 +23,12 @@ import { Table } from './parts.tsx';
  * winner at either election has no pair, so neither is a ribbon. The sentence under the picture counts them and says why; it never
  * says "all". Nothing is drawn for a seat that is not on record.
  *
+ * ── HOW A RIBBON IS INKED ──
+ *
+ * Opaque, computed from the ink and the surface (viz/ribbon-ink.ts), and not a party's ink at a fraction of opacity: translucent ink over a
+ * card goes grey-brown and a crossing becomes a colour that is no party's. The brighter tier is painted over the fainter where two cross,
+ * and a line of the surface's colour (iei.css) separates ribbons that touch.
+ *
  * ── HOW IT IS DRAWN ──
  *
  * The geometry is `flowLayout` (viz/flow-layout.ts), measured in a column FLOW_H units tall. The boxes and their names are HTML, so
@@ -33,6 +41,11 @@ const IN = new Intl.NumberFormat('en-IN');
 
 const seatsWord = (n: number): string => (n === 1 ? 'seat' : 'seats');
 const pct = (units: number): string => (Math.round((units / FLOW_H) * 100000) / 1000).toString();
+
+/** How bright a ribbon is: seats that changed hands brightest, a ribbon that is some of each between, seats held faintest. */
+const TIER: Record<'held' | 'moved' | 'mixed', RibbonTier> = { held: 'faint', mixed: 'mid', moved: 'bright' };
+/** The order they are painted in, so that where two cross the fainter one passes under the brighter. */
+const UNDER: Record<'held' | 'moved' | 'mixed', number> = { held: 0, mixed: 1, moved: 2 };
 
 function Column({ nodes, side }: { nodes: readonly FlowNode[]; side: 'from' | 'to' }) {
   return (
@@ -81,11 +94,11 @@ export function SeatFlow({
         <div className="iei-flow-stage">
           <Column nodes={layout.from} side="from" />
           <svg className="iei-flow-ribbons" viewBox={`0 0 100 ${FLOW_H}`} preserveAspectRatio="none" aria-hidden="true">
-            {layout.ribbons.map((r) => (
+            {[...layout.ribbons].sort((a, b) => UNDER[a.movement] - UNDER[b.movement]).map((r) => (
               <path
                 key={`${r.from}>${r.to}`}
                 className={`iei-flow-${r.movement}`}
-                style={{ fill: r.movement === 'mixed' || r.to === OTHERS ? 'var(--iei-ink-3)' : fillFor(r.to) }}
+                style={{ fill: ribbonInk(r.movement === 'mixed' || r.to === OTHERS ? NEUTRAL_RIBBON_INK : fillFor(r.to), TIER[r.movement]) }}
                 d={r.path}
               >
                 <title>

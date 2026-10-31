@@ -1,12 +1,15 @@
 import Link from 'next/link';
 import { getCoverage, INDIA } from '../../../packages/mandate/src/repo/coverage.ts';
 import type { Coverage, VerticalState } from '../../../packages/mandate/src/repo/coverage.ts';
+import { ledgerGroups } from '../../../packages/mandate/src/repo/coverage-ledger.ts';
+import type { LedgerGroup } from '../../../packages/mandate/src/repo/coverage-ledger.ts';
 import { electionCoverageView } from '../../../packages/mandate/src/repo/home.ts';
 import type { ElectionChoice, ElectionCoverage } from '../../../packages/mandate/src/repo/home.ts';
 import { coverageHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { readAsk } from '../../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
 import { Shell } from '../../components/iei/Shell.tsx';
+import { TableTwin } from '../../components/iei/marks.tsx';
 import {
   CoverageChip,
   DataList,
@@ -164,6 +167,106 @@ function Election({
   );
 }
 
+/**
+ * The subject areas, grouped by status: what holds data, what is a table with nothing in it, and what has no model.
+ *
+ * Eighteen rows in the spec's order, each with a status, a row count and a measured reach, was a table in which eleven rows said "Not modelled",
+ * "none" and "no <x> model exists yet" in turn. Each group says what is true of every row once (repo/coverage-ledger.ts), a row keeps what only it has,
+ * and the subjects with no model are named rather than described: their questions and sources are in the exact table below.
+ */
+function Ledger({ groups, total }: { groups: readonly LedgerGroup[]; total: number }) {
+  return (
+    <div className="iei-led">
+      {groups.map((g) => {
+        const id = `iei-led-${g.status}`;
+        return (
+          <section className="iei-led-group" key={g.status} aria-labelledby={id}>
+            <div className="iei-led-head">
+              <h3 id={id}>
+                <CoverageChip state={STATUS[g.status].state} word={STATUS[g.status].word} />
+                <span className="iei-led-n">
+                  {g.entries.length} of {total}
+                </span>
+              </h3>
+              <p className="iei-led-meaning">
+                {g.meaning}
+                {/* What every subject in the group lacks, said here and not on each of them (repo/coverage-ledger.ts). */}
+                {g.shared.sentence === null ? null : <> {g.shared.sentence}</>}
+              </p>
+            </div>
+
+            {g.status === 'no-model' ? (
+              <>
+                <ul className="iei-led-names">
+                  {g.entries.map((e) => (
+                    <li key={e.key}>{e.label}</li>
+                  ))}
+                </ul>
+                {g.waiting.map((w) => (
+                  <p className="iei-led-wait" key={w.model}>
+                    {w.sentence}
+                  </p>
+                ))}
+                {g.entries.some((e) => e.caveat !== null) ? (
+                  <ul className="iei-led-more">
+                    {g.entries.map((e) =>
+                      e.caveat === null ? null : (
+                        <li key={e.key}>
+                          <b>{e.label}</b>: <span>{e.caveat}</span>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                ) : null}
+              </>
+            ) : (
+              <ul className="iei-led-list">
+                {/* The column names, once, where there is room for columns. Each cell names itself for a screen reader and, on a phone, in sight. */}
+                <li
+                  className={g.entries.some((e) => e.rows !== null) ? 'iei-led-row iei-led-cols iei-led-has' : 'iei-led-row iei-led-cols'}
+                  aria-hidden="true"
+                >
+                  <span>Subject</span>
+                  {g.entries.some((e) => e.rows !== null) ? <span>Rows</span> : null}
+                  <span>How far it reaches</span>
+                  <span>Source it needs</span>
+                </li>
+                {g.entries.map((e) => (
+                  <li className={e.rows === null ? 'iei-led-row' : 'iei-led-row iei-led-has'} key={e.key}>
+                    <div className="iei-led-who">
+                      <b>{e.label}</b>
+                      <span>{e.question}</span>
+                    </div>
+                    {e.rows === null ? null : (
+                      <p className="iei-led-rows">
+                        <b>{IN.format(e.rows.count)}</b>
+                        <span className="iei-of"> {e.rows.unit}</span>
+                      </p>
+                    )}
+                    <div className="iei-led-reach">
+                      <span className="iei-led-k">How far it reaches</span>
+                      {e.reach === null ? (
+                        g.shared.reach ? null : <Value value={null} absent="not measured" />
+                      ) : (
+                        <span className="iei-chip">{e.reach}</span>
+                      )}
+                      <span className="iei-rule">{e.caveat}</span>
+                    </div>
+                    <p className="iei-led-src">
+                      <span className="iei-led-k">Source it needs</span>
+                      {e.source}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+        );
+      })}
+    </div>
+  );
+}
+
 function Body({
   c,
   election,
@@ -178,7 +281,7 @@ function Body({
     <>
       <div className="iei-head">
         <p className="iei-eyebrow">Coverage · computed at request time</p>
-        <h1 className="iei-answer">
+        <h1 className="iei-answer iei-answer-long">
           {c.present} of {c.total} subject areas hold data. {c.noModel} have no model in the schema at all.
         </h1>
         <p className="iei-sub">
@@ -265,12 +368,17 @@ function Body({
         question="What does this platform model, and what does it only intend to?"
         note={
           <>
-            {c.present} have data, {c.empty} have a table holding nothing, and {c.noModel} have nothing in the
-            schema that could hold them. The source column names what would have to be fetched — which is the
-            real constraint, since most of it is not a coding problem.
+            The source each subject still needs is the real constraint, since most of it is not a coding problem. Every subject&rsquo;s
+            question and source are in the exact table at the foot.
           </>
         }
       >
+        <Ledger groups={ledgerGroups(c.verticals)} total={c.total} />
+
+        {/* THE EXACT TABLE, all eighteen rows and every column, behind a disclosure. The groups above say what is true of each
+            status once; this is where a subject's question and source, and the missing model of every subject with none, are
+            read side by side. Nothing the groups leave out is left out of the page. */}
+        <TableTwin summary={`The exact table: all ${c.total} subject areas`}>
         <Table
           label="The eighteen subject areas and what each holds"
           caption="Every subject area in the model, its status, its measured reach and the source it still needs"
@@ -327,6 +435,7 @@ function Body({
             </tr>
           ))}
         </Table>
+        </TableTwin>
       </Panel>
 
       <Panel

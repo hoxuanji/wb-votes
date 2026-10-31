@@ -7,10 +7,26 @@ import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
 import { readAsk, readSelection, queryHref } from '../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../packages/mandate/src/repo/session.ts';
+import { storyView } from '../../packages/mandate/src/repo/home-story.ts';
+import { glanceOf, indiaSentence, stateChoice } from '../../packages/mandate/src/repo/home-glance.ts';
+import type { Cell } from '../../packages/mandate/src/repo/home.ts';
 import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
 import { Foot, Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
+import {
+  HomeReach,
+  StateCard,
+  StoryCannot,
+  StoryChanged,
+  StoryClose,
+  StoryDoors,
+  StoryHead,
+  StoryHouses,
+  StoryPeople,
+  StoryVotes,
+  StoryWhere,
+} from '../components/iei/Story.tsx';
 import {
   DataList,
   DataRow,
@@ -28,9 +44,15 @@ import './iei.css';
  * `/` — INDIA.
  *
  * The top of an information architecture that runs INDIA → STATE → ELECTION → CONSTITUENCY → CANDIDATE →
- * EVIDENCE. Its job is not to show a result; it is to show the country, and to be the place you choose
- * from. Every figure is a `SELECT` executed when the page is requested — see repo/home.ts, where nothing
+ * EVIDENCE. Every figure is a `SELECT` executed when the page is requested — see repo/home.ts, where nothing
  * knows whether it is holding a state assembly, a Lok Sabha election or a by-poll.
+ *
+ * ── THE STORY FIRST, THE REFERENCE LAYER LAST ──
+ *
+ * The page opens on one computed sentence about one state's assembly, the four houses that prove it, four doors into the record, and a
+ * chapter for each question the sentence raises (repo/home-story.ts picks the story by rule, never by name; components/iei/Story.tsx draws
+ * it). The India map, the elections and the parties are the coda under `#india`, where someone looking for a coverage map goes looking:
+ * with one state loaded, the map cannot carry the first screen. A registry with no assembly result has no story and keeps the old title.
  *
  * THERE IS NO LIST OF STATES IN THIS FILE, and there must never be one. The 36 jurisdictions, the seat
  * counts and the elections all arrive from the registry and from `ingest/india.ts` reference data; loading
@@ -104,7 +126,18 @@ export default function Home({
 
   // A fresh clone has no registry. That is the expected failure, not a bug in this process, and the page
   // says so with the command that fixes it rather than rendering a 500. Anything else is thrown.
-  const read = readRegistry((db) => homeView(db, { layer: ask.get('layer'), thisYear: THIS_YEAR }));
+  const read = readRegistry((db) => {
+    const home = homeView(db, { layer: ask.get('layer'), thisYear: THIS_YEAR });
+    // `?state=` is the state the reader chose on the map. It is looked up among the jurisdictions the registry has results for (and, for the card,
+    // among all of them) and used nowhere else, so a hand-edited value is ignored and never reaches SQL. Without one the story is of the most
+    // recent election on record, by a rule that is about the data (repo/home-story.ts), and the page says so.
+    const asked = searchParams?.state;
+    const story = storyView(db, {
+      candidates: home.standings.map((st) => ({ id: st.jurisdictionId, name: nameOf(home, st.jurisdictionId) })),
+      chosen: typeof asked === 'string' ? asked : null,
+    });
+    return { home, story };
+  });
   if (!read.ok) {
     return (
       <Shell here="india">
@@ -112,7 +145,8 @@ export default function Home({
       </Shell>
     );
   }
-  const v = read.value;
+  const v = read.value.home;
+  const story = read.value.story;
 
   const next = [...v.announced, ...v.upcoming];
   // VALIDATED BY MEMBERSHIP, never parsed: `?party=` has to name a party the CURRENT layer actually shows, so
@@ -133,24 +167,47 @@ export default function Home({
   // Only a layer that colours a party has a party in each row for a seat count to belong to.
   const seated = v.layer.encoding === 'categorical';
 
+  // The whole country first: every jurisdiction with a result, side by side, and the state the reader chose.
+  const askedState = typeof searchParams?.state === 'string' ? searchParams.state : null;
+  const rows = glanceOf({ standings: v.standings, houseStandings: v.houseStandings });
+  const chosen = stateChoice({ standings: v.standings, houseStandings: v.houseStandings, states: v.states }, askedState);
+  const choose = (c: Cell): string => queryHref('/', ask, { state: c.jurisdictionId }, 'map');
+  const chooseId = (id: string): string => queryHref('/', ask, { state: id }, 'map');
+  const clearHref = queryHref('/', ask, { state: '' }, 'map');
+  const selectedId = chosen === null ? null : chosen.status === 'loaded' ? chosen.row.id : chosen.id;
+
+  const reach = [
+    { label: 'States and territories with results', have: s.jurisdictionsWithResults, of: s.jurisdictionsTotal, unit: '' },
+    { label: 'Assembly seats', have: s.assemblySeatsHeld, of: s.assemblySeatsTotal, unit: 'seats' },
+    { label: 'Lok Sabha seats', have: s.lokSabhaSeatsHeld, of: s.lokSabhaSeatsTotal, unit: 'seats' },
+  ].filter((r) => r.of > 0);
+  // The map's rows that hold nothing on this layer are one line under the table, not thirty-five rows of "not loaded".
+  const lit = v.layer.cells.filter((c) => c.label !== null);
+  const held = lit.length > 0 ? lit : v.layer.cells;
+  const bare = lit.length > 0 ? v.layer.cells.filter((c) => c.label === null) : [];
+
   return (
     <Shell here="india" live={s.live}>
-      {/* ── the hero: a short title, and the country in one sentence under it ──
-          It used to be a 20-word computed claim at display size with a methodology clause inside it
-          ("— derived, not announced"). The claim is the sub-line now, where a sentence belongs, and the map
-          below is what the reader's eye lands on — which is the intent: the map is the hero. */}
-      <div className="iei-head">
-        <p className="iei-eyebrow">India</p>
-        <h1 className="iei-answer">The electoral landscape</h1>
-        <p className="iei-sub">
-          {v.headline}{' '}
-          {s.elections === 0 || s.earliestYear === null ? null : (
-            <>
-              {IN.format(s.elections)} {s.elections === 1 ? 'election' : 'elections'} on record since {s.earliestYear}.
-            </>
-          )}
-        </p>
-      </div>
+      {/* ── THE COUNTRY FIRST. The page used to open on one state's story, which made that state the page's subject; it opens on India now, with every
+          state that has a result in one glance, and a state's story is what the reader's choice (or, failing one, the most recent election) opens
+          below the map. ── */}
+      <div id="india">
+        <div className="iei-hero">
+          <div className="iei-head">
+            <p className="iei-eyebrow">India</p>
+            <h1 className="iei-answer">The electoral landscape</h1>
+            <p className="iei-story-lead">{indiaSentence(rows, s.jurisdictionsTotal)}</p>
+            <p className="iei-sub">
+              Choose a state on the map to see its latest election; the rest are names and seat counts. <b>Nothing here is a prediction.</b> No model, no forecast, no
+              probability.
+            </p>
+          </div>
+          {/* How much of the country the registry holds, said once with true denominators, beside the sentence it qualifies. */}
+          <div className="iei-hero-reach">
+            <p className="iei-eyebrow">How much of India the registry holds</p>
+            <HomeReach reach={reach} />
+          </div>
+        </div>
 
       {/* ── the map: the product's primary analytical instrument, and its primary navigation ── */}
       <Panel
@@ -173,9 +230,10 @@ export default function Home({
         />
 
         <div className="iei-linked iei-map-split">
-          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} />
+          <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} hrefFor={choose} selectedId={selectedId} />
 
           <div>
+            <StateCard rows={rows} chosen={chosen} hrefFor={chooseId} clearHref={clearHref} storyHere={story?.jurisdiction.id ?? null} />
             {/* A CONTEXTUAL LEGEND, and an interactive one. It names the parties this layer actually shows —
                 not three slots and an "Others" bucket, and not every party in the registry — and each entry is
                 a link that isolates that party on the map. The isolation is URL state, so it is shareable and
@@ -285,14 +343,14 @@ export default function Home({
                 </>
               }
             >
-              {v.layer.cells.map((c) => {
+              {held.map((c) => {
                 // The table mutes with the map, by the same selection. A highlight that dimmed the polygons and left
                 // the rows at full strength would be two answers to one question on one screen.
                 const muted = !sel.covers(leaderOf(c));
                 return (
                   <tr key={c.jurisdictionId} data-j={c.jurisdictionId} className={muted ? 'iei-legend-off' : undefined}>
                     <th scope="row">
-                      <Link href={c.href}>{c.jurisdictionName}</Link>
+                      <Link href={choose(c)}>{c.jurisdictionName}</Link>
                     </th>
                     <td>
                       {c.label === null ? (
@@ -317,9 +375,45 @@ export default function Home({
                 );
               })}
             </Table>
+            {bare.length === 0 ? null : (
+              <details className="iei-twin iei-story-unloaded">
+                <summary>
+                  {bare.length} states and territories {v.layer.unknown === v.layer.unloaded ? 'not loaded' : 'with no figure here'}
+                </summary>
+                <ul>
+                  {bare.map((c) => (
+                    <li key={c.jurisdictionId}>
+                      <Link href={choose(c)}>{c.jurisdictionName}</Link>
+                    </li>
+                  ))}
+                </ul>
+              </details>
+            )}
           </div>
         </div>
       </Panel>
+
+
+      </div>
+
+      {/* ── the chosen state's latest election, or the most recent on record: the sentence, the proof beside four doors, then one chapter per question ── */}
+      {story === null ? null : (
+        <>
+          <div className="iei-story-top">
+            <StoryHead view={story} />
+            <div className="iei-story-fold">
+              <StoryHouses view={story} />
+              <StoryDoors view={story} />
+            </div>
+          </div>
+          <StoryChanged view={story} />
+          <StoryWhere view={story} />
+          <StoryVotes view={story} />
+          <StoryClose view={story} />
+          <StoryPeople view={story} />
+          <StoryCannot view={story} />
+        </>
+      )}
 
       {/* ── what is coming, and what has just been decided ── */}
       <div className="iei-two iei-two-wide" id="elections">
@@ -444,7 +538,7 @@ export default function Home({
         note={
           <>
             Assembly seats are summed across <b>each jurisdiction&rsquo;s most recent election</b>, spanning{' '}
-            {v.standings.length === 0 ? 'no years' : `${oldest(v)}–${newest(v)}`} — so this is who sits now, not
+            {v.standings.length === 0 ? 'no years' : oldest(v) === newest(v) ? `${oldest(v)}` : `${oldest(v)}–${newest(v)}`} — so this is who sits now, not
             a national vote at one moment. Lok Sabha figures are{' '}
             {v.parties.houseYear === null ? 'the latest on record' : v.parties.houseYear}.
           </>
@@ -505,69 +599,6 @@ export default function Home({
           ))}
         </DataList>
       </Panel>
-
-      {/* ── the two signal modules, and neither is a table ── */}
-      <div className="iei-two">
-        <Panel
-          id="fights"
-          title="Closest contests"
-          question="Which seats were decided by almost nothing?"
-        >
-          {v.fights.length === 0 ? (
-            <p className="iei-absent">
-              No seat can be ranked: a margin is ranked as a share of votes polled, and no state&rsquo;s latest election has
-              one on record that can be verified.
-            </p>
-          ) : (
-            <DataList label="The tightest results in the country" tight>
-              {v.fights.map((f) => (
-                <DataRow
-                  key={`${f.electionId}-${f.placeId}`}
-                  title={f.placeName}
-                  href={f.href}
-                  aside={
-                    <b>
-                      {f.marginVotes === null ? 'margin not reported' : `${IN.format(Math.abs(f.marginVotes))} votes`}
-                    </b>
-                  }
-                  detail={
-                    <>
-                      <span className="iei-mark">
-                        <span className="iei-sw" style={{ background: fillFor(f.winner) }} aria-hidden="true" />
-                        {f.winner}
-                      </span>{' '}
-                      {f.runnerUp === null ? 'won' : `over ${f.runnerUp}`} · {f.marginPct}% of votes polled ·{' '}
-                      {nameOf(v, f.jurisdictionId)} {f.year}
-                    </>
-                  }
-                />
-              ))}
-            </DataList>
-          )}
-        </Panel>
-
-        <Panel
-          id="watch"
-          title="Notable shifts"
-          question="Which measurable movements stand out?"
-          note={<><b>Nothing here is a prediction.</b> No model, no forecast, no probability.</>}
-        >
-          {/* FOUR ROWS, DOWN FROM NINE, and no `rule · threshold` line under each one. The threshold is still
-              what a reader argues with rather than an oracle — it is in the row's ⓘ-equivalent, the title
-              attribute, and in repo/home.ts where the rule is named and exported. Nine rows each carrying its
-              own methodology footnote made the footnotes the loudest thing in the section. */}
-          <DataList label="Measurable signals" tight>
-            {v.signals.map((sig) => (
-              <DataRow
-                key={`${sig.rule}-${sig.subject}`}
-                title={sig.subject}
-                href={sig.href}
-                detail={<span title={`${sig.rule} · ${sig.threshold}`}>{sig.detail}</span>}
-              />
-            ))}
-          </DataList>
-        </Panel>
-      </div>
 
       <Foot />
     </Shell>

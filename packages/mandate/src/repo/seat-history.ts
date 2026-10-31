@@ -27,6 +27,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { chronoDesc, facetOf } from "../core/election-kind.ts";
 import { all } from "../db/index.ts";
 import { inr, margin_pct, percent } from "../semantic/index.ts";
+import { displayName } from "./display-name.ts";
 import { read, yearOf } from "./index.ts";
 import { counted } from "./person.ts";
 import { times } from "./place-presentation.ts";
@@ -36,6 +37,8 @@ import type { PartyColumns, PartyRef, SeatMargin } from "./seat-results.ts";
 /** One candidate's result row, as stored. A null or zero count is "no count was published" (person.ts `counted`). */
 export type HistoryCandidate = {
   name: string;
+  /** The person the candidacy belongs to, so a name can be a link and a person can be found in a bar; null in a record that has none. */
+  personId?: string | null;
   party: PartyColumns;
   rank: number | null;
   /** The declared winner: the `is_winner = 1` row. */
@@ -68,6 +71,8 @@ const ROUNDING = 0.05;
 const WINDOW = 105;
 
 export type BarSegment = {
+  /** The person this segment is, or null for the tail added together (and for a record with no person id). */
+  personId: string | null;
   /** The candidate's party, or null for the tail added together. */
   party: PartyRef | null;
   /** The candidate, or null for the tail. */
@@ -188,6 +193,7 @@ function barOf(ranked: readonly HistoryCandidate[], polled: number | null): Bar 
   if (total > WINDOW) return { why: "over-base", total };
 
   const one = (s: { c: HistoryCandidate; share: number }): BarSegment => ({
+    personId: s.c.personId ?? null,
     party: partyRef(s.c.party),
     name: s.c.name,
     candidates: 1,
@@ -204,6 +210,7 @@ function barOf(ranked: readonly HistoryCandidate[], polled: number | null): Bar 
       : [
           ...head,
           {
+            personId: null,
             party: null,
             name: null,
             candidates: tail.length,
@@ -217,7 +224,7 @@ function barOf(ranked: readonly HistoryCandidate[], polled: number | null): Bar 
 }
 
 /** "Adhikary Paresh (TMC)": a candidate as the sentences name them, with the party so that colour is never the only channel. */
-const named = (c: { name: string; party: PartyRef }): string => `${c.name} (${c.party.label})`;
+const named = (c: { name: string; party: PartyRef }): string => `${displayName(c.name)} (${c.party.label})`;
 
 function statementOf(
   winner: ContestResult["winner"],
@@ -366,6 +373,7 @@ type Row = {
   margin: number | null;
   isWinner: number | null;
   name: string | null;
+  personId: string | null;
   partyId: string | null;
   shortName: string | null;
   partyName: string | null;
@@ -385,7 +393,7 @@ export function readSeatHistory(db: DatabaseSync, versionId: number): SeatHistor
       db,
       `SELECT c.id AS contestId, c.election_id AS electionId, e.house AS house, e.kind AS kind, t.voters AS voters,
               r."rank" AS rank, r.votes AS votes, r.vote_share AS voteShare, r.margin AS margin, r.is_winner AS isWinner,
-              per.canonical_name AS name, pt.id AS partyId, pt.short_name AS shortName, pt.name AS partyName,
+              per.canonical_name AS name, ca.person_id AS personId, pt.id AS partyId, pt.short_name AS shortName, pt.name AS partyName,
               ca.party_raw AS raw
          FROM contest c
          JOIN election e ON e.id = c.election_id
@@ -418,6 +426,7 @@ export function readSeatHistory(db: DatabaseSync, versionId: number): SeatHistor
       if (r.isWinner === 1) rec.declaredMargin = r.margin;
       rec.candidates.push({
         name: r.name,
+        personId: r.personId,
         party: { id: r.partyId, shortName: r.shortName, name: r.partyName, raw: r.raw },
         rank: r.rank,
         isWinner: r.isWinner === 1,

@@ -241,7 +241,7 @@ test("every length in the stylesheet comes from the scale", () => {
     "21px", // the answer at the narrow breakpoint, declared as a token override
     "420px", // the command bar's maximum width
     "12px", // the result strip's swatch: a mark whose size IS its meaning, beside 24px type
-    "26px", // the page title at the narrow breakpoint, declared as a token override
+    "34px", // the page title at the 900px breakpoint and below (52px above it), declared as a token override
     "620px", // the map's maximum height elsewhere
   ]);
 
@@ -299,9 +299,9 @@ test("there are seven type sizes and every one of them is used", () => {
 });
 
 test("radius is one token and it does not grow", () => {
-  assert.match(CSS, /--iei-r:\s*2px/, "the radius token is not 2px");
-  // A rounded-card dashboard reads as a marketing page with data in it. The exceptions are a circle (the
-  // live dot) and the 1px square of the coverage mark.
+  assert.match(CSS, /--iei-r:\s*8px/, "the radius token is not 8px");
+  // It was 2px until the 2026-10-29 look decision ("this still looks a school project"): a card is a card now. What the test still
+  // holds is that there is ONE radius. The exceptions are a circle (the live dot) and the 1px square of the coverage mark.
   const radii = [...CSS.matchAll(/border-radius:\s*([^;]+);/g)]
     .map((m) => (m[1] as string).trim())
     .filter((v) => !v.includes("var(--iei-r)") && v !== "50%" && v !== "1px");

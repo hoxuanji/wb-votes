@@ -237,7 +237,7 @@ test("placeHeadline: an unbroken hold over an unverified latest election compare
       contest(2011, "AITC", 15_000, 100_000),
     ]),
   );
-  assert.equal(h, "AITC has held Testganj in all 4 elections since 2011, most recently by 5,000 votes.");
+  assert.equal(h, "AITC has held Testganj in all 4 elections since 2011, most recently by 5,000 votes (declared).");
 });
 
 test("placeHeadline: where earlier elections declared nobody, it does not say the seat changed hands 0 times or took it from a holder", () => {
@@ -251,7 +251,7 @@ test("placeHeadline: where earlier elections declared nobody, it does not say th
   );
   assert.equal(
     h,
-    "TMC won Testganj in 2026 by 36,925 votes — no change of hands is on record since 2011. " +
+    "TMC won Testganj in 2026 by 36,925 votes (declared) — no change of hands is on record since 2011. " +
       "3 of the 4 elections on record have no declared winner.",
   );
   const falta = placeHeadline(
@@ -271,7 +271,7 @@ test("placeHeadline: a seat that was taken from a declared holder still says so"
   const h = placeHeadline(
     brief([contest(2026, "BJP", 1_000, 100_000), contest(2021, "AITC", 1_000, 100_000), contest(2016, "AITC", 1_000, 100_000)]),
   );
-  assert.equal(h, "BJP took Testganj from AITC in 2026 by 1,000 votes — the seat has changed hands once since 2016.");
+  assert.equal(h, "BJP took Testganj from AITC in 2026 by 1,000 votes (declared) — the seat has changed hands once since 2016.");
 });
 
 test("anomalies: no recount-scale flag is built from an unverified election's votes polled", () => {

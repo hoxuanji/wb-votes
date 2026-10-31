@@ -19,8 +19,10 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { CATEGORICAL, OTHERS } from "../viz/palette.ts";
+import { CATEGORICAL, OTHERS, SURFACE } from "../viz/palette.ts";
 import { fillFor } from "../viz/party-ink.ts";
+import { contrastOf } from "../viz/colour.ts";
+import { ribbonInk } from "../viz/ribbon-ink.ts";
 
 const ROOT = new URL("../../../../", import.meta.url).pathname;
 
@@ -132,6 +134,13 @@ function rows(fragment: string): string[][] {
   );
 }
 
+/** The table whose caption starts with this text, as markup. */
+function tableOf(page: string, caption: string): string {
+  const at = page.indexOf(caption);
+  assert.notEqual(at, -1, `no table captioned: ${caption}`);
+  return page.slice(page.lastIndexOf("<table", at), page.indexOf("</table>", at));
+}
+
 const html = render();
 
 test("the Analysis prints no figure built on 2026's unverified turnout: not the seat's, and not as a share of it", () => {
@@ -141,90 +150,118 @@ test("the Analysis prints no figure built on 2026's unverified turnout: not the 
   assert.match(text(brief), /verification pending/);
 });
 
-test("the Brief keeps the declared margin in votes and withholds its share: in the tile, in the headline and in the flags", () => {
+test("the Brief's lines are SVG for the line and HTML for every label, placed by percentage of the picture, so a label keeps the type token's size", () => {
+  const brief = render("", "/constituency");
+  const at = brief.indexOf('class="iei-seat-spw"');
+  assert.notEqual(at, -1, "the margin line is not drawn");
+  const line = brief.slice(at, brief.indexOf("</div></div>", at) + 12);
+  assert.doesNotMatch(line, /<text/, "a label is SVG text, which scales with the frame");
+  const labels = [...line.matchAll(/<span class="(iei-seat-sp-(?:val|yr)[^"]*)"([^>]*)>([^<]*)<\/span>/g)].map((m) => ({ cls: m[1] as string, attrs: m[2] as string, text: m[3] as string }));
+  assert.deepEqual(labels.filter((l) => l.cls === "iei-seat-sp-yr").map((l) => l.text), ["2016", "2021", "2026"]);
+  assert.deepEqual(labels.filter((l) => l.cls === "iei-seat-sp-val").map((l) => l.text), ["230", "777"], "the oldest and the newest figure");
+  for (const l of labels) assert.match(l.attrs, /style="left:[\d.]+%/, `${l.text} is not placed by percentage`);
+  assert.match(line, /<div class="iei-seat-spl" aria-hidden="true">/, "the labels are read twice: in the picture's name and over it");
+});
+
+test("the Brief keeps the declared margin in votes and withholds its share: in the hero, in the headline and in the flags", () => {
   // Alpha: 777 votes over 1,900 voters is 40.9%, and Beta's 8 votes over them is 0.4%, a recount-scale margin that exists only
   // over a turnout nobody can corroborate.
   const alpha = text(render("", "/constituency"));
-  assert.match(alpha, /Winning margin 2026 777 votes \(declared\) share of votes polled\s.\sverification pending · TMC/);
+  assert.match(alpha, /Winning margin · 2026 · declared/);
+  assert.match(alpha, /777 votes/);
   assert.doesNotMatch(alpha, /40\.9%|of votes cast/);
   const beta = render("", "/constituency", "beta");
-  assert.match(text(beta), /Winning margin 2026 8 votes \(declared\) share of votes polled\s.\sverification pending · TMC/);
-  assert.match(text(beta), /TMC has held Beta in all 3 elections since 2016, most recently by 8 votes\./);
+  assert.match(text(beta), /Winning margin · 2026 · declared/);
+  assert.match(text(beta), /TMC has held Beta in all 3 elections since 2016, most recently by 8 votes \(declared\)\./);
   assert.doesNotMatch(beta, /0\.4%|recount-scale|of votes cast/);
 });
 
-test("the turnout card says the election is withheld, compares for the newest verified one, and tables the word", () => {
-  const c = card(html, "Did Alpha turn out more than Xx State?");
-  assert.match(text(c), /2026: turnout is withheld \(verification pending\), because that election published no candidate vote counts/);
-  assert.match(text(c), /Verified most recently, 2021: 45\.5% here against 45\.5% in/);
-  assert.deepEqual(rows(c).at(-1), ["2026", "withheld", "withheld", "withheld"]);
-  // the line stops at 2021: the axis is the three verified readings, not stretched to a withheld one
-  assert.deepEqual(rows(c).slice(1, 3).map((r) => r[0]), ["2016", "2021"]);
+test("the turnout section says the election is withheld, draws the verified ones, and tables the word", () => {
+  const section = html.slice(html.indexOf('id="turnout"'), html.indexOf('id="notes"') === -1 ? html.indexOf('id="leaves"') : html.indexOf('id="notes"'));
+  assert.match(text(section), /verification pending/);
+  assert.match(text(section), /The axis runs from \d+% to \d+%, not from zero/);
+  const t = rows(tableOf(html, "Turnout at each election, here"));
+  assert.deepEqual(t.at(-1), ["2026", "verification pending"]);
+  assert.deepEqual(t.slice(1, 3).map((r) => r[0]), ["2016", "2021"]);
+  assert.deepEqual(t.find((r) => r[0] === "2021")?.slice(0, 2), ["2021", "45.5%"]);
+  assert.doesNotMatch(text(section), /79\.2|2,400/, "the 2026 turnout or its electors is drawn");
 });
 
-test("the margin card keeps the declared margin in votes, withholds its share, and the table says withheld", () => {
-  const c = card(html, "Is the seat getting safer or closer?");
-  assert.match(text(c), /2026: 777 votes, to TMC; its share of votes cast is withheld \(verification pending\)\./);
-  assert.deepEqual(rows(c).at(-1), ["2026", "withheld"]);
-  assert.deepEqual(rows(c).slice(1, 3), [["2016", "23.0%"], ["2021", "10.0%"]]);
+test("the record keeps the declared margin in votes, says it is declared, and withholds any share of it", () => {
+  const t = rows(tableOf(html, "The record: each election"));
+  assert.deepEqual(t.at(0), ["Election", "Won by", "Margin, votes", "Basis", "Rank, closest first"]);
+  const r2026 = t.find((r) => r[0] === "2026");
+  assert.match((r2026 ?? []).join(" | "), /TMC \| 777 declared \| declared \| \d+(st|nd|rd|th) of 2/);
+  assert.match((t.find((r) => r[0] === "2016") ?? []).join(" | "), /AIFB \| 230 counted \| counted/);
+  assert.match((t.find((r) => r[0] === "2021") ?? []).join(" | "), /TMC \| 100 counted \| counted/);
+  assert.doesNotMatch(text(html), /40\.9%|of votes cast/);
 });
 
-test("the share card lists every candidate on record, so a folded runner-up and a folded 2.5% are numbers, not dashes", () => {
-  const c = card(html, "Who took what share, election by election?");
-  const table = rows(c);
-  assert.deepEqual(table[0], ["Election", "AIFB", "TMC", "BJP", "INC", "IND", "BSP"]);
-  assert.deepEqual(table.find((r) => r[0] === "2016"), ["2016", "48.0%", "not reported", "5.0%", "25.0%", "10.0%", "3.0%"]);
-  assert.deepEqual(table.find((r) => r[0] === "2021"), ["2021", "10.0%", "45.0%", "35.0%", "4.0%", "not reported", "2.0%"]);
-  assert.deepEqual(table.find((r) => r[0] === "2026"), ["2026", ...Array(6).fill("no counts")]);
-  // the chart folds the three smallest peaks into one grey line and says how many series it stands for, once
-  assert.equal([...c.matchAll(/>Others \(3\)<\/tspan>/g)].length, 3, "one end label in each of the three frames");
-  assert.doesNotMatch(c, /Rest of the field/);
+test("the share table lists every candidate on record, so a runner-up is a number and an absence is 'not listed', never a dash or a zero", () => {
+  const t = rows(tableOf(html, "Share of the votes polled, by candidate party"));
+  assert.deepEqual(t[0], ["Party", "2016", "2021"], "2026 is not a counted election and has no column");
+  const by = (p: string): string[] => (t.find((r) => r[0] === p) ?? []).slice(1).map((c) => c.replace(/\s*[+−±][\d.]+$/, ""));
+  assert.deepEqual(by("AIFB"), ["48.0%", "10.0%"]);
+  assert.deepEqual(by("TMC"), ["not listed", "45.0%"]);
+  assert.deepEqual(by("BJP"), ["5.0%", "35.0%"]);
+  assert.deepEqual(by("INC"), ["25.0%", "4.0%"]);
+  assert.deepEqual(by("IND"), ["10.0%", "not listed"]);
+  assert.deepEqual(by("BSP"), ["3.0%", "2.0%"]);
+  assert.doesNotMatch(html, /Others \(\d|Rest of the field/, "a tail is added together under a name that is not a party's");
 });
 
-test("a party is the colour of its identity: the line of TMC is the ink the maps give party id AITC", () => {
-  const c = card(html, "Who took what share, election by election?");
-  const wide = /<svg [^>]*data-frame="wide"[\s\S]*?<\/svg>/.exec(c)?.[0] ?? "";
-  // A marker is drawn for every point, a line only for a party with two of them, so the markers are the claim.
-  for (const id of ["AITC", "BJP", "AIFB"]) assert.ok(wide.includes(`fill="${fillFor(id)}"`), `${id}'s ink is not on its line`);
-  assert.ok(wide.includes('class="iei-line-ink"') && wide.includes(`stroke="${fillFor("AIFB")}"`));
-  const bars = card(render("to=2021"), "Who got the votes in 2021?");
-  const wideBars = /<svg [^>]*data-frame="wide"[\s\S]*?<\/svg>/.exec(bars)?.[0] ?? "";
-  for (const id of ["AITC", "BJP", "AIFB"]) assert.ok(wideBars.includes(`fill="${fillFor(id)}"`), `${id}'s ink is not on its bar`);
+test("a party is the colour of its identity: TMC is the ink the maps give party id AITC, in the ladder, the ribbons and the follow chips", () => {
+  const ladder = html.slice(html.indexOf('id="ladder"'), html.indexOf('id="close"'));
+  for (const id of ["AITC", "BJP", "AIFB"]) assert.ok(ladder.includes(fillFor(id)), `${id}'s ink is not in the ladder`);
+  assert.notEqual(fillFor("AITC"), fillFor("TMC"));
+  assert.ok(!ladder.includes(fillFor("TMC")), "TMC is inked by its name, which is a third green");
+  // CHANGED 2026-10-31, on purpose: a ribbon was `fill-opacity` on the party's ink (0.14, or 0.5 for the party followed) and is now an opaque tint
+  // of it (viz/ribbon-ink.ts), because translucent ink over the card went grey-brown. A ribbon is still drawn between two counted rows.
+  assert.match(ladder, /<polygon[^>]*style="fill:#[0-9a-f]{6}"/, "no ribbon joins the counted rows");
+  assert.doesNotMatch(ladder, /<polygon[^>]*opacity/, "a ribbon is drawn with an opacity again");
+  assert.equal((ladder.match(/<polygon/g) ?? []).length > 0, true);
 });
 
-test("a card with nothing to draw says its sentence once, and its table says why each cell is empty", () => {
-  const c = card(html, "Who got the votes in 2026?");
-  assert.equal([...text(c).matchAll(/No candidate's vote count is on record for 2026; the margin is\./g)].length, 1);
-  assert.deepEqual(rows(c).at(-1), ["TMC · Tom 2026", "no counts"]);
-  const swing = card(html, "What moved between 2021 and 2026?");
-  assert.deepEqual(rows(swing), [["Party", "2021", "2026", "Change"], ["TMC", "45.0%", "no counts", "no swing"]]);
+test("the party followed has the brightest ribbon and the others are the faint tier, all opaque", () => {
+  const fills = (page: string): string[] => [...page.slice(page.indexOf('id="ladder"'), page.indexOf('id="close"')).matchAll(/<polygon[^>]*style="fill:(#[0-9a-f]{6})"/g)].map((m) => m[1] as string);
+  const faint = ["AIFB", "BJP", "BSP", "INC", "AITC"].map((k) => ribbonInk(fillFor(k), "faint"));
+  const bright = ribbonInk(fillFor("INC"), "bright");
+  const inc = fills(render("party=INC"));
+  assert.ok(inc.length >= 2, "fewer than two ribbons between the counted rows");
+  assert.equal(inc.filter((f) => f === bright).length, 1, "the followed party has one bright ribbon between two counted rows");
+  assert.ok(inc.every((f) => f === bright || faint.includes(f)), `a ribbon that is not followed is not the faint tier: ${inc.join(" ")}`);
+  assert.ok(contrastOf(bright, SURFACE) > contrastOf(ribbonInk(fillFor("INC"), "faint"), SURFACE) + 1.5, "bright is not brighter than faint");
 });
 
-test("the swing note is said once, and the caveats are one row a measure in a reader's words", () => {
-  assert.equal([...html.matchAll(/A party absent from the earlier election has no swing/g)].length, 1);
-  const panel = html.slice(html.indexOf("What these measures do not tell you"));
-  const labels = [...panel.matchAll(/<span class="iei-row-t">([^<]*)<\/span>/g)].map((m) => m[1]);
+test("an election with no candidate votes is a dashed row with one sentence, and nothing proportional, and its table cells say why they are empty", () => {
+  const ladder = html.slice(html.indexOf('id="ladder"'), html.indexOf('id="close"'));
+  assert.equal([...text(ladder).matchAll(/won, taking it from \w+ · no candidate votes published|won, holding it from \d+ · no candidate votes published/g)].length, 1);
+  assert.match(ladder, /iei-an-declared/);
+  const share = rows(tableOf(html, "Share of the votes polled, by candidate party"));
+  assert.ok(share.every((r) => r[0] !== "2026" && !r.includes("2026")), "a share is tabled for an election with no counts");
+  const gap = rows(tableOf(html, "share here against its share across"));
+  assert.ok(gap.some((r) => r[1] === "2026" && /no candidate votes published/.test(r.join(" "))));
+});
+
+test("the caveats are one entry a measure in a reader's words, computed, and the stale counts are gone", () => {
+  const panel = html.slice(html.indexOf('id="leaves"'), html.indexOf('id="tables"'));
+  const labels = [...panel.matchAll(/<dt>([^<]*)<\/dt>/g)].map((m) => m[1]);
   assert.deepEqual(labels, ["Turnout", "Vote share", "Margin", "Swing", "Effective number of parties", "Sources"]);
   assert.match(text(panel), /Turnout for 2026 is withheld/);
   assert.doesNotMatch(panel, /22,414|2,932|72\.9|data\/seed|`|BIASED DOWNWARD|confidence=/);
+  assert.match(text(panel), /2026: only the winner, the party and a declared margin are on record/);
 });
 
-test("a party filter says what it narrows and which swing cards it left out, and the votes card still says who won", () => {
+test("a party the reader follows is highlighted, and says what it follows; the finding does not change with it", () => {
   const f = render("party=INC");
-  const notes = text(f.slice(f.indexOf("Window"), f.indexOf("Did Alpha")));
-  assert.match(notes, /INC narrows the share, votes and swing cards\. Turnout, margin and effective parties are for every party\./);
-  assert.match(notes, /No swing card for 2021–2026: INC has no result in 2026\./);
-  const votes = card(f, "Who got the votes in 2026?");
-  assert.match(text(votes), /TMC · Tom 2026/, "the winner is named although INC is the party followed");
-  // Everyone else is the neutral, not the first of the capped hues, and the party followed keeps its own ink.
-  const wide = /<svg [^>]*data-frame="wide"[\s\S]*?<\/svg>/.exec(card(f, "Who took what share, election by election?"))?.[0] ?? "";
-  assert.ok(wide.includes(`stroke="${OTHERS}"`) && wide.includes(`fill="${fillFor("INC")}"`));
-  for (const hue of CATEGORICAL) assert.ok(!wide.includes(hue), `${hue} was given to the aggregate`);
+  const follow = f.slice(f.indexOf('aria-label="Follow one party"'), f.indexOf("</aside>"));
+  assert.match(follow, /aria-current="true"[^>]*>INC/);
+  assert.match(text(follow), /2016 48\.0%|2016 25\.0%/);
+  assert.equal(text(html.slice(html.indexOf("iei-finding"), html.indexOf("iei-an-rule"))), text(f.slice(f.indexOf("iei-finding"), f.indexOf("iei-an-rule"))), "the finding changed with the party followed");
 });
 
-test("a party the seat never fielded in the window says so, and says what the cards then show", () => {
+test("a party the window cannot show says so, and says whom it follows instead", () => {
   const f = render("party=BSP&from=2026");
-  const notes = text(f.slice(f.indexOf("Window"), f.indexOf("Did Alpha")));
-  assert.match(notes, /BSP has no result at Alpha in 2026, so the cards below show everyone else together and no swing is drawn\./);
-  assert.doesNotMatch(f, /What moved between/, "a one-election window has no swing card");
+  assert.match(text(f), /BSP has no result at Alpha in this window, so \w+ is followed instead\./);
+  assert.doesNotMatch(f, /iei-an-seg/, "a one-election window with no counts draws a proportional segment");
 });

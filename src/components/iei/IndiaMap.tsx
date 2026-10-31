@@ -77,6 +77,8 @@ export function IndiaMap({
   nameOf,
   selection,
   labels = true,
+  hrefFor,
+  selectedId = null,
 }: {
   layer: Layer;
   /** Registry name for a jurisdiction id, so this component never holds a list of state names. */
@@ -84,7 +86,15 @@ export function IndiaMap({
   /** What the reader has narrowed the map to: the jurisdictions it does not cover are muted. */
   selection: MapSelection;
   labels?: boolean;
+  /**
+   * Where a state leads. Absent, it is the state's own page, as it always was; the front page gives the link that CHOOSES the state, so a click shows
+   * that state's latest election beside the map and the state's page is one step on from there.
+   */
+  hrefFor?: (c: Cell) => string;
+  /** The state the reader chose, drawn with an outline of its own. */
+  selectedId?: string | null;
 }) {
+  const link = (c: Cell): string => (hrefFor === undefined ? c.href : hrefFor(c));
   // Keyed by the geometry's own state name, which is the only join between the two datasets.
   const byName = new Map<string, Cell>();
   for (const c of layer.cells) byName.set(nameOf(c.jurisdictionId).toLowerCase(), c);
@@ -111,8 +121,14 @@ export function IndiaMap({
     // one, so a change to how big labels are cannot move a state off the map. See CLICKABLE_FRACTION.
     if (a !== null && !labelFits(a, 3, CLICKABLE_PX)) tiles.push(cell);
     return (
-      <Link key={name} href={cell.href} id={`iei-j-${cell.jurisdictionId}`} aria-label={title(cell)}>
-        <path d={d} fill={cell.fill} opacity={muted ? 0.22 : 1}>
+      <Link
+        key={name}
+        href={link(cell)}
+        id={`iei-j-${cell.jurisdictionId}`}
+        aria-label={title(cell)}
+        aria-current={cell.jurisdictionId === selectedId ? 'true' : undefined}
+      >
+        <path d={d} fill={cell.fill} opacity={muted ? 0.22 : 1} className={cell.jurisdictionId === selectedId ? 'iei-map-sel' : undefined}>
           <title>{title(cell)}</title>
         </path>
       </Link>
@@ -174,7 +190,7 @@ export function IndiaMap({
         <ul className="iei-tiles" aria-label="Jurisdictions too small to select on the map">
           {tiles.map((c) => (
             <li key={c.jurisdictionId}>
-              <Link href={c.href} data-j={c.jurisdictionId}>
+              <Link href={link(c)} data-j={c.jurisdictionId} aria-current={c.jurisdictionId === selectedId ? 'true' : undefined}>
                 <span className="iei-sw" style={{ background: c.fill }} aria-hidden="true" />
                 <b>{c.jurisdictionId.toUpperCase()}</b>
                 <span className="iei-tile-v">

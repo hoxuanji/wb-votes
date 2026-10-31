@@ -15,6 +15,7 @@
 import type { MapMode, TalliedSeat } from "./map-selection.ts";
 import { tally } from "./map-selection.ts";
 import type { Turnout } from "./turnout-trust.ts";
+import { turnoutHeadline } from "./turnout-trust.ts";
 
 const IN = new Intl.NumberFormat("en-IN");
 
@@ -168,5 +169,32 @@ export function gaps(s: RowFacts): { margin: string | null; runnerUp: string | n
         : s.turnout.state === "unverified"
           ? "share of votes polled\u00a0— verification pending"
           : "share of votes polled not reported",
+  };
+}
+
+/**
+ * WHAT EVERY ROW OF A LIST LACKS, said once above the list. An election whose counts were never published had the same three
+ * hedges after all 294 seats ("no runner-up recorded · share of votes polled — verification pending · turnout — verification
+ * pending"), which buried the seat names in a wall of one repeated sentence. A gap that only some rows have stays on the rows that
+ * have it, so a list never says less than its rows would: it says the same thing in one place. One row is not a list: with fewer
+ * than two rows nothing is shared.
+ */
+export function sharedGaps(seats: readonly RowFacts[]): { runnerUp: boolean; share: boolean; turnout: boolean; sentence: string | null } {
+  const first = seats[0];
+  const every = (f: (s: RowFacts) => string | null): string | null => {
+    if (first === undefined || seats.length < 2) return null;
+    const said = f(first);
+    return said !== null && seats.every((s) => f(s) === said) ? said : null;
+  };
+  const runnerUp = every((s) => gaps(s).runnerUp);
+  const share = every((s) => gaps(s).share);
+  // A turnout that was reported is a figure, and a figure belongs on its row; only the absence of one is shared.
+  const turnout = every((s) => (s.turnout.state === "reported" ? null : turnoutHeadline(s.turnout)));
+  const parts = [runnerUp, share, turnout].filter((p): p is string => p !== null);
+  return {
+    runnerUp: runnerUp !== null,
+    share: share !== null,
+    turnout: turnout !== null,
+    sentence: parts.length === 0 ? null : `On every seat in this list: ${parts.join(" · ")}.`,
   };
 }

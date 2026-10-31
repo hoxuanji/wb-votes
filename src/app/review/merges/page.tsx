@@ -169,7 +169,7 @@ export default function MergeReview({
     <Shell here="review" reading>
         <div className="iei-head">
           <p className="iei-eyebrow">Merge review · recall measurement</p>
-          <h1 className="iei-answer">Are these two records the same person?</h1>
+          <h1 className="iei-answer iei-answer-long">Are these two records the same person?</h1>
         </div>
 
         {unavailable && <RegistryMissing level={2} />}

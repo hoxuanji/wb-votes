@@ -1,13 +1,12 @@
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { inr, marginText } from "../../../packages/mandate/src/repo/brief.ts";
+import { readOrder } from "../../../packages/mandate/src/repo/place-filters.ts";
+import { seatGlow } from "../../../packages/mandate/src/repo/seat-glow.ts";
+import { resultRetrieved, seatFinding, seatFlags, seatLimits, seatNumbers } from "../../../packages/mandate/src/repo/seat-story.ts";
+import { marginRankFigure, photoFinishOf } from "../../../packages/mandate/src/repo/seat-proof.ts";
 import { turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import type { Tile } from "../../../packages/mandate/src/repo/brief.ts";
-import {
-  anomalies,
-  placeHeadline,
-  placeTiles,
-} from "../../../packages/mandate/src/repo/place-presentation.ts";
 import { placeView } from "../../../packages/mandate/src/repo/place-view.ts";
 import { readRegistry } from "../../../packages/mandate/src/repo/session.ts";
 import type { PlaceQuery } from "../../../packages/mandate/src/repo/place-resolve.ts";
@@ -20,16 +19,14 @@ import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import { StateSurface } from "./state.tsx";
 import { Choose } from "./choose.tsx";
 import { Foot, Shell } from "../../components/iei/Shell.tsx";
-import { HeldBy, ResultBars } from "../../components/iei/SeatHistory.tsx";
+import { HeldBy } from "../../components/iei/SeatHistory.tsx";
+import { Finding } from "../../components/iei/Finding.tsx";
+import { MarginFigure, PartyChip, PersonLink } from "../../components/iei/marks.tsx";
+import { SeatFlags, SeatKpis, SeatLimits, SeatMarginRank, SeatPanels, SeatPhotoFinish, SeatRoster } from "../../components/iei/Seat.tsx";
 import { SeatLocator } from "../../components/iei/SeatLocator.tsx";
 import {
-  BasisChip,
   Crumbs,
-  DataList,
-  DataRow,
   EmptyState,
-  Metric,
-  Metrics,
   Panel,
   RegistryMissing,
   Table,
@@ -235,31 +232,41 @@ export async function PlaceSurface({
     );
   }
 
-  const { brief, analysis, locator, history } = view;
+  const { brief, locator, history, field, widest } = view;
   const p = brief.place;
-  const flags = anomalies(brief, analysis);
   const base = view.base.replace(/\/analysis$/, "");
-  // The ink of each election's winner is the party's KEY, as on the maps, the locator, the strip and the bars: inked by the
-  // short name, West Bengal's TMC (key AITC) would be a second, derived green on the same panel.
-  const holder = new Map(history.results.map((r) => [r.contestId, r.winner?.party.key]));
+  const story = { brief, history, field, widest };
+  const finding = seatFinding(story);
+  // The proof of a finding that a sentence cannot show: a ruler for a narrow result, the list of every margin for a lone one.
+  const finish = photoFinishOf(story, finding);
+  const rank = marginRankFigure(story, finding, view.margins);
+  const nums = seatNumbers(story);
+  const flags = seatFlags(story);
+  const limits = seatLimits(story);
+  const { order, dir } = readOrder(searchParams);
+  // The roster is the newest election's field, where that election published no counts to rank it by.
+  const newest = field.elections.at(0);
+  const roster = newest !== undefined && newest.evidence !== "counted" && newest.candidates.length > 1 ? newest : null;
+  const retrieved = resultRetrieved(brief);
 
   return (
-    <Shell here="place" reading>
+    // The light along the top is the colour of the party that holds the seat, where the record names one (repo/seat-glow.ts).
+    <Shell here="place" glow={seatGlow(history)?.colour ?? null}>
       <Crumbs trail={view.trail} />
       {/* BESIDE THE HEADER where there is room, below it where there is not, and not there at all where the seat has no
           outline to draw: the header is then the markup it always was, with no frame in its place. */}
       <div className={locator === null ? "iei-head" : "iei-head iei-head-seat"}>
-        {/* WHICH BODY, said ONCE and near the title. "Constituency" alone is ambiguous in India — a reader
-            cannot tell a Lok Sabha seat from an assembly seat, and the two are different offices with
-            different electorates. The body comes from `place_version.kind`, so this is domain data reaching
-            the surface rather than a branch: adding a third body would need no change here. */}
+        {/* WHICH BODY, said ONCE and near the title. "Constituency" alone is ambiguous in India: a reader cannot tell a Lok Sabha seat
+            from an assembly seat, and the two are different offices with different electorates. */}
         <p className="iei-eyebrow">
           {`${bodyWord(bodyOfKind(p.kind))} Constituency`}
           {p.number !== null && ` · No. ${p.number}`}
           {p.reservation !== null && ` · ${RESERVATION[p.reservation] ?? p.reservation}`}
         </p>
         <h1 className="iei-answer">{p.canonicalName}</h1>
-        <p className="iei-sub">{placeHeadline(brief)}</p>
+        {/* THE FINDING: the one true, notable thing about this seat, computed from its record (repo/seat-story.ts), with its people as
+            links and its parties as swatches. Where the seat has none it is today's headline, so the page never invents a story. */}
+        <Finding finding={finding} />
         {/* Under the sentence, in the column the locator leaves it. */}
         <HeldBy history={history} />
         {locator === null ? null : <SeatLocator view={locator} />}
@@ -279,36 +286,30 @@ export async function PlaceSurface({
       <Panel
         title="What the numbers say"
         question="The seat, as its most recent election left it"
-        /* ONE DRAWER FOR THE MODULE. Every tile used to carry its own inline ⓘ over the same handful of
-           sources — six drawers where the panel already had one. */
+        /* ONE DRAWER FOR THE MODULE. Every tile used to carry its own inline ⓘ over the same handful of sources. */
         sources={brief.sources}
       >
-        <Metrics>
-          {placeTiles(brief, analysis).map((t: Tile) => (
-            <Metric
-              key={t.label}
-              label={t.label}
-              // The tiles arrive pre-formatted: the semantic layer owns how a turnout, a margin or an
-              // effective-party count is written, and a component must not re-round what it was handed.
-              text={t.value}
-              unit={t.unit ?? undefined}
-              // The registry's absence is "not reported" (the tables below say it); the component's own default
-              // is "not held", which says an election did not happen.
-              absent="not reported"
-              hint={t.note}
-            />
-          ))}
-        </Metrics>
+        <SeatKpis nums={nums} retrieved={retrieved} />
       </Panel>
 
+      {finish === null ? null : <SeatPhotoFinish finish={finish} />}
+      {rank === null ? null : <SeatMarginRank figure={rank} />}
+
+      {field.elections.length === 0 ? null : (
+        <Panel title="How each election divided the vote" question="Who stood, and how did the votes fall?">
+          <SeatPanels field={field} history={history} brief={brief} />
+        </Panel>
+      )}
+
+      {roster === null ? null : <SeatRoster election={roster} order={order} dir={dir} base={base} />}
+
       <Panel title="Every election on record" question="Who has won this seat, and by how much?">
-        <ResultBars history={history} />
         <Table
           label="Election history"
           caption={
             brief.contests.length === 0
               ? `No contest is on record for ${p.canonicalName}.`
-              : `${inr(brief.contests.length)} election${brief.contests.length === 1 ? "" : "s"}, newest first. The member links to their brief.`
+              : `${brief.contests.length === 1 ? "1 election on record" : `${inr(brief.contests.length)} elections on record`}, newest first. The member links to their page.`
           }
           captionVisible
           head={
@@ -324,66 +325,62 @@ export async function PlaceSurface({
               <th scope="col" className="iei-n">
                 Margin
               </th>
-              <th scope="col" className="iei-n">
+              <th scope="col" className="iei-seat-hide">
+                Runner-up
+              </th>
+              <th scope="col" className="iei-n iei-seat-hide">
                 Turnout
               </th>
             </>
           }
         >
-          {brief.contests.map((c) => (
-            <tr key={c.contestId}>
-              <th scope="row">{c.year}</th>
-              <td>
-                {c.winner === null ? (
-                  <span className="iei-absent">no result declared</span>
-                ) : (
-                  <span className="iei-mark">
-                    <span
-                      className="iei-sw"
-                      style={{ background: fillFor(holder.get(c.contestId) ?? c.winner.partyShortName ?? "") }}
-                      aria-hidden="true"
-                    />
-                    <span className="iei-chip">{c.winner.partyShortName ?? "party not recorded"}</span>
-                  </span>
-                )}
-              </td>
-              <td>
-                {c.winner === null ? (
-                  <Value value={null} absent="not reported" />
-                ) : (
-                  <Link href={personHref(c.winner.personId)}>{c.winner.personName}</Link>
-                )}
-              </td>
-              <td className="iei-n">
-                <Value value={c.winner?.voteShare ?? null} unit="%" decimals={1} absent="not reported" />
-              </td>
-              <td className="iei-n">{marginText(c.margin, true) ?? <Value value={null} absent="not reported" />}</td>
-              <td className="iei-n">
-                {turnoutHeadline(c.turnout)?.replace(' turnout', '') ?? (
-                  <Value value={null} absent="not reported" />
-                )}
-              </td>
-            </tr>
-          ))}
+          {history.results.map((r) => {
+            const c = brief.contests.find((x) => x.contestId === r.contestId);
+            const f = field.elections.find((x) => x.contestId === r.contestId);
+            return (
+              <tr key={r.contestId}>
+                <th scope="row">{r.label}</th>
+                <td>
+                  {r.winner === null ? (
+                    <span className="iei-absent">no result declared</span>
+                  ) : (
+                    <PartyChip partyId={r.winner.party.key} code={r.winner.party.label} />
+                  )}
+                </td>
+                <td>
+                  {r.winner === null ? (
+                    <Value value={null} absent="not reported" />
+                  ) : (
+                    <PersonLink id={c?.winner?.personId ?? null} name={r.winner.name} />
+                  )}
+                </td>
+                <td className="iei-n">
+                  <Value value={c?.winner?.voteShare ?? null} unit="%" decimals={1} absent="not reported" />
+                </td>
+                <td className="iei-n">
+                  {r.margin === null ? <Value value={null} absent="not reported" /> : <MarginFigure votes={r.margin.votes} basis={r.margin.basis} />}
+                </td>
+                <td className="iei-seat-hide">
+                  {r.runnerUp === null ? (
+                    <span className="iei-absent">not reported</span>
+                  ) : (
+                    <>
+                      <PartyChip partyId={r.runnerUp.party.key} code={r.runnerUp.party.label} />{" "}
+                      <PersonLink id={f?.candidates.find((x) => x.rank === 2)?.personId ?? null} name={r.runnerUp.name} />
+                    </>
+                  )}
+                </td>
+                <td className="iei-n iei-seat-hide">
+                  {c === undefined ? null : (turnoutHeadline(c.turnout)?.replace(" turnout", "") ?? <Value value={null} absent="not reported" />)}
+                </td>
+              </tr>
+            );
+          })}
         </Table>
       </Panel>
 
-      <Panel title="Flagged" question="Is anything about this seat's record out of the ordinary?">
-        {flags.length === 0 ? (
-          /* An empty list is not a list of what passed: a rule that reads a turnout or a margin cannot fire where the
-             record has neither. */
-          <p className="iei-note">No rule flagged this seat&rsquo;s record; a rule cannot fire on a figure the record lacks.</p>
-        ) : (
-          <DataList label="Flags">
-            {flags.map((flag) => (
-              /* THE ONE PLACE `BasisChip` SURVIVES, and it survives because here the distinction changes what
-                 the row MEANS. A flag is this codebase's own reading of the record, not a fact a source
-                 published, and a reader deciding whether to quote it needs to know which. */
-              <DataRow key={flag} title={flag} aside={<BasisChip basis="derived" />} />
-            ))}
-          </DataList>
-        )}
-      </Panel>
+      <SeatFlags flags={flags} elections={brief.contests.length} />
+      <SeatLimits limits={limits} />
 
       <Foot />
     </Shell>

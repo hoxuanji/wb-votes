@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { Children, isValidElement } from 'react';
+import type { CSSProperties } from 'react';
 import { CommandKey } from './CommandKey.tsx';
 
 /**
@@ -39,6 +40,7 @@ export function Shell({
   /** A narrower measure for the surfaces that are prose and one table rather than a map. */
   reading = false,
   live = false,
+  glow = null,
   children,
 }: {
   /** Which surface this is. Only the front page's, `india`, does anything: it marks the wordmark as current, on the page it links to. */
@@ -48,6 +50,12 @@ export function Shell({
   reading?: boolean;
   /** True only while an election's own lifecycle says it is running. */
   live?: boolean;
+  /**
+   * The colour of the light along the top of the page, as a CSS colour (`--iei-glow`); null keeps the neutral one. Decoration and
+   * nothing else: only a seat's page and its Analysis pass one, and the party it stands for is named in words on the same page
+   * (repo/seat-glow.ts says when a seat has one).
+   */
+  glow?: string | null;
   children: React.ReactNode;
 }) {
   // THE FOOTER IS NOT INSIDE <main>. A <footer> that is a descendant of main is not the page's contentinfo landmark,
@@ -56,7 +64,7 @@ export function Shell({
   const parts = Children.toArray(children);
   const isFoot = (c: React.ReactNode): boolean => isValidElement(c) && (c.type === Foot || c.type === 'footer');
   return (
-    <div className="iei">
+    <div className="iei" style={glow === null ? undefined : ({ '--iei-glow': glow } as CSSProperties)}>
       {/* Skip link first in the tab order: the shell has a search field before the content, which is less
           keyboard than it was but still keyboard. */}
       <a className="iei-skip" href="#main">

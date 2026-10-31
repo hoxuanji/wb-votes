@@ -217,3 +217,209 @@ Not met, or not tested:
 - **On a phone** the arc's dots are about 6px across for 294 seats, and `/election` is one row of tabs lower (352 to 385) because the new control has no
   year strip to share a row with.
 - **The Task 8 commit message calls the 29.5px cell "a 29px tile":** the tile inside it is 26.6px.
+
+
+## Redesign of the front page, the seat, the person and the Analysis (2026-10-29)
+
+Four pages were rebuilt from design briefs written against the audited defects: `/`, the seat page, the person page and the Analysis lens, plus a new
+`/candidates`. Each opens on one computed sentence (a *finding*, repo/finding.ts) and the picture that proves it, answers the next question with one
+picture each, keeps the exact table of every picture, and says what its record cannot say once.
+
+**What changed**
+
+- **`/`** opens on the country (changed the same day, after review: a page that opened on one state's story had made that state its subject). A
+  sentence about India that names every state with a result, the map, and beside it a card that is a glance at every state's latest election (most
+  recent first, then by name, never by size) until the reader chooses a state, and then that state's highlight. A click or a row choose a state through
+  `?state=`; hover keeps the map's card and lights the matching row. Below the map is the chosen state's story (repo/home-story.ts): four houses on one
+  scale with a half-house line, four doors, and chapters for what changed, where, votes against seats, how close, and who was always there. With no
+  choice it is the most recent election on record, and the page says so; with one state loaded it says that state is the only one.
+- **The seat page** leads with a finding (rise, narrow, hands, hold, lone or the old headline), a hero margin with the previous election's margin and a
+  trend line in which a declared figure is a hollow ring, the winner's share against half the votes polled, every election on one scale, the whole 2026
+  field with what each candidate declared, and the Flagged rules evaluated over every election. Every 2026 candidate is a link.
+- **The person page** has a finding with eight rules, the run with margins on one scale (a declared margin is a dashed bar), who they stood against,
+  the field, the record and the affidavit. `/candidates` lists one election's field with facets whose counts honour each other.
+- **The Analysis** has the finding and its rule, a vote ladder with ribbons only between counted elections, a margin hero ranked by votes, the seat
+  against the state, turnout against its district and state on an axis that does not start at zero, notes that print their rules, and four tables.
+
+**Decisions taken by default** (each is a named constant or a one-rule change): the 1340px width for the seat Brief and the Analysis, so the tabs do
+not change the page's width; the roster orders by name or party or age and by nothing the candidate declared; a dashed mark means "no declared winner"
+and a hollow ring or dashed bar means "declared, with nothing counted behind it"; one close-call rule (0.5 point); one margin rank (by votes); one state
+share (the trajectory's); `.iei-tab` and the facet rows are 44px high under `pointer: coarse` and unchanged on a desktop.
+
+**What was measured:** every sentence is audited on every seat (336) and every person (6,167): every number is in its inputs, "declared" sits beside a
+margin without counts, and no pronoun, "never", "first time" or "only" appears. The all-seats and all-people runs found two defects of ours before any reader did (a headline that gave a declared margin without the word, and the word "only" in a line under a sentence).
+
+**Not built:** the seat's photo-finish ruler and margin-rank strip, the Analysis's field strips, a compare view, and any asset or case ordering or
+dot, on purpose. **Not tested:** hover, focus order, screen readers, other browsers, and motion in sequence (the captures freeze animation; first and
+last frames only); 320px; the person page's twin-tied seats in a real browser.
+
+## The look (2026-10-29): "this still looks a school project"
+
+The owner's look decision, taken after every page was walked in a real browser at 1440 and 390 (Playwright's library over a pipe to the installed
+headless Chromium, with each request answered from the app's own renderer; `playwright-cli` itself cannot run in this sandbox, see the memory note).
+
+**Diagnosis.** The stylesheet's first rules drew a lab report: no gradients, shadows or glass, a 2px corner, hairlines between sections, a 10–11.5px
+monospace voice for every caption (about ten thousand characters under 12px across eight pages, nearly all of it `.iei-note` and `.iei-rule`), and a
+34px title over a 15px heading. Nothing sat above anything else, and the first screen of most pages was a 600px column of text beside 700px of black.
+
+**Change.** One block at the foot of `src/app/iei.css` ("the skin") and four token moves; the page is still monochrome and only data carries hue.
+Sections, the stat tiles, the three seat figures and the chosen state's opening are cards on a faintly lit page; the title is 52px at weight 760
+(34px at 900px and below); the type tokens are now mark 11, meta 12.5, data 13.5, body 15, title 18, lead 26 (still seven); a note under a chart is
+sans at reading size in the second ink; radius is one token and it is 8px; `--iei-ink-3` is `#8b8ba2` so a label stays over 4.5:1 on a card's lit top
+edge. The home hero puts the reach ledger beside the sentence as three stat cards. `iei.test.ts` was changed in four places, each with its reason in a
+comment: the radius token is 8px, and `34px` is an allowed title size at the tablet breakpoint.
+
+**Two defects found by looking.** `/candidates` scrolled sideways at 390px: `.iei-sr` text inside the wide table had the page as its containing block, and
+an `overflow: auto` box does not clip that (`.iei-scroll` is `position: relative` now). And an election with no vote counts repeated "no runner-up
+recorded · share of votes polled — verification pending · turnout — verification pending" after all 294 seat names; `sharedGaps` (repo/seat-list.ts)
+says what every row of a list lacks once, above it, and a gap only some rows have stays on those rows.
+
+**Not done.** The Sankey ribbons (muddy at low opacity), the 8px labels inside the seat page's small sparklines (a viewBox scaled down), a per-page glow
+in the colour of the leading party, the coverage page's long ledger, and any check in Safari or Firefox. Hover and click were exercised on the home map only.
+
+## Glow and the coverage ledger (2026-10-31)
+
+Two items the look pass left over. **The glow** (repo/seat-glow.ts): the lit edge along the top of the page is tinted with the ink of the party that holds the
+seat, on the seat page and its Analysis and on no other page (the front page stays neutral, as the owner asked on 2026-10-29). `Shell` takes a `glow` colour
+and sets `--iei-glow` on the page wrapper; the stylesheet's block "glow and the coverage ledger" paints `.iei` with that property, defaulting to the skin's
+own colour. The colour is the party's ink (`party-ink`) at the strongest alpha, up to the neutral glow's 0.13, at which `--iei-ink-3` still measures 4.6:1
+over the brightest the page can get under it (glow over the top-left highlight over the canvas): a pale yellow gets a weaker glow than a saturated saffron.
+Three defaults were taken. The party is the declared winner of the seat's newest election, and **a newest election with no declared winner is neutral**: read
+as "the latest election that has a declared winner", Falta, whose page says in words that 2026 has no declared winner, would be lit in 2021's green. A winner
+declared with nothing counted is a winner (335 of 336 current seats have exactly that as their newest result, so waiting for counts would light none). And
+**an independent, a candidacy with no party, and a party whose colour is derived from a hash of its id are neutral**: the ink gives them a grey or "this
+party's own colour is not recorded here", and a page-wide light in an invented hue would say more than the record does. 314 of the 336 seats are lit (204
+BJP, 106 AITC, 3 INC, 1 CPI(M)); 22 keep the neutral light: Falta, the 18 held by independents, 2 held by Aam Janata Unnayan Party and 1 by the All India
+Secular Front.
+
+**The ledger** (repo/coverage-ledger.ts): "The eighteen subject areas" was eighteen rows in the spec's order, eleven of which said "Not modelled", "none" and
+"no <x> model exists yet" in turn, three "Table, no rows" and "none", with the four that hold data scattered among them (rows 1 to 3 and 5); at 390px three of
+its five columns were behind a sideways scroll. It is now three groups by status (data, a table with nothing in it, no model), each headed once with its
+count of eighteen and what every subject in it lacks said once in the head (the pattern of `sharedGaps`: "On every subject in this group: no rows · no reach
+measured."). A subject with data or a table keeps its row (question, rows, measured reach, caveat, source); a subject with no model is a name, with its
+caveat only where the caveat says more than the missing model, and the three that wait on one fiscal model are named together once. The exact table of all
+eighteen rows and five columns is under the groups as an `iei-twin` disclosure, so every question and source the groups do not print is still on the page.
+The builder is pure and tested against the verticals word for word (coverage-ledger.test.ts) and the rendered page against the fixture registry
+(coverage-page.test.ts).
+
+**What was measured**, in a real browser (Chromium over a pipe, each route rendered by the app's own renderer): the glow, on Mekliganj and its Analysis (BJP),
+Baharampur (AITC), Domkal (CPI(M)), Farakka (INC), Falta (no declared winner), Naoda (a party with no recorded colour) and Sitalkuchi (an independent), at 1440
+and 390. Contrast of every visible text box against the pixel actually behind it (text made transparent, the page screenshotted): text on the page itself
+5.15 to 5.46 under a glow against 5.20 to 5.45 under the neutral one, text on a card 4.96 to 5.29 and identical with and without the glow (cards are opaque); the
+translucent top bar is the only surface that shows the glow through. The pages that must not change (a seat with no lit colour, the Analysis of one, the front
+page, a person, a state, an election, `/candidates`) are pixel-identical at 1440 and 390 under the committed stylesheet and the new one. The ledger:
+the section is 1,849px at 1440 and 2,841px at 390 before, 1,373px and 2,627px after, and the page 4,042px to 3,566px and 6,563px to 6,348px; the page does not
+scroll sideways at 390 with the exact table closed or open (the table scrolls in its own region when opened: 980px in 332px); every text size in the ledger is
+on the scale, and the lowest contrast in it is 5.82:1. Its length at a phone's width fell by 8%, far less than at a desktop's (26%), because at 390px the old
+table showed two of its five columns.
+
+**Not tested:** Safari and Firefox (the glow is a `var()` in a gradient and the ledger a grid, nothing newer); the glow with forced colours or a printer; a
+second state (only West Bengal is loaded, so no seat has a different party in a different state); keyboard order and a screen reader through the ledger (each
+cell names itself in a visually hidden label; no assistive technology was run); a real click on the exact table's summary (the `open` property was set);
+and 320px. The ledger's `LACKS` pattern reads the missing model from the first clause of a caveat and keeps the whole caveat when it does not match; a test
+holds that all eleven do today.
+
+
+## Legibility fixes (2026-10-31)
+
+Two of the defects the look pass left, fixed and measured in a real browser (Playwright's library over a pipe to headless Chromium, each request
+answered from the app's own renderer, dev registry) at 1440 and 390, and at 1280, 1024, 768, 360 and 320 for the labels.
+
+**Ribbons.** Both were a party's ink at a fraction of opacity: the seat-flow picture's at 0.3 held, 0.45 mixed and 0.7 changed hands, the vote ladder's
+at 0.14 and 0.5 for the party followed. Looked at, both were muddy for the same reason and in different places: where flow ribbons cross, the blend is
+a colour that is no party's (olive, where green meets saffron) and the held ones are dark grey-brown; the ladder's 0.14 over a 16px band is barely there
+and its 0.5 is brown. A ribbon's fill is now opaque (`viz/ribbon-ink.ts`): the ink's own hue (within 1.4 degrees over 460 parties) at a lightness found from
+its contrast against the card with `colour.ts`. The brightest tier is the ink, calmed to at most 6:1; mid keeps 70% and faint 42% of the contrast above
+1, so "fainter" is the same fraction for every party and a party with a dark ink keeps it (CPI is not lifted toward CPM's red, which `party-ink.ts`
+separates it from on lightness). Saffron is 6.0 / 4.5 / 3.1:1 over the card; across the 60 curated parties the brightest tier is 3.3 to 6.1:1 and the
+faintest 2.0 to 3.1:1 (36 of the 60 reach 3.0), across 400 generated ones 3.4 and 2.0 at the lowest. In the flow, changed hands is the brightest tier,
+a ribbon of both the middle one and held the faintest, and the brighter ribbon is painted over the fainter where they cross, so a crossing has an order and
+no blend; in the ladder the party followed is the brightest and the others the faintest. A 2px line in the card's colour, painted under the fill
+(`paint-order: stroke`, so a one-seat ribbon under a pixel tall is not eaten by it), separates ribbons that touch. Pointing at a flow ribbon still picks
+it out and dims the rest, to 12% (it was 8%); the dim is the one translucent state left, and at 12% the tint it leaves where a dimmed ribbon crosses the
+picked one is not seen. What the pictures say is unchanged: the captions, titles and tables are the same words and numbers, and a ribbon is still the
+same party across two counted elections and not a count of voters who moved. No text sits over a ribbon in either picture (the DOM audit finds none of
+the text on the election, state, home and Analysis pages inside a ribbon's box at 1440 and 390), so the 4.5:1 for a label is not in question.
+
+**Sparkline labels.** The seat page's two small lines drew their years, their oldest and newest figures and "no figure" as SVG text in a 400-unit frame that
+scales with its tile. The census took every label of the margin and turnout lines on six seats (Mekliganj, Amta, Arambag, Amdanga, Asansol Dakshin,
+Alipurduars) at seven widths, 504 labels, as computed font size times the scale of the text's CTM. Before: 7.49px at 1440 (the turnout tile is 273px wide
+there; the margin line's 11.55), 7.08 at 1280, 11.55 at 1024, 8.39 at 768, 8.19 at 390, 7.37 at 360 and 6.27 at 320; 321 of 504 under 11px. After: all 504 are
+11.0px. The labels are HTML over the picture, placed by percentage of its box and hidden from assistive technology (the picture keeps its name and the
+twin list beside the margin line carries the numbers), and only the line and its dots scale. Because type that keeps its size does not shrink with the
+picture, `viz/spark.ts` decides which labels fit at the narrowest width a line is drawn (240px): a year that would touch its neighbour is dropped, newest
+first kept, and "no figure" is dropped where it would run over the dots beside it (more than four elections); the dot, its title and its gap line remain. The
+oldest and newest figures sit above their dots, or beside them, under the line, when the line leaves them steeply. The year row under the baseline is 28 units
+tall instead of 22 to give 11px type room. No label box meets another label or a dot, none leaves its card, and the page does not overflow sideways at any of
+the seven widths. Four elections is what the seed has; a 17-election line was checked on a hand-built copy of the markup, where the labels thin to every third
+year without touching.
+
+**The other charts' labels.** The India map's state codes on `/` are 9.58px at 1440, 1280 and 1024 and 8.62px at 768 (hidden at 390): the same cause (a code
+in a viewBox scaled to the map; `LABEL_FRACTION` is 1/58) but raising it to about 1/50 changes which states have room for a label, and the home page is not in this
+change, so it is left. The seat locator's name is 13.5px down to 360 and 12.5px at 320. The votes-against-seats plot (`Distribution.tsx`) sets 12.5 to 15px type in a
+400-unit frame, which at a phone's column is about 0.75, 9 to 11px; no page of the seed registry draws it, so this is computed and not measured, and not
+changed. `viz/charts.ts` draws its charts at three widths by design and no component renders it today.
+
+**Tests.** `viz/ribbon-ink.test.ts` (opaque, the share of contrast, hue, lightness order, the neutral ribbon is the stylesheet's token, the stylesheet sets no
+ribbon opacity and has the gap line) and three in `viz/spark.test.ts` are new. Four existing assertions changed on purpose, each with a comment: the ribbon fills
+in `seat-flows-page.test.ts` (two tests, a tint instead of the ink) and the ribbon opacity in `place-analysis-page.test.ts`, which also gains the followed-party
+test and the label markup test. The failing set of the whole suite is the 51 names of `9b9ec0a`, unchanged.
+
+**Not tested:** Safari and Firefox (`paint-order` on SVG shapes, `:has`, `inset`), forced-colors (the ribbons' `fill` and `stroke` were not looked at under it), a
+screen reader over the sparklines, focus (the flow picture is hidden from assistive technology and has no focusable ribbon, as before), hover on the ladder (it has
+none), a seat with more than four elections drawn from real data, and the Brief with a registry that has place geometry loaded beyond the 19 rows the seed has.
+
+
+## Proof figures (2026-10-31)
+
+The three figures the 2026-10-29 redesign left out on purpose (seat brief, chunk 12; Analysis brief, chunk 6), each the proof of one sentence that a
+number cannot show by itself. A figure is built only for the finding that needs it, from the inputs that finding reads (`seatFinding`'s own `shape`), so
+a page cannot draw a ruler for a seat whose sentence is about something else. Pure geometry is in `viz/seat-ruler.ts` and `viz/seat-strip.ts`, the
+words and view data in `repo/seat-proof.ts`, the components in `Seat.tsx` (`SeatPhotoFinish`, `SeatMarginRank`) and `Dash.tsx` (`MarginStripPanel`),
+and the CSS is one block at the foot of `iei.css` under `/* seat proof figures: ruler, rank, strip */`.
+
+**What was built.**
+
+- **Photo finish** (the 22 seats whose finding is `narrow`; Dinhata 2021 is the model). Two bars on one zero-based scale, visibly the same length, and a
+  ruler that magnifies the stretch the two totals sit in (115,900 to 116,100 for 116,035 against 115,978, on a grid of 50, the largest 1, 2 or 5 times
+  a power of ten no more than the gap), the gap bracketed and labelled, a funnel from the ruler's window to the same stretch on the bars' scale, and a
+  caption that says it is a ruler and not a bar and does not start at zero. "Latest election is counted" is read as "the election the finding cites is
+  counted": all 22 narrow seats are narrow in 2011 to 2021, and the latest election of every one of them (2026) is declared, so the literal reading
+  would draw nothing. A tie has nothing to magnify and draws nothing.
+- **Margin among all** (the 42 `lone` Lok Sabha seats). One thin bar for each seat of the election, widest first, from zero, in the winner's ink, the
+  seat's outlined and named, the extremes named under the plot, a party key with counts, and a table twin of all 42 with every seat linked. Drawn only
+  if every contest of the election is in the list; otherwise one sentence says how many are missing (none are missing for the 2024 Lok Sabha; an
+  assembly election with a contest like Falta's 2026 would be withheld, and no assembly seat is `lone` today). A declared margin is a dashed bar, so all 42 are dashed, and the caption says why once.
+- **Margin field strip** (the Analysis of all 336 seats: 293 on 2026, 42 on 2024, Falta's on 2021). A dot for each seat of the hero's election, in the
+  winner's party ink, on a log axis (ends on the 1-2-5 ladder, a labelled tick at each power of ten), the seat ringed and named with a line to its ring,
+  stacked into rows so that no two dots overlap, hollow where the margin was only declared, and a dashed ring in the sentence that counts the contests
+  with no declared winner (they have no margin, so no dot). Lok Sabha first (42 dots, 5,567 to 710,930); the assembly option is kept, because it reads
+  (see below). It is the hero's election only, so its rank is the hero's rank.
+
+**One rank.** `place-baselines.ts` now has `marginFields` (an election's margins in the one order: closest first, ties by seat number), `rankIn` and
+`widestRank`. The Analysis's rank, the Brief's "24th widest of 42" (`place-view.ts` `widestOf` no longer sorts for itself) and the figures all read it, and
+the property test holds that the closest-first and widest-first places of a seat add to one more than the field, on all 42 Lok Sabha seats.
+
+**Decisions taken by default.** A declared margin is a dashed bar and a hollow dot, so every dot on the Lok Sabha and 2026 strips is hollow; the seat is the
+ink ring (the winner's device elsewhere). The strip lays itself out for three track widths (270, 519 and 950px, the swarm's measured width at 360, 641 and
+1081px of viewport; dots are 6px on a phone) by giving each dot its row in all three (`--ls`, `--lm`, `--ll`); no script. The ruler's dots and gap arrive after
+the bars grow (`iei-grow`, then `iei-arrive`, delay capped at 300ms); the list and the strip do not move. Tables are `iei-twin`; no `iei-ev` drawer was added.
+
+**What was measured** (headless Chromium over a pipe, each request answered with the saved page; the saved pages freeze animation, which was read from
+computed style on a copy without the freeze). No horizontal overflow of the page at 1440, 1024, 768, 390 or 360 with every twin open; the 293-row twin scrolls
+inside its own region at 390 as every table does. Figure heights (twin closed) at 1440 / 390: ruler 388 / 538px, list 316 / 359px, 42-dot strip 285 / 377px, 293-dot
+strip 483 / 698px (the swarm of 293 dots is 210px tall at 1440, 310px at 768 and 315px at 390; the swarm of 42 is 50px and 77px). Type in the figures is 11, 12.5, 13.5 and 18px, the tokens.
+Hover: the element at the centre of every mark is the mark (0 of 2, 42, 42 and 293 blocked, at 1440 and 390; at 768 for the 293), each with its text in `title`;
+the twin opens on click and a seat's link lands on that seat. Computed motion on the ruler is `iei-grow` 0.36s on the two bars and `iei-arrive` 0.36s delayed 0.3s on
+the dots, segment and gap, and none under `prefers-reduced-motion: reduce`; the list and strip have none. Markup (bytes, before to after): Dinhata Brief 114,068
+to 118,999; Baharampur Brief 43,229 to 67,692 and Analysis 11,125 to 35,030; Mekliganj Analysis 32,285 to 182,696 (the 293-row twin is about half of it), all far
+under 340,000. Tests: `seat-ruler.test.ts` and `seat-strip.test.ts` on literals and a log-normal swarm of 293 (no overlap in any layout), `seat-proof.test.ts`
+on all 336 seats (the ruler exactly for the narrow seats and from the sentence's totals, the list exactly for the lone seats and at the sentence's place, one ring
+and the hero's rank on every strip, every digit of every printed sentence in its inputs or its geometry, no banned word, no press margin for Falta), and
+`seat-proof-page.test.ts` on a registry built for the withheld list and the left-off contest and on the live pages.
+
+**Not tested.** Safari and Firefox (the funnel is a `clip-path` polygon with `calc()`, the pale fill of a dashed bar is `color-mix()`; without either the figure
+loses its funnel or its fill and keeps its marks), 320px (the phone layout assumes a track of 270px or more, so below 360px dots touch), forced-colors rendering,
+the native tooltip being drawn (the text is in `title` and the pointer reaches the mark, but a headless shot cannot show a tooltip), screen readers (each plot is
+`role="img"` with a sentence and its numbers are in the twin), focus order through the twins, motion in sequence (only the computed timing was read), and ties
+in the strip (the two ties in 2011 and 2016 are not on a strip, which draws the hero's election only; a tie would rank by seat number and sit at the same x).

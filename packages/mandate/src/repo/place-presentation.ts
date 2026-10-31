@@ -56,6 +56,12 @@ function marginPct(c: PlaceBrief["contests"][number]): number | null {
   });
 }
 
+/** A contest's margin in votes, with "(declared)" where the source published the margin and no counts behind it. */
+function votesText(c: PlaceBrief["contests"][number]): string {
+  const basis = marginFrom(c.winner?.votes ?? null, c.runnerUp?.votes ?? null, c.margin)?.basis ?? null;
+  return `${inr(Math.abs(c.margin ?? 0))} votes${basis === "declared" ? " (declared)" : ""}`;
+}
+
 export function times(n: number): string {
   return n === 1 ? "once" : n === 2 ? "twice" : `${inr(n)} times`;
 }
@@ -78,7 +84,7 @@ export function placeHeadline(b: PlaceBrief): string {
   if (cs.length === 1) {
     return w === null
       ? `${name} has one election on record, ${latest.year}, and no declared winner in it.`
-      : `${w} won ${name} in ${latest.year} by ${inr(Math.abs(latest.margin ?? 0))} votes — the only ` +
+      : `${w} won ${name} in ${latest.year} by ${votesText(latest)} — the only ` +
           `election on record here, so no trend is computable.`;
   }
 
@@ -111,7 +117,7 @@ export function placeHeadline(b: PlaceBrief): string {
       now === null
         ? latest.margin === null
           ? null
-          : `most recently by ${inr(Math.abs(latest.margin))} votes`
+          : `most recently by ${votesText(latest)}`
         : then === null || then === 0
           ? `on margins of ${percent(now)} of votes cast in ${latest.year}`
           : now < then
@@ -125,7 +131,7 @@ export function placeHeadline(b: PlaceBrief): string {
     return (
       `${name} has changed hands at every one of its ${inr(cs.length)} recorded elections — ` +
       `${[...cs].reverse().map((c) => `${won(c) ?? "no result"} ${c.year}`).join(", ")} — and ` +
-      `${w} holds it by ${inr(Math.abs(latest.margin ?? 0))} votes.`
+      `${w} holds it by ${votesText(latest)}.`
     );
   }
 
@@ -141,15 +147,15 @@ export function placeHeadline(b: PlaceBrief): string {
   }
   if (held) {
     return (
-      `${w} has held ${name} for ${inr(run)} straight elections, by ${inr(Math.abs(latest.margin ?? 0))} ` +
-      `votes in ${latest.year}, and ${hands("changed")}.${gap}`
+      `${w} has held ${name} for ${inr(run)} straight elections, by ${votesText(latest)} ` +
+      `in ${latest.year}, and ${hands("changed")}.${gap}`
     );
   }
   // An election with no declared winner before this one has no holder to take the seat from.
   const from = prev === undefined ? null : won(prev);
   return (
     `${from === null ? `${w} won ${name}` : `${w} took ${name} from ${from}`} in ${latest.year} by ` +
-    `${inr(Math.abs(latest.margin ?? 0))} votes — ${hands("has changed")}.${gap}`
+    `${votesText(latest)} — ${hands("has changed")}.${gap}`
   );
 }
 

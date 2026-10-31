@@ -59,6 +59,7 @@ const routes = {
   // A route HANDLER, not a page: the query is the form body, and what it prints is the status and the redirect.
   "/review/merges/decide": { load: () => import("../../../src/app/review/merges/decide/route.ts"), post: true },
   "/search": { load: () => import("../../../src/app/search/page.tsx"), params: null },
+  "/candidates": { load: () => import("../../../src/app/candidates/page.tsx"), params: null },
   "/election": {
     load: () => import("../../../src/app/election/[id]/page.tsx"),
     params: (segs) => ({ id: segs.join("/") }),

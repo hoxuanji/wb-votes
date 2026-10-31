@@ -94,3 +94,60 @@ test("the page counts no file in the repo", () => {
   const t = text(render(""));
   assert.doesNotMatch(t, /sit in the repo|sitting in this repo|fourteen manifestos|14 party manifestos/);
 });
+
+/* ────────────────────────────── the ledger of subject areas ────────────────────────────── */
+
+const LABELS = [
+  "Elections", "Census overlays", "Historical trends", "Delimitation changes", "Cabinet and portfolios", "MLA/MP performance",
+  "Parliamentary sessions", "Bills", "Voting records", "Government schemes", "Budget allocations", "Public spending",
+  "Constituency development funds", "Promises vs delivery", "Political funding", "Court cases", "RTI datasets", "Coalitions",
+];
+
+/** The page without the exact table's disclosure, which is where every row keeps every column. */
+const outsideTwin = (html: string): string => html.replace(/<details class="iei-twin">[\s\S]*?<\/details>/g, " ");
+const twinOf = (html: string): string => /<details class="iei-twin">([\s\S]*?)<\/details>/.exec(html)?.[1] ?? "";
+
+test("the ledger is groups by status, each headed once with its count of the eighteen", () => {
+  const html = outsideTwin(render(""));
+  const heads = [...html.matchAll(/<h3 id="iei-led-([a-z-]+)">([\s\S]*?)<\/h3>/g)].map((m) => [m[1] as string, text(m[2] as string)] as const);
+  assert.ok(heads.length >= 2, JSON.stringify(heads));
+  const order = ["present", "empty", "no-model"];
+  const at = heads.map((h) => order.indexOf(h[0]));
+  assert.deepEqual(at, [...at].sort((a, b) => a - b), "the groups are not in the order data, table, no model");
+  const counts = heads.map((h) => Number(/(\d+) of 18/.exec(h[1])?.[1]));
+  assert.equal(counts.reduce((a, b) => a + b, 0), 18, `the groups hold ${counts.join(" + ")} of the eighteen subjects`);
+  // A status is a word in a group's head and is not said on each subject again.
+  assert.equal((text(html).match(/Not modelled/g) ?? []).length, 1, "'Not modelled' is said on more than the group");
+});
+
+test("every one of the eighteen subjects is on the page outside the exact table, by name", () => {
+  const t = text(outsideTwin(render("")));
+  for (const label of LABELS) assert.ok(t.includes(label), `${label} is not in the groups`);
+});
+
+test("what every subject of a group lacks is said once, in the group, and not on its subjects", () => {
+  const t = text(outsideTwin(render("")));
+  assert.ok((t.match(/On every subject in this group: no rows · no reach measured\./g) ?? []).length >= 1, "no group says what its subjects lack");
+  assert.doesNotMatch(outsideTwin(render("")), />none</, "'none' is printed as a subject's row count");
+});
+
+test("the exact table keeps all eighteen rows with their five columns, behind a disclosure", () => {
+  const html = render("");
+  const twin = twinOf(html);
+  assert.match(html, /<details class="iei-twin"><summary>The exact table: all 18 subject areas<\/summary>/);
+  const rows = [...twin.matchAll(/<tr><th scope="row">([\s\S]*?)<\/tr>/g)];
+  assert.equal(rows.length, 18, "the exact table lost a row");
+  for (const [, row] of rows) assert.equal((row as string).match(/<td/g)?.length, 4, "a row lost a column");
+  const t = text(twin);
+  for (const label of LABELS) assert.ok(t.includes(label), `${label} is not in the exact table`);
+  // The words of every row are in it: the status of each, and the question and the source.
+  assert.ok((t.match(/Not modelled/g) ?? []).length >= 11);
+  assert.match(t, /Who won this seat, by how much, and how has it behaved across cycles\?/);
+  assert.match(t, /PRS India, Lok Sabha bill tracker/);
+});
+
+test("the twin is not an evidence drawer, so the page keeps its drawers", () => {
+  const html = render("");
+  assert.ok((html.match(/class="iei-ev(?:\s|")/g) ?? []).length <= 3);
+  assert.doesNotMatch(twinOf(html), /iei-ev/);
+});
