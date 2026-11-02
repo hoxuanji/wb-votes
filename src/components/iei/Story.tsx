@@ -1,3 +1,4 @@
+import { CountUp } from './CountUp.tsx';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { dumbbell } from '../../../packages/mandate/src/viz/story.ts';
@@ -672,7 +673,10 @@ export function HomeReach({ reach }: { reach: readonly Reach[] }) {
         <li key={r.label}>
           <span className="iei-story-reach-l">{r.label}</span>
           <span className="iei-story-reach-v">
-            <b>{IN.format(r.have)}</b> of {IN.format(r.of)} {r.unit}
+            <b>
+              <CountUp value={r.have} />
+            </b>{' '}
+            of {IN.format(r.of)} {r.unit}
           </span>
           <span className="iei-story-reach-bar" aria-hidden="true">
             <i style={{ width: `${(100 * r.have) / r.of}%` }} />

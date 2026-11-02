@@ -343,7 +343,9 @@ test("the seat page draws the locator beside its header, with the description a 
 
 test("each neighbour is a link to its own page, named by the seat's name, and the seat is neither a link nor drawn twice", () => {
   const html = render("xx/assembly/alpha");
-  const svg = html.slice(at(html, "<svg", at(html, "iei-loc")), at(html, "</svg>"));
+  // The closing tag is looked for AFTER the locator opens: the rail's icons are inline <svg> too, and the first </svg> in the document is theirs.
+  const open = at(html, "<svg", at(html, "iei-loc"));
+  const svg = html.slice(open, at(html, "</svg>", open));
   const links = [...svg.matchAll(/<a href="([^"]*)"[^>]*><title>([^<]*)<\/title><path d="([^"]*)"/g)].map((m) => [m[1], m[2], m[3]]);
   assert.deepEqual(links, [
     ["/constituency/xx/assembly/xx.ac.002", "Beta", rect(10, 0)],

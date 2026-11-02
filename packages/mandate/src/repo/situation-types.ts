@@ -111,3 +111,8 @@ export type LiveBoard = {
 
 /** What reading the feed gives the page. Null: no feed is configured, and the page shows no live element at all. */
 export type LiveRead = { boards: LiveBoard[] } | { error: string } | null;
+
+/** A projection's kind, in a reader's words. Here and not in the board because the registry's codes are decoded in packages/ and never read in a component. */
+export function projectionWord(p: Pick<Projection, "kind">): string {
+  return p.kind === "exit_poll" ? "exit poll" : p.kind === "opinion_poll" ? "opinion poll" : "agency projection";
+}

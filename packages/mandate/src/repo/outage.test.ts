@@ -179,12 +179,21 @@ test("no page opens the registry itself or catches around a read", () => {
   // own openRead(), which leaks the handle on every path that does not reach a close, and a bare `catch`, which
   // reads a bug in a query as "registry not built". Both are what readRegistry is for.
   const src = new URL("../../../../src/", import.meta.url);
+  // A catch that is not around a registry read, and says what it is around. The live board polls /v1/live from the browser: the thing that can fail
+  // there is the network, a failed poll keeps the last count and says so, and no registry is anywhere near it.
+  const catchesThatAreNotReads: Record<string, string> = {
+    "components/iei/LiveBoard.tsx": "a fetch of /v1/live",
+  };
   let scanned = 0;
   for (const f of readdirSync(src, { recursive: true, encoding: "utf8" })) {
     if (!/\.tsx?$/.test(f) || f.startsWith("data")) continue;
     const text = readFileSync(new URL(f, src), "utf8");
     scanned++;
     assert.doesNotMatch(text, /\bopenRead\b|db\/open\.ts/, `src/${f} opens the registry itself; use readRegistry`);
+    if (f in catchesThatAreNotReads) {
+      assert.match(text, /\bcatch\s*[({]/, `src/${f} is on the allow-list for a catch it no longer has: remove the entry`);
+      continue;
+    }
     assert.doesNotMatch(text, /\bcatch\s*[({]/, `src/${f} catches; readRegistry already separates an outage from a defect`);
   }
   assert.ok(scanned > 20, `scanned ${scanned} files; the root has moved`);
