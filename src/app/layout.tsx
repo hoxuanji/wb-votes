@@ -24,6 +24,8 @@ export const viewport: Viewport = {
   initialScale: 1,
   viewportFit: 'cover',
   colorScheme: 'dark',
+  // The browser's own chrome (the address bar on a phone) takes the page's canvas, --iei-bg.
+  themeColor: '#07070b',
 };
 
 export const metadata: Metadata = {

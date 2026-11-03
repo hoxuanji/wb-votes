@@ -4149,12 +4149,43 @@ ul.iei-tiles b {
   display: none;
 }
 
-.iei-twin summary::before {
-  content: '▸';
+/* The other three disclosures were left on the browser's own triangle, a filled glyph from the platform's font. They take the same
+   chevron, and the same flex row for it, so every `<summary>` that opens something looks like one. */
+.iei-districts summary,
+.iei-arc-table summary,
+.iei-flow-table summary {
+  display: flex;
+  align-items: center;
+  gap: var(--iei-1);
+  list-style: none;
 }
 
-.iei-twin[open] summary::before {
-  content: '▾';
+.iei-districts summary::-webkit-details-marker,
+.iei-arc-table summary::-webkit-details-marker,
+.iei-flow-table summary::-webkit-details-marker {
+  display: none;
+}
+
+.iei-twin summary::before,
+.iei-districts summary::before,
+.iei-arc-table summary::before,
+.iei-flow-table summary::before {
+  /* The chevron of Icon.tsx's family, drawn as a mask so it takes the summary's colour (the hover and focus states
+     change `color`) and so ten components need no markup for it. Closed it points right; open, down. */
+  content: '';
+  width: 1em;
+  height: 1em;
+  flex: none;
+  background: currentColor;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 6l6 6-6 6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
+
+.iei-twin[open] summary::before,
+.iei-districts[open] summary::before,
+.iei-arc-table[open] summary::before,
+.iei-flow-table[open] summary::before {
+  transform: rotate(90deg);
 }
 
 .iei-twin summary:hover {
@@ -8537,5 +8568,43 @@ a.iei-live {
 
   .iei-sec-atlas .iei-controls {
     margin-bottom: var(--iei-2);
+  }
+}
+
+/* ── ICONS (Icon.tsx) ──
+   One family: stroke only, in the text's own colour, the size of the text beside it. The rail sets its own size
+   (`.iei-rail svg`), which out-ranks this. An icon beside words takes the gap on the side it is on. */
+.iei-ic {
+  width: 1em;
+  height: 1em;
+  flex: none;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vertical-align: -0.125em;
+}
+
+.iei-ic-before {
+  margin-right: var(--iei-1);
+}
+
+.iei-ic-after {
+  margin-left: var(--iei-1);
+}
+
+/* The sources drawer's mark is the one icon that stands for a whole drawer, so it is a little larger than its words. */
+.iei-ev summary .iei-ic {
+  width: 1.25em;
+  height: 1.25em;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .iei-twin summary::before,
+  .iei-districts summary::before,
+  .iei-arc-table summary::before,
+  .iei-flow-table summary::before {
+    transition: transform var(--iei-t-1) var(--iei-ease);
   }
 }

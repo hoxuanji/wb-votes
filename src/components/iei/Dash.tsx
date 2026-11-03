@@ -13,6 +13,7 @@ import type { PlaceStory } from '../../../packages/mandate/src/repo/place-story.
 import type { MarginStrip } from '../../../packages/mandate/src/repo/seat-proof.ts';
 import { ordinal } from '../../../packages/mandate/src/repo/seat-story.ts';
 import { Finding } from './Finding.tsx';
+import { Icon, trend } from './Icon.tsx';
 import { MarginFigure, PartyChip, PersonLink, TableTwin } from './marks.tsx';
 import { Panel, Table, Tabs } from './parts.tsx';
 
@@ -33,7 +34,6 @@ const IN = new Intl.NumberFormat('en-IN');
 const at = (i: number): CSSProperties => ({ '--i': i }) as CSSProperties;
 const pct = (n: number): string => shareText(n);
 const sgn = (n: number): string => (n > 0 ? '+' : n < 0 ? '−' : '±');
-const arrow = (n: number): string => (n > 0 ? '▲' : n < 0 ? '▼' : '■');
 
 /* ───────────────────────────── the head ───────────────────────────── */
 
@@ -162,7 +162,7 @@ export function MarginHero({ story, retrieved }: { story: PlaceStory; retrieved:
           </p>
           {h.delta === null ? null : (
             <p className="iei-seat-line">
-              <span aria-hidden="true">{arrow(h.delta.votes)} </span>
+              <Icon name={trend(h.delta.votes)} side="before" />
               {sgn(h.delta.votes)}
               {IN.format(Math.abs(h.delta.votes))} votes on {h.delta.vs.year}&rsquo;s {h.delta.vs.basis} margin of {IN.format(h.delta.vs.votes)} ({h.delta.vs.party.label})
             </p>

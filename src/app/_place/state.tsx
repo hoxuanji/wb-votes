@@ -31,6 +31,7 @@ import {
 } from '../../components/iei/Distribution.tsx';
 import { DataList, DataRow, Panel, Tabs } from '../../components/iei/parts.tsx';
 import { HousePanel } from '../../components/iei/SeatArc.tsx';
+import { Icon } from '../../components/iei/Icon.tsx';
 import { SeatFlow } from '../../components/iei/SeatFlow.tsx';
 import { ListHead, RowContest, RowMargin } from '../../components/iei/SeatList.tsx';
 
@@ -413,7 +414,8 @@ export function StateSurface({
                 {focused === null ? null : (
                   <p className="iei-district-open-now">
                     <Link className="iei-district-cta" href={districtHref(focused.id)}>
-                      Open the {focused.name} district page →
+                      Open the {focused.name} district page
+                      <Icon name="arrow" side="after" />
                     </Link>
                     <Link className="iei-district-clear" href={selection.href({ district: focused.id })}>
                       ← the whole state
@@ -435,7 +437,8 @@ export function StateSurface({
                         href={districtHref(d.id)}
                         aria-label={`Open the ${d.name} district page`}
                       >
-                        open →
+                        open
+                        <Icon name="arrow" side="after" />
                       </Link>
                     </li>
                   ))}

@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { fromRepo, href } from '../../../packages/mandate/src/repo/brief.ts';
 import type { SourceRef } from '../../../packages/mandate/src/repo/index.ts';
 import { ABSENT } from '../../../packages/mandate/src/semantic/measures.ts';
+import { Icon } from './Icon.tsx';
 
 /**
  * The product's vocabulary. Every surface is built out of these and nothing else.
@@ -631,8 +632,8 @@ export function Evidence({
   return (
     <details className={inline ? 'iei-ev iei-ev-inline' : 'iei-ev'}>
       <summary aria-label={name}>
-        <span aria-hidden="true">ⓘ</span>
-        {inline ? null : ` ${n} source${n === 1 ? '' : 's'}`}
+        <Icon name="info" />
+        {inline ? null : `${n} source${n === 1 ? '' : 's'}`}
       </summary>
       <div className="iei-ev-body">
         {caveat === undefined ? null : <div className="iei-ev-caveat">{caveat}</div>}
