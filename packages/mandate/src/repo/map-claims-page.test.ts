@@ -525,13 +525,16 @@ test("the isolated party's links are marked current, as a link can be, and no li
   }
 });
 
-test("no page puts aria-pressed on a link: the product has no toggle button, and a link cannot have it", () => {
+test("no page puts aria-pressed on a link: a toggle is a button, and a link cannot have it", () => {
+  // The product used to have no toggle button at all, and this banned the attribute outright. The time machine's play control and the live
+  // board's election picker are real buttons now (2026-11-03), and `aria-pressed` is correct on a button; what stays wrong is a link that
+  // carries it, so the scan looks at the opening tag of every <a> and <Link>.
   const src = new URL("../../../../src/", import.meta.url);
   const files = (readdirSync(src, { recursive: true }) as string[]).filter((f) => /\.tsx?$/.test(f));
   assert.deepEqual(
-    files.filter((f) => /aria-pressed/.test(readFileSync(new URL(f, src), "utf8"))),
+    files.filter((f) => /<(?:Link|a)\b[^>]*\baria-pressed\b/s.test(readFileSync(new URL(f, src), "utf8"))),
     [],
-    "use aria-current for a selected link",
+    "use aria-current for a selected link; aria-pressed is for a <button>",
   );
 });
 

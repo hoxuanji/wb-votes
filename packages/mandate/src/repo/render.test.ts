@@ -120,48 +120,43 @@ function text(html: string): string {
 /* ────────────────────────────── the homepage ────────────────────────────── */
 
 test("the homepage renders, and says what it is in the first screen", live, () => {
-  const t = text(render("/"));
-  // The ten-second test, as far as a text assertion can carry it: the product's name, and one computed sentence that says what changed
-  // in the one state that has results. The sentence is chosen by rule (repo/home-story.ts), so the test reads its shape and not a name.
+  const html = render("/");
+  const t = text(html);
+  // The ten-second test, as far as a text assertion can carry it: the product's name, the country's own sentence, and then the five things the page
+  // is for, in the order a visitor needs them (docs/superpowers/specs/2026-11-03-situation-room-home-design.md).
   assert.match(t, /INDIA\nElection Intelligence/, "the wordmark is not the first thing");
   assert.match(t, /India\nThe electoral landscape/, "the page does not open on the country");
   assert.match(t.replace(/\s+/g, " "), /The registry holds election results for \d+ of India's \d+ states and territories/, "the country's sentence is missing");
-  assert.match(
-    t.replace(/\s+/g, " "),
-    /won \d[\d,]* of .+?.s \d[\d,]* seats in \d{4}/,
-    "the page does not say what was won, of how many, and when, for the state it shows",
+  // "Next up" is also a label in the rail, which comes first in the text, so the panel is found by its own question.
+  const order = ["Which elections come next?", "India · Government", "How we got here", "Closest contests", "Recent results", "Party landscape"].map((h) => [h, t.indexOf(h)] as const);
+  for (const [h, at] of order) assert.ok(at >= 0, `the "${h}" section is missing`);
+  assert.deepEqual(
+    order.map(([h]) => h),
+    [...order].sort((x, y) => x[1] - y[1]).map(([h]) => h),
+    "the sections are out of order: next up, the landscape, how we got here, then the reference layer",
   );
-  assert.ok(t.includes("Open the record"), "the four doors are missing from the first screen");
-  // The chapters a reader meets in turn, each a question the sentence raises, then the reference layer.
-  for (const heading of [
-    "Latest elections, state by state",
-    "What changed",
-    "Where",
-    "Votes and seats",
-    "How close",
-    "People",
-    "India · Government",
-    "Upcoming",
-    "Recent results",
-    "Party landscape",
-  ]) {
-    assert.ok(t.includes(heading), `the "${heading}" section is missing`);
-  }
-  // And what was removed must stay removed, each for a reason recorded in page.tsx.
+  // The rail: six places, the current one marked, every one a real destination.
+  const rail = /<nav class="iei-rail"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? "";
+  for (const place of ["Overview", "Landscape", "Next up", "History", "People", "Data"]) assert.ok(rail.includes(`<span>${place}</span>`), `the rail has no ${place}`);
+  assert.equal((rail.match(/aria-current="page"/g) ?? []).length, 1, "the rail marks one place as current, and only one");
+  // The time machine: drawn from the registry's own states, and a state's colour is a style the client can change.
+  assert.ok((html.match(/data-state="[a-z]{2}"/g) ?? []).length >= 30, "the time machine's map does not carry a state per jurisdiction");
+  // The one state's story the page used to carry is not here: it is the state page's, and the map is the way to it.
+  assert.ok(!html.includes('id="state"') && !/iei-story-top/.test(html), "a state's story is back on the front page");
+  for (const gone of ["What changed", "Votes and seats", "Open the record", "Upcoming"]) assert.ok(!t.includes(gone), `"${gone}" is back on the front page`);
+  // And what was removed earlier must stay removed, each for a reason recorded in page.tsx.
   for (const [gone, why] of [
     ["Who governs", "the map's companion table is the same 36 rows with the same links"],
     ["Historical elections", "180 cells of links to the state pages the map already reaches"],
     ["Data coverage", "/coverage is a page whose whole subject is that question"],
     ["What to watch", "renamed and cut from nine rows to four, and then folded into the chapters"],
-    ["Closest contests", "its facts are the How close chapter's, which keeps counted margins apart from declared ones"],
-    ["Notable shifts", "its movements are What changed and Where, drawn rather than listed"],
+    ["Notable shifts", "its movements are drawn on the state page, not listed here"],
     ["computed", "the wall-clock time a SQL query ran is not a fact about Indian politics"],
     ["assembly seats 4,117", "a registry row count, in the first screen"],
     ["what is and is not loaded", "the coverage link belongs in the footer"],
   ] as const) {
     assert.ok(!t.includes(gone), `"${gone}" is back on the front page — ${why}`);
   }
-  // The hero's six metric tiles are gone too, and their labels are the cheapest way to detect a return.
   for (const label of ["Governing parties", "Terms expiring", "Elections held"]) {
     assert.ok(!t.includes(label), `the hero metric "${label}" is back`);
   }
@@ -218,8 +213,11 @@ test("the front page stays inside its stated weight, and a table a reader has to
   }
   // The pictures' tables are TWINS: each lives inside a <details> and is the exact form of the picture above it. The two tables a reader
   // meets without opening anything are the 36-row standings comparison (what a table is for) and the people table, whose rows are the finding.
+  // 2026-11-03: the people table went with the state's story, so one table is met without opening anything, the 36-row standings comparison. The
+  // ceilings above were set for a full registry and are left as upper bounds; this page measures about a third of them on the local one, and its
+  // weight is the map's geometry (the time machine draws it once, by reference).
   const closed = html.replace(/<details[\s\S]*?<\/details>/g, "");
-  assert.equal(count(/<table/g, closed), 2, "a picture's table twin is outside its <details>, or a third table has arrived");
+  assert.equal(count(/<table/g, closed), 1, "a picture's table twin is outside its <details>, or a second table has arrived");
   assert.equal(count(/class="iei-metric"/g), 0, "the front page has metric tiles again");
   // One evidence drawer for the page's geometry, offered once, and a disclosure for a table twin is not one.
   assert.ok(count(/class="iei-ev(?:\s|")/g) <= 3, "more than three evidence drawers on the front page");
@@ -256,66 +254,37 @@ test("the homepage never prints a fabricated figure", live, () => {
   assert.match(t, /No model, no forecast, no probability/, "the disclaimer has been softened");
 });
 
-test("the front page reaches a constituency and a person, not just a state", live, () => {
-  // Before the story, every link on the landing surface stopped at a state page. Now there are four doors (a state, an election, a seat, a
-  // person) and the chapters link on: the closest counted results are seats, and the people table links to each member and each seat.
+test("the front page reaches a state, the people and the ledger, and a seat wherever a latest election has a counted contest", live, () => {
+  // Every link on the landing surface used to stop at a state page, and the story added seats and people. The story left (2026-11-03), so the ways in are:
+  // a state through the map, the people through the rail, the ledger through the rail and the footer, and a seat through the closest contests, which
+  // exist only where a jurisdiction's latest election has counted results to measure by.
   const html = render("/");
   const t = text(html);
+  assert.ok(/href="\/state\/[a-z]{2}(?:\?[^"]*)?"/.test(html) || /href="\/\?[^"]*state=[a-z]{2}/.test(html), "the front page reaches no state");
+  assert.ok(html.includes('href="/candidates"'), "the front page does not reach the people");
+  assert.ok(html.includes('href="/coverage"'), "the front page does not reach the ledger");
+  const fights = home.homeView(db, { thisYear: 2026 }).fights;
   const seats = [...html.matchAll(/href="\/constituency\/[a-z]{2}\/(?:assembly|lok-sabha)\/[^"]+"/g)];
-  const people = [...html.matchAll(/href="\/p\/[^"]+"/g)];
-  assert.ok(seats.length >= 5, `the front page offers ${seats.length} links to a seat`);
-  assert.ok(people.length >= 1, "the front page offers no link to a person");
-  // A close result states its margin in votes AND as a share of votes polled, so "closest" is arguable rather than asserted; and a margin
-  // an election declared without counts is marked declared, never given a share.
-  assert.match(t, /\d+ votes/, "a close result does not state its margin in votes");
-  assert.match(t, /% of votes polled/, "a close result does not state its margin as a share");
+  assert.ok(seats.length >= fights.length, `the front page links ${seats.length} seats for ${fights.length} close contests`);
+  if (fights.length === 0) assert.match(t, /has counted results to rank/, "an empty closest-contests panel does not say why it is empty");
+  // A close result states its margin in votes, and a margin an election declared without counts is never given a share.
+  if (fights.length > 0) assert.match(t, /\d+ votes?/, "a close result does not state its margin in votes");
   const declared = all<{ n: number }>(db, "SELECT COUNT(*) AS n FROM result WHERE margin IS NOT NULL")[0]?.n ?? 0;
   if (declared > 0) assert.doesNotMatch(t, /publishes a margin/, `the page denies margins, and ${declared} result rows declare one`);
 });
 
-test("the story page draws one bar per election, withholds what was not published, and marks what was declared", live, () => {
+test("the front page carries no state's story, and the story module is kept whole for the state page", live, () => {
   const html = render("/");
-  const t = text(html);
-  const story = html.slice(html.indexOf('id="state"'), html.indexOf('id="elections"'));
+  assert.ok(!html.includes('id="state"') && !/iei-story-top/.test(html) && !/iei-story-bar/.test(html), "a state's story is back on the front page");
+  // The module is parked, not deleted: the state page takes it in the next phase of the design, and its render test returns with it. Until then the
+  // data half is held here, so the story that page will draw still builds, and still says which election it is about.
   const standings = home.homeView(db, { thisYear: 2026 }).standings;
   const view = storyView(db, { candidates: standings.map((s) => ({ id: s.jurisdictionId, name: s.jurisdictionId })) });
-  assert.ok(view !== null, "the registry has an assembly with results and the page has no story");
-  const n = (re: RegExp, from = story): number => (from.match(re) ?? []).length;
-
-  // One bar per election of the house, each with its half-house line and its place in the arrival order.
-  assert.equal(n(/class="iei-res-bar iei-story-bar"/g), view.houses.length, "not one bar per election");
-  assert.equal(n(/class="iei-story-half"/g), view.houses.length, "a bar has no half-house line");
-  assert.ok(n(/style="--i:\d+"/g) >= view.houses.length, "the bars have no arrival order");
-  assert.equal(n(/class="iei-story-door"/g), view.doors.length, "a door is missing");
-
-  // A circle is drawn for a vote share that exists and for no other: what an election did not publish is a word, never a mark at zero.
-  const published = [...view.votes.lead, ...(view.votes.partner ?? [])].filter((pt) => pt.votePct !== null).length;
-  assert.equal(n(/iei-story-vote"/g), published, "a circle is drawn for votes nobody published, or one that was published is missing");
-  if (!view.countsLatest) {
-    assert.match(t, /votes not reported/, "the vote share of an election with no counts is not said to be unreported");
-    // And every margin of that election in the people table says it is declared.
-    const table = /<table[^>]*iei-story-ptable[^>]*>([\s\S]*?)<\/table>/.exec(story)?.[1] ?? "";
-    const rows = [...table.matchAll(/<tr>([\s\S]*?)<\/tr>/g)].slice(1);
-    for (const r of rows) {
-      const last = [...(r[1] as string).matchAll(/<td[^>]*>([\s\S]*?)<\/td>/g)].at(-1)?.[1] ?? "";
-      assert.match(text(last), /declared/, `a ${view.latest.year} margin is not marked declared`);
-    }
-  }
-
-  // Nothing is printed that is not on record: no 93.0 turnout, no unfilled value, no empty figure.
-  assert.doesNotMatch(story.replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, " ").replace(/<[^>]+>/g, " "), /93\.0|turnoutPct/, "the story prints the 93.0 turnout");
-  assert.doesNotMatch(t, /\bNaN\b|\bundefined\b|\bnull\b|\bInfinity\b/, "the page prints an unfilled value");
-
-  // A party's swatch is always followed by its code: the ink is never the only channel.
-  const swatches = n(/<span class="iei-sw"/g);
-  assert.ok(swatches > 0);
-  assert.equal(n(/<span class="iei-sw"[^>]*><\/span>(?=<span class="iei-chip">|<b>|[A-Za-z])/g), swatches, "a swatch is not followed by the party's code");
-
-  // A hand-edited ?state= is ignored: the page tells the same story.
+  assert.ok(view !== null, "the registry has an assembly with results and the parked story cannot be built");
+  assert.ok(view.houses.length >= 1, "the parked story has no election in it");
+  // A hand-edited ?state= is ignored by the page, and the page is still the front page.
   const hostile = render("/", "state=%27%3B%20DROP%20TABLE%20election%3B--");
-  const sentence = (h: string): string => /class="iei-story-lead iei-story-sentence"[^>]*>([\s\S]*?)<\/h2>/.exec(h)?.[1] ?? "";
-  assert.ok(sentence(html) !== "", "no sentence");
-  assert.equal(sentence(hostile), sentence(html), "?state= changed the story");
+  assert.match(text(hostile), /The registry holds election results for/, "?state= changed the front page");
 });
 
 test("a seat page leads with a finding, links everyone who stood, and withholds what the record withholds", live, () => {
@@ -624,29 +593,26 @@ test("URL state survives, so a view can be sent to someone", live, () => {
   assert.ok(links.some((q) => q === "layer=turnout&state=wb"), "the map does not choose West Bengal under the layer in view");
 });
 
-test("the front page opens on India, chooses a state on a click, and says why it shows the story it shows", live, () => {
+test("the front page opens on India and chooses a state on a click", live, () => {
   const flat = (h: string): string => text(h).replace(/\s+/g, " ");
   const base = render("/");
   const t = flat(base);
-  // The country first: the sentence names every jurisdiction with a result, the glance lists each, and the map comes before any state's story.
+  // The country first: the sentence names every jurisdiction with a result, the glance lists each, and next up and the map come before the reference layer.
   assert.match(t, /The registry holds election results for 1 of India's 36 states and territories: West Bengal\./);
   assert.match(t, /Latest elections, state by state/);
   assert.match(t, /Assembly 2026: BJP 192 of 294 · majority/);
   assert.match(t, /Lok Sabha 2024: TMC 29 of 42 · majority/);
-  assert.ok(t.indexOf("India · Government") < t.indexOf("latest assembly election, 2026"), "a state's story comes before the map");
-  assert.ok(t.indexOf("The electoral landscape") < t.indexOf("India · Government"));
-  assert.equal((base.match(/<h1\b/g) ?? []).length, 1, "the story brought a second page title");
-  // With nothing chosen the page says which election it shows, and why.
-  assert.match(t, /West Bengal is the only state with an assembly result on record, so it is the one shown here\./);
+  assert.ok(t.indexOf("The electoral landscape") < t.indexOf("Which elections come next?"));
+  assert.ok(t.indexOf("Which elections come next?") < t.indexOf("India · Government"), "the elections that come next are below the map");
+  assert.equal((base.match(/<h1\b/g) ?? []).length, 1, "the page has a second title");
   // A state polygon, its row and its tile choose that state; the state's own page is a step on from the card.
   const chosen = render("/", "state=wb");
   const c = flat(chosen);
-  assert.match(c, /West Bengal Assembly 2026: BJP 192 of 294 · majority Lok Sabha 2024: TMC 29 of 42 · majority Open West Bengal Its latest election, below All states/);
-  assert.match(c, /Chosen on the map\./);
+  assert.match(c, /West Bengal Assembly 2026: BJP 192 of 294 · majority Lok Sabha 2024: TMC 29 of 42 · majority Open West Bengal All states/);
   assert.ok(chosen.includes('href="/state/wb"'), "the card does not open the state");
   assert.ok(chosen.includes('aria-current="true"'), "the chosen state is not marked");
   assert.ok(/class="iei-map-sel"/.test(chosen), "the chosen state's polygon is not outlined");
-  // A state with no result is said to have none, with its seats from the reference data, and the story below is not pretended to be about it.
+  // A state with no result is said to have none, with its seats from the reference data.
   const gj = flat(render("/", "state=gj&layer=loksabha"));
   assert.match(gj, /Gujarat No election result is on record for Gujarat yet\. Its assembly has 182 seats in the reference data\. Open Gujarat All states/);
   assert.match(gj, /Which party won most of each state's Lok Sabha seats\?/, "choosing a state dropped the layer");
@@ -654,7 +620,7 @@ test("the front page opens on India, chooses a state on a click, and says why it
   for (const bad of ["%27%3B%20DROP%20TABLE%20election%3B--", "zz", "..%2F..%2Fx", "WB%00"]) {
     const h = flat(render("/", `state=${bad}`));
     assert.match(h, /Latest elections, state by state/, `state=${bad} was honoured`);
-    assert.match(h, /BJP won 192 of West Bengal/);
+    assert.match(h, /The registry holds election results for/);
   }
 });
 

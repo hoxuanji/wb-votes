@@ -141,6 +141,8 @@
   /* The seat locator's box: a square this wide, beside the page header where there is room and under it where there is
      not. SeatLocator.tsx draws in a box of this many units, so the two are one number. */
   --iei-locator-w: 320px;
+  /* The rail's width: an icon over a word of eleven-pixel mono, in a column that does not move the content on a laptop. */
+  --iei-rail-w: 72px;
   /* The parliament arc's widest box. SeatArc draws in a frame of 640 units; the picture scales with its column up to this. */
   --iei-arc-w: 720px;
   /* The seat-flow picture's height. flow-layout.ts lays the boxes out in a column this many units tall (FLOW_H), so the two are one number. */
@@ -7720,6 +7722,677 @@ ul.iei-tiles b {
   .iei-pf-dot,
   .iei-rk-bar,
   .iei-st-dot {
+    border: 1px solid CanvasText;
+  }
+}
+
+/* ══════════════════════════ the situation room: the frame ══════════════════════════
+   2026-11-03, docs/superpowers/specs/2026-11-03-situation-room-home-design.md. The product was a stack of long articles with a bar
+   on top. This block gives every page the structure of a tool: a rail of six places beside the content on a laptop, and under the
+   bar on a phone. Nothing here changes a colour: the neutrals are locked by iei.test.ts and by the party inks' contrast against them,
+   so the new look is made of structure, shape and density. */
+
+.iei-frame {
+  display: grid;
+  grid-template-columns: var(--iei-rail-w) minmax(0, 1fr);
+  align-items: start;
+}
+
+.iei-rail {
+  position: sticky;
+  /* Under the sticky bar, which is --iei-12 tall. */
+  top: var(--iei-12);
+  display: flex;
+  flex-direction: column;
+  gap: var(--iei-1);
+  height: calc(100vh - var(--iei-12));
+  padding: var(--iei-3) var(--iei-1);
+  border-right: 1px solid var(--iei-line);
+  background: rgba(13, 13, 19, 0.5);
+}
+
+.iei-rail a {
+  display: grid;
+  justify-items: center;
+  gap: var(--iei-1);
+  padding: var(--iei-2) 0;
+  border-radius: var(--iei-r);
+  color: var(--iei-ink-3);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  line-height: 1.2;
+  letter-spacing: 0.04em;
+  text-decoration: none;
+  text-transform: uppercase;
+  transition: color var(--iei-t-1), background var(--iei-t-1);
+}
+
+.iei-rail svg {
+  width: var(--iei-6);
+  height: var(--iei-6);
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.iei-rail a:hover {
+  color: var(--iei-ink);
+  background: var(--iei-raised);
+}
+
+.iei-rail a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: -2px;
+}
+
+/* The current place carries a bar and a lighter ink: two signals, so it is not colour alone. */
+.iei-rail a[aria-current='page'] {
+  color: var(--iei-ink);
+  background: var(--iei-raised);
+  box-shadow: inset 2px 0 0 var(--iei-ink);
+}
+
+.iei-live-what {
+  margin-left: var(--iei-1);
+  color: var(--iei-ink-2);
+  letter-spacing: 0.04em;
+}
+
+a.iei-live {
+  text-decoration: none;
+}
+
+@media (max-width: 900px) {
+  .iei-frame {
+    display: block;
+  }
+  .iei-rail {
+    position: static;
+    height: auto;
+    flex-direction: row;
+    gap: 0;
+    overflow-x: auto;
+    padding: var(--iei-1) var(--iei-3);
+    border-right: 0;
+    border-bottom: 1px solid var(--iei-line);
+  }
+  .iei-rail a {
+    flex: 1 0 auto;
+    grid-auto-flow: column;
+    padding: var(--iei-2) var(--iei-3);
+  }
+  .iei-live-what {
+    display: none;
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-rail a[aria-current='page'] {
+    border-left: 2px solid CanvasText;
+  }
+}
+
+/* ══════════════════════════ the situation room: the front page's panels ══════════════════════════
+   Next up, how we got here (the time machine), and the live board. Spacing and type come from the scale; the only fixed sizes are ones
+   the scale already allows (a 6px bar, a 200px card, a 460px map). Motion reuses grow, rise and arrive, runs once, and is declared inside
+   the no-preference block at the end of this section. */
+
+.iei-count {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── next up ── */
+
+.iei-next {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: var(--iei-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iei-next-i a {
+  display: grid;
+  gap: var(--iei-1);
+  height: 100%;
+  padding: var(--iei-3) var(--iei-4);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background: var(--iei-panel);
+  color: inherit;
+  text-decoration: none;
+  transition: border-color var(--iei-t-1), background var(--iei-t-1);
+}
+
+.iei-next-i a:hover {
+  border-color: var(--iei-line-2);
+  background: var(--iei-raised);
+}
+
+.iei-next-i a:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-next-when {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--iei-ink-2);
+}
+
+.iei-next-name {
+  font-size: var(--iei-f-title);
+  font-weight: 650;
+  line-height: 1.2;
+}
+
+.iei-next-term {
+  display: block;
+  height: 6px;
+  margin: var(--iei-1) 0;
+  overflow: hidden;
+  background: var(--iei-line);
+}
+
+.iei-next-fill {
+  display: block;
+  height: 100%;
+  width: 100%;
+  background: var(--iei-ink-2);
+  transform: scaleX(var(--p, 1));
+  transform-origin: 0 50%;
+}
+
+/* A term that has run past its end is full and says so in words on the card; the bar is also drawn solid where the others are not, so it
+   is not colour alone. */
+.iei-next-fill[data-over='true'] {
+  background: var(--iei-alert);
+}
+
+.iei-next-after {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-next-more {
+  margin-top: var(--iei-3);
+}
+
+/* ── how we got here ── */
+
+.iei-tm-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: var(--iei-2) var(--iei-6);
+  margin-bottom: var(--iei-4);
+}
+
+.iei-tm-year {
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-answer);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-tm-controls {
+  display: flex;
+  flex: 1 1 300px;
+  align-items: center;
+  gap: var(--iei-2);
+  max-width: 460px;
+}
+
+.iei-tm-controls input[type='range'] {
+  flex: 1 1 auto;
+  min-width: 0;
+  accent-color: var(--iei-ink);
+}
+
+.iei-tm-controls button {
+  padding: var(--iei-1) var(--iei-3);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  background: var(--iei-raised);
+  color: var(--iei-ink);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  cursor: pointer;
+}
+
+.iei-tm-controls button:hover:not(:disabled) {
+  border-color: var(--iei-ink-3);
+}
+
+.iei-tm-controls button:disabled {
+  color: var(--iei-ink-3);
+  cursor: default;
+}
+
+.iei-tm-controls button:focus-visible,
+.iei-tm-controls input:focus-visible {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: 2px;
+}
+
+.iei-tm-play[aria-pressed='true'] {
+  background: var(--iei-ink);
+  color: var(--iei-bg);
+}
+
+.iei-tm-count {
+  flex: 1 1 100%;
+  margin: 0;
+  color: var(--iei-ink-2);
+  font-size: var(--iei-f-meta);
+}
+
+.iei-tm-count b {
+  color: var(--iei-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-tm-body {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--iei-6);
+  align-items: start;
+}
+
+.iei-tm-fig {
+  margin: 0;
+}
+
+/* The border of a state is the stroke of its fill, in the canvas colour: one drawn shape per state, not a fill layer and a border layer. */
+.iei-tm-fig use {
+  stroke: var(--iei-bg);
+  stroke-width: 0.6;
+  stroke-linejoin: round;
+}
+
+.iei-tm-fig use.iei-map-off {
+  fill: var(--iei-void);
+}
+
+.iei-tm-fig svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 460px;
+}
+
+.iei-tm-tally {
+  display: grid;
+  gap: var(--iei-1);
+  margin: 0 0 var(--iei-4);
+  padding: 0;
+  list-style: none;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+}
+
+.iei-tm-tally li {
+  display: grid;
+  grid-template-columns: auto 5.5rem minmax(0, 1fr) 2rem;
+  align-items: center;
+  gap: var(--iei-2);
+}
+
+.iei-tm-tally b {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-tm-bar {
+  display: block;
+  height: 6px;
+  background: var(--iei-line);
+}
+
+.iei-tm-bar span {
+  display: block;
+  height: 100%;
+}
+
+/* THE RIBBON. One column per stop; a column is every state and territory, and what is filled is the states with a result by that
+   year, split by who leads them. Empty space is "no result by then", said by the space and by the sentence above it. */
+.iei-tm-rib {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  height: var(--iei-dist-h);
+  overflow-x: auto;
+}
+
+.iei-tm-col {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-width: var(--iei-4);
+  cursor: pointer;
+}
+
+.iei-tm-stack {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: flex-end;
+  background: var(--iei-raised);
+}
+
+.iei-tm-stack span {
+  display: block;
+  min-height: 1px;
+}
+
+.iei-tm-yr {
+  padding-top: var(--iei-1);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  color: var(--iei-ink-3);
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-tm-col[aria-current='true'] .iei-tm-yr {
+  color: var(--iei-ink);
+  font-weight: 700;
+}
+
+.iei-tm-col[aria-current='true'] .iei-tm-stack {
+  outline: 2px solid var(--iei-ink);
+  outline-offset: -2px;
+}
+
+/* ── the live board ── */
+
+.iei-live-board {
+  margin: var(--iei-6) 0;
+  padding: var(--iei-6);
+  border: 1px solid var(--iei-line-2);
+  border-top: 2px solid var(--iei-alert);
+  border-radius: var(--iei-r);
+  background: var(--iei-panel);
+}
+
+.iei-lb-title {
+  margin: var(--iei-1) 0 0;
+  font-size: var(--iei-f-lead);
+  font-weight: 700;
+  line-height: 1.15;
+}
+
+.iei-lb-asof {
+  margin: var(--iei-2) 0 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+}
+
+.iei-lb-stale,
+.iei-lb-fail {
+  color: var(--iei-warn);
+}
+
+.iei-lb-pick {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--iei-1);
+  margin-top: var(--iei-2);
+}
+
+.iei-lb-pick button {
+  padding: var(--iei-1) var(--iei-3);
+  border: 1px solid var(--iei-line-2);
+  border-radius: var(--iei-r);
+  background: var(--iei-raised);
+  color: var(--iei-ink-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  cursor: pointer;
+}
+
+.iei-lb-pick button[aria-pressed='true'] {
+  background: var(--iei-ink);
+  color: var(--iei-bg);
+}
+
+.iei-lb-sentence {
+  margin: var(--iei-4) 0;
+}
+
+.iei-lb-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--iei-6);
+}
+
+.iei-lb-h {
+  margin: 0 0 var(--iei-2);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  font-weight: 400;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--iei-ink-2);
+}
+
+.iei-lb-prog {
+  position: relative;
+  height: var(--iei-3);
+  background: var(--iei-raised);
+}
+
+.iei-lb-prog-fill {
+  display: block;
+  height: 100%;
+  background: var(--iei-ink-2);
+  transition: width var(--iei-t-3) var(--iei-ease);
+}
+
+.iei-lb-prog-maj {
+  position: absolute;
+  top: calc(var(--iei-1) * -1);
+  bottom: calc(var(--iei-1) * -1);
+  width: 2px;
+  background: var(--iei-ink);
+}
+
+.iei-lb-prog-cap {
+  margin: var(--iei-1) 0 var(--iei-4);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-meta);
+  color: var(--iei-ink-2);
+}
+
+.iei-lb-parties {
+  display: grid;
+  gap: var(--iei-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.iei-lb-parties li {
+  display: grid;
+  grid-template-columns: 6rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: var(--iei-3);
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+}
+
+.iei-lb-pn {
+  display: flex;
+  align-items: center;
+}
+
+.iei-lb-bar {
+  display: flex;
+  height: var(--iei-3);
+  background: var(--iei-raised);
+}
+
+.iei-lb-won,
+.iei-lb-lead {
+  display: block;
+  height: 100%;
+  transition: width var(--iei-t-3) var(--iei-ease);
+}
+
+/* Won is solid and leading is the same colour thinned by a hatch, so "still counting" is a shape and not just a lighter tone. */
+.iei-lb-lead {
+  background-image: repeating-linear-gradient(135deg, transparent 0 var(--iei-1), var(--iei-panel) var(--iei-1) calc(var(--iei-1) + 2px));
+}
+
+.iei-lb-pv {
+  color: var(--iei-ink-2);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-lb-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.iei-lb-table th,
+.iei-lb-table td {
+  padding: var(--iei-2) var(--iei-2) var(--iei-2) 0;
+  border-top: 1px solid var(--iei-line);
+  text-align: left;
+  vertical-align: top;
+  font-weight: 400;
+}
+
+.iei-lb-table thead th {
+  border-top: 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-mark);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--iei-ink-3);
+}
+
+.iei-lb-table tbody th {
+  font-weight: 650;
+}
+
+.iei-lb-table .iei-rule,
+.iei-lb-method {
+  display: block;
+  font-weight: 400;
+}
+
+.iei-lb-method {
+  margin-top: var(--iei-1);
+  color: var(--iei-ink-3);
+  font-size: var(--iei-f-meta);
+}
+
+.iei-lb-range {
+  display: inline-block;
+  margin: 0 var(--iei-3) var(--iei-1) 0;
+  font-family: var(--iei-mono);
+  font-size: var(--iei-f-data);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-lb-events {
+  margin-top: var(--iei-6);
+}
+
+.iei-lb-events ol {
+  display: grid;
+  gap: var(--iei-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: var(--iei-f-meta);
+}
+
+.iei-lb-events time {
+  margin-right: var(--iei-2);
+  font-family: var(--iei-mono);
+  color: var(--iei-ink-3);
+}
+
+@media (max-width: 900px) {
+  .iei-tm-body,
+  .iei-lb-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .iei-tm-year {
+    font-size: var(--iei-f-lead);
+  }
+  /* Twenty-one year labels do not fit in a phone's width: every fifth is shown, and the stop the reader is on always is. */
+  .iei-tm-yr {
+    visibility: hidden;
+    white-space: nowrap;
+    overflow: visible;
+  }
+  .iei-tm-col:nth-child(5n + 1) .iei-tm-yr,
+  .iei-tm-col[aria-current='true'] .iei-tm-yr {
+    visibility: visible;
+  }
+  .iei-tm-controls {
+    flex-basis: 100%;
+  }
+  /* The next-up cards are a swipeable row on a phone, snapping a card at a time with the next one's edge showing, so five cards cost one card's height. */
+  .iei-next {
+    grid-template-columns: none;
+    grid-auto-flow: column;
+    grid-auto-columns: 78%;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    padding-bottom: var(--iei-2);
+  }
+  .iei-next-i {
+    scroll-snap-align: start;
+  }
+  .iei-live-board {
+    padding: var(--iei-4);
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .iei-next-i {
+    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i, 0) * 60ms), 300ms);
+  }
+
+  .iei-next-fill {
+    animation: iei-grow var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i, 0) * 60ms), 300ms);
+  }
+
+  /* The ribbon's columns rise from the floor, once. */
+  .iei-tm-stack span {
+    transform-origin: 50% 100%;
+    animation: iei-rise var(--iei-t-2) var(--iei-ease) backwards;
+  }
+
+  /* The map changes colour as the year moves: this transition is what makes a change of year read as one thing changing. */
+  .iei-tm-fig use[data-state] {
+    transition: fill var(--iei-t-3) var(--iei-ease);
+  }
+
+  .iei-tm-bar span {
+    transition: width var(--iei-t-2) var(--iei-ease);
+  }
+}
+
+@media (forced-colors: active) {
+  .iei-tm-col[aria-current='true'] .iei-tm-stack,
+  .iei-next-i a {
     border: 1px solid CanvasText;
   }
 }

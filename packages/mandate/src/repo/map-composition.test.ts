@@ -302,12 +302,12 @@ test("the map column sticks from 1024px up, below the page bar, and only on the 
   assert.match(bar[1] as string, /position:\s*sticky/);
   assert.match(bar[1] as string, /min-height:\s*var\(--iei-12\)/);
 
-  // Nothing else is stuck but the bar and an atlas's map column. The home page's map column is the same class, and a rule
-  // for `.iei-map-col` alone would have stuck it too.
+  // Nothing else is stuck but the bar, the rail beside the content (a column of six places that stays in view under the bar), and an atlas's map
+  // column. The home page's map column is the same class, and a rule for `.iei-map-col` alone would have stuck it too.
   const sticky = [...CSS.matchAll(/([^{}]+)\{([^{}]*)\}/g)]
     .filter((m) => /position:\s*sticky/.test(m[2] as string))
     .map((m) => (m[1] as string).trim());
-  assert.deepEqual(sticky.sort(), [".iei-atlas .iei-map-col", ".iei-top"]);
+  assert.deepEqual(sticky.sort(), [".iei-atlas .iei-map-col", ".iei-rail", ".iei-top"]);
 });
 
 test("a column that is the grid's only child takes the row", () => {

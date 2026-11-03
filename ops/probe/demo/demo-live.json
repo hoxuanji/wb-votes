@@ -1,0 +1,70 @@
+{
+  "version": 1,
+  "boards": [
+    {
+      "election": {
+        "id": null,
+        "name": "SYNTHETIC demo: Assam Assembly 2026 (counting)",
+        "jurisdictionId": "as",
+        "jurisdictionName": "Assam",
+        "kind": "assembly",
+        "year": 2026
+      },
+      "status": "counting",
+      "asOf": "2026-11-03T10:30:00Z",
+      "seats": { "total": 126, "declared": 96, "majority": 64 },
+      "parties": [
+        { "party": { "key": "BJP", "label": "BJP" }, "won": 31, "leading": 26 },
+        { "party": { "key": "INC", "label": "INC" }, "won": 17, "leading": 12 },
+        { "party": { "key": "AIUDF", "label": "AIUDF" }, "won": 4, "leading": 3 },
+        { "party": { "key": "AGP", "label": "AGP" }, "won": 2, "leading": 1 }
+      ],
+      "projections": [
+        {
+          "publisher": "Demo Pollster A",
+          "kind": "exit_poll",
+          "publishedOn": "2026-11-01",
+          "url": "https://example.com/demo-pollster-a",
+          "method": "SYNTHETIC: invented ranges for a visual check. No respondents exist and no poll was taken.",
+          "ranges": [
+            { "party": { "key": "BJP", "label": "BJP" }, "low": 62, "high": 72 },
+            { "party": { "key": "INC", "label": "INC" }, "low": 38, "high": 48 },
+            { "party": { "key": "AIUDF", "label": "AIUDF" }, "low": 8, "high": 14 },
+            { "party": { "key": "AGP", "label": "AGP" }, "low": 3, "high": 7 }
+          ]
+        },
+        {
+          "publisher": "Demo Pollster B",
+          "kind": "exit_poll",
+          "publishedOn": "2026-11-01",
+          "url": "https://example.com/demo-pollster-b",
+          "method": "SYNTHETIC: invented ranges for a visual check. No respondents exist and no poll was taken.",
+          "ranges": [
+            { "party": { "key": "BJP", "label": "BJP" }, "low": 56, "high": 66 },
+            { "party": { "key": "INC", "label": "INC" }, "low": 44, "high": 54 },
+            { "party": { "key": "AIUDF", "label": "AIUDF" }, "low": 6, "high": 12 }
+          ]
+        },
+        {
+          "publisher": "Demo Pollster C",
+          "kind": "agency_projection",
+          "publishedOn": "2026-10-28",
+          "url": null,
+          "method": null,
+          "ranges": [
+            { "party": { "key": "BJP", "label": "BJP" }, "low": 60, "high": 70 },
+            { "party": { "key": "INC", "label": "INC" }, "low": 40, "high": 50 },
+            { "party": { "key": "AGP", "label": "AGP" }, "low": 2, "high": 6 }
+          ]
+        }
+      ],
+      "events": [
+        { "at": "2026-11-03T08:00:00Z", "text": "SYNTHETIC: counting begins in all 126 demo constituencies.", "url": null },
+        { "at": "2026-11-03T08:45:00Z", "text": "SYNTHETIC: first round complete in Demo AS-001; the BJP candidate leads.", "url": null },
+        { "at": "2026-11-03T09:30:00Z", "text": "SYNTHETIC: 40 demo constituencies declared.", "url": null },
+        { "at": "2026-11-03T10:00:00Z", "text": "SYNTHETIC: the INC candidate overtakes in Demo AS-044 on round 9.", "url": "https://example.com/demo-event" },
+        { "at": "2026-11-03T10:30:00Z", "text": "SYNTHETIC: 96 demo constituencies have a declared result or a lead.", "url": null }
+      ]
+    }
+  ]
+}

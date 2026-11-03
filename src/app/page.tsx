@@ -7,26 +7,21 @@ import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
 import { partyAnchor } from '../../packages/mandate/src/repo/search.ts';
 import { readAsk, readSelection, queryHref } from '../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../packages/mandate/src/repo/session.ts';
-import { storyView } from '../../packages/mandate/src/repo/home-story.ts';
 import { glanceOf, indiaSentence, stateChoice } from '../../packages/mandate/src/repo/home-glance.ts';
+import { landscapeOverTime } from '../../packages/mandate/src/repo/landscape.ts';
+import { frameSentence, framesOf } from '../../packages/mandate/src/repo/landscape-frames.ts';
+import { nextUp } from '../../packages/mandate/src/repo/next-up.ts';
+import { readLiveFeed } from '../../packages/mandate/src/repo/live-feed.ts';
+import { liveReply } from '../../packages/mandate/src/repo/live-reply.ts';
 import type { Cell } from '../../packages/mandate/src/repo/home.ts';
 import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
 import { Foot, Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
-import {
-  HomeReach,
-  StateCard,
-  StoryCannot,
-  StoryChanged,
-  StoryClose,
-  StoryDoors,
-  StoryHead,
-  StoryHouses,
-  StoryPeople,
-  StoryVotes,
-  StoryWhere,
-} from '../components/iei/Story.tsx';
+import { HomeReach, StateCard } from '../components/iei/Story.tsx';
+import { LandscapeMap, NextUpRail } from '../components/iei/Situation.tsx';
+import { TimeMachine } from '../components/iei/TimeMachine.tsx';
+import { LiveBoard } from '../components/iei/LiveBoard.tsx';
 import {
   DataList,
   DataRow,
@@ -41,54 +36,33 @@ import {
 import './iei.css';
 
 /**
- * `/` — INDIA.
+ * `/` — INDIA: an overview of where the country stands, what comes next, how it got here, and, when an election is running, where its count is.
  *
- * The top of an information architecture that runs INDIA → STATE → ELECTION → CONSTITUENCY → CANDIDATE →
- * EVIDENCE. Every figure is a `SELECT` executed when the page is requested — see repo/home.ts, where nothing
- * knows whether it is holding a state assembly, a Lok Sabha election or a by-poll.
+ * Rebuilt 2026-11-03 (docs/superpowers/specs/2026-11-03-situation-room-home-design.md). The page used to open on the country and then spend six thousand
+ * pixels on one state's story, which made a registry holding one state read as an unfinished product. It is now five things, in the order a visitor needs them:
  *
- * ── THE STORY FIRST, THE REFERENCE LAYER LAST ──
+ *   NOW        one computed sentence about the country and the figures behind it, counted up once on arrival.
+ *   LANDSCAPE  the map by who leads each state's assembly, with the layers, the state card and the table that answer to it. A click goes to the state,
+ *              which is where a state's own story lives.
+ *   NEXT UP    the elections that come next, soonest first, with how far through its term each is. A date is "announced" only if the Commission set it.
+ *   HISTORY    the time machine: every year the registry holds an assembly election in, a scrubber and a play button, the map and the tally re-coloured for
+ *              the year. A state with no election by that year is not coloured.
+ *   REFERENCE  what was just decided, the closest contests, and who holds what.
  *
- * The page opens on one computed sentence about one state's assembly, the four houses that prove it, four doors into the record, and a
- * chapter for each question the sentence raises (repo/home-story.ts picks the story by rule, never by name; components/iei/Story.tsx draws
- * it). The India map, the elections and the parties are the coda under `#india`, where someone looking for a coverage map goes looking:
- * with one state loaded, the map cannot carry the first screen. A registry with no assembly result has no story and keeps the old title.
+ * AND ONE MORE, WHEN IT EXISTS: THE LIVE BOARD. With a feed present (`MANDATE_LIVE_PATH`) it is the first thing on the page, polled every twenty seconds. It
+ * shows the count, and the projections OTHER PEOPLE have published, each with its publisher: the registry does not forecast, and a board that looked like its
+ * own estimate would break the rule this product stands on. With no feed, nothing live renders at all.
  *
- * THERE IS NO LIST OF STATES IN THIS FILE, and there must never be one. The 36 jurisdictions, the seat
- * counts and the elections all arrive from the registry and from `ingest/india.ts` reference data; loading
- * Kerala's next assembly puts Kerala on this page without a line of UI changing.
+ * Every figure is a `SELECT` executed when the page is requested. THERE IS NO LIST OF STATES IN THIS FILE, and there must never be one: the 36 jurisdictions,
+ * the seat counts, the elections and every year of the time machine arrive from the registry, so loading Kerala's next assembly puts Kerala on this page without
+ * a line of UI changing.
  *
- * ── WHAT THE FINAL DESIGN PASS REMOVED, AND WHY ──
+ * WHAT THE PAGE MAY NOT DO, because it is easier to violate in JSX than anywhere else: print a figure no source published, print an inferred date as an announced
+ * one, colour a state the registry has no election for, or shade a jurisdiction in a colour that stands for nothing. `Value` cannot render a null as a blank,
+ * an inferred year is prefixed with the word for what it is, and an unlit polygon wears an ink that deliberately fails the contrast floor a mark has to clear.
  *
- * The page was correct and it read like an audit log. Rendered, it carried ELEVEN "Measured" and NINE
- * "Derived" — twenty provenance words before a reader met an election — plus eight coverage chips, six cells
- * of registry row counts, and the wall-clock time a query ran. Every one of those is useful to someone
- * validating the pipeline and to nobody deciding how to read an election. What went:
- *
- *  · THE DATELINE STRIP. "36 of 36 states & UTs · assembly seats 4,117 of 4,123 · Lok Sabha 543 of 543 ·
- *    1,202 elections since 1961 · computed 14:11 UTC · what is and is not loaded". Four row counts, one
- *    clock, one link. The single useful figure is a clause of the hero's own sentence now.
- *  · EVERY `basis` CHIP. `Panel` no longer takes one. "A database query produced this measurement" is a fact
- *    about the software that a reader assumes.
- *  · THE `BASIS` COLUMN UNDER NEXT — eight identical DERIVED badges in the loudest colour on the page, and a
- *    three-sentence caveat above them explaining five-year-term arithmetic. The row says `Expected 2026`,
- *    which is the thing a reader needs told, and the arithmetic is behind the panel's ⓘ.
- *  · THE COVERAGE COLUMN UNDER JUST DECIDED. Dataset status beside eight election results. A result that is
- *    genuinely short now carries four quiet words; the ledger is `/coverage`.
- *  · 726 DISTRICT HAIRLINES over the national map. See IndiaMap.tsx.
- *
- * ── WHAT IT GAINED, AND WHY THAT IS NOT A CONTRADICTION ──
- *
- * CLOSEST CONTESTS: five seats decided by almost nothing, each row a link to that constituency. It is the
- * most navigable thing this registry holds and the page had no route into a seat at all. It is paid for out of
- * What to watch, which went from nine rows to four — so the section count is unchanged and the element count
- * is down. `closeFights()` already existed and was already imported here, unused.
- *
- * WHAT THE PAGE MAY NOT DO, stated here because it is easier to violate in JSX than anywhere else: print a
- * figure no source published, print an inferred date as an announced one, or shade a jurisdiction in a colour
- * that stands for nothing. `Value` cannot render a null as a blank, an inferred year is prefixed with the word
- * for what it is, and an unlit polygon wears an ink that deliberately fails the contrast floor a mark has to
- * clear.
+ * THE STATE STORY THAT USED TO BE HERE (repo/home-story.ts and components/iei/Story.tsx) is not deleted: it is the state page's to carry, in the next phase
+ * of the design document, and the front page links to it through the map.
  */
 
 export const runtime = 'nodejs';
@@ -128,15 +102,11 @@ export default function Home({
   // says so with the command that fixes it rather than rendering a 500. Anything else is thrown.
   const read = readRegistry((db) => {
     const home = homeView(db, { layer: ask.get('layer'), thisYear: THIS_YEAR });
-    // `?state=` is the state the reader chose on the map. It is looked up among the jurisdictions the registry has results for (and, for the card,
-    // among all of them) and used nowhere else, so a hand-edited value is ignored and never reaches SQL. Without one the story is of the most
-    // recent election on record, by a rule that is about the data (repo/home-story.ts), and the page says so.
-    const asked = searchParams?.state;
-    const story = storyView(db, {
-      candidates: home.standings.map((st) => ({ id: st.jurisdictionId, name: nameOf(home, st.jurisdictionId) })),
-      chosen: typeof asked === 'string' ? asked : null,
-    });
-    return { home, story };
+    // The three things the page was rebuilt around, each from the registry for however many states it holds: how the map of governments
+    // changed (repo/landscape.ts), which elections come next with how far through their terms they are (repo/next-up.ts), and the frames
+    // the time machine moves between, which repo/landscape-frames.ts builds and tests so that no state is coloured without an election.
+    const landscape = landscapeOverTime(db);
+    return { home, landscape, next: nextUp(db, new Date()) };
   });
   if (!read.ok) {
     return (
@@ -146,9 +116,10 @@ export default function Home({
     );
   }
   const v = read.value.home;
-  const story = read.value.story;
+  const { landscape, next: coming } = read.value;
+  const frames = framesOf(landscape);
+  const frameLines = frames.map(frameSentence);
 
-  const next = [...v.announced, ...v.upcoming];
   // VALIDATED BY MEMBERSHIP, never parsed: `?party=` has to name a party the CURRENT layer actually shows, so
   // a hand-edited value cannot isolate nothing, cannot reach the SQL, and cannot survive a layer switch that
   // makes it meaningless. Switching to the turnout layer drops it, because a turnout band is not a party. The layer
@@ -176,6 +147,12 @@ export default function Home({
   const clearHref = queryHref('/', ask, { state: '' }, 'map');
   const selectedId = chosen === null ? null : chosen.status === 'loaded' ? chosen.row.id : chosen.id;
 
+  // THE LIVE FEED, read the way the poll reads it (repo/live-reply.ts), so the first render and every update after it are one function of one file. Absent, the
+  // page has no live element at all; an unusable feed is said to be unusable and never guessed at.
+  const live = liveReply(readLiveFeed(process.env['MANDATE_LIVE_PATH'], new Date()));
+  const liveBoard = live.state === 'boards' ? live.boards[0] : undefined;
+  const liveOn = s.live || liveBoard !== undefined;
+
   const reach = [
     { label: 'States and territories with results', have: s.jurisdictionsWithResults, of: s.jurisdictionsTotal, unit: '' },
     { label: 'Assembly seats', have: s.assemblySeatsHeld, of: s.assemblySeatsTotal, unit: 'seats' },
@@ -187,12 +164,23 @@ export default function Home({
   const bare = lit.length > 0 ? v.layer.cells.filter((c) => c.label === null) : [];
 
   return (
-    <Shell here="india" live={s.live}>
+    <Shell here="india" live={liveOn} liveLabel={liveBoard === undefined ? null : `${liveBoard.election.jurisdictionName} · ${liveBoard.status}`}>
+      {/* ── THE LIVE BOARD, FIRST WHEN THERE IS ONE. A running election changes this page in place: the count, the projections other people have
+          published (each with its publisher) and the events, polled every twenty seconds. With no feed nothing live renders at all, and an
+          invalid feed is said to be invalid rather than guessed at. ── */}
+      {live.state === 'error' ? (
+        <section className="iei-live-board" id="live" aria-label="Live election">
+          <p className="iei-eyebrow">Live feed</p>
+          <p className="iei-absent">The live feed is configured but cannot be used, so no live count is shown: {live.error}</p>
+        </section>
+      ) : live.state === 'boards' ? (
+        <LiveBoard initial={live.boards} sentences={live.sentences} fills={live.fills} endpoint="/v1/live" />
+      ) : null}
       {/* ── THE COUNTRY FIRST. The page used to open on one state's story, which made that state the page's subject; it opens on India now, with every
           state that has a result in one glance, and a state's story is what the reader's choice (or, failing one, the most recent election) opens
           below the map. ── */}
       <div id="india">
-        <div className="iei-hero">
+        <div className="iei-hero" id="now">
           <div className="iei-head">
             <p className="iei-eyebrow">India</p>
             <h1 className="iei-answer">The electoral landscape</h1>
@@ -209,7 +197,24 @@ export default function Home({
           </div>
         </div>
 
+      {/* ── NEXT UP, directly under the hero: the elections that come next are a headline of this page, not a reference table. Soonest first, with how far
+          through its term each one is. An announced date prints as itself; the Commission's schedule is not in the registry yet, so today every card is a
+          five-year term counted from the last election, and says "Expected". ── */}
+      <Panel id="next" title="Next up" question="Which elections come next?">
+        {coming.length === 0 ? (
+          <p className="iei-absent">No jurisdiction has an assembly election on record to count a term from.</p>
+        ) : (
+          <>
+            <NextUpRail items={coming} shown={5} />
+            {coming.some((n) => n.basis === 'announced') ? null : (
+              <p className="iei-note">Inferred, not announced: each date is a five-year term counted from the last election, and the bar shows how much of it has run.</p>
+            )}
+          </>
+        )}
+      </Panel>
+
       {/* ── the map: the product's primary analytical instrument, and its primary navigation ── */}
+      <div id="landscape" />
       <Panel
         id="map"
         title={`India · ${v.layer.label}`}
@@ -233,7 +238,7 @@ export default function Home({
           <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} hrefFor={choose} selectedId={selectedId} />
 
           <div>
-            <StateCard rows={rows} chosen={chosen} hrefFor={chooseId} clearHref={clearHref} storyHere={story?.jurisdiction.id ?? null} />
+            <StateCard rows={rows} chosen={chosen} hrefFor={chooseId} clearHref={clearHref} storyHere={null} />
             {/* A CONTEXTUAL LEGEND, and an interactive one. It names the parties this layer actually shows —
                 not three slots and an "Others" bucket, and not every party in the registry — and each entry is
                 a link that isolates that party on the map. The isolation is URL state, so it is shareable and
@@ -396,82 +401,57 @@ export default function Home({
 
       </div>
 
-      {/* ── the chosen state's latest election, or the most recent on record: the sentence, the proof beside four doors, then one chapter per question ── */}
-      {story === null ? null : (
-        <>
-          <div className="iei-story-top">
-            <StoryHead view={story} />
-            <div className="iei-story-fold">
-              <StoryHouses view={story} />
-              <StoryDoors view={story} />
-            </div>
-          </div>
-          <StoryChanged view={story} />
-          <StoryWhere view={story} />
-          <StoryVotes view={story} />
-          <StoryClose view={story} />
-          <StoryPeople view={story} />
-          <StoryCannot view={story} />
-        </>
-      )}
+      {/* ── HOW WE GOT HERE. A scrubber over every year the registry holds an assembly election in. The map and the tally are the present when the page loads
+          and with script off; with script, the year moves them. A state with no election by the year is not coloured. ── */}
+      <Panel
+        id="history"
+        title="How we got here"
+        question="How has the map of who governs changed over the years?"
+        note={
+          landscape.years.length < 2 ? (
+            <>The registry holds assembly elections in {landscape.years.length === 0 ? 'no year' : `one year, ${landscape.years[0]}`}, so there is no change to show yet: this fills in as more elections are loaded.</>
+          ) : undefined
+        }
+      >
+        {frames.length === 0 ? (
+          <p className="iei-absent">No assembly election is loaded, so there is no history to show.</p>
+        ) : (
+          <TimeMachine frames={frames} sentences={frameLines}>
+            <LandscapeMap states={(landscape.byYear[landscape.byYear.length - 1]?.states ?? []).map((st) => ({ id: st.id, name: st.name }))} initial={frames[frames.length - 1]!} />
+          </TimeMachine>
+        )}
+      </Panel>
 
       {/* ── what is coming, and what has just been decided ── */}
       <div className="iei-two iei-two-wide" id="elections">
-        <Panel
-          title="Upcoming"
-          question="Which assemblies face the electorate next?"
-          /* ONE SENTENCE, WHERE THERE WERE THREE. `announced_on` is null for all 1,202 rows, so every date on
-             this list is arithmetic rather than a schedule, and a reader is entitled to know that once. What
-             went is the rest of the old caveat — a paragraph on how the arithmetic works and a promise about
-             what happens when the Commission's schedule is ingested — plus a whole column of DERIVED badges.
-             The uncertainty is not hidden; it is stated at the size a caveat should be. */
-          note={
-            v.announced.length > 0 ? undefined : (
-              <>
-                No date here was announced by anyone: each is a five-year term counted from the last election.
-              </>
-            )
-          }
-        >
-          {next.length === 0 ? (
-            <p className="iei-absent">No jurisdiction has an assembly election on record to count from.</p>
+        <Panel title="Closest contests" question="Which seats were decided by the fewest votes?">
+          {v.fights.length === 0 ? (
+            <p className="iei-absent">No jurisdiction&rsquo;s latest election has counted results to rank: where a result has declared margins and no vote counts, there is nothing to measure a close contest by.</p>
           ) : (
-            <DataList label="Assemblies facing the electorate next">
-              {next.map((r) => {
-                const st = standingOf(r.jurisdictionId);
-                return (
-                  <DataRow
-                    key={`${r.jurisdictionId}-${r.year}`}
-                    title={r.jurisdictionName}
-                    href={stateHref(r.jurisdictionId)}
-                    /* THE INFERENCE IS IN THE WORD, NOT IN A BADGE. `announced_on` is null for all 1,202 rows,
-                       so every one of these is a five-year term counted from the last election — arithmetic on
-                       a past date. It used to be marked with a DERIVED chip in its own column: eight identical
-                       badges saying one thing eight times. "Expected 2026" says the same thing in the place a
-                       reader is already looking, and the arithmetic is one ⓘ away. An ANNOUNCED date, when the
-                       Commission's schedule is ingested, prints as itself with no qualifier — which is the
-                       distinction that has to survive, and it does. */
-                    aside={<b>{r.announcedOn ?? `Expected ${r.year}`}</b>}
-                    detail={
-                      st === undefined ? (
-                        'no assembly election on record'
-                      ) : (
-                        <>
-                          <span className="iei-mark">
-                            <span
-                              className="iei-sw"
-                              style={{ background: fillFor(st.leaderKey ?? '') }}
-                              aria-hidden="true"
-                            />
-                            {st.leaderLabel ?? 'no winner recorded'}
-                          </span>{' '}
-                          {st.leaderSeats} of {st.seatsContested} · elected {st.year}
-                        </>
-                      )
-                    }
-                  />
-                );
-              })}
+            <DataList label="The closest counted contests" tight>
+              {v.fights.map((f) => (
+                <DataRow
+                  key={`${f.placeId}-${f.year}`}
+                  title={
+                    <>
+                      {f.placeName}
+                      <span className="iei-rule">{f.year}</span>
+                    </>
+                  }
+                  href={f.href}
+                  aside={
+                    <b>
+                      {f.marginVotes === null ? `${f.marginPct.toFixed(2)}% of the votes polled` : `${IN.format(f.marginVotes)} ${f.marginVotes === 1 ? 'vote' : 'votes'}`}
+                    </b>
+                  }
+                  detail={
+                    <>
+                      {f.winner}
+                      {f.runnerUp === null ? null : <> over {f.runnerUp}</>}
+                    </>
+                  }
+                />
+              ))}
             </DataList>
           )}
         </Panel>
