@@ -934,22 +934,22 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     const contests = n("SELECT COUNT(*) AS n FROM contest WHERE election_id = ?", e.id);
     const numericResults = n(
       `SELECT COUNT(DISTINCT c.id) AS n FROM contest c
-         JOIN result r ON r.contest_id = c.id AND r.revision = 0
+         JOIN current_result r ON r.contest_id = c.id
         WHERE c.election_id = ? AND r.votes IS NOT NULL`,
       e.id,
     );
     const declaredWinners = n(
       `SELECT COUNT(DISTINCT c.id) AS n FROM contest c
-         JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1
+         JOIN current_result r ON r.contest_id = c.id AND r.is_winner = 1
         WHERE c.election_id = ?`,
       e.id,
     );
     // Contests whose rows are a winner and a declared margin and no vote count at all, which is all a source that publishes winners alone has.
     const declaredOnly = n(
       `SELECT COUNT(DISTINCT c.id) AS n FROM contest c
-         JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.is_winner = 1 AND r.margin IS NOT NULL
+         JOIN current_result r ON r.contest_id = c.id AND r.is_winner = 1 AND r.margin IS NOT NULL
         WHERE c.election_id = ?
-          AND NOT EXISTS (SELECT 1 FROM result v WHERE v.contest_id = c.id AND v.revision = 0 AND v.votes IS NOT NULL)`,
+          AND NOT EXISTS (SELECT 1 FROM current_result v WHERE v.contest_id = c.id AND v.votes IS NOT NULL)`,
       e.id,
     );
     // An unopposed seat: an elected candidacy, no result row of any kind, and a claim that says so. All
@@ -958,7 +958,7 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
       `SELECT COUNT(*) AS n FROM contest c
         WHERE c.election_id = ?
           AND EXISTS (SELECT 1 FROM candidacy cd WHERE cd.contest_id = c.id AND cd.status = 'elected')
-          AND NOT EXISTS (SELECT 1 FROM result r WHERE r.contest_id = c.id)
+          AND NOT EXISTS (SELECT 1 FROM current_result r WHERE r.contest_id = c.id)
           AND EXISTS (SELECT 1 FROM claim cl WHERE cl.subject_ref = 'contest:' || c.id
                         AND cl.predicate = 'elected_unopposed')`,
       e.id,
@@ -970,13 +970,13 @@ export function electionCoverage(db: DatabaseSync, electionId: string): Election
     const candidaciesWithoutResult = n(
       `SELECT COUNT(*) AS n FROM candidacy cd JOIN contest c ON c.id = cd.contest_id
         WHERE c.election_id = ?
-          AND NOT EXISTS (SELECT 1 FROM result r WHERE r.candidacy_id = cd.id)`,
+          AND NOT EXISTS (SELECT 1 FROM current_result r WHERE r.candidacy_id = cd.id)`,
       e.id,
     );
     const electedWithoutResult = n(
       `SELECT COUNT(*) AS n FROM candidacy cd JOIN contest c ON c.id = cd.contest_id
         WHERE c.election_id = ? AND cd.status = 'elected'
-          AND NOT EXISTS (SELECT 1 FROM result r WHERE r.candidacy_id = cd.id)`,
+          AND NOT EXISTS (SELECT 1 FROM current_result r WHERE r.candidacy_id = cd.id)`,
       e.id,
     );
     const turnoutRows = n(
@@ -1240,7 +1240,7 @@ export function spine(db: DatabaseSync): Spine {
           `SELECT e.id AS id FROM election e
             WHERE e.id IN (${ids.map(() => "?").join(",")})
               AND EXISTS (SELECT 1 FROM contest c
-                            JOIN result r ON r.contest_id = c.id AND r.revision = 0
+                            JOIN current_result r ON r.contest_id = c.id
                            WHERE c.election_id = e.id AND r.votes IS NOT NULL)`,
           ...ids,
         ).map((r) => r.id),

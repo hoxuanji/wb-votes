@@ -1,7 +1,8 @@
 // The seat-results SQL adapter: `readSeats`, on a hand-built registry, and held to the readers it replaces.
 //
 // The fixture is built in memory because the live registry cannot show the cases that matter: it has no winner
-// the registry cannot name, no contest with a revision above 0, and no seat a source declared nothing for.
+// the registry cannot name, no seat a source declared nothing for, and (see current-result.test.ts, which adds
+// them to a copy of this fixture) no contest corrected at a higher revision.
 // The parity test runs on that fixture AND, when a registry is present, on every election in it: the old SQL of
 // the front page's seatFacts and the election map's winner and runner-up columns is reproduced below and the
 // module is compared against it, so the day a registry disagrees the failure names the seat.
@@ -26,8 +27,6 @@ const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run reg
  *     ka.ac.003  NO DECLARED WINNER: a rank 2 row and nothing else, and no turnout row
  *   ka-assembly-2023  UNVERIFIED (turnout, no vote counts at all): winners and declared margins only
  *   kl-assembly-2021  verified, one seat, to scope `within` against
- *
- * and, in ka.ac.001 of 2018, a revision-1 row that names another winner, which nothing reads.
  */
 function fixture(): DatabaseSync {
   const d = open(":memory:");
@@ -97,7 +96,6 @@ function fixture(): DatabaseSync {
   contest.run("c18-1", "ka-assembly-2018", 1);
   stand("c18-1", "w", 1, null, { votes: 600, rank: 1, win: 1, margin: 200 });
   stand("c18-1", "r", 2, null, { votes: 400, rank: 2, win: 0, margin: null });
-  stand("c18-1", "late", 2, null, { votes: 999, rank: 1, win: 1, margin: 1, revision: 1 });
   turnout.run("c18-1", 1000, 2000);
 
   contest.run("c18-2", "ka-assembly-2018", 2);
@@ -193,17 +191,6 @@ test("readSeats: an unverified election keeps its declared margin and withholds 
     assert.deepEqual(plain(b?.margin), { votes: 12, basis: "declared" });
     assert.equal(b?.marginShare, null, "12 of 1,800 would have been a knife-edge seat");
     assert.equal(a?.runnerUp, null, "the source named no runner-up, and none is invented");
-  } finally {
-    d.close();
-  }
-});
-
-test("readSeats: only the current revision is read", () => {
-  const d = fixture();
-  try {
-    const s = readSeats(d, { elections: ["ka-assembly-2018"] })[0];
-    assert.equal(s?.winner?.name, "Person w", "revision 1 names another winner and is not the current one");
-    assert.equal(s?.margin?.votes, 200);
   } finally {
     d.close();
   }
@@ -411,8 +398,8 @@ function parity(d: DatabaseSync): { seats: number; keyed: number; undeclared: nu
 test("parity: on the fixture the module reads what the front page and the election map read", () => {
   const d = fixture();
   try {
-    // The fixture's revision-1 row and its unnamed independent are exactly where the old reads and the module
-    // are allowed to differ, and the assertions above say how: the key, and nothing else.
+    // The fixture's unnamed independent is exactly where the old reads and the module are allowed to differ,
+    // and the assertions above say how: the key, and nothing else.
     const got = parity(d);
     assert.deepEqual(got, { seats: 6, keyed: 4, undeclared: 1 });
   } finally {

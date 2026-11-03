@@ -7,7 +7,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  CURRENT_REVISION,
   closest,
   medianMarginShare,
   partyRef,
@@ -340,8 +339,4 @@ test("seat results are plain data: they survive JSON unchanged, so they can cros
     new Set(["bad"]),
   );
   assert.deepEqual(JSON.parse(JSON.stringify(out)), out);
-});
-
-test("the current revision is 0, the only one any reader looks at", () => {
-  assert.equal(CURRENT_REVISION, 0);
 });

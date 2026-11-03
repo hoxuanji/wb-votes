@@ -151,7 +151,7 @@ export function geometryCoverage(db: DatabaseSync): Coverage {
      ),
      decided AS (
        SELECT DISTINCT c.place_version_id AS version_id
-         FROM contest c JOIN result r ON r.contest_id = c.id AND r.is_winner = 1
+         FROM contest c JOIN current_result r ON r.contest_id = c.id AND r.is_winner = 1
      ),
      gframe AS (
        SELECT s.j, s.house, s.epoch, g.view_box AS vb, COUNT(*) AS n

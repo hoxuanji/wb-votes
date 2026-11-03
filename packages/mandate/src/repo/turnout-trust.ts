@@ -76,7 +76,7 @@ export function unverifiedTurnout(db: DatabaseSync, ids: readonly string[]): Set
       WHERE e.id IN (${marks})
         AND EXISTS (SELECT 1 FROM contest c JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
                      WHERE c.election_id = e.id AND t.voters > 0 AND t.electors > 0)
-        AND NOT EXISTS (SELECT 1 FROM contest c JOIN result r ON r.contest_id = c.id AND r.revision = 0
+        AND NOT EXISTS (SELECT 1 FROM contest c JOIN current_result r ON r.contest_id = c.id
                          WHERE c.election_id = e.id AND r.votes > 0)`,
     ...ids,
   );

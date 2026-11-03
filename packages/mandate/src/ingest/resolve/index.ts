@@ -676,9 +676,8 @@ export const INVARIANTS: ReadonlyArray<{ name: string; sql: string }> = [
             SELECT b.contest_id FROM booth_result b
              GROUP BY b.contest_id
             HAVING SUM(b.votes) > COALESCE((
-              SELECT SUM(r.votes) FROM result r
-               WHERE r.contest_id = b.contest_id
-                 AND r.revision = (SELECT MAX(revision) FROM result WHERE contest_id = b.contest_id)), 0))`,
+              SELECT SUM(r.votes) FROM current_result r
+               WHERE r.contest_id = b.contest_id), 0))`,
   },
   { name: "party_version_no_overlapping_validity", sql: "SELECT COUNT(*) AS n FROM party_version_overlap" },
   {

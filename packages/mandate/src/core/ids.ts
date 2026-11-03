@@ -39,3 +39,21 @@ export function contentId(parts: readonly string[]): string {
   const framed = parts.map((p) => `${p.length}:${p}`).join("");
   return createHash("sha256").update(framed, "utf8").digest("hex").slice(0, 16);
 }
+
+/**
+ * A claim's identity: WHAT is claimed, and never what it is claimed to be (decision D29, 2026-11-01).
+ *
+ * The key is the claim's subject, predicate, the date it holds as of, and its unit; the value is not in it. A corrected
+ * value is therefore the same claim, restated, and not a second claim beside the first that a citation of the old value
+ * could survive on. Four spellings of this had grown up (wb-static hashed those four parts, ECI joined subject, predicate
+ * and the VALUE, the delimitation chain joined subject and predicate, and ECI also kept a free-text note in `unit`);
+ * migration 019 re-keys every stored claim to this one, in SQL, as `subject || char(31) || predicate || char(31) ||
+ * COALESCE(as_of, '') || char(31) || COALESCE(unit, '')`, and a test holds the two spellings equal.
+ *
+ * The separator is U+001F, the ASCII unit separator, which does not occur in a subject, a predicate, a date or a unit,
+ * so no two claims share a key by one's text ending where another's begins. The key is readable on purpose: it is the
+ * claim's address in an audit, and SQLite cannot compute a hash in a migration.
+ */
+export function claimKey(subject: string, predicate: string, asOf: string | null, unit: string | null): string {
+  return [subject, predicate, asOf ?? "", unit ?? ""].join("\u001f");
+}

@@ -71,8 +71,8 @@ export function marginRankBySql(db: DatabaseSync, placeId: string, electionId: s
     `SELECT pv.place_id AS placeId
        FROM contest c
        JOIN place_version pv ON pv.id = c.place_version_id
-       JOIN result w ON w.contest_id = c.id AND w.revision = 0 AND w.is_winner = 1
-       LEFT JOIN result s ON s.contest_id = c.id AND s.revision = 0 AND s."rank" = 2
+       JOIN current_result w ON w.contest_id = c.id AND w.is_winner = 1
+       LEFT JOIN current_result s ON s.contest_id = c.id AND s."rank" = 2
       WHERE c.election_id = ? AND pv.jurisdiction_id = ? AND (CASE WHEN w.votes IS NOT NULL AND s.votes IS NOT NULL THEN 1 ELSE w.margin IS NOT NULL END)
       ORDER BY ABS(CASE WHEN w.votes IS NOT NULL AND s.votes IS NOT NULL THEN w.votes - s.votes ELSE w.margin END), COALESCE(pv.number, 1000000), pv.id`,
     electionId,

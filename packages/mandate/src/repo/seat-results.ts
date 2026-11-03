@@ -34,15 +34,12 @@ import type { SourceRef } from "./index.ts";
 import { turnoutReading, unverifiedTurnout } from "./turnout-trust.ts";
 import type { Turnout } from "./turnout-trust.ts";
 
-/**
- * The revision of a result that is read as the result.
- *
- * Whether a revision of 1 or more supersedes revision 0 has not been decided, so this is 0 exactly as every
- * other reader spells it today. The reads in this module take it from here, which is where the decision belongs
- * when it is made. `unverifiedTurnout` still spells its own 0, because turnout-trust.ts is imported here and
- * cannot import this.
+/*
+ * WHICH RESULT IS THE RESULT. A contest's current result is the whole field at its highest revision (decision D11,
+ * 2026-11-01): the `current_result` view, migration 018. Every read in this module, and every other reader of a
+ * result, joins that view and never spells a revision, so a correction ingested as revision 1 moves every page
+ * together and the row it replaced stays in `result` as the record of what was said before.
  */
-export const CURRENT_REVISION = 0;
 
 /* ────────────────────────────── party ────────────────────────────── */
 
@@ -415,7 +412,7 @@ function recordOf(r: SeatRow): SeatRecord {
 /**
  * Every contest of the scope's elections, as a `SeatResult`, in election then seat order.
  *
- * Winner is the `is_winner = 1` row and runner-up is the `rank = 2` row, both at `CURRENT_REVISION`: the
+ * Winner is the `is_winner = 1` row and runner-up is the `rank = 2` row, both in `current_result`: the
  * `winner_is_rank1` invariant holds those two to the same ordering, so neither needs the other's column. A
  * contest with two winners would be read twice; ingest refuses that (elections/validate.ts, check 1).
  *
@@ -443,12 +440,12 @@ export function readSeats(db: DatabaseSync, scope: SeatScope): SeatResult[] {
          FROM contest c
          JOIN place_version pv  ON pv.id = c.place_version_id
          LEFT JOIN place dis    ON dis.id = pv.district_place_id
-         LEFT JOIN result r     ON r.contest_id = c.id AND r.revision = ${CURRENT_REVISION} AND r.is_winner = 1
+         LEFT JOIN current_result r     ON r.contest_id = c.id AND r.is_winner = 1
          LEFT JOIN candidacy cd ON cd.id = r.candidacy_id
          LEFT JOIN person per   ON per.id = cd.person_id
          LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
          LEFT JOIN party pt          ON pt.id = pvv.party_id
-         LEFT JOIN result r2    ON r2.contest_id = c.id AND r2.revision = ${CURRENT_REVISION} AND r2."rank" = 2
+         LEFT JOIN current_result r2    ON r2.contest_id = c.id AND r2."rank" = 2
          LEFT JOIN candidacy cd2 ON cd2.id = r2.candidacy_id
          LEFT JOIN person per2   ON per2.id = cd2.person_id
          LEFT JOIN party_version pvv2 ON pvv2.id = cd2.party_version_id
@@ -493,7 +490,7 @@ export function partyVotes(db: DatabaseSync, scope: SeatScope): PartyVotes[] {
               SUM(r.votes) AS votes
          FROM contest c
          JOIN place_version pv ON pv.id = c.place_version_id
-         JOIN result r         ON r.contest_id = c.id AND r.revision = ${CURRENT_REVISION}
+         JOIN current_result r         ON r.contest_id = c.id
          JOIN candidacy cd     ON cd.id = r.candidacy_id
          LEFT JOIN party_version pvv ON pvv.id = cd.party_version_id
          LEFT JOIN party pt          ON pt.id = pvv.party_id
@@ -541,7 +538,7 @@ export type Cited = { turnout?: boolean; geometry?: boolean };
 
 /**
  * The sources behind a scope: the sources of the result rows it reads, and of the turnout rows and outlines a page
- * says it also draws on. Results count at `CURRENT_REVISION` only, because a result nobody reads is not provenance.
+ * says it also draws on. Results count in `current_result` only, because a result nobody reads is not provenance.
  *
  * `limit` caps the list, smallest id first, for a panel that shows publishers rather than a bibliography: an import
  * can cite one source per row.
@@ -558,7 +555,7 @@ export function sourceIdsFor(db: DatabaseSync, scope: SeatScope, cited: Cited = 
     const from = `FROM contest c JOIN place_version pv ON pv.id = c.place_version_id`;
     const parts = [
       `SELECT r.source_id AS id ${from}
-         JOIN result r ON r.contest_id = c.id AND r.revision = ${CURRENT_REVISION} WHERE ${at.where}`,
+         JOIN current_result r ON r.contest_id = c.id WHERE ${at.where}`,
     ];
     if (cited.turnout === true) {
       parts.push(

@@ -98,7 +98,7 @@ function sittingMemberForLegacyId(db: DatabaseSync, legacyId: string): string | 
         `SELECT ca.person_id
            FROM contest c
            JOIN election e       ON e.id = c.election_id
-           JOIN result r         ON r.contest_id = c.id AND r.is_winner = 1 AND r.revision = 0
+           JOIN current_result r         ON r.contest_id = c.id AND r.is_winner = 1
            JOIN candidacy ca     ON ca.id = r.candidacy_id
           WHERE c.place_version_id = ?
           ORDER BY ${chronoDesc()}

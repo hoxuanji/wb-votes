@@ -7,8 +7,16 @@
 // The DDL wins every disagreement; when it changes, the test says which column and which way.
 //
 // JSON columns arrive from node:sqlite as TEXT. The shaped ones (names, rect, sections, anomalies)
-// are typed parsed because their shape is known; opaque payloads (claim.object_value,
-// correction.old_value/new_value) stay raw JSON text because it is not.
+// are typed parsed because their shape is known.
+//
+// ONLY THE ROW TYPES SOMETHING READS ARE HERE (C4 step 8, 2026-11-01). Twenty-seven declarations that no code
+// imported were removed with the drift checks that policed them: the row models of boundary_epoch, place_version and
+// its links and crosswalk, person_alias, party_version and its lineage, alliance_version, election_phase,
+// affidavit_field, legal_case, round_result, booth_result, claim, ingest_run and correction, and the five
+// vocabularies only they used. Those tables are described by their DDL, which db/catalog.ts reads, and every importer
+// writes them through putRows, which checks the columns against that DDL before any SQL runs; a reader that wants a
+// typed row for one of them defines the type where it reads it. The vocabulary arrays that remain are the ones a kept
+// type is derived from.
 //
 // ponytail: types plus the CHECK vocabularies as const arrays — the arrays are what lets the drift
 // test compare a union to the DDL in both directions, and they cost one line each. No validators
@@ -50,28 +58,6 @@ export type Person = {
   createdAt: ISOTimestamp;
 };
 
-/** person_alias.kind. ponytail: the column carries no CHECK (the DDL only comments the vocabulary),
- *  so the drift test cannot police this one — it documents intent, it is not an enforced domain. */
-export type AliasKind =
-  | "eci_nomination"
-  | "affidavit"
-  | "prs"
-  | "court"
-  | "gazette"
-  | "press"
-  | "user_submitted";
-
-export type PersonAlias = {
-  personId: string;
-  name: string;
-  script: Script;
-  /** Indic-aware phonetic key from core/indic — the entity-resolution blocking index. */
-  normKey: string;
-  kind: AliasKind;
-  firstSeen: ISOTimestamp | null;
-  sourceId: string | null;
-};
-
 // ─── parties, versioned, with lineage ────────────────────────────────────────
 
 export const PARTY_KINDS = ["national", "state", "registered_unrecognised", "independent"] as const;
@@ -85,33 +71,6 @@ export type Party = {
   kind: PartyKind | null;
   registeredOn: ISODate | null;
   dissolvedOn: ISODate | null;
-};
-
-export type PartyVersion = {
-  id: number;
-  partyId: string;
-  validFrom: ISODate;
-  validTo: ISODate | null;
-  name: string;
-  symbolId: string | null;
-};
-
-export const PARTY_LINEAGE_KINDS = [
-  "split",
-  "merge",
-  "rename",
-  "symbol_transfer",
-  "derecognition",
-] as const;
-export type PartyLineageKind = (typeof PARTY_LINEAGE_KINDS)[number];
-
-/** Without lineage edges a historical series is silently wrong, which is worse than absent (§12). */
-export type PartyLineage = {
-  fromPartyId: string;
-  toPartyId: string;
-  kind: PartyLineageKind;
-  effectiveOn: ISODate;
-  sourceId: string | null;
 };
 
 /** ECI symbol allotment. P3: the symbol, not the colour, carries party identity. */
@@ -162,101 +121,9 @@ export const EFFECTIVE_DATE_BASES = [
 ] as const;
 export type EffectiveDateBasis = (typeof EFFECTIVE_DATE_BASES)[number];
 
-export type BoundaryEpoch = {
-  /** 'delim-2008', 'delim-2023-as'. */
-  id: string;
-  name: string;
-  effectiveFrom: ISODate;
-  effectiveTo: ISODate | null;
-  sourceId: string | null;
-  /** NULL for a national order; a jurisdiction id for one that redraws a single state or UT. Assam was
-   *  re-delimited in 2023 and Jammu & Kashmir in 2022; DPACO 2008 is national. Migration 015. */
-  jurisdictionId: string | null;
-  /** When the order was MADE, where the authority establishes it. J&K's Order No. 2 is dated 5 May 2022 and
-   *  took effect on 20 May 2022; collapsing the two loses fifteen days and the reason for them. */
-  orderDate: ISODate | null;
-  orderReference: string | null;
-  effectiveDateBasis: EffectiveDateBasis;
-};
-
 /** 'bl' is Sikkim's Bhutia-Lepcha reservation — 12 of its 32 seats, by statute. See migration 010. */
 export const RESERVATIONS = ["general", "sc", "st", "bl"] as const;
 export type Reservation = (typeof RESERVATIONS)[number];
-
-/**
- * A constituency as of one delimitation — and, for `ac` and `pc`, the constituency ITSELF.
- *
- * A seat number is not an identity across delimitation: Karnataka's parliamentary seat 1 is BIDAR under
- * the 1976 order and CHIKKODI under the 2008 one. So the name, the district, the source's own identity for
- * the seat and the provenance of the name all live here, per epoch — not on `place`, which for a
- * constituency is a legacy seat-number grouping retained for audit only. Migrations 011 and 012;
- * docs/model/electoral-geography.md.
- */
-export type PlaceVersion = {
-  id: number;
-  /** Audit only for a constituency. Never read a name or a history through it. */
-  placeId: string;
-  jurisdictionId: string;
-  kind: PlaceKind;
-  epochId: string;
-  /** Constituency number in that epoch. */
-  number: number | null;
-  /** The name this constituency had in THIS delimitation. */
-  canonicalName: string;
-  /** District as of this delimitation; district membership changes when boundaries do. */
-  districtPlaceId: string | null;
-  reservation: Reservation | null;
-  /** Tile feature key; geometry lives in PMTiles, never in the registry. */
-  geometryRef: string | null;
-  electorsAtCreation: number | null;
-  /** The source's own identity for the seat, verbatim. */
-  sourceConstituencyKey: string | null;
-  nameSourceId: string | null;
-  /** 1 when another cited source names this same slot differently. Recorded, not resolved. */
-  nameConflict: number;
-  /** JSON: every spelling observed, with the years and row counts behind it. */
-  nameVariants: string;
-};
-
-/** A relationship between constituencies in different delimitations. Anything stronger than a name match
- *  requires a cited source — the schema enforces it, so a fabricated succession cannot be stored. */
-export const PLACE_VERSION_LINK_KINDS = [
-  "name_match",
-  /** The later version's content is an earlier order carried forward unchanged. DPACO 2008 says this in
-   *  terms for Assam, Arunachal Pradesh, Manipur, Nagaland and J&K. Migration 015. */
-  "derived_from",
-  "renamed_to",
-  "successor",
-  "predecessor",
-  "split_into",
-  "merged_from",
-  "boundary_changed",
-] as const;
-export type PlaceVersionLinkKind = (typeof PLACE_VERSION_LINK_KINDS)[number];
-
-export type PlaceVersionLink = {
-  fromPlaceVersionId: number;
-  toPlaceVersionId: number;
-  kind: PlaceVersionLinkKind;
-  /** How the link was established, in words. */
-  basis: string;
-  sourceId: string | null;
-};
-
-export const CROSSWALK_METHODS = ["areal", "booth_reassignment", "official_order"] as const;
-export type CrosswalkMethod = (typeof CROSSWALK_METHODS)[number];
-
-/** How a seat that did not exist in 1999 gets an honest 1999 number. Every value derived through a
- *  crosswalk is an estimate and the UI must label it as one (§20 meta.estimated). */
-export type PlaceCrosswalk = {
-  fromPlaceVersionId: number;
-  toPlaceVersionId: number;
-  areaShare: number;
-  populationShare: number | null;
-  electorShare: number | null;
-  method: CrosswalkMethod;
-  sourceId: string | null;
-};
 
 // ─── elections and contests ──────────────────────────────────────────────────
 
@@ -338,13 +205,6 @@ export type Election = {
   forecastGateTo: ISOTimestamp | null;
 };
 
-export type ElectionPhase = {
-  electionId: string;
-  n: number;
-  pollDate: ISODate;
-  seatCount: number | null;
-};
-
 /** The atomic unit: one seat × one election. */
 export type Contest = {
   /** 'ls-2024:wb-diamond-harbour'. */
@@ -389,13 +249,6 @@ export type Candidacy = {
 
 export type Alliance = { id: string; name: string; names: Names };
 
-export type AllianceVersion = {
-  id: number;
-  allianceId: string;
-  validFrom: ISODate;
-  validTo: ISODate | null;
-};
-
 // ─── affidavits ──────────────────────────────────────────────────────────────
 
 export type Affidavit = {
@@ -405,49 +258,7 @@ export type Affidavit = {
   sourceId: string;
 };
 
-/** One extracted field with its page anchor — this is what makes asset growth a series and every
- *  number clickable back to the scan. */
-export type AffidavitField = {
-  affidavitId: string;
-  /** 'assets.movable.total'. */
-  path: string;
-  valueNumeric: number | null;
-  valueText: string | null;
-  unit: string | null;
-  pageNo: number | null;
-  rect: Rect | null;
-  parserVersion: string;
-};
-
 // ─── legal cases: P5 lives here ──────────────────────────────────────────────
-
-/** P5 — charged is not convicted. A bare case count carries no stage, so it becomes 'unknown' and
- *  renders as "stage not established". 'convicted' additionally requires a source of kind
- *  'court_order' (§19 dbt test); a news article can never establish it. */
-export const CASE_STAGES = [
-  "fir",
-  "charged",
-  "trial",
-  "convicted",
-  "acquitted",
-  "stayed",
-  "unknown",
-] as const;
-export type CaseStage = (typeof CASE_STAGES)[number];
-
-export type LegalCase = {
-  id: string;
-  personId: string;
-  court: string | null;
-  caseNo: string | null;
-  /** JSON array in the column, and nullable there: a case count carries no sections at all. */
-  sections: string[] | null;
-  stage: CaseStage;
-  filedOn: ISODate | null;
-  lastHearingOn: ISODate | null;
-  disposedOn: ISODate | null;
-  sourceId: string;
-};
 
 // ─── ring 2 — the facts: append-only, immutable with supersession ─────────────
 
@@ -475,24 +286,6 @@ export type Result = {
   margin: number | null;
   sourceId: string;
   ingestedAt: ISOTimestamp;
-};
-
-export type RoundResult = {
-  contestId: string;
-  roundNo: number;
-  candidacyId: string;
-  votesCumulative: number;
-  sourceId: string;
-  observedAt: ISOTimestamp;
-};
-
-/** Form 20, booth level. */
-export type BoothResult = {
-  contestId: string;
-  boothPlaceId: string;
-  candidacyId: string;
-  votes: number;
-  sourceId: string;
 };
 
 export type Turnout = {

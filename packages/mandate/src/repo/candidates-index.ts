@@ -18,7 +18,7 @@ import { CAREER_SHAPES, careerShape } from "./person-story.ts";
 import type { CareerShape } from "./person-story.ts";
 import { seatHref, seatTies } from "./place-resolve.ts";
 import type { Search } from "./place-filters.ts";
-import { CURRENT_REVISION, partyRef } from "./seat-results.ts";
+import { partyRef } from "./seat-results.ts";
 import type { PartyRef } from "./seat-results.ts";
 
 export const PAGE_SIZE = 50;
@@ -154,7 +154,7 @@ export function candidatesIndex(db: DatabaseSync, search: Search | undefined): C
          LEFT JOIN place d ON d.id = pv.district_place_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id
          LEFT JOIN party pt ON pt.id = pver.party_id
-         LEFT JOIN result r ON r.candidacy_id = ca.id AND r.revision = ${CURRENT_REVISION}`;
+         LEFT JOIN current_result r ON r.candidacy_id = ca.id`;
     const here = all<Raw>(db, `SELECT ${COLS} ${JOINS} WHERE c.election_id = ?`, chosen.id);
     const careers = all<Raw>(
       db,

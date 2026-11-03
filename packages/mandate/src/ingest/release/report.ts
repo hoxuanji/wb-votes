@@ -64,7 +64,7 @@ export function releaseReport(db: DatabaseSync): Release {
     ["contests", n(db, `SELECT COUNT(*) AS n FROM contest`)],
     ["candidacies", n(db, `SELECT COUNT(*) AS n FROM candidacy`)],
     ["result rows", n(db, `SELECT COUNT(*) AS n FROM result`)],
-    ["declared winners", n(db, `SELECT COUNT(*) AS n FROM result WHERE is_winner = 1`)],
+    ["declared winners", n(db, `SELECT COUNT(*) AS n FROM current_result WHERE is_winner = 1`)],
     ["persons", n(db, `SELECT COUNT(*) AS n FROM person`)],
     ["parties", n(db, `SELECT COUNT(*) AS n FROM party`)],
     ["places", n(db, `SELECT COUNT(*) AS n FROM place`)],
@@ -179,9 +179,9 @@ export function releaseReport(db: DatabaseSync): Release {
             e.epoch_id AS epoch,
             (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id) AS seats,
             (SELECT COUNT(*) FROM contest c WHERE c.election_id = e.id
-              AND EXISTS (SELECT 1 FROM result r WHERE r.contest_id = c.id AND r.is_winner = 1)) AS decided,
+              AND EXISTS (SELECT 1 FROM current_result r WHERE r.contest_id = c.id AND r.is_winner = 1)) AS decided,
             (SELECT COUNT(*) FROM (
-               SELECT c.id FROM contest c JOIN result r ON r.contest_id = c.id AND r.is_winner = 1
+               SELECT c.id FROM contest c JOIN current_result r ON r.contest_id = c.id AND r.is_winner = 1
                 WHERE c.election_id = e.id GROUP BY c.id HAVING COUNT(*) > 1)) AS duplicateWinners,
             (SELECT COUNT(*) FROM candidacy cd JOIN contest c ON c.id = cd.contest_id
               WHERE c.election_id = e.id) AS candidates,
@@ -203,7 +203,7 @@ export function releaseReport(db: DatabaseSync): Release {
   const dup = n(
     db,
     `SELECT COUNT(*) AS n FROM (
-       SELECT c.id FROM contest c JOIN result r ON r.contest_id = c.id AND r.is_winner = 1
+       SELECT c.id FROM contest c JOIN current_result r ON r.contest_id = c.id AND r.is_winner = 1
         GROUP BY c.id HAVING COUNT(*) > 1)`,
   );
   if (dup > 0) caveats.push({ kind: "contests with more than one declared winner", n: dup, detail: "a defect wherever it appears" });

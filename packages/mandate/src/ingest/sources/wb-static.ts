@@ -19,7 +19,7 @@ import type { DatabaseSync } from "node:sqlite";
 
 import type { Anomaly } from "../../core/citation/index.ts";
 import { blockingKeys, detectScript } from "../../core/indic/index.ts";
-import { candidacyId, contentId, contestId, slug } from "../../core/ids.ts";
+import { candidacyId, claimKey, contentId, contestId, slug } from "../../core/ids.ts";
 // One table for both directions of the district name disagreement; a leaf module, because
 // defining it here and importing it in the exporter made a cycle that left it undefined.
 import { DISTRICT_ALIAS } from "../districts.ts";
@@ -621,7 +621,7 @@ function ingest(
     asOf: string | null,
     sourceId: string,
   ): void {
-    const key = contentId([subjectRef, predicate, asOf ?? "", unit ?? ""]);
+    const key = claimKey(subjectRef, predicate, asOf, unit);
     const value = JSON.stringify(objectValue);
     const prev = claims.get(key);
     if (prev !== undefined && (prev.value !== value || prev.sourceId !== sourceId)) {

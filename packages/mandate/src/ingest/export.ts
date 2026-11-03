@@ -409,7 +409,7 @@ function historicalResults(db: DatabaseSync, reg: Registry): Row[] {
             r.revision AS revision, r.votes AS votes, r.vote_share AS vote_share, r."rank" AS rank,
             r.is_winner AS is_winner, r.margin AS margin, cy.person_id AS person_id,
             pv.party_id AS party_id, pt.short_name AS abbr, cy.party_raw AS party_raw
-       FROM result r
+       FROM current_result r
        JOIN contest ct ON ct.id = r.contest_id
        JOIN candidacy cy ON cy.id = r.candidacy_id
        LEFT JOIN party_version pv ON pv.id = cy.party_version_id
@@ -421,14 +421,13 @@ function historicalResults(db: DatabaseSync, reg: Registry): Row[] {
       -- the round-trip figure by 0.9pp. The registry gaining an election KIND must not make an
       -- unrelated module look wrong.
       WHERE e.kind = 'assembly'
-      ORDER BY r.contest_id, r.revision, r."rank"`,
+      ORDER BY r.contest_id, r."rank"`,
   )) {
+    // `current_result` is the contest's whole field at its highest revision (migration 018), so a contest's rows
+    // are all of one revision and need no choosing here.
     const cur = byContest.get(r.contest_id);
-    if (cur === undefined || Number(r.revision) > Number((cur[0] as R).revision)) {
-      byContest.set(r.contest_id, [r]);
-      continue;
-    }
-    if (Number(r.revision) === Number((cur[0] as R).revision)) cur.push(r);
+    if (cur === undefined) byContest.set(r.contest_id, [r]);
+    else cur.push(r);
   }
   const contestant = (r: R): Row => ({
     name: nameOf(reg, r.person_id),

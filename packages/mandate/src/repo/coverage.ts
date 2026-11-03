@@ -58,7 +58,7 @@ export const VERTICALS: readonly Vertical[] = [
     key: "elections",
     label: "Elections",
     question: "Who won this seat, by how much, and how has it behaved across cycles?",
-    probe: "SELECT count(*) AS n FROM result WHERE revision = 0",
+    probe: "SELECT count(*) AS n FROM current_result",
     unit: "result rows",
     // The nation's own election (the Lok Sabha is one row for the union) is named apart: it is not a jurisdiction of the 36.
     reachProbe: `WITH j AS (SELECT count(DISTINCT e.jurisdiction_place_id) AS n FROM election e

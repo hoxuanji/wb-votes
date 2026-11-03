@@ -153,7 +153,7 @@ export function getPlaceBrief(db: DatabaseSync, versionId: number): PlaceBrief |
          FROM contest c
          JOIN election e ON e.id = c.election_id
          LEFT JOIN turnout t ON t.contest_id = c.id AND t.scope = 'contest'
-         LEFT JOIN result r ON r.contest_id = c.id AND r.revision = 0 AND r.rank <= 2
+         LEFT JOIN current_result r ON r.contest_id = c.id AND r.rank <= 2
          LEFT JOIN candidacy ca ON ca.id = r.candidacy_id
          LEFT JOIN person per ON per.id = ca.person_id
          LEFT JOIN party_version pver ON pver.id = ca.party_version_id

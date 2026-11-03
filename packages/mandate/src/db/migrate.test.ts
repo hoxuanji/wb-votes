@@ -41,6 +41,8 @@ const MIGRATIONS = [
   "015_delimitation_provenance.sql",
   "016_source_boundary_geometry.sql",
   "017_voting_epoch.sql",
+  "018_current_result.sql",
+  "019_claim_identity.sql",
 ];
 
 function migrated(): DatabaseSync {
