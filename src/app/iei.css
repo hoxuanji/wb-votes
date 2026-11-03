@@ -8396,3 +8396,146 @@ a.iei-live {
     border: 1px solid CanvasText;
   }
 }
+
+/* ── MAP-FIRST, RESTORED ─────────────────────────────────────────────────────────────────────────────────────────────
+   The design document's batch 1 put the map in the first screen of the state and election pages: at least 520px of it
+   visible at 1440x900, at least 480px at 1280x800 (its top edge at or above 320px), and on a 390x844 phone its top edge at
+   or above 400px. The pages measured 267px, 267px and 368px then. They measured 379px, 379px and 607px after the skin and
+   the situation-room shell, because the rules that compacted the header (`.iei-head-map`, `.iei-sec-atlas`, `.iei-controls`)
+   have the same specificity as the skin's `.iei-head`, `.iei-answer` and `.iei-sec` and come BEFORE them in this file, so
+   the later, larger ones won. These are one class more specific, and they sit last so a later rule has to say why it
+   disagrees. They change spacing only: nothing here removes a word, a control or a colour. */
+.iei-head.iei-head-map {
+  padding: var(--iei-3) 0;
+}
+
+.iei-head-map .iei-hero-result .iei-answer {
+  margin-bottom: 0;
+}
+
+/* The election page's title is not inside the result row, so the skin's 16px under it was not reached by the rule above. */
+.iei-head-map > .iei-answer {
+  margin-bottom: var(--iei-2);
+}
+
+.iei-head-map .iei-standing {
+  margin-top: var(--iei-2);
+}
+
+/* The sentence under the result used to wrap at 22 characters' worth of measure; one line at desktop widths. */
+.iei-head-map .iei-sub {
+  max-width: 100ch;
+  margin: var(--iei-2) 0 0;
+}
+
+.iei-sec.iei-sec-atlas {
+  padding-top: var(--iei-4);
+}
+
+.iei-sec-atlas .iei-controls {
+  margin-bottom: var(--iei-3);
+}
+
+/* On a phone the chrome above the page is the cost: a two-row sticky bar (85px), a rail row (49px), a kicker row. The bar is
+   one row here (the wordmark without its tagline, then the field), the rail row is tighter, the result's figures stay on the
+   title's line, and the kicker, which the breadcrumb and the title already say, is kept for assistive technology only. */
+@media (max-width: 640px) {
+  .iei-top {
+    grid-template-columns: auto minmax(0, 1fr);
+    column-gap: var(--iei-3);
+    row-gap: 0;
+  }
+
+  .iei-top .iei-mark-b {
+    display: none;
+  }
+
+  .iei-top .iei-cmd {
+    grid-column: auto;
+    order: 0;
+  }
+
+  html {
+    scroll-padding-top: calc(var(--iei-12) + var(--iei-2));
+  }
+
+  .iei-rail {
+    padding-block: 0;
+  }
+
+  .iei-head-map .iei-head-top .iei-eyebrow {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .iei-head-map .iei-head-top {
+    justify-content: flex-end;
+    margin: 0;
+  }
+
+  .iei-head-map .iei-hero-result {
+    gap: 0 var(--iei-3);
+  }
+
+  .iei-head-map .iei-hero-result .iei-answer {
+    margin-right: 0;
+  }
+
+  /* "192 / 294" stays on the title's line: the figure keeps its size and the total beside it is data-sized. */
+  .iei-head-map .iei-hero-seats .iei-of {
+    font-size: var(--iei-f-data);
+  }
+
+  /* The sources line moves up onto the breadcrumb's row, which is empty to its right, instead of costing a row of its own. */
+  .iei-head.iei-head-map {
+    position: relative;
+  }
+
+  .iei-head-map .iei-head-top {
+    margin: 0;
+  }
+
+  /* Only the summary moves up: the drawer's body stays in the flow, so opening it pushes the title down instead of covering it. */
+  .iei-head-map .iei-head-top .iei-ev > summary {
+    position: absolute;
+    top: calc(-1 * var(--iei-4));
+    right: 0;
+  }
+
+  /* The year strip and the Map/Tiles toggle share a row when they fit (322px of the card's 332), and the modes take the next.
+     The chips keep 49px of width and, on a touch screen, the 44px of height the global rule gives them. */
+  .iei-sec-atlas .iei-controls {
+    column-gap: var(--iei-3);
+  }
+
+  .iei-sec-atlas .iei-controls .iei-tab {
+    padding-inline: var(--iei-2);
+  }
+
+  /* The party's name beside the title at title size, so the title, the party and the figure are one line of 357px in a 366px row. */
+  .iei-head-map .iei-hero-result {
+    column-gap: var(--iei-2);
+  }
+
+  .iei-head-map .iei-hero-party {
+    font-size: var(--iei-f-title);
+  }
+
+  /* Three steps of padding that a phone cannot spare: the election page's header (a two-line title, a sentence, the standing)
+     is the tallest, and was 7px over. */
+  .iei-head.iei-head-map {
+    padding-block: var(--iei-2) var(--iei-3);
+  }
+
+  .iei-sec.iei-sec-atlas {
+    padding-top: var(--iei-3);
+  }
+
+  .iei-sec-atlas .iei-controls {
+    margin-bottom: var(--iei-2);
+  }
+}
