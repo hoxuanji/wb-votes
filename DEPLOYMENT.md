@@ -95,9 +95,18 @@ data/seed/ than it did; `docs/release/PHASE-3-FINAL.md` records how the last mov
 The registry on the Fly volume is a read-only file built offline and uploaded, so the web code and the registry's schema ship
 together. A migration that only the CLI reads (017's `voting_epoch`) can lag. One that a page reads cannot: **migration 018
 creates `current_result`, which every seat, person, election and state page now joins**, and a registry without it answers those
-pages with a 500 (defects fail loudly, D6). Before `fly deploy` of a build that includes 018, bring the file you upload up to date:
-`MANDATE_DB_PATH=<the file> npm run registry:migrate` applies only the migrations it lacks and touches no data (the view has
-nothing to backfill), or rebuild from scratch as below. Check with
+pages with a 500 (defects fail loudly, D6). Before `fly deploy` of a build that includes 018, bring the file you upload up to date: `MANDATE_DB_PATH=<the file> npm run registry:migrate`
+applies **every** migration the file lacks, in order, and cannot apply 018 alone. 018 touches no data (the view has nothing to
+backfill). **019 does: it re-keys every stored claim in place** (`claim.content_key`, one identity of subject, predicate, date and
+unit), moves ECI's sentence about an unopposed seat out of `claim.unit` into a claim of its own, and clears `unit` on two predicates.
+There are no down migrations, so it cannot be undone in place. It aborts if two claims would share a key (none does in a registry
+built by these importers), and an aborted migration rolls back whole: each runs in one transaction, so the registry is left as it was,
+with 018 already applied. No page reads a claim's key, so a registry that has 018 serves the
+pages; the keys matter to the importers, which a read-only production file never runs.
+
+So **migrate a copy, never the only copy**: `cp <the file> <the file>.pre-019`, migrate the copy, check it, upload the copy. Or rebuild
+from scratch as below, which writes keys exactly as the importers do and is the authoritative path (019's own header says a
+migration only keeps a registry that cannot be rebuilt consistent). Check with
 `sqlite3 <the file> "SELECT count(*) FROM current_result"`: it equals `SELECT count(*) FROM result` until a correction is ingested.
 
 ## Rebuilding the registry from scratch
