@@ -44,10 +44,10 @@
     },
     "AITC": {
       "name": "All India Trinamool Congress",
-      "l": 0.72,
+      "l": 0.5,
       "c": 0.14,
       "h": 156,
-      "note": "green, from the party's flag"
+      "note": "green, from the party's flag; deep, at the floor of the band, because BJP's saffron (0.76) is the party it is drawn beside on every West Bengal map and two hues that red-green colour blindness merges must differ in lightness, the axis it keeps (lightness contrast 1.06:1 at 0.72, 2.62:1 at 0.50)"
     },
     "CPM": {
       "name": "Communist Party of India (Marxist)",

@@ -223,6 +223,25 @@ test("dichromatic separation is measured, and its limit is stated rather than as
   assert.ok(worst.d < 5, "the palette now separates under dichromacy — update this test's premise, it is good news");
 });
 
+test("the two parties that share every West Bengal map differ in lightness, so every kind of eye tells them apart", () => {
+  // The test above leaves the whole palette's dichromatic limit stated rather than asserted, and that stays true of twenty-one
+  // hues. This is the one pair that matters most: BJP and AITC are drawn side by side on the map of the state this registry
+  // holds. Their lightnesses were 0.76 and 0.72, a contrast of 1.06:1, so a red-green colour-blind reader had hue as the only
+  // difference and ΔE fell to 7.1 (protanopia) and 12.8 (deuteranopia), against 21.6 for typical vision. The identity is the HUE
+  // (saffron, the party flag's green) and it is not touched; lightness is the axis a dichromat keeps, so it carries the
+  // difference. AITC sits at the floor of the band to do it.
+  const bjp = fillFor("BJP");
+  const aitc = fillFor("AITC");
+  assert.ok(contrastOf(bjp, aitc) >= 2, `BJP and AITC differ in lightness by only ${contrastOf(bjp, aitc).toFixed(2)}:1`);
+  for (const mode of VISIONS) {
+    const d = deltaE(bjp, aitc, mode);
+    assert.ok(d >= 15, `BJP and AITC are ΔE ${d.toFixed(1)} apart under ${mode}`);
+  }
+  // The hues did not move: this is a change of lightness and nothing else.
+  assert.equal(CONFIG.parties["BJP"]?.h, 62, "BJP's hue is its saffron");
+  assert.equal(CONFIG.parties["AITC"]?.h, 156, "AITC's hue is its green");
+});
+
 /* ────────────────────────────── the config is a config ────────────────────────────── */
 
 test("the curated table is data, not code, and every entry declares what it is", () => {
