@@ -13,6 +13,7 @@ import type { Flag, Limit, SeatNumbers } from '../../../packages/mandate/src/rep
 import { ROSTER_ORDERS } from '../../../packages/mandate/src/repo/place-filters.ts';
 import type { RosterOrder } from '../../../packages/mandate/src/repo/place-filters.ts';
 import type { MarginRankFigure, PhotoFinish } from '../../../packages/mandate/src/repo/seat-proof.ts';
+import { Icon, trend } from './Icon.tsx';
 import { Limits, MarginFigure, PartyChip, PersonLink, TableTwin } from './marks.tsx';
 import { DataList, DataRow, Panel, Table, Tabs } from './parts.tsx';
 
@@ -28,7 +29,6 @@ import { DataList, DataRow, Panel, Table, Tabs } from './parts.tsx';
 const IN = new Intl.NumberFormat('en-IN');
 const at = (i: number): CSSProperties => ({ '--i': i }) as CSSProperties;
 const sign = (n: number): string => (n > 0 ? '+' : n < 0 ? '−' : '±');
-const arrow = (n: number): string => (n > 0 ? '▲' : n < 0 ? '▼' : '■');
 /** A fraction of a track as a CSS percentage, to two decimals, so the markup is the same on every request. */
 const pc = (f: number): string => `${Math.round(f * 10000) / 100}%`;
 const vars = (o: Record<string, string | number>): CSSProperties => o as CSSProperties;
@@ -147,7 +147,7 @@ export function SeatKpis({ nums, retrieved }: { nums: SeatNumbers; retrieved: st
             <p className="iei-seat-line">{hero.noDelta}</p>
           ) : (
             <p className="iei-seat-line">
-              <span aria-hidden="true">{arrow(hero.delta.votes)} </span>
+              <Icon name={trend(hero.delta.votes)} side="before" />
               {sign(hero.delta.votes)}
               {IN.format(Math.abs(hero.delta.votes))} votes on {hero.delta.vs.year}&rsquo;s {hero.delta.vs.basis} margin of{' '}
               {IN.format(hero.delta.vs.votes)} ({hero.delta.vs.party.label})

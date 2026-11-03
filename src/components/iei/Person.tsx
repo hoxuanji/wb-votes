@@ -11,6 +11,7 @@ import type { RunColumn } from '../../../packages/mandate/src/repo/person-story.
 import type { FieldElection } from '../../../packages/mandate/src/repo/seat-field.ts';
 import type { SeatHistory } from '../../../packages/mandate/src/repo/seat-history.ts';
 import { electionHref } from '../../../packages/mandate/src/repo/routes.ts';
+import { Icon } from './Icon.tsx';
 import { MarginFigure, PartyChip, PersonLink } from './marks.tsx';
 import { Panel, Table, Value } from './parts.tsx';
 import { ResultBars } from './SeatHistory.tsx';
@@ -220,7 +221,8 @@ export function CareerRun({ columns, name }: { columns: readonly RunColumn[]; na
                   )}
                   {m === null ? null : (
                     <span className="iei-pp-mv">
-                      {m.votes >= 0 ? '▲' : '▼'} {IN.format(Math.abs(m.votes))}
+                      <Icon name={m.votes >= 0 ? 'up' : 'down'} side="before" />
+                      {IN.format(Math.abs(m.votes))}
                       {m.basis === 'declared' ? <em> declared</em> : null}
                     </span>
                   )}

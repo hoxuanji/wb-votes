@@ -2,6 +2,8 @@ import Link from 'next/link';
 import { Children, isValidElement } from 'react';
 import type { CSSProperties } from 'react';
 import { CommandKey } from './CommandKey.tsx';
+import { Icon } from './Icon.tsx';
+import type { IconName } from './Icon.tsx';
 
 /**
  * The product shell: wordmark, one command bar, and a live indicator.
@@ -40,50 +42,8 @@ import { CommandKey } from './CommandKey.tsx';
 
 export type Section = 'india' | 'coverage' | 'search' | 'place' | 'person' | 'election' | 'review';
 
-/** One drawing per place, 24 units square, stroke only, so the rail's icons are one family and cost no request. */
-const ICONS: Record<string, React.ReactNode> = {
-  now: (
-    <>
-      <rect x="3" y="3" width="7" height="7" rx="1" />
-      <rect x="14" y="3" width="7" height="7" rx="1" />
-      <rect x="3" y="14" width="7" height="7" rx="1" />
-      <rect x="14" y="14" width="7" height="7" rx="1" />
-    </>
-  ),
-  landscape: (
-    <>
-      <circle cx="12" cy="12" r="9" />
-      <path d="M3 12h18" />
-      <path d="M12 3c3.2 3 3.2 15 0 18" />
-      <path d="M12 3c-3.2 3-3.2 15 0 18" />
-    </>
-  ),
-  next: (
-    <>
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M3 10h18M8 3v4M16 3v4" />
-    </>
-  ),
-  history: <path d="M3 17l5-6 4 3 5-8 4 4" />,
-  people: (
-    <>
-      <circle cx="9" cy="8" r="3" />
-      <path d="M3 20c0-4 3-6 6-6s6 2 6 6" />
-      <circle cx="17" cy="9" r="2.5" />
-      <path d="M16 14c3 0 5 2 5 5" />
-    </>
-  ),
-  data: (
-    <>
-      <ellipse cx="12" cy="6" rx="8" ry="3" />
-      <path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6" />
-      <path d="M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3" />
-    </>
-  ),
-};
-
 /** The six places. `at` is the surface that makes an item the current one; the anchors are never "current" because the page they are on is. */
-const RAIL: { key: keyof typeof ICONS; label: string; href: string; at: Section | null }[] = [
+const RAIL: { key: IconName; label: string; href: string; at: Section | null }[] = [
   { key: 'now', label: 'Overview', href: '/', at: 'india' },
   { key: 'landscape', label: 'Landscape', href: '/#landscape', at: null },
   { key: 'next', label: 'Next up', href: '/#next', at: null },
@@ -168,9 +128,7 @@ export function Shell({
         <nav className="iei-rail" aria-label="Places">
           {RAIL.map((r) => (
             <Link key={r.key} href={r.href} aria-current={r.at !== null && r.at === here ? 'page' : undefined}>
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                {ICONS[r.key]}
-              </svg>
+              <Icon name={r.key} />
               <span>{r.label}</span>
             </Link>
           ))}

@@ -1,6 +1,9 @@
-// The Analysis charts' colours: the stylesheet's surface and inks, and a categorical set for series. The
-// series set is NOT party ink. A chart here gives the Nth key of its ranked list the Nth hue (`hueMap`), so a
-// party's hue on an Analysis chart is not its colour on a map, which is party ink by key (`fillFor`).
+// The Analysis charts' colours: the stylesheet's surface and inks, and a categorical set for series.
+//
+// WHICH SERIES WEAR WHICH. A series that IS a party wears that party's ink (`fillFor`), passed as `colour`, so a
+// party is one colour on a map, in the vote-share lines and in the votes bars. The set below is for the series that
+// are not parties — the seat, its district and its state on a turnout chart — and `hueMap` gives the Nth of those the
+// Nth hue. Every line is also named at its end, so the hue is never what says which series it is.
 //
 // Dark only: every value is measured against SURFACE, and the stylesheet has no light surface to measure
 // against.
@@ -40,11 +43,17 @@ export const TEXT_MUTED = "#818198";
  * line can end up beside any other. So `hueMap` below hands out three and never the rest. The eight are kept
  * whole anyway, because a truncated copy of a validated palette is a lie.
  *
- * Slots 1-3 are not §24.4's (#3987e5, #d95926, #199e70). The only gate on any of the eight is the 3:1 mark
- * floor in charts.test.ts: no colour-vision check runs over them.
+ * Slots 1-3 are not §24.4's (#3987e5, #d95926, #199e70). palette.test.ts gates them, and the fold grey, for
+ * colour-vision separation and for distance from the colours parties wear. Slots 4-8 are not gated beyond the 3:1
+ * mark floor in charts.test.ts, because nothing draws them.
+ *
+ * NO HUE IS FREE OF A PARTY. 58 distinct party fills leave no colour in the band more than ΔE 10.6 from the nearest
+ * one (an olive yellow), and a search over the band found no trio, 6+ from every party, that is also separable under
+ * protan, deutan and tritan and from the fold grey. So the set stays where it is, with one move: slot 1 was #cd702f, ΔE 2.5 from Shiv Sena's
+ * orange, and is the vermilion #d05320, ΔE 5.9 from the nearest party fill. That is nearer than ideal, and said so.
  */
 export const CATEGORICAL = [
-  "#cd702f", // 1 orange
+  "#d05320", // 1 vermilion
   "#6fa4fc", // 2 blue
   "#e1a6a2", // 3 rose
   "#c98500", // 4 yellow

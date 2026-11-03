@@ -211,7 +211,7 @@ test("the district chooser comes before the list's heading, and says once what c
   assert.match(html, /<summary>2 districts — select one to zoom the map and narrow the list<\/summary>/);
   assert.doesNotMatch(html, /or open one|select to filter/);
   // Every row of the chooser says what its link does, so the heading need not.
-  assert.equal(html.split("open →").length - 1, 2);
+  assert.equal(html.split(/>open<svg class="iei-ic iei-ic-after"/).length - 1, 2);
 });
 
 test("a chooser on a page with no map does not offer to zoom one", () => {

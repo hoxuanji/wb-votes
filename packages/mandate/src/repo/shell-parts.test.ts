@@ -120,7 +120,8 @@ test("a source with a web address is a link that says whose, and one with no add
 test("the drawer's name starts with the words it shows, so saying what is on screen reaches it", () => {
   const { one, unlabelled, inline } = drawers();
   assert.match(one, /<summary aria-label="1 source for Winners">/);
-  assert.match(text(one), /^ⓘ 1 source /);
+  assert.match(text(one), /^1 source /);
+  assert.match(one, /<svg class="iei-ic" viewBox="0 0 24 24" aria-hidden="true" focusable="false">/, "the mark is an icon, hidden from a screen reader that has the label");
   assert.match(unlabelled, /<summary aria-label="2 sources">/);
   // the inline drawer shows only the mark, so its name is all there is, and still says what it is for
   assert.match(inline, /<summary aria-label="2 sources for Turnout">/);
