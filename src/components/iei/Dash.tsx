@@ -57,7 +57,7 @@ export function VoteLadder({ story, followHref }: { story: PlaceStory; followHre
   const parties = new Map<string, string>();
   for (const r of rows) for (const s of r.segments) if (s.key !== null && !parties.has(s.key)) parties.set(s.key, s.label);
   return (
-    <Panel id="ladder" title="Where did the vote go?" question={`Each bar is the votes polled at one election of ${story.ladder.length === 1 ? 'the record' : 'the window'}.`}>
+    <Panel id="ladder" title="Where did the vote go?">
       <div className="iei-an-two">
         <div>
           <div className="iei-an-ladder">
@@ -113,9 +113,11 @@ export function VoteLadder({ story, followHref }: { story: PlaceStory; followHre
               </li>
             ))}
           </ul>
+          <p className="iei-sr">
+            Outlined is the winner; dashed is an election with no candidate votes on record; the unfilled end of a bar is votes the registry does not itemise by candidate.
+          </p>
           <p className="iei-note">
-            Outlined is the winner; dashed is an election with no candidate votes on record; the unfilled end of a bar is votes the registry does not itemise by candidate. A ribbon joins
-            the same party across two counted elections: it is not a count of voters who moved. <a href="#tables">Exact figures</a>
+            A ribbon joins the same party across two counted elections: it is not a count of voters who moved. <a href="#tables">Exact figures</a>
           </p>
         </div>
         <aside className="iei-an-follow" aria-label="Follow one party">
@@ -222,8 +224,8 @@ export function MarginHero({ story, retrieved }: { story: PlaceStory; retrieved:
                 );
               })}
             </ol>
-            <p className="iei-note">
-              One scale, from zero. Each column is in its winner&rsquo;s ink; a rule between two columns is where the seat changed hands. Rank is by votes within each election, closest first, over the contests that have a
+            <p className="iei-sr">
+              One scale, from zero. Each column is in its winner&rsquo;s ink. Rank is by votes within each election, closest first, over the contests that have a
               result and a margin.
             </p>
           </div>
@@ -299,7 +301,6 @@ export function MarginStripPanel({ s }: { s: MarginStrip }) {
         <Table
           label={`All ${s.of} margins of ${s.year}`}
           caption={`The ${s.of} ${s.scope} margins of ${s.year}, closest first, each seat linked.`}
-          captionVisible
           tight
           tall
           head={
@@ -373,10 +374,11 @@ export function GapPanels({ story, stateName }: { story: PlaceStory; stateName: 
           </div>
         ))}
       </div>
-      <p className="iei-note">
+      <p className="iei-sr">
         A dot is the party&rsquo;s share here, a ring is its share across the state, on one axis from 0 to 60%. The state&rsquo;s share is the party&rsquo;s votes over the votes polled in the seats of that
-        election with candidate votes on record. Nothing is drawn for an election with none.
+        election with candidate votes on record.
       </p>
+      <p className="iei-note">Nothing is drawn for an election with no candidate votes on record.</p>
     </Panel>
   );
 }
@@ -413,9 +415,11 @@ export function TurnoutRows({ story, district, state }: { story: PlaceStory; dis
           </li>
         ))}
       </ol>
+      <p className="iei-sr">
+        A filled dot is this seat, a ring {district === null ? 'its district' : `is ${district}`}, a tick {state ?? 'the state'}.
+      </p>
       <p className="iei-note">
-        A filled dot is this seat, a ring {district === null ? 'its district' : `is ${district}`}, a tick {state ?? 'the state'}. The axis runs from {dots.min}% to {dots.max}%, not from zero: from zero a gap of one to
-        three points would show as nothing.
+        The axis runs from {dots.min}% to {dots.max}%, not from zero.
       </p>
     </Panel>
   );
@@ -480,7 +484,6 @@ export function Tables({ story, stateName, district }: { story: PlaceStory; stat
         <Table
           label="The record"
           caption="The record: each election's winner, margin and where the margin ranks among its election's contests, closest first, by votes."
-          captionVisible
           tight
           head={
             <>
@@ -513,7 +516,7 @@ export function Tables({ story, stateName, district }: { story: PlaceStory; stat
       {counted.length === 0 ? null : (
         <Table
           label="Share of votes polled, by candidate party"
-          caption="Share of the votes polled, by candidate party, at each counted election. A party outside an election's listed candidates is not listed there."
+          caption="A party outside an election's listed candidates is not listed there."
           captionVisible
           tight
           head={
@@ -550,7 +553,6 @@ export function Tables({ story, stateName, district }: { story: PlaceStory; stat
         <Table
           label="Seat against state"
           caption={`Each party's share here against its share across ${stateName}, in percent of the votes polled, and the gap in percentage points.`}
-          captionVisible
           tight
           head={
             <>
@@ -586,7 +588,7 @@ export function Tables({ story, stateName, district }: { story: PlaceStory; stat
       {story.turnout.rows.length === 0 ? null : (
         <Table
           label="Turnout"
-          caption={`Turnout at each election, here${district === null ? '' : `, in ${district}`} and across ${stateName}. A withheld election has no figure.`}
+          caption="A withheld election has no figure."
           captionVisible
           tight
           head={

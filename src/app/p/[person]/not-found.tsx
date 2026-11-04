@@ -8,11 +8,7 @@ export default function PersonNotFound() {
       <EmptyState
         title="No person in the registry has that identifier."
         detail={
-          <>
-            A person URL is the registry&rsquo;s own id — a name slug plus six hex characters, as in{" "}
-            <code>/p/pulak-roy-0d657a</code>. Ids change when entity resolution merges two rows, and the
-            absorbed id stops resolving. Search by name in the bar above.
-          </>
+          <>Search by name in the bar above.</>
         }
       />
     </Shell>

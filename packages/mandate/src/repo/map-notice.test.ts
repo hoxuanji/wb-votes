@@ -334,8 +334,9 @@ test("a drawn map keeps every control and caption that refers to it", () => {
   const t = text(html);
   assert.match(html, /<figure class="iei-map[ "]/, "the figure is drawn");
   assert.equal(t.split("find on map").length - 1, 2, "one on each listed seat");
-  for (const kept of ["Show this on the map", "Select a band to find those seats on the map.", "Select a party to find its seats on the map."]) {
-    assert.ok(t.includes(kept), `missing: ${kept}`);
+  assert.ok(t.includes("Show this on the map"), "the link that applies the flips mode is a control and stays");
+  for (const gone of ["Select a band to find those seats on the map.", "Select a party to find its seats on the map."]) {
+    assert.ok(!t.includes(gone), `how-to-use hint is back: ${gone}`);
   }
   // The flips legend is the one mode of the four the default does not show.
   assert.ok(text(render("/state", "mode=flips", "aa")).includes("A flipped seat wears the colour of the party that gained it."));
@@ -343,15 +344,11 @@ test("a drawn map keeps every control and caption that refers to it", () => {
   assert.ok(text(render("/state", "seat=aa.ac.001", "aa")).includes("unfocus"), "the focused seat offers to be released");
 
   const election = text(render("/election", "", "aa-assembly-2021"));
-  for (const kept of [
-    "Select a bar to find those seats on the map.",
-    "Select a party to find its seats on the map.",
-    "Show this on the map",
-  ]) {
-    assert.ok(election.includes(kept), `missing on the election page: ${kept}`);
+  assert.ok(election.includes("Show this on the map"), "missing on the election page: the link that applies the flips mode");
+  for (const gone of ["Select a bar to find those seats on the map.", "Select a party to find its seats on the map."]) {
+    assert.ok(!election.includes(gone), `how-to-use hint is back on the election page: ${gone}`);
   }
-  assert.ok(text(render("/election", "mode=margin", "aa-assembly-2021")).includes("Brightest where the margin was smallest."));
-  assert.ok(text(render("/election", "mode=flips", "aa-assembly-2021")).includes("Flipped seats wear the colour of the party that gained them."));
+  assert.ok(!text(render("/election", "mode=margin", "aa-assembly-2021")).includes("Brightest where the margin was smallest."), "the margin legend is the map's, not a sentence under it");
 });
 
 test("a page that draws no map offers no way to find a seat on one, and no caption refers to it", () => {

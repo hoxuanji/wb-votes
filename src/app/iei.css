@@ -2962,20 +2962,8 @@ a.iei-traj-row:hover {
   overflow-wrap: anywhere;
 }
 
-.iei-held-key {
-  margin: var(--iei-2) 0 0;
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-meta);
-  line-height: 1.6;
-  color: var(--iei-ink-3);
-}
-
 .iei-res {
   margin: 0 0 var(--iei-6);
-}
-
-.iei-res-how {
-  margin: 0 0 var(--iei-3);
 }
 
 .iei-res-list {
@@ -3198,10 +3186,6 @@ a.iei-traj-row:hover {
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
   text-align: center;
-}
-
-.iei-arc-cap {
-  margin-top: var(--iei-2);
 }
 
 .iei-arc-key {
@@ -5102,10 +5086,6 @@ ul.iei-tiles b {
   min-width: 12rem;
 }
 
-.iei-seat-phone {
-  display: none;
-}
-
 /* What the record does not say, and the same list wherever a page has one. */
 .iei-limits-h {
   margin: 0 0 var(--iei-2);
@@ -5152,10 +5132,6 @@ ul.iei-tiles b {
 @media (max-width: 900px) {
   .iei-seat-hide {
     display: none;
-  }
-
-  .iei-seat-phone {
-    display: block;
   }
 }
 

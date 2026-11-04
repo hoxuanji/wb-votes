@@ -335,8 +335,7 @@ export function StateSurface({
             {anySeat && view.seats.every((s) => s.votes === null) ? (
               <p className="iei-caveat">
                 No candidate vote counts were published for this election. {recorded}; margins over votes polled, competitiveness
-                and vote-to-seat conversion are not on record, so a row says what is not reported, and a chart that needs them is
-                left out or replaced by a sentence, never drawn as zero.
+                and vote-to-seat conversion are not on record.
               </p>
             ) : null}
 
@@ -563,9 +562,7 @@ export function StateSurface({
             }
           />
           <p className="iei-note">
-            {mapped
-              ? 'Margin over votes polled, winner against runner-up. Select a band to find those seats on the map.'
-              : 'Margin over votes polled, winner against runner-up.'}
+            Margin over votes polled, winner against runner-up.
           </p>
         </Panel>
       )}
@@ -636,13 +633,10 @@ export function StateSurface({
             </div>
           </div>
           {voted ? (
-            <p className="iei-note">
-              The pale bar is vote share; the solid bar is seat share. A solid bar longer than its pale one is a
-              party the system rewarded.
-            </p>
+            <p className="iei-sr">The pale bar is vote share; the solid bar is seat share.</p>
           ) : null}
           {since === null || !moved ? null : (
-            <p className="iei-note">
+            <p className="iei-sr">
               The figure beside a seat count is its change in seats since {since.year}, for the parties followed under
               &ldquo;How the state has changed&rdquo;.
             </p>

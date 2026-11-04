@@ -327,7 +327,6 @@ export default function ElectionPage({
             {/* THE LEGEND CHANGES WITH THE MODE, because the mode changes what a colour means. */}
             {mode === 'margin' ? (
               <p className="iei-note">
-                {mapped ? 'Brightest where the margin was smallest. ' : ''}
                 {IN.format(marginTotal)} of {IN.format(e.seats)} seats have a computable margin.
               </p>
             ) : mode === 'flips' ? (
@@ -494,8 +493,7 @@ export default function ElectionPage({
               </ul>
               {mapped ? (
                 <p className="iei-note">
-                  <Link href={sel.href({ mode: 'flips' })}>Show this on the map</Link> — flipped seats wear the
-                  colour of the party that gained them.
+                  <Link href={sel.href({ mode: 'flips' })}>Show this on the map</Link>
                 </p>
               ) : null}
             </div>

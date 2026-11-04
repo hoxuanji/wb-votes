@@ -186,8 +186,7 @@ export default function Home({
             <h1 className="iei-answer">The electoral landscape</h1>
             <p className="iei-story-lead">{indiaSentence(rows, s.jurisdictionsTotal)}</p>
             <p className="iei-sub">
-              Choose a state on the map to see its latest election; the rest are names and seat counts. <b>Nothing here is a prediction.</b> No model, no forecast, no
-              probability.
+              <b>Nothing here is a prediction.</b>
             </p>
           </div>
           {/* How much of the country the registry holds, said once with true denominators, beside the sentence it qualifies. */}

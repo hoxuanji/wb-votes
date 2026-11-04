@@ -282,8 +282,8 @@ test("the caveat says what is on record from the data: declared margins, and tur
   assert.match(nv, /Winners and declared margins are on record, and its turnout is awaiting verification;/);
   assert.match(text(render("/state", "", "nv")), /turnout — verification pending/);
   for (const c of [ls, nv]) {
-    assert.match(c, /margins over votes polled, competitiveness and vote-to-seat conversion are not on record,/);
-    assert.match(c, /a chart that needs them is left out or replaced by a sentence, never drawn as zero\.$/);
+    assert.match(c, /margins over votes polled, competitiveness and vote-to-seat conversion are not on record\.$/);
+    assert.doesNotMatch(c, /never drawn as zero/, "the caveat says what is missing and not how the page was built");
   }
 });
 

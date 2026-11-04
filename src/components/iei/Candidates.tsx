@@ -35,7 +35,7 @@ export function CandidatesHead({ view }: { view: CandidatesView }) {
         )}
       </p>
       <p className="iei-sub">
-        Matched by name, seat and party: a candidate who changed party or seat appears as separate records. Nothing here is ranked.
+        Matched by name, seat and party: a candidate who changed party or seat appears as separate records.
         {e.counted ? ' Before 2026 the registry holds each seat’s top five only.' : ''}
       </p>
     </div>
@@ -91,7 +91,7 @@ export function Facets({ view }: { view: CandidatesView }) {
       <Bars title="District" items={view.districts} max={maxOf(view.districts)} open={8} />
       <Bars
         title="Repeat contestants"
-        note="People with two or more contests on record. Among contests on record; before 2026 that is each seat’s top five."
+        note="Before 2026 the record holds each seat’s top five."
         items={view.shapes}
         max={maxOf(view.shapes)}
         open={5}
@@ -164,7 +164,6 @@ export function CandidateList({ view }: { view: CandidatesView }) {
         <div className="iei-empty">
           <p>
             No candidate matches {view.chips.length === 0 ? 'this' : view.chips.map((c) => c.label).join(' and ')} in the {view.election.label} election.
-            {q.repeat ? ' Repeat contestants are people with more than one contest on record.' : ''}
           </p>
           <p>
             <Link href={view.href({ party: null, district: null, career: null, repeat: null, q: null })}>Clear all</Link> · <Link href="/coverage">What the registry holds</Link>
@@ -175,8 +174,9 @@ export function CandidateList({ view }: { view: CandidatesView }) {
           <p className="iei-note">
             {view.election.winners === view.election.candidates
               ? `Only each seat’s winner is on record, so this list is the ${inr(view.election.winners)} declared winners.`
-              : 'Only a declared winner has a result on record, so only winners carry a result line. A dotted square is a contest not on record, not a zero.'}
+              : 'Only a declared winner has a result on record, so only winners carry a result line.'}
           </p>
+          <p className="iei-sr">A dotted square is a contest not on record, not a zero.</p>
           <Table
             label={`Candidates in the ${view.election.label} election`}
             tight

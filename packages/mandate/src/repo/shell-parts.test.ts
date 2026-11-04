@@ -184,12 +184,12 @@ test("an address that names nothing gets the product's own page: its header, its
   assert.match(html, /<a class="iei-mark" href="\/"/, "so is the way home");
 });
 
-test("the 404 says what an address looks like in the product's own words and names no place that is not on record", () => {
+test("the 404 gives the reader a way out and does not teach address syntax or name a place that is not on record", () => {
   const { html } = notFound();
   const words = text(html);
-  assert.match(words, /\/constituency\/wb\/assembly\/mekliganj/);
-  assert.match(words, /\/state\/wb/);
-  assert.doesNotMatch(words, /\/pl\/|Karnataka|badami|bagalkot|Every state is on the map/i, "the retired address form is not taught");
+  assert.match(words, /No page sits at that address\./);
+  assert.ok(/<a [^>]*href="\/"/.test(html), "a way back to the front page");
+  assert.doesNotMatch(words, /\/constituency\/|\/state\/|\/pl\/|Karnataka|badami|bagalkot|Every state is on the map/i, "no address form is taught");
 });
 
 test("the 404 has a title of its own, and the dead copy in the private folder is gone", () => {

@@ -309,7 +309,7 @@ export async function PlaceSurface({
           caption={
             brief.contests.length === 0
               ? `No contest is on record for ${p.canonicalName}.`
-              : `${brief.contests.length === 1 ? "1 election on record" : `${inr(brief.contests.length)} elections on record`}, newest first. The member links to their page.`
+              : `${brief.contests.length === 1 ? "1 election on record" : `${inr(brief.contests.length)} elections on record`}, newest first.`
           }
           captionVisible
           head={

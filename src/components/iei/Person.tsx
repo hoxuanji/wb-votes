@@ -242,8 +242,7 @@ export function CareerRun({ columns, name }: { columns: readonly RunColumn[]; na
       {/* The table under the run is its twin: every figure here is in the record in full, and the title of each column holds its whole sentence. */}
       {marked.length === 0 ? null : (
         <p className="iei-note">
-          A blank column is an election with no candidacy of {name}&rsquo;s on record, which is not the same as not having stood: before 2026 the record holds each seat&rsquo;s top five. A rule
-          between two seat-holders is where the seat changed hands.
+          A blank column is an election with no candidacy of {name}&rsquo;s on record, which is not the same as not having stood: before 2026 the record holds each seat&rsquo;s top five.
         </p>
       )}
     </div>
@@ -302,7 +301,7 @@ export function RecordTable({ brief }: { brief: PersonBrief }) {
     <Panel id="record" title="The record in full" question="Every contest on record, newest first" sources={brief.sources}>
       <Table
         label="Contests on record"
-        caption={`${cs.length === 1 ? '1 contest' : `${inr(cs.length)} contests`} on record. Before 2026 the record holds each seat's top five only, so this is every contest on record, not necessarily every contest fought. The seat links to its page.`}
+        caption={`${cs.length === 1 ? '1 contest' : `${inr(cs.length)} contests`} on record. Before 2026 the record holds each seat's top five only, so this is every contest on record, not necessarily every contest fought.`}
         captionVisible
         tight={cs.length > 12}
         tall={cs.length > 24}

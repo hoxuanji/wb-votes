@@ -12,8 +12,6 @@ import { Shell } from '../../components/iei/Shell.tsx';
 import { TableTwin } from '../../components/iei/marks.tsx';
 import {
   CoverageChip,
-  DataList,
-  DataRow,
   Metric,
   Metrics,
   Panel,
@@ -284,11 +282,6 @@ function Body({
         <h1 className="iei-answer iei-answer-long">
           {c.present} of {c.total} subject areas hold data. {c.noModel} have no model in the schema at all.
         </h1>
-        <p className="iei-sub">
-          Elections are one vertical here, not the subject. The other seventeen are specified and mostly
-          unbuilt, and the honest thing is to say which is which on the way in. Nothing below is
-          hand-maintained: a row says it has data because a query found rows, and its reach is counted.
-        </p>
       </div>
 
       {election === null ? null : <Election c={election} choices={choices} />}
@@ -299,9 +292,7 @@ function Body({
         note={
           <>
             Counted against the seat totals India has <b>today</b>, and from each jurisdiction&rsquo;s most
-            recent election in each house — the only denominator that compares like with like. Seats that
-            exist only in an earlier delimitation are reported separately rather than dropped, because a
-            percentage that can exceed 100 is not a measurement.
+            recent election in each house.
           </>
         }
       >
@@ -366,12 +357,6 @@ function Body({
       <Panel
         title="The eighteen subject areas"
         question="What does this platform model, and what does it only intend to?"
-        note={
-          <>
-            The source each subject still needs is the real constraint, since most of it is not a coding problem. Every subject&rsquo;s
-            question and source are in the exact table at the foot.
-          </>
-        }
       >
         <Ledger groups={ledgerGroups(c.verticals)} total={c.total} />
 
@@ -438,34 +423,9 @@ function Body({
         </TableTwin>
       </Panel>
 
-      <Panel
-        title="Four things that will stay incomplete on purpose"
-        question="Which gaps are not gaps?"
-      >
-        <DataList label="Deliberate incompleteness">
-          <DataRow
-            title="Indian legislatures rarely record division votes."
-            detail="Most bills pass by voice vote and no member-level record is created. A complete import of voting records is therefore still mostly silence, and that silence is a fact about the institution rather than a gap on our side."
-          />
-          <DataRow
-            title="“Delivery” is a judgement."
-            detail="A promise marked kept or broken without a named assessor, a date and cited evidence is an opinion dressed as a fact. The model carries all three, which is why no promises tracker is published."
-          />
-          <DataRow
-            title="Charged is not convicted."
-            detail="The case table holds zero rows deliberately. Declared pending-case counts are carried as cited claims from affidavits; no proceeding is asserted without a court record."
-          />
-          <DataRow
-            title="Attendance is not performance."
-            detail="Sittings attended and questions asked are published because they are countable, not because they measure representation. Each will ship with a model card stating what it does not capture."
-          />
-        </DataList>
-      </Panel>
-
       <div className="iei-foot">
         <p>
-          Every figure here is computed when the page is requested. The model behind these tables is{' '}
-          <code>docs/platform/00-model.md</code>. <Link href="/">India</Link>
+          <Link href="/">India</Link>
         </p>
       </div>
     </>

@@ -133,9 +133,8 @@ export function SeatArc({
           </p>
         )}
 
-        <figcaption className="iei-note iei-arc-cap">
+        <figcaption className="iei-sr">
           {delegation === null ? 'Every seat of the house' : `Every seat in ${delegation}`}, one dot each, in the party that won it.
-          Ordered by seats, largest first: the order does not mean left or right, or who would govern together.
         </figcaption>
       </figure>
 

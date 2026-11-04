@@ -182,10 +182,10 @@ test("the centre prints the leader's seats, the house, and how far from a majori
   assert.match(t, /short by 1/);
 });
 
-test("the caption says the order is by seats and does not mean left or right", () => {
-  const t = text(panel(render("/election", "", ELECTION), "house"));
-  assert.match(t, /Ordered by seats, largest first/);
-  assert.match(t, /does not mean left or right/);
+test("the arc is explained to a screen reader and not printed under it: no sentence about how to read the order", () => {
+  const house = panel(render("/election", "", ELECTION), "house");
+  assert.match(house, /<figcaption class="iei-sr">Every seat of the house, one dot each, in the party that won it\.<\/figcaption>/);
+  assert.doesNotMatch(text(house), /Ordered by seats|left or right|who would govern/);
 });
 
 test("the table twin lists every party and the undeclared seat, and its seats add up to the house", () => {

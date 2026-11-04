@@ -380,7 +380,6 @@ test("the candidates index renders a page of its list and its facets, in words a
   );
   const n = (x: number | undefined): string => (x ?? 0).toLocaleString("en-US");
   assert.match(t, new RegExp(`${n(field?.candidates)} candidates stood for ${n(field?.seats)} seats in the Assembly 2026 election\\. ${n(field?.before)} had stood before on record\\.`));
-  assert.match(t, /Nothing here is ranked/);
   assert.equal((html.match(/<tr>/g) ?? []).length, 1 + 50, "a page is the head row and fifty candidates");
   // Every swatch has its code, and every person is a link to their page.
   const swatches = [...html.matchAll(/<span class="iei-sw"[^>]*><\/span>/g)].length;

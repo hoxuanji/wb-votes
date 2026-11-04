@@ -89,12 +89,6 @@ export function HeldBy({ history }: { history: SeatHistory }) {
           );
         })}
       </ol>
-      {marks ? (
-        <p className="iei-held-key">
-          {history.handOffs > 0 ? 'A rule between two blocks is where the seat changed hands. ' : ''}
-          {history.undeclared > 0 ? 'A dashed block is an election with no declared winner.' : ''}
-        </p>
-      ) : null}
     </figure>
   );
 }
@@ -139,7 +133,7 @@ export function ResultBars({ history, subjectId }: { history: SeatHistory; subje
   return (
     <div className="iei-res">
       {drawn ? (
-        <p className="iei-note iei-res-how">
+        <p className="iei-sr">
           Each bar is the votes polled in that election. A coloured segment is one candidate&rsquo;s share of them, in the colour
           of that candidate&rsquo;s party; the unfilled part is votes the registry does not itemise by candidate.
         </p>

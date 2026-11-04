@@ -191,7 +191,6 @@ export function SeatKpis({ nums, retrieved }: { nums: SeatNumbers; retrieved: st
             <span className="iei-seat-bullet-fill" style={{ width: `${share.bar.fill === null ? 0 : share.bar.fill * 100}%`, background: fillFor(share.party.key) }} />
             <span className="iei-seat-bullet-tick" style={{ left: `${share.bar.tick * 100}%` }} />
           </div>
-          <p className="iei-seat-ticklabel">50% = half the votes polled</p>
           {share.votes === null || share.polled === null ? null : (
             <p className="iei-seat-line">
               {IN.format(share.votes)} of {IN.format(share.polled)} votes polled
@@ -414,10 +413,10 @@ export function SeatPanels({ field, history, brief }: { field: SeatField; histor
         })}
       </div>
       {hasCounted ? (
-        <p className="iei-note">
-          All the bars here share one scale: full width is {scale}% of the votes polled, and the dashed line is 50%. Earlier contests are shown only where the registry has
-          linked the records. One person can appear under more than one record.
-        </p>
+        <>
+          <p className="iei-sr">All the bars share one scale: full width is {scale}% of the votes polled, and the dashed line is 50%.</p>
+          <p className="iei-note">Earlier contests are shown only where the registry has linked the records. One person can appear under more than one record.</p>
+        </>
       ) : null}
     </div>
   );
@@ -500,10 +499,8 @@ export function SeatRoster({ election, order, dir, base }: { election: FieldElec
           </tr>
         ))}
       </Table>
-      <p className="iei-note iei-seat-phone">Education, occupation, liabilities and cases are on each candidate&rsquo;s page.</p>
       <p className="iei-note">
-        Cases declared is the count of pending cases the candidate wrote in the affidavit. It records nothing about their stage, court or outcome, and it is not a criminal
-        record. Self-declared{election.declaredAsOf === null ? '' : `, as of ${election.declaredAsOf}`}.
+        Cases declared are the pending cases the candidate listed in the affidavit; they are not a criminal record. Self-declared{election.declaredAsOf === null ? '' : `, as of ${election.declaredAsOf}`}.
       </p>
     </Panel>
   );
@@ -528,7 +525,7 @@ export function SeatPhotoFinish({ finish }: { finish: PhotoFinish }) {
   const [near, far] = [...sides].sort((a, b) => a.pos - b.pos);
   const span = r.hi - r.lo;
   return (
-    <Panel id="finish" title="How close was it?" question={`${finish.label}: the two leading totals, and the gap between them.`}>
+    <Panel id="finish" title="How close was it?" question={finish.label}>
       <figure className="iei-pf">
         {sides.map((x) => (
           <div className="iei-pf-row" key={x.role}>
@@ -615,7 +612,6 @@ export function SeatPhotoFinish({ finish }: { finish: PhotoFinish }) {
         <Table
           label="The two leading totals"
           caption={`The two leading totals in ${finish.label} and the gap between them.`}
-          captionVisible
           tight
           head={
             <>
@@ -712,7 +708,6 @@ export function SeatMarginRank({ figure }: { figure: MarginRankFigure }) {
         <Table
           label={`All ${f.of} margins of ${f.year}`}
           caption={`The ${f.of} ${f.scope} margins of ${f.year}, widest first, each seat linked.`}
-          captionVisible
           tight
           tall
           head={

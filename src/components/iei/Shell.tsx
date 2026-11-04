@@ -157,7 +157,7 @@ export function Foot({ children }: { children?: React.ReactNode }) {
     <footer className="iei-foot">
       <p>
         {children === undefined ? null : <>{children} · </>}
-        <Link href="/coverage">Data &amp; coverage</Link> — what this registry holds, and what it does not.
+        <Link href="/coverage">Data &amp; coverage</Link>
       </p>
     </footer>
   );

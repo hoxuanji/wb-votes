@@ -125,7 +125,6 @@ test("the record table links each seat to its page and each year to its election
     hrefs(record).filter((h) => h.startsWith("/constituency") || h.startsWith("/election")),
     ["/election/wb-assembly-2026", "/constituency/wb/assembly/testpur", "/election/wb-assembly-2021", "/constituency/wb/assembly/testpur"],
   );
-  assert.match(text(record), /The seat links to its page\./);
 });
 
 test("a row with no contest but a seat claim says which seat, links it, and draws no run, no table and no empty frame", () => {

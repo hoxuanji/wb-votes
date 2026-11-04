@@ -74,9 +74,9 @@ export function StoryHead({ view }: { view: StoryView }) {
   // Why this state is the one shown, said every time: a page that shows one state owes the reader the reason.
   const why =
     view.basis === 'asked'
-      ? 'Chosen on the map. Choose another state there to see its latest election here.'
+      ? 'Chosen on the map.'
       : view.choices > 1
-        ? 'Showing the most recent election on record. Choose another state on the map to see its latest election here.'
+        ? 'Showing the most recent election on record.'
         : `${view.jurisdiction.name} is the only state with an assembly result on record, so it is the one shown here.`;
   return (
     <div className="iei-head iei-story-head" id="state">
@@ -175,7 +175,6 @@ export function StateCard({
           ))}
         </ul>
       )}
-      <p className="iei-note">Most recent election first, then by name. Choose a state on the map or here to see its latest election.</p>
     </section>
   );
 }
@@ -254,9 +253,8 @@ export function StoryHouses({ view }: { view: StoryView }) {
           );
         })}
       </ol>
-      <figcaption className="iei-note">
-        Each bar is the whole house, {IN.format(view.total)} seats, and the line is half of it. The order of the colours means nothing else: the
-        party in the sentence starts at the left, and the party that lost it most seats ends at the right. Hatched is the smaller parties added
+      <figcaption className="iei-sr">
+        Each bar is the whole house, {IN.format(view.total)} seats, and the line is half of it. Hatched is the smaller parties added
         together; dashed is seats with no declared winner.
       </figcaption>
       <details className="iei-twin">
@@ -383,11 +381,11 @@ export function StoryWhere({ view }: { view: StoryView }) {
           </ol>
         </details>
       )}
-      <p className="iei-note">
+      <p className="iei-sr">
         A bar is a district&rsquo;s seats that can be compared with the earlier election. The coloured part changed hands, in the colour of the
         party that won them; the grey part did not.
-        {view.noDistrict === 0 ? null : <> {view.noDistrict} seats are in no district on record and are not listed.</>}
       </p>
+      {view.noDistrict === 0 ? null : <p className="iei-note">{view.noDistrict} seats are in no district on record and are not listed.</p>}
     </Panel>
   );
 }
@@ -455,7 +453,7 @@ export function StoryVotes({ view }: { view: StoryView }) {
           ...(partner === null || w === null ? [] : [<VoteRow key={`${v.electionId}-${partner.key}`} p={partner} v={w} first={false} />]),
         ])}
       </ol>
-      <p className="iei-note">
+      <p className="iei-sr">
         A circle is a share of the votes polled in the seats where the registry holds candidates&rsquo; votes; a square is a share of the
         house&rsquo;s seats; the line between them is how far the seats ran from the votes. The dashed line is half.
       </p>

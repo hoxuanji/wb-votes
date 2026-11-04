@@ -53,7 +53,7 @@ function Cut({ shown, of, atLeast = false }: { shown: number; of: number; atLeas
   return (
     <p className="iei-note">
       Showing the first {shown} of {atLeast ? 'at least ' : ''}
-      {IN.format(of)}. Narrow the query to see the rest.
+      {IN.format(of)}.
     </p>
   );
 }
@@ -156,11 +156,9 @@ export default function SearchPage({
       <div className="iei-head">
         <p className="iei-eyebrow">Search</p>
         <h1 className="iei-answer iei-answer-long">{answer(r)}</h1>
-        <p className="iei-sub">
-          {r.transliterated === null
-            ? 'A name is matched as text first, then on how it sounds, so Bishwas also lists Biswas and Mohammed Salim finds Md. Salim.'
-            : `Read as ${r.script === 'beng' ? 'Bengali' : 'Devanagari'} and matched as “${r.transliterated}”.`}
-        </p>
+        {r.transliterated === null ? null : (
+          <p className="iei-sub">Read as {r.script === 'beng' ? 'Bengali' : 'Devanagari'} and matched as “{r.transliterated}”.</p>
+        )}
       </div>
 
       {q === '' ? (
@@ -168,23 +166,23 @@ export default function SearchPage({
           <DataList label="Searchable kinds">
             <DataRow
               title="States and union territories"
-              detail="All 36, whether or not an election is loaded for them. A state opens its districts and its elections."
+              detail="All 36, whether or not an election is loaded for them."
             />
             <DataRow
               title="Elections"
-              detail="By jurisdiction, body, year or the election's own name: West Bengal 2021 and LS 2024 each find their election. An election opens its seat map and how it went."
+              detail="By jurisdiction, body, year or the election's own name."
             />
             <DataRow
               title="Districts"
-              detail="By name. A district opens its assembly seats and who won them."
+              detail="By name."
             />
             <DataRow
               title="Constituencies"
-              detail="Assembly and parliamentary seats, under the name each carries now. A seat opens its brief and its analysis."
+              detail="Assembly and parliamentary seats, under the name each carries now."
             />
             <DataRow
               title="People"
-              detail="Matched as text, then phonetically, across scripts: মমতা, ममता, Mamata and Momota fold onto the same keys."
+              detail="Matched as text, then phonetically, across scripts."
             />
             <DataRow
               title="Parties"
@@ -217,8 +215,7 @@ export default function SearchPage({
           note={
             <>
               {r.people.length === 0 ? 'No recorded name contains what you typed; these share a phonetic key with it. ' : null}
-              The key is deliberately coarse — it exists to catch Biswas against Bishwas — so a match here is{' '}
-              <b>a suggestion to check, not a person found</b>.
+              A match here is <b>a suggestion to check, not a person found</b>.
             </>
           }
         >
@@ -236,7 +233,7 @@ export default function SearchPage({
         question="Which party?"
         hits={r.parties}
         of={r.counts.parties}
-        note="A party has no page of its own in this registry. Each row carries what is counted about it, and one the national party landscape lists opens its line there."
+        note="A party has no page of its own yet."
       />
 
       {q !== '' && r.total === 0 && r.alike.length === 0 ? (

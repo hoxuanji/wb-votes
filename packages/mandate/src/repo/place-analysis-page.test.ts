@@ -180,7 +180,7 @@ test("the turnout section says the election is withheld, draws the verified ones
   const section = html.slice(html.indexOf('id="turnout"'), html.indexOf('id="notes"') === -1 ? html.indexOf('id="leaves"') : html.indexOf('id="notes"'));
   assert.match(text(section), /verification pending/);
   assert.match(text(section), /The axis runs from \d+% to \d+%, not from zero/);
-  const t = rows(tableOf(html, "Turnout at each election, here"));
+  const t = rows(tableOf(html, "A withheld election has no figure"));
   assert.deepEqual(t.at(-1), ["2026", "verification pending"]);
   assert.deepEqual(t.slice(1, 3).map((r) => r[0]), ["2016", "2021"]);
   assert.deepEqual(t.find((r) => r[0] === "2021")?.slice(0, 2), ["2021", "45.5%"]);
@@ -198,7 +198,7 @@ test("the record keeps the declared margin in votes, says it is declared, and wi
 });
 
 test("the share table lists every candidate on record, so a runner-up is a number and an absence is 'not listed', never a dash or a zero", () => {
-  const t = rows(tableOf(html, "Share of the votes polled, by candidate party"));
+  const t = rows(tableOf(html, "listed candidates is not listed there"));
   assert.deepEqual(t[0], ["Party", "2016", "2021"], "2026 is not a counted election and has no column");
   const by = (p: string): string[] => (t.find((r) => r[0] === p) ?? []).slice(1).map((c) => c.replace(/\s*[+−±][\d.]+$/, ""));
   assert.deepEqual(by("AIFB"), ["48.0%", "10.0%"]);
@@ -237,7 +237,7 @@ test("an election with no candidate votes is a dashed row with one sentence, and
   const ladder = html.slice(html.indexOf('id="ladder"'), html.indexOf('id="close"'));
   assert.equal([...text(ladder).matchAll(/won, taking it from \w+ · no candidate votes published|won, holding it from \d+ · no candidate votes published/g)].length, 1);
   assert.match(ladder, /iei-an-declared/);
-  const share = rows(tableOf(html, "Share of the votes polled, by candidate party"));
+  const share = rows(tableOf(html, "listed candidates is not listed there"));
   assert.ok(share.every((r) => r[0] !== "2026" && !r.includes("2026")), "a share is tabled for an election with no counts");
   const gap = rows(tableOf(html, "share here against its share across"));
   assert.ok(gap.some((r) => r[1] === "2026" && /no candidate votes published/.test(r.join(" "))));

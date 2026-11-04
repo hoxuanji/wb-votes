@@ -137,7 +137,8 @@ test("the 2026 election of a seat that had a close 2021 draws no ruler for 2026:
   const html = render("/constituency", "alpha", "xx", "assembly", PATH);
   assert.equal(count(html, /id="finish"/g), 1);
   assert.ok(!text(seatFig(html, "finish")).includes("2026"), "the ruler is for 2026");
-  assert.match(text(seatFig(html, "finish")), /2021: the two leading totals/);
+  assert.match(text(seatFig(html, "finish")), /2021/);
+  assert.doesNotMatch(text(seatFig(html, "finish")), /the two leading totals/, "the panel's subtitle names the election and does not describe the chart");
 });
 
 test("a list of margins that would leave a contest out is not drawn: one sentence says how many are missing", () => {

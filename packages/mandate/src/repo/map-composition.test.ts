@@ -237,9 +237,7 @@ test("the column beside the map opens with what the map answers, in the mode's o
 const CAVEAT_FACTS = [
   /No candidate vote counts were published for this election\./,
   /Winners and declared margins are on record, and turnout is not reported;/,
-  /margins over votes polled, competitiveness and vote-to-seat conversion are not on record,/,
-  /so a row says what is not reported,/,
-  /a chart that needs them is left out or replaced by a sentence, never drawn as zero\./,
+  /margins over votes polled, competitiveness and vote-to-seat conversion are not on record\./,
 ];
 
 test("the no-vote-counts caveat sits in the column with the list, above the list and not above the map, and says everything it said", () => {

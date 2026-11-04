@@ -114,7 +114,7 @@ test("with one vote share known the plot is drawn: the frame, the parity line, o
   assert.match(one, /class="iei-vs-parity"/);
   assert.equal(one.match(/<circle /g)?.length, 1, "the party with no vote share is not a marker");
   assert.match(one, /vote share →/);
-  assert.match(one, /<figcaption>Above the line, a party won a larger share of seats than of votes\. Vote share is of the votes polled in the 8 seats with candidate counts; seat share is of all 10\. Select a party to find its seats on the map\.<\/figcaption><\/figure>$/);
+  assert.match(one, /<figcaption>Vote share is of the votes polled in the 8 seats with candidate counts; seat share is of all 10\. <\/figcaption><\/figure>$/);
   assert.equal(many.match(/<circle /g)?.length, 2);
 });
 
@@ -123,7 +123,7 @@ test("the plot says what each share is over, and says once that they are over th
     { component: "VoteSeatPlot", props: { rows: [vs("TMC", 40, 50, 5, 10), vs("BJP", 30, 50, 5, 10)] } },
     { component: "VoteSeatPlot", props: { rows: [{ ...vs("TMC", 40, 100, 1, 1), contested: 3 }] } },
   ]) as [string, string];
-  assert.match(same, /<figcaption>Above the line, a party won a larger share of seats than of votes\. Both shares are over all 10 seats\. /);
+  assert.match(same, /<figcaption>Both shares are over all 10 seats\. /);
   assert.match(oneSeat, /Vote share is of the votes polled in the 1 seat with candidate counts; seat share is of all 3\./);
 });
 
@@ -143,7 +143,8 @@ test("with no seat in any bin the histogram is a sentence, and with one seat it 
   assert.equal(one.match(/<title>/g)?.length, 21, "one hit area per bin");
   assert.match(one, /<title>4–6% — 1 seat<\/title>/);
   assert.match(one, /<span>40%\+<\/span>/);
-  assert.match(one, /Margin over votes polled\. Select a bar to find those seats on the map\./);
+  assert.match(one, /Margin over votes polled\./);
+  assert.doesNotMatch(one, /Select a bar/, "no hint about how to use the chart is printed");
 });
 
 /* ───────────────────────────── the competitiveness bands ───────────────────────────── */

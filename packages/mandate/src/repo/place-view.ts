@@ -395,7 +395,7 @@ function parentView(
     children: {
       caption:
         `Every assembly seat in ${place.name} with its ${year} result — ` +
-        `${inr(rows.length)} seat${rows.length === 1 ? "" : "s"}. Open one for its brief.`,
+        `${inr(rows.length)} seat${rows.length === 1 ? "" : "s"}.`,
       headers: ["No.", "Seat", "Won by", "Member", "Margin", "Turnout"],
       numeric: [true, false, false, false, true, true],
       rows: rows.map((x) => ({
