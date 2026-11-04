@@ -51,8 +51,8 @@ test("every ink that renders text clears the small-text contrast floor on every 
   });
   // Every ink tier and every semantic hue. `line` and `line-2` are borders and are exempt; they are
   // checked as marks below.
-  const inks = Object.keys(t).filter((k) => /^iei-(ink|good|warn|alert)/.test(k));
-  assert.ok(inks.length >= 5, `only ${inks.length} text tokens found — the parser has stopped matching`);
+  const inks = Object.keys(t).filter((k) => /^iei-(ink|good|warn|alert|a-)/.test(k));
+  assert.ok(inks.length >= 11, `only ${inks.length} text tokens found (5 inks and semantic hues, and the 6 signal hues) — the parser has stopped matching`);
   for (const ink of inks) {
     for (const [name, surface] of surfaces) {
       const c = contrast(t[ink] as string, surface);
@@ -62,6 +62,42 @@ test("every ink that renders text clears the small-text contrast floor on every 
       );
     }
   }
+});
+
+test("the chrome's signal hues are six, and none of them is read by a rule that draws a data mark", () => {
+  // The rule at the top of iei.css: a hue on a seat, a bar, a ribbon, a dot or a legend swatch means a party or a magnitude,
+  // and every hue in the band is within a few ΔE of some party (palette.ts), so the signal hues are an edge, a marker, a label
+  // or a wash and never a fill that encodes. This reads every rule that uses `--accent`, `--page` or an `--iei-a-*` token and
+  // refuses the ones whose selector names a mark.
+  const t = tokens();
+  assert.deepEqual(
+    Object.keys(t).filter((k) => k.startsWith("iei-a-")).sort(),
+    ["iei-a-amber", "iei-a-cyan", "iei-a-indigo", "iei-a-rose", "iei-a-teal", "iei-a-violet"],
+  );
+  const MARK = /\.iei-(map|sw|seat-bar|seat-bullet|res-|held-ink|dist|arc|flow|fig|tile|vs|rk|pf|line|vote|ribbon|chip|dot)\b/;
+  const offenders: string[] = [];
+  for (const m of CSS.matchAll(/([^{}@][^{}]*)\{([^{}]*)\}/g)) {
+    const selector = (m[1] as string).replace(/\/\*[\s\S]*?\*\//g, "").trim();
+    const body = m[2] as string;
+    if (!/var\(--(accent|page|iei-a-)/.test(body)) continue;
+    // A custom-property DECLARATION (`.iei-sec:nth-of-type(2) { --accent: var(--iei-a-cyan) }`) assigns a hue; it draws nothing.
+    if (/^\s*--(accent|page)\s*:/.test(body.trim()) && !/(background|border|stroke|fill|box-shadow|color)\s*:/.test(body.replace(/--(accent|page)\s*:[^;]*;?/g, ""))) continue;
+    if (MARK.test(selector)) offenders.push(selector);
+  }
+  assert.deepEqual(offenders, [], "a signal hue is drawn on a data mark");
+});
+
+test("every kind of page Shell can name has a hue, so a new one cannot fall back to the front page's without anyone choosing it", () => {
+  const shell = readFileSync(new URL("../../../../src/components/iei/Shell.tsx", import.meta.url), "utf8");
+  const union = /export type Section = ([^;]+);/.exec(shell)?.[1] ?? "";
+  const kinds = [...union.matchAll(/'([a-z]+)'/g)].map((m) => m[1] as string);
+  assert.ok(kinds.length >= 7, `read ${kinds.length} kinds from Shell's Section type`);
+  for (const k of kinds) {
+    // 'india' is the default (`.iei { --page: indigo }`); every other kind says its own.
+    if (k === "india") continue;
+    assert.ok(CSS.includes(`.iei[data-here='${k}'] { --page:`), `no --page hue for the '${k}' kind of page`);
+  }
+  assert.match(shell, /data-here=\{here\}/, "Shell no longer puts the kind of page on its wrapper");
 });
 
 test("there is no ink tier too dim for text, because everything it rendered carried meaning", () => {

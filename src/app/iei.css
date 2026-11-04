@@ -6,12 +6,15 @@
    two of them set a different base font size, and each had its own table treatment — which is why the
    product read as assembled widgets: a component written for one page could not be mounted on the next.
 
-   THE ONE RULE THIS FILE ENFORCES: the interface is monochrome, and only DATA is coloured.
+   THE ONE RULE THIS FILE ENFORCES: a hue on a DATA MARK means what the data says, and nothing else.
 
-   Controls, headers, rules and focus states are all ink on near-black. Hue is spent on four things and
-   nothing else: the choropleth's parties, the magnitude ramp, coverage status, and the direction of a
-   change. That is a real position rather than restraint for its own sake — an accent colour on the chrome
-   competes with the map for the only channel the map has, and this product exists to be read map-first.
+   A party's colour is the party's, the magnitude ramp is a magnitude, and the semantic inks are their
+   meaning. The chrome has a signal palette of its own (`--iei-a-*`, below): six hues that say WHERE you are
+   (the rail's six places, a section's top edge, its eyebrow) and never WHAT a mark is. They are used only
+   as a 1-2px edge, a small marker, a label or a faint wash, never as the fill of a seat, a bar, a ribbon, a
+   dot or a legend swatch, because every hue in the band is within a few ΔE of some party's colour
+   (palette.ts measures it) and a fill is where that would be mistaken. This replaced a stricter rule
+   ("the interface is monochrome"), which kept the map unambiguous and left the product flat.
 
    THE SECOND RULE: every length is a token. A rule that wants 18px is a rule that has not decided
    whether it means 16 or 24. The scale is 4·8·12·16·24·32·48 and there are seven type sizes; both are
@@ -71,9 +74,18 @@
   --iei-warn: #e0b458;
   --iei-alert: #e8927c;
 
+  /* The chrome's signal palette. Wayfinding, not data: see the rule at the top of this file. Each clears 4.5:1 as text
+     on all three surfaces, because an eyebrow in one is text. Order is the order sections and the rail take them in. */
+  --iei-a-indigo: #8b9bff;
+  --iei-a-cyan: #49d2ea;
+  --iei-a-amber: #ebbd57;
+  --iei-a-violet: #c583f3;
+  --iei-a-rose: #f77cb0;
+  --iei-a-teal: #61d7b2;
+
   /* The no-data ink. Deliberately below the 3:1 mark floor: an unlit polygon must not read as a mark,
      because it is the absence of one. Named here so the map and the legend cannot disagree about it. */
-  --iei-void: #1d1b26;
+  --iei-void: #1c203b;
 
   --iei-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
   --iei-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
@@ -400,6 +412,11 @@ html {
 
 .iei-body {
   max-width: var(--iei-max);
+  /* A grid item with auto margins is sized to fit its content, and a table's content is as wide as its columns, so the column
+     grew past its track and the page scrolled sideways at about 960-1070px. A width, and a minimum of zero, keep it in the track;
+     the table scrolls inside its own box. */
+  width: 100%;
+  min-width: 0;
   margin: 0 auto;
   padding: 0 var(--iei-gutter) var(--iei-12);
 }
@@ -5043,7 +5060,8 @@ ul.iei-tiles b {
   font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-2);
-  white-space: nowrap;
+  /* It wraps rather than holding its one line: "declared winner, ahead by 29,584 (declared)" is wider than a 360px phone. */
+  max-width: 100%;
 }
 
 /* A claim the candidate made, not a fact the record holds: dashed. */
@@ -8582,5 +8600,144 @@ a.iei-live {
   .iei-arc-table summary::before,
   .iei-flow-table summary::before {
     transition: transform var(--iei-t-1) var(--iei-ease);
+  }
+}
+
+/* ══════════════════════════ SIGNAL COLOUR ══════════════════════════
+   Six hues for the chrome (see the rule at the top). Everything here sets or reads ONE custom property, `--accent`, so a
+   section, the rail item and the eyebrow inside it agree, and so changing a hue is one token. Nothing here touches a data
+   mark: no seat, bar, ribbon, dot or swatch reads --accent. */
+
+.iei {
+  --accent: var(--iei-a-indigo);
+}
+
+/* A section takes the next hue in the order, so a page of six panels is six colours and a map is never beside two of the same. */
+.iei-sec:nth-of-type(6n + 1) { --accent: var(--page, var(--iei-a-indigo)); }
+.iei-sec:nth-of-type(6n + 2) { --accent: var(--iei-a-cyan); }
+.iei-sec:nth-of-type(6n + 3) { --accent: var(--iei-a-amber); }
+.iei-sec:nth-of-type(6n + 4) { --accent: var(--iei-a-violet); }
+.iei-sec:nth-of-type(6n + 5) { --accent: var(--iei-a-rose); }
+.iei-sec:nth-of-type(6n + 6) { --accent: var(--iei-a-teal); }
+
+/* The section: a coloured top edge and a wash that fades by the time the figures start. */
+.iei-sec {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 10%, transparent), transparent 140px),
+    var(--iei-panel);
+  box-shadow: inset 0 2px 0 0 color-mix(in oklab, var(--accent) 70%, transparent);
+}
+
+/* The heading carries a marker in its hue, and its hairline takes the hue too. */
+.iei-h h2::before {
+  content: '';
+  display: inline-block;
+  width: var(--iei-2);
+  height: var(--iei-2);
+  margin-right: var(--iei-2);
+  border-radius: 50%;
+  background: var(--accent);
+  vertical-align: 0.1em;
+}
+
+.iei-h {
+  border-bottom-color: color-mix(in oklab, var(--accent) 22%, var(--iei-line));
+}
+
+/* Labels over figures are the section's hue, softened toward the ink so a page of them is quiet. */
+.iei-sec .iei-eyebrow,
+.iei-metric dt,
+.iei-seat-k {
+  color: color-mix(in oklab, var(--accent) 62%, var(--iei-ink-2));
+}
+
+/* A stat card: a coloured foot, and the hue again when pointed at. */
+.iei-metric,
+.iei-seat-kpis > div {
+  box-shadow: inset 0 -2px 0 0 color-mix(in oklab, var(--accent) 38%, transparent);
+}
+
+/* THE RAIL: each of the six places has a hue. At rest the icon is its hue, dimmed; current and hovered it is full, and the bar is the hue. */
+.iei-rail a:nth-child(1) { --accent: var(--iei-a-indigo); }
+.iei-rail a:nth-child(2) { --accent: var(--iei-a-cyan); }
+.iei-rail a:nth-child(3) { --accent: var(--iei-a-amber); }
+.iei-rail a:nth-child(4) { --accent: var(--iei-a-violet); }
+.iei-rail a:nth-child(5) { --accent: var(--iei-a-rose); }
+.iei-rail a:nth-child(6) { --accent: var(--iei-a-teal); }
+
+.iei-rail a svg {
+  color: color-mix(in oklab, var(--accent) 65%, var(--iei-ink-3));
+}
+
+.iei-rail a:hover svg,
+.iei-rail a[aria-current='page'] svg {
+  color: var(--accent);
+}
+
+.iei-rail a[aria-current='page'] {
+  box-shadow: inset 2px 0 0 var(--accent);
+  background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 16%, transparent), transparent), var(--iei-raised);
+}
+
+/* The bar across the top: one hairline through all six, left to right. */
+.iei-top {
+  border-bottom-color: transparent;
+  background-image: linear-gradient(90deg, var(--iei-a-indigo), var(--iei-a-cyan), var(--iei-a-teal), var(--iei-a-amber), var(--iei-a-rose), var(--iei-a-violet));
+  background-size: 100% 1px;
+  background-position: 0 100%;
+  background-repeat: no-repeat;
+}
+
+/* The light along the top of the page: indigo from the middle (or a seat's party, when a seat sets --iei-glow), with a cool and a warm
+   wash at the sides so a page with no party in it is not a single grey-violet. */
+.iei {
+  background:
+    radial-gradient(80% 32% at 50% 0, var(--iei-glow, color-mix(in oklab, var(--page) 22%, transparent)), transparent 72%) no-repeat,
+    radial-gradient(38% 26% at 0 6%, rgba(73, 210, 234, 0.07), transparent 70%) no-repeat,
+    radial-gradient(38% 26% at 100% 10%, rgba(247, 124, 176, 0.06), transparent 70%) no-repeat,
+    var(--iei-bg);
+}
+
+/* The current tab and a hovered one take the section's hue at the edge; the text stays ink, so the tab is legible by its fill as before. */
+.iei-tab:hover {
+  border-color: color-mix(in oklab, var(--accent) 55%, var(--iei-line-2));
+}
+
+.iei-tab.iei-tab-on {
+  border-color: color-mix(in oklab, var(--accent) 70%, var(--iei-ink-3));
+}
+
+/* EACH KIND OF PAGE HAS A HUE (Shell sets data-here): the front page is indigo, a place cyan, an election violet, a person rose,
+   coverage teal, search amber. It colours the light along the top, the header's chip and the end of the title's gradient, so
+   you can tell which kind of page you are on from across the room. A seat's own light, a party's colour, still wins where it is set. */
+.iei { --page: var(--iei-a-indigo); }
+.iei[data-here='place'] { --page: var(--iei-a-cyan); }
+.iei[data-here='election'] { --page: var(--iei-a-violet); }
+.iei[data-here='person'] { --page: var(--iei-a-rose); }
+.iei[data-here='coverage'] { --page: var(--iei-a-teal); }
+.iei[data-here='search'] { --page: var(--iei-a-amber); }
+.iei[data-here='review'] { --page: var(--iei-a-violet); }
+
+.iei-head .iei-eyebrow {
+  color: var(--page);
+  border-color: color-mix(in oklab, var(--page) 45%, var(--iei-line-2));
+  background: color-mix(in oklab, var(--page) 9%, transparent);
+}
+
+/* The page title fades from ink into the page's hue. The ink end carries the first words, so the contrast floor holds where the
+   reading starts, and the hue end is still 7:1 on the canvas. Forced colours get plain text back. */
+.iei-answer {
+  background: linear-gradient(100deg, var(--iei-ink) 40%, var(--page) 135%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  color: var(--iei-ink);
+}
+
+@media (forced-colors: active) {
+  .iei-answer {
+    background: none;
+    -webkit-text-fill-color: currentColor;
+    color: CanvasText;
   }
 }

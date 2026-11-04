@@ -166,7 +166,8 @@ function render(route: string, query = "", segments = ""): string {
 
 /** The page wrapper's own style attribute, which is where `Shell` sets the light. */
 function wrapperStyle(html: string): string | null {
-  const m = /<div class="iei"(?: style="([^"]*)")?>/.exec(html);
+  // `data-here` names the kind of page and picks the chrome's hue; it is not the light and is allowed beside it.
+  const m = /<div class="iei"(?: data-here="[^"]*")?(?: style="([^"]*)")?>/.exec(html);
   assert.ok(m !== null, "the page has no wrapper to read the light from");
   return m[1] ?? null;
 }

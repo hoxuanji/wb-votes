@@ -85,7 +85,7 @@ export function Shell({
   const parts = Children.toArray(children);
   const isFoot = (c: React.ReactNode): boolean => isValidElement(c) && (c.type === Foot || c.type === 'footer');
   return (
-    <div className="iei" style={glow === null ? undefined : ({ '--iei-glow': glow } as CSSProperties)}>
+    <div className="iei" data-here={here} style={glow === null ? undefined : ({ '--iei-glow': glow } as CSSProperties)}>
       {/* Skip link first in the tab order: the shell has a search field before the content, which is less
           keyboard than it was but still keyboard. */}
       <a className="iei-skip" href="#main">
