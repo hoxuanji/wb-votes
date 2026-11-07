@@ -1,0 +1,704 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-06T19:20:21.829Z",
+  "title": "Design System: India Election Intelligence",
+  "extensions": {
+    "colorMeta": {
+      "night-desk": {
+        "role": "primary",
+        "displayName": "Night Desk",
+        "canonical": "#07070b",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252527",
+          "#414146",
+          "#606166",
+          "#818288",
+          "#a4a4aa",
+          "#c8c8ce",
+          "#eeeef1"
+        ]
+      },
+      "night-panel": {
+        "role": "neutral",
+        "displayName": "Night Panel",
+        "canonical": "#0d0d13",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252528",
+          "#414147",
+          "#606068",
+          "#81818a",
+          "#a4a4ac",
+          "#c8c8cf",
+          "#eeeef2"
+        ]
+      },
+      "night-raised": {
+        "role": "neutral",
+        "displayName": "Night Raised",
+        "canonical": "#14141c",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252528",
+          "#414148",
+          "#60606a",
+          "#81818c",
+          "#a4a4ae",
+          "#c8c8d1",
+          "#eeeef3"
+        ]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#1e1e28",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#242529",
+          "#41414a",
+          "#60606b",
+          "#81818e",
+          "#a3a4b0",
+          "#c8c8d2",
+          "#eeeef3"
+        ]
+      },
+      "edge": {
+        "role": "neutral",
+        "displayName": "Edge",
+        "canonical": "#2a2a38",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#24242a",
+          "#41414c",
+          "#5f606f",
+          "#808191",
+          "#a3a3b4",
+          "#c7c8d5",
+          "#edeef5"
+        ]
+      },
+      "bright-ink": {
+        "role": "neutral",
+        "displayName": "Bright Ink",
+        "canonical": "#f2f2f7",
+        "tonalRamp": [
+          "#0b0b0c",
+          "#252526",
+          "#424245",
+          "#616165",
+          "#828286",
+          "#a4a4a9",
+          "#c9c9cc",
+          "#eeeef0"
+        ]
+      },
+      "reading-ink": {
+        "role": "neutral",
+        "displayName": "Reading Ink",
+        "canonical": "#a3a3b3",
+        "tonalRamp": [
+          "#0b0b0d",
+          "#24242a",
+          "#41414b",
+          "#60606d",
+          "#818190",
+          "#a3a3b2",
+          "#c8c8d4",
+          "#eeeef4"
+        ]
+      },
+      "label-ink": {
+        "role": "neutral",
+        "displayName": "Label Ink",
+        "canonical": "#8b8ba2",
+        "tonalRamp": [
+          "#0b0b0e",
+          "#24242c",
+          "#40404f",
+          "#5f5f73",
+          "#808096",
+          "#a3a3b9",
+          "#c7c7d9",
+          "#ededf7"
+        ]
+      },
+      "unlit-void": {
+        "role": "neutral",
+        "displayName": "Unlit Void",
+        "canonical": "#1c203b",
+        "tonalRamp": [
+          "#0a0b10",
+          "#222430",
+          "#3c4057",
+          "#595f7d",
+          "#7980a1",
+          "#9ca3c3",
+          "#c2c8e2",
+          "#eaeefc"
+        ]
+      },
+      "signal-green": {
+        "role": "tertiary",
+        "displayName": "Signal Green",
+        "canonical": "#7fd4a8",
+        "tonalRamp": [
+          "#040e08",
+          "#0d2c1d",
+          "#0c4f33",
+          "#1e724e",
+          "#3f956d",
+          "#6bb890",
+          "#9ed9b9",
+          "#d8f8e5"
+        ]
+      },
+      "caution-amber": {
+        "role": "tertiary",
+        "displayName": "Caution Amber",
+        "canonical": "#e0b458",
+        "tonalRamp": [
+          "#100a02",
+          "#312200",
+          "#553e00",
+          "#7c5b03",
+          "#a57b0e",
+          "#c69f4b",
+          "#e5c586",
+          "#feeccb"
+        ]
+      },
+      "ember": {
+        "role": "tertiary",
+        "displayName": "Ember",
+        "canonical": "#e8927c",
+        "tonalRamp": [
+          "#130806",
+          "#391c14",
+          "#672f22",
+          "#924937",
+          "#ba6954",
+          "#dd8e79",
+          "#f8b7a6",
+          "#ffe9e3"
+        ]
+      },
+      "wayfinding-indigo": {
+        "role": "primary",
+        "displayName": "Wayfinding Indigo",
+        "canonical": "#8b9bff",
+        "tonalRamp": [
+          "#080a17",
+          "#1c2144",
+          "#333a7c",
+          "#4d57ae",
+          "#6b78d8",
+          "#8d9df9",
+          "#bac6fe",
+          "#e9eeff"
+        ]
+      },
+      "wayfinding-cyan": {
+        "role": "secondary",
+        "displayName": "Wayfinding Cyan",
+        "canonical": "#49d2ea",
+        "tonalRamp": [
+          "#010e11",
+          "#002b32",
+          "#034b56",
+          "#036e7d",
+          "#0093a7",
+          "#38b7cd",
+          "#82d9ea",
+          "#d0f7ff"
+        ]
+      },
+      "wayfinding-amber": {
+        "role": "secondary",
+        "displayName": "Wayfinding Amber",
+        "canonical": "#ebbd57",
+        "tonalRamp": [
+          "#100a01",
+          "#312200",
+          "#553e02",
+          "#7b5c01",
+          "#a47b01",
+          "#c89e40",
+          "#e6c580",
+          "#ffedc8"
+        ]
+      },
+      "wayfinding-violet": {
+        "role": "secondary",
+        "displayName": "Wayfinding Violet",
+        "canonical": "#c583f3",
+        "tonalRamp": [
+          "#0f0716",
+          "#301840",
+          "#572874",
+          "#7d40a3",
+          "#a160cd",
+          "#c386ee",
+          "#dfb5ff",
+          "#f5e9ff"
+        ]
+      },
+      "wayfinding-rose": {
+        "role": "secondary",
+        "displayName": "Wayfinding Rose",
+        "canonical": "#f77cb0",
+        "tonalRamp": [
+          "#15060c",
+          "#3e1427",
+          "#701e45",
+          "#9e3265",
+          "#c85287",
+          "#eb7aaa",
+          "#ffadcc",
+          "#ffe7ef"
+        ]
+      },
+      "wayfinding-teal": {
+        "role": "secondary",
+        "displayName": "Wayfinding Teal",
+        "canonical": "#61d7b2",
+        "tonalRamp": [
+          "#020e0a",
+          "#002d21",
+          "#004e3c",
+          "#017358",
+          "#019977",
+          "#4fbc9a",
+          "#8ddcc0",
+          "#d0f9ea"
+        ]
+      },
+      "margin-ramp-1": {
+        "role": "data",
+        "displayName": "Margin Ramp 1",
+        "canonical": "#7055b0",
+        "tonalRamp": [
+          "#0c0916",
+          "#271e40",
+          "#473473",
+          "#684fa3",
+          "#896fcc",
+          "#ab94ed",
+          "#cdbefe",
+          "#efecfe"
+        ]
+      },
+      "margin-ramp-2": {
+        "role": "data",
+        "displayName": "Margin Ramp 2",
+        "canonical": "#8669cd",
+        "tonalRamp": [
+          "#0c0816",
+          "#281d41",
+          "#473277",
+          "#684ca7",
+          "#8a6dd1",
+          "#ab92f2",
+          "#cdbefe",
+          "#efecfe"
+        ]
+      },
+      "margin-ramp-3": {
+        "role": "data",
+        "displayName": "Margin Ramp 3",
+        "canonical": "#9d80e7",
+        "tonalRamp": [
+          "#0c0816",
+          "#281d42",
+          "#483277",
+          "#694ca8",
+          "#8a6dd2",
+          "#ac92f3",
+          "#cdbeff",
+          "#efecfe"
+        ]
+      },
+      "margin-ramp-4": {
+        "role": "data",
+        "displayName": "Margin Ramp 4",
+        "canonical": "#b399fb",
+        "tonalRamp": [
+          "#0c0916",
+          "#281e40",
+          "#473374",
+          "#684ea3",
+          "#896fcd",
+          "#ab94ee",
+          "#cdbefe",
+          "#efecfe"
+        ]
+      },
+      "margin-ramp-5": {
+        "role": "data",
+        "displayName": "Margin Ramp 5",
+        "canonical": "#c7b6fe",
+        "tonalRamp": [
+          "#0c0913",
+          "#272039",
+          "#453966",
+          "#655592",
+          "#8776b9",
+          "#a999da",
+          "#ccc0f5",
+          "#efebff"
+        ]
+      },
+      "margin-ramp-6": {
+        "role": "data",
+        "displayName": "Margin Ramp 6",
+        "canonical": "#dad0fe",
+        "tonalRamp": [
+          "#0b0a10",
+          "#262231",
+          "#443d59",
+          "#635b80",
+          "#857ba5",
+          "#a79ec7",
+          "#cbc4e5",
+          "#efecfe"
+        ]
+      },
+      "series-vermilion": {
+        "role": "data",
+        "displayName": "Series Vermilion",
+        "canonical": "#d05320",
+        "tonalRamp": [
+          "#170602",
+          "#421504",
+          "#732400",
+          "#a53800",
+          "#d35523",
+          "#f57e53",
+          "#feb59b",
+          "#fee9e2"
+        ]
+      },
+      "series-blue": {
+        "role": "data",
+        "displayName": "Series Blue",
+        "canonical": "#6fa4fc",
+        "tonalRamp": [
+          "#050b17",
+          "#122443",
+          "#1d407a",
+          "#315fab",
+          "#4e81d6",
+          "#74a5f6",
+          "#abcbfe",
+          "#e5efff"
+        ]
+      },
+      "series-rose": {
+        "role": "data",
+        "displayName": "Series Rose",
+        "canonical": "#e1a6a2",
+        "tonalRamp": [
+          "#110908",
+          "#331f1e",
+          "#5b3634",
+          "#83524f",
+          "#a9726e",
+          "#cb9592",
+          "#e9bdba",
+          "#fee9e7"
+        ]
+      },
+      "series-fold": {
+        "role": "data",
+        "displayName": "Series Fold",
+        "canonical": "#7b7490",
+        "tonalRamp": [
+          "#0b0a0e",
+          "#26232d",
+          "#433f52",
+          "#635d76",
+          "#847d9a",
+          "#a7a0bc",
+          "#cbc5dc",
+          "#efecf9"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The page title, with a gradient from bright ink to the page’s hue. 22ch at most."
+      },
+      "lead": {
+        "displayName": "Lead",
+        "purpose": "A stat’s words, a year heading on a person page, the big figure in a hero card."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "A section heading, in sentence case, with a hue dot before it."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Prose, at 64ch in a sub-line and 78ch in a note."
+      },
+      "data": {
+        "displayName": "Data",
+        "purpose": "A table cell, a note under a chart, a row header."
+      },
+      "meta": {
+        "displayName": "Meta",
+        "purpose": "Captions, the command bar’s text, a number’s unit. Mono and tabular."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "A column header, a tab, an eyebrow, a rail item, a provenance marker. Never a sentence."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card",
+        "value": "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.32)",
+        "purpose": "A section card: a lit top edge and a soft ambient drop."
+      },
+      {
+        "name": "signal-edge",
+        "value": "inset 0 2px 0 0 color-mix(in oklab, var(--accent) 70%, transparent)",
+        "purpose": "The 2px top edge of a section, in its wayfinding hue."
+      },
+      {
+        "name": "stat-foot",
+        "value": "inset 0 -2px 0 0 color-mix(in oklab, var(--accent) 38%, transparent)",
+        "purpose": "The coloured foot of a stat card."
+      },
+      {
+        "name": "page-glow",
+        "value": "radial-gradient(80% 32% at 50% 0, color-mix(in oklab, var(--page) 22%, transparent), transparent 72%)",
+        "purpose": "The light along the top of the page, in the page’s hue; a seat’s page uses the holding party’s ink."
+      },
+      {
+        "name": "top-bar-frost",
+        "value": "background: rgba(13, 13, 19, 0.78); backdrop-filter: blur(12px)",
+        "purpose": "The one frosted surface: the sticky top bar."
+      }
+    ],
+    "motion": [
+      {
+        "name": "t-1",
+        "value": "160ms",
+        "purpose": "A hover or focus change on a control."
+      },
+      {
+        "name": "t-2",
+        "value": "360ms",
+        "purpose": "A mark arriving on load, such as a wedge or a bar."
+      },
+      {
+        "name": "t-3",
+        "value": "640ms",
+        "purpose": "The longest single animation. 700ms is the ceiling."
+      },
+      {
+        "name": "ease",
+        "value": "cubic-bezier(0.2, 0.7, 0.2, 1)",
+        "purpose": "The one curve. Everything runs once, on load, inside prefers-reduced-motion: no-preference."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "phone",
+        "value": "640px"
+      },
+      {
+        "name": "rail-collapses",
+        "value": "900px"
+      },
+      {
+        "name": "wide-table",
+        "value": "1024px"
+      },
+      {
+        "name": "map-stacks",
+        "value": "1080px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Section Card",
+      "kind": "card",
+      "refersTo": "section-card",
+      "description": "The unit of every page: a card on a faintly lit page, with a 2px signal edge in the section’s hue.",
+      "html": "<section class=\"ds-sec\"><div class=\"ds-sec-h\"><h2>Section heading</h2></div><p class=\"ds-sec-note\">A note is a sentence, so it is set in sans.</p></section>",
+      "css": ".ds-sec{--accent:var(--iei-a-cyan, #49d2ea);border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:linear-gradient(180deg,color-mix(in oklab,var(--accent) 10%,transparent),transparent 140px),var(--iei-panel, #0d0d13);box-shadow:inset 0 2px 0 0 color-mix(in oklab,var(--accent) 70%,transparent),0 8px 24px rgba(0,0,0,.32);padding:24px;color:var(--iei-ink, #f2f2f7);font-family:var(--iei-sans, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);max-width:360px}.ds-sec-h{margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid color-mix(in oklab,var(--accent) 22%,var(--iei-line, #1e1e28))}.ds-sec-h h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.02em}.ds-sec-h h2::before{content:'';display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:var(--accent);vertical-align:.1em}.ds-sec-note{margin:0;font-size:13.5px;line-height:1.6;color:var(--iei-ink-2, #a3a3b3)}"
+    },
+    {
+      "name": "Stat Card",
+      "kind": "card",
+      "refersTo": "stat-card",
+      "description": "The number is the card: tabular mono under a label in the section’s hue, with a coloured foot.",
+      "html": "<dl class=\"ds-stat\"><dt>Sample figure</dt><dd>1,234</dd><small>a sample, not data</small></dl>",
+      "css": ".ds-stat{--accent:var(--iei-a-indigo, #8b9bff);margin:0;padding:16px;min-width:200px;border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0)),var(--iei-raised, #14141c);box-shadow:inset 0 -2px 0 0 color-mix(in oklab,var(--accent) 38%,transparent);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace)}.ds-stat dt{margin:0 0 8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:color-mix(in oklab,var(--accent) 62%,var(--iei-ink-2, #a3a3b3))}.ds-stat dd{margin:0;font-size:37px;font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--iei-ink, #f2f2f7)}.ds-stat small{display:block;margin-top:8px;font-size:12.5px;color:var(--iei-ink-3, #8b8ba2)}"
+    },
+    {
+      "name": "Tab",
+      "kind": "nav",
+      "refersTo": "tab",
+      "description": "A plain link that chooses a view, so the choice is URL state. Hover takes 55% of the section’s hue at the edge.",
+      "html": "<ul class=\"ds-tabs\"><li><a class=\"ds-tab\" href=\"#\">Winners</a></li><li><a class=\"ds-tab\" href=\"#\">Margin</a></li></ul>",
+      "css": ".ds-tabs{display:flex;gap:4px;margin:0;padding:0;list-style:none}.ds-tab{--accent:var(--iei-a-violet, #c583f3);display:inline-block;padding:8px 12px;border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:rgba(255,255,255,.03);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap;color:var(--iei-ink-3, #8b8ba2)}.ds-tab:hover{color:var(--iei-ink, #f2f2f7);border-color:color-mix(in oklab,var(--accent) 55%,var(--iei-line-2, #2a2a38))}.ds-tab:focus-visible{outline:none;color:var(--iei-ink, #f2f2f7);border-color:var(--iei-ink, #f2f2f7);box-shadow:inset 0 -2px 0 0 var(--iei-ink, #f2f2f7)}"
+    },
+    {
+      "name": "Tab, current",
+      "kind": "nav",
+      "refersTo": "tab-current",
+      "description": "The chosen view: a bright-ink fill with night text, so it reads by fill and not by hue.",
+      "html": "<a class=\"ds-tab-on\" href=\"#\" aria-current=\"page\">Winners</a>",
+      "css": ".ds-tab-on{display:inline-block;padding:8px 12px;border:1px solid color-mix(in oklab,var(--iei-a-violet, #c583f3) 70%,var(--iei-ink-3, #8b8ba2));border-radius:var(--iei-r, 8px);background:var(--iei-ink, #f2f2f7);color:var(--iei-bg, #07070b);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}.ds-tab-on:focus-visible{outline:none;box-shadow:0 0 0 2px var(--iei-bg, #07070b),0 0 0 4px var(--iei-ink, #f2f2f7)}"
+    },
+    {
+      "name": "Command Bar",
+      "kind": "input",
+      "refersTo": "command-bar",
+      "description": "The product’s only search field, a joined control with a ⌘K hint that stays visible while focused.",
+      "html": "<form class=\"ds-cmd\" role=\"search\" onsubmit=\"return false\"><input type=\"search\" placeholder=\"Search states, elections, people\" aria-label=\"Search\"><kbd>⌘K</kbd></form>",
+      "css": ".ds-cmd{position:relative;display:flex;max-width:420px;border:1px solid var(--iei-line-2, #2a2a38);border-radius:var(--iei-r, 8px);background:rgba(255,255,255,.04)}.ds-cmd:focus-within{border-color:var(--iei-ink-3, #8b8ba2)}.ds-cmd input{width:100%;min-width:0;padding:8px 32px 8px 12px;border:0;background:transparent;color:var(--iei-ink, #f2f2f7);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:12.5px;text-overflow:ellipsis}.ds-cmd input::placeholder{color:var(--iei-ink-3, #8b8ba2)}.ds-cmd input:focus-visible{outline:none;box-shadow:inset 0 -2px 0 0 var(--iei-ink, #f2f2f7)}.ds-cmd kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:0 4px;border:1px solid var(--iei-line-2, #2a2a38);border-radius:var(--iei-r, 8px);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.04em;color:var(--iei-ink-3, #8b8ba2);pointer-events:none}"
+    },
+    {
+      "name": "Eyebrow",
+      "kind": "chip",
+      "refersTo": "eyebrow",
+      "description": "A bordered chip in the page’s hue that names the kind of page.",
+      "html": "<span class=\"ds-eyebrow\">Election</span>",
+      "css": ".ds-eyebrow{--page:var(--iei-a-violet, #c583f3);display:inline-block;padding:4px 12px;border:1px solid color-mix(in oklab,var(--page) 45%,var(--iei-line-2, #2a2a38));border-radius:var(--iei-r, 8px);background:color-mix(in oklab,var(--page) 9%,transparent);color:var(--page);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.16em;text-transform:uppercase}"
+    },
+    {
+      "name": "Provenance Marker",
+      "kind": "custom",
+      "refersTo": "provenance-marker",
+      "description": "A word with a rule under it that says what kind of number a figure is. Measured, derived, reference and absent differ by rule style as well as by ink.",
+      "html": "<span class=\"ds-basis ds-basis-measured\">Measured</span> <span class=\"ds-basis ds-basis-derived\">Derived</span> <span class=\"ds-basis ds-basis-reference\">Reference</span> <span class=\"ds-basis ds-basis-absent\">Absent</span>",
+      "css": ".ds-basis{display:inline-block;padding-bottom:2px;margin-right:8px;border-bottom:2px solid var(--iei-line-2, #2a2a38);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;font-weight:600;letter-spacing:.12em;text-transform:uppercase;white-space:nowrap;color:var(--iei-ink-3, #8b8ba2);cursor:help}.ds-basis-measured{color:var(--iei-ink-2, #a3a3b3);border-bottom-color:var(--iei-ink-3, #8b8ba2)}.ds-basis-derived{color:var(--iei-warn, #e0b458);border-bottom-color:var(--iei-warn, #e0b458)}.ds-basis-reference{border-bottom-style:dashed}.ds-basis-absent{border-bottom-style:dotted}"
+    },
+    {
+      "name": "Rail Item",
+      "kind": "nav",
+      "refersTo": "rail-item",
+      "description": "One of six places: an icon over a word of 11px mono. The current place carries a bar and a lit wash, two signals so it is not colour alone.",
+      "html": "<nav class=\"ds-rail\" aria-label=\"Places\"><a href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg>Overview</a><a href=\"#\" class=\"ds-rail-b\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18\"/><path d=\"M12 3c3.2 3 3.2 15 0 18\"/><path d=\"M12 3c-3.2 3-3.2 15 0 18\"/></svg>Landscape</a></nav>",
+      "css": ".ds-rail{display:flex;flex-direction:column;gap:4px;width:72px;padding:12px 4px;border-right:1px solid var(--iei-line, #1e1e28);background:rgba(13,13,19,.5)}.ds-rail a{--accent:var(--iei-a-indigo, #8b9bff);display:grid;justify-items:center;gap:4px;padding:8px 0;border-radius:var(--iei-r, 8px);color:var(--iei-ink-3, #8b8ba2);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;text-decoration:none}.ds-rail a.ds-rail-b{--accent:var(--iei-a-cyan, #49d2ea)}.ds-rail svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;color:color-mix(in oklab,var(--accent) 65%,var(--iei-ink-3, #8b8ba2))}.ds-rail a:hover{color:var(--iei-ink, #f2f2f7);background:var(--iei-raised, #14141c)}.ds-rail a:hover svg,.ds-rail a[aria-current=page] svg{color:var(--accent)}.ds-rail a[aria-current=page]{color:var(--iei-ink, #f2f2f7);box-shadow:inset 2px 0 0 var(--accent);background:linear-gradient(90deg,color-mix(in oklab,var(--accent) 16%,transparent),transparent),var(--iei-raised, #14141c)}.ds-rail a:focus-visible{outline:2px solid var(--iei-ink, #f2f2f7);outline-offset:-2px}"
+    },
+    {
+      "name": "Data Table",
+      "kind": "custom",
+      "refersTo": "section-card",
+      "description": "One table treatment: mono uppercase headers, right-aligned tabular numerals with the header over them, a row header in sans, and the denominator in its own column.",
+      "html": "<table class=\"ds-t\"><thead><tr><th>Name</th><th class=\"ds-n\">Seats</th><th class=\"ds-den\"></th></tr></thead><tbody><tr><th scope=\"row\">Sample row A</th><td class=\"ds-n\">12</td><td class=\"ds-den\">of 40</td></tr><tr><th scope=\"row\">Sample row B</th><td class=\"ds-n\">7</td><td class=\"ds-den\">of 40</td></tr></tbody></table>",
+      "css": ".ds-t{width:100%;max-width:360px;border-collapse:collapse;font-size:13.5px;color:var(--iei-ink, #f2f2f7);font-family:var(--iei-sans, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif)}.ds-t th{padding:0 12px 8px 0;border-bottom:1px solid var(--iei-line-2, #2a2a38);text-align:left;vertical-align:bottom;font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;font-weight:500;letter-spacing:.1em;text-transform:uppercase;color:var(--iei-ink-3, #8b8ba2)}.ds-t td,.ds-t th[scope=row]{padding:8px 12px 8px 0;border-bottom:1px solid var(--iei-line, #1e1e28);vertical-align:baseline}.ds-t th[scope=row]{font-family:var(--iei-sans, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);font-size:13.5px;font-weight:400;letter-spacing:0;text-transform:none;color:var(--iei-ink, #f2f2f7)}.ds-t tbody tr:last-child>*{border-bottom:none}.ds-t tbody tr:hover>*{background:rgba(255,255,255,.035)}.ds-t .ds-n{font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}.ds-t th.ds-n{text-align:right}.ds-t .ds-den{width:1%;padding-left:4px;font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:.86em;font-variant-numeric:tabular-nums;white-space:nowrap;text-align:left;color:var(--iei-ink-3, #8b8ba2)}"
+    },
+    {
+      "name": "Party Swatch",
+      "kind": "custom",
+      "refersTo": "provenance-marker",
+      "description": "A party’s own ink beside its abbreviation. The pair is one mark and never breaks across lines, so identity is never colour alone.",
+      "html": "<span class=\"ds-mark\"><span class=\"ds-sw\" style=\"background:#f4993c\"></span>BJP</span> <span class=\"ds-mark\"><span class=\"ds-sw\" style=\"background:#047745\"></span>AITC</span>",
+      "css": ".ds-mark{display:inline-flex;align-items:center;margin-right:12px;white-space:nowrap;font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:12.5px;font-weight:600;letter-spacing:.02em;color:var(--iei-ink, #f2f2f7)}.ds-sw{display:inline-block;width:9px;height:9px;margin-right:4px;border-radius:var(--iei-r, 8px)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Situation Room",
+    "overview": "The product is a tool for looking at elections, and the interface behaves like the room that tool would live in: dark, quiet, built from a rail of six places, a command bar and a sticky strip across the top, with the data as the only thing that glows. Structure, shape and density do the work. The canvas is a blue-violet black, the chrome is a stack of near-black cards, and a party's own colour is the loudest thing a screen can contain because it is the thing the screen is about.\n\nThe voice is forensic, instrument-like and civic. Forensic, because every figure carries its source, how it was derived and what is missing, and the surface says so in words: an absence is a phrase, never a bare dash; a derived value is a marked word, never a plain number. Instrument-like, because it is operated: tabs choose a view and the view is URL state, numerals are tabular, labels are small uppercase mono. Civic, because it takes no side: party colours are the parties' own, never the product's, and nothing here recommends, ranks or editorialises.\n\nIt rules three looks out, each confirmed. Not a lab report or a school project: flat, all-monospace, hairlines between sections, which this stylesheet used to be and replaced with the card skin. Not TV-news election graphics: saturated party slabs, tickers and hue as decoration. Not a generic SaaS dashboard: glass cards and gradients with nothing behind them. Where the system uses a gradient, a blur or a glow, it is a fixed, bounded device with a stated job, and the data never sits on a decorative one.",
+    "keyCharacteristics": [
+      "Dark only. There is no light surface, and every contrast in the system is measured against the three night surfaces.",
+      "Sections are cards on a faintly lit page; the page's hue says what kind of page it is.",
+      "One voice for prose (sans) and one for numbers, marks and metadata (mono, tabular).",
+      "Seven spacing steps, seven type sizes, one radius, three inks.",
+      "Hue is spent on data first and wayfinding second, and never the other way round.",
+      "Status survives greyscale: a word with a rule under it, never colour alone.",
+      "System fonts only; no webfont is loaded."
+    ],
+    "rules": [
+      {
+        "name": "The Data Hue Rule",
+        "body": "A hue on a data mark means what the data says, and nothing else. A party's colour is the party's, the ramp is a magnitude, the semantic inks are their meaning.",
+        "section": "colors"
+      },
+      {
+        "name": "The Wayfinding Edge Rule",
+        "body": "The six signal hues say where you are, never what a mark is. They appear only as a 1–2px edge, a small marker, a label or a faint wash, and never as the fill of a seat, a bar, a ribbon, a dot or a legend swatch, because every hue in the band sits within a few ΔE of some party's colour.",
+        "section": "colors"
+      },
+      {
+        "name": "The Floor Rule",
+        "body": "Every ink clears 4.5:1 as text on all three night surfaces, and every mark clears 3:1. `iei.test.ts` locks the neutral hexes: do not change one without running it.",
+        "section": "colors"
+      },
+      {
+        "name": "The Three-Ink Rule",
+        "body": "There are three reading inks and no fourth. A tier nothing may legitimately use is a tier to delete.",
+        "section": "colors"
+      },
+      {
+        "name": "The Two Voices Rule",
+        "body": "Numbers, marks and metadata are monospace and tabular. Prose is sans. A note under a chart is a sentence and is set as one.",
+        "section": "typography"
+      },
+      {
+        "name": "The Four Tiers Rule",
+        "body": "A screen has a title, a metric, body and a label, and they are far enough apart in size that no two look alike. The scale runs 11 to 52px for a reason: when it ran 9.5 to 25, everything had the same visual weight.",
+        "section": "typography"
+      },
+      {
+        "name": "The Seven Steps Rule",
+        "body": "Every length is a token. A rule that wants 18px is a rule that hasn't decided whether it means 16 or 24.",
+        "section": "layout"
+      },
+      {
+        "name": "The Ambient Rule",
+        "body": "Shadows say what a surface is, never what happened to it. Hover and focus change a border or an ink, and never a shadow.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Bounded Glow Rule",
+        "body": "Every gradient and blur is a fixed device with a job: the page glow, the card's top highlight, the signal edge and the bar's frost. A data mark never sits on a decorative one, and alpha is chosen so the dimmest label still clears 4.5:1 under it.",
+        "section": "elevation"
+      },
+      {
+        "name": "The One Radius Rule",
+        "body": "The corner is 8px everywhere. A new shape that wants a different corner is a new decision, and is made once here.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Word Not Colour Rule",
+        "body": "Status is a word, a rule style or a shape, never a colour alone: a provenance marker, a party abbreviation beside a swatch, a current-place bar beside a hue.",
+        "section": "components"
+      },
+      {
+        "name": "The Once Rule",
+        "body": "An animation runs once and never loops, and it lasts at most 700ms. It exists only where the motion is the information.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do spend hue on data first: a party's own ink, the margin ramp, a semantic ink for its meaning only.",
+      "Do keep the signal hues to a 1–2px edge, a small marker, a label or a faint wash.",
+      "Do pair every colour mark with a word, an abbreviation or a shape.",
+      "Do set numbers in tabular mono and right-align them with their headers; set sentences in sans.",
+      "Do use only the seven spacing steps and the seven type sizes, and one 8px radius.",
+      "Do say an absence in words (\"not loaded\", \"not reported\"), at a ink that clears 4.5:1.",
+      "Do run `iei.test.ts` after any change to a neutral hex or a party ink, and `party-ink.test.ts` after any change to the party colours.",
+      "Do keep every animation inside `prefers-reduced-motion: no-preference`."
+    ],
+    "donts": [
+      "Don't fill a seat, bar, ribbon, dot or legend swatch with a wayfinding hue.",
+      "Don't let a party's colour change with rank, count, page or neighbour.",
+      "Don't make it a lab report: all-monospace, hairlines between every section, grey 11px captions.",
+      "Don't make it TV-news graphics: saturated party slabs, tickers, hue as decoration.",
+      "Don't make it a generic SaaS dashboard: glass cards and gradients with nothing to say.",
+      "Don't add a fourth ink tier, a second radius, or a length off the seven-step scale.",
+      "Don't change a shadow on hover or focus, or draw a focus ring that grows the control's box.",
+      "Don't print an absence as a bare dash, or a derived figure as if it were announced.",
+      "Don't load a webfont, or loop an animation."
+    ]
+  }
+}
