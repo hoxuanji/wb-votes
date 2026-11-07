@@ -1,6 +1,8 @@
 import Link from 'next/link';
 import { electionHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
-import { homeView, layerChoices, leaderOf } from '../../packages/mandate/src/repo/home.ts';
+import { homeView, layerChoices, leaderOf, PARTY_RANK_RULE } from '../../packages/mandate/src/repo/home.ts';
+import { homeSources } from '../../packages/mandate/src/repo/home-sources.ts';
+import { houseScope, landscapeScope } from '../../packages/mandate/src/repo/home-scope.ts';
 import { bodyWord } from '../../packages/mandate/src/core/election-kind.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
@@ -106,7 +108,8 @@ export default function Home({
     // changed (repo/landscape.ts), which elections come next with how far through their terms they are (repo/next-up.ts), and the frames
     // the time machine moves between, which repo/landscape-frames.ts builds and tests so that no state is coloured without an election.
     const landscape = landscapeOverTime(db);
-    return { home, landscape, next: nextUp(db, new Date()) };
+    // The sources of the three modules that put a registry result in front of a reader: see repo/home-sources.ts for why three.
+    return { home, landscape, next: nextUp(db, new Date()), sources: homeSources(db, home) };
   });
   if (!read.ok) {
     return (
@@ -116,7 +119,7 @@ export default function Home({
     );
   }
   const v = read.value.home;
-  const { landscape, next: coming } = read.value;
+  const { landscape, next: coming, sources: src } = read.value;
   const frames = framesOf(landscape);
   const frameLines = frames.map(frameSentence);
 
@@ -163,6 +166,27 @@ export default function Home({
   const held = lit.length > 0 ? lit : v.layer.cells;
   const bare = lit.length > 0 ? v.layer.cells.filter((c) => c.label === null) : [];
 
+  // How much of the country the party landscape's seats are counted over: null when the registry holds every seat.
+  const partyScope = landscapeScope(s);
+
+  // WHAT THE TWO QUIET MARKERS IN "RECENT RESULTS" MEAN, in the drawer, and only for the markers this render actually shows. "Partly loaded" is
+  // repo/home.ts's `partial`, which is any of three gaps (a constituency not loaded, a contest with no vote count, a contest with no turnout row), so
+  // the sentence names all three and does not say "constituencies" alone. "Result unavailable" is an election with no contest loaded.
+  const coverage = (id: string) => v.coverageOf.get(id) ?? 'unavailable';
+  const partly = v.held.some((r) => coverage(r.id) === 'partial');
+  const nothing = v.held.some((r) => coverage(r.id) === 'unavailable');
+  const coverageWords =
+    partly || nothing ? (
+      <>
+        {partly ? <>&ldquo;Partly loaded&rdquo; marks an election with a gap in what the registry holds: constituencies not loaded, contests with no vote count, or contests with no turnout row. </> : null}
+        {nothing ? <>&ldquo;Result unavailable&rdquo; marks an election with no contest loaded. </> : null}
+        <Link className="iei-ev-a" href="/coverage">
+          Coverage
+        </Link>{' '}
+        lists which.
+      </>
+    ) : undefined;
+
   return (
     <Shell here="india" live={liveOn} liveLabel={liveBoard === undefined ? null : `${liveBoard.election.jurisdictionName} · ${liveBoard.status}`}>
       {/* ── THE LIVE BOARD, FIRST WHEN THERE IS ONE. A running election changes this page in place: the count, the projections other people have
@@ -188,6 +212,13 @@ export default function Home({
             <p className="iei-sub">
               <b>Nothing here is a prediction.</b>
             </p>
+            {/* THE PLAIN DOOR for a reader who came for one seat and not for the country. The product's one search field is in the bar, in small mono, and
+                at a phone's width its hint is cut off; this says in a sentence what the field finds and takes the reader to it. It is a link to the
+                field (`#iei-q`) and not a second field: the bar's field is the only one, on purpose (Shell.tsx). What it names is what the field's own
+                hint names. */}
+            <p className="iei-sub iei-find">
+              Looking for a seat or a person? <a href="#iei-q">Search by name</a>.
+            </p>
           </div>
           {/* How much of the country the registry holds, said once with true denominators, beside the sentence it qualifies. */}
           <div className="iei-hero-reach">
@@ -196,21 +227,6 @@ export default function Home({
           </div>
         </div>
 
-      {/* ── NEXT UP, directly under the hero: the elections that come next are a headline of this page, not a reference table. Soonest first, with how far
-          through its term each one is. An announced date prints as itself; the Commission's schedule is not in the registry yet, so today every card is a
-          five-year term counted from the last election, and says "Expected". ── */}
-      <Panel id="next" title="Next up" question="Which elections come next?">
-        {coming.length === 0 ? (
-          <p className="iei-absent">No jurisdiction has an assembly election on record to count a term from.</p>
-        ) : (
-          <>
-            <NextUpRail items={coming} shown={5} />
-            {coming.some((n) => n.basis === 'announced') ? null : (
-              <p className="iei-note">Inferred, not announced: each date is a five-year term counted from the last election, and the bar shows how much of it has run.</p>
-            )}
-          </>
-        )}
-      </Panel>
 
       {/* ── the map: the product's primary analytical instrument, and its primary navigation ── */}
       <div id="landscape" />
@@ -218,12 +234,15 @@ export default function Home({
         id="map"
         title={`India · ${v.layer.label}`}
         question={v.layer.question}
-        /* The geometry's provenance, in the same drawer as everything else. It used to be spelled out in the
-           map's caption on every request. */
-        sources={[GEOMETRY_SOURCE]}
+        /* The results behind the map, the state card and the table beside it, and the boundary file, in one drawer. The boundary used to be
+           the only thing in it, which put a source on the outlines and none on the seat counts drawn over them. It is listed first because a
+           drawer shows its first eight and says how many more it holds, and the outlines are not to be the entry that goes missing. */
+        sources={[GEOMETRY_SOURCE, ...src.map]}
+        caveat={<>&ldquo;Majority&rdquo; is counted here, not published: more than half of the seats contested, from the seat totals.</>}
       >
         <Tabs
           label="Map layer"
+          row
           current={v.layer.key}
           choices={v.layers.map((l) => ({
             key: l.key,
@@ -233,10 +252,17 @@ export default function Home({
           }))}
         />
 
+        {/* A WAY PAST THE MAP FOR A KEYBOARD. The map is thirty-six links in a row, and the table beside it names the same states once each, so a
+            reader who does not need the picture should not have to cross it to reach the list. Hidden until it takes focus, and placed before the
+            first polygon so that it is the first stop after the layer tabs. */}
+        <a className="iei-skip iei-skip-in" href="#map-list">
+          Skip to the list of states
+        </a>
+
         <div className="iei-linked iei-map-split">
           <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} hrefFor={choose} selectedId={selectedId} />
 
-          <div>
+          <div id="map-list">
             <StateCard rows={rows} chosen={chosen} hrefFor={chooseId} clearHref={clearHref} storyHere={null} />
             {/* A CONTEXTUAL LEGEND, and an interactive one. It names the parties this layer actually shows —
                 not three slots and an "Others" bucket, and not every party in the registry — and each entry is
@@ -397,6 +423,23 @@ export default function Home({
         </div>
       </Panel>
 
+      {/* ── NEXT UP, under the map (the owner's order, docs/superpowers/specs/2026-11-03-situation-room-home-design.md: the sentence and the figures, the landscape, then what comes next): the elections that come next are a headline of this page, not a reference table. Soonest first, with how far
+          through its term each one is. An announced date prints as itself; the Commission's schedule is not in the registry yet, so today every card is a
+          five-year term counted from the last election, and says "Expected". ── */}
+      <Panel id="next" title="Next up" question="Which elections come next?">
+        {coming.length === 0 ? (
+          <p className="iei-absent">No jurisdiction has an assembly election on record to count a term from.</p>
+        ) : (
+          <>
+            <NextUpRail items={coming} shown={5} />
+            {coming.some((n) => n.basis === 'announced') ? null : (
+              <p className="iei-note">Inferred, not announced: each date is a five-year term counted from the last election, and the bar shows how much of it has run.</p>
+            )}
+          </>
+        )}
+      </Panel>
+
+
 
       </div>
 
@@ -455,10 +498,12 @@ export default function Home({
           )}
         </Panel>
 
-        <Panel title="Recent results" question="What has been decided most recently?">
+        <Panel title="Recent results" question="What has been decided most recently?" sources={src.recent} caveat={coverageWords}>
           <DataList label="Elections most recently held" tight>
             {v.held.map((r) => {
               const top = v.heldTop.get(r.id) ?? [];
+              // A Lok Sabha election the registry holds part of says how much of the house that is, so "BJP 12 of 42" is not read as a national count.
+              const scope = houseScope({ body: r.body, fill: r.fill, loaded: r.seatsContested, houseTotal: s.lokSabhaSeatsTotal });
               return (
                 <DataRow
                   key={r.id}
@@ -495,7 +540,14 @@ export default function Home({
                           </span>
                         ))}
                         {' '}
-                        <span className="iei-of">of {r.seatsContested}</span>{' '}
+                        {scope === null ? (
+                          <span className="iei-of">of {r.seatsContested}</span>
+                        ) : (
+                          <>
+                            <span className="iei-of">&nbsp;·&nbsp;</span>
+                            <span className="iei-of">{scope}</span>
+                          </>
+                        )}{' '}
                         {/* ONE QUIET MARKER, ONLY WHERE IT IS TRUE. This column used to be eight coverage
                             chips — dataset status running down a page of election results. */}
                         <Incomplete state={v.coverageOf.get(r.id) ?? 'unavailable'} />
@@ -514,12 +566,16 @@ export default function Home({
         id="parties"
         title="Party landscape"
         question="Where does each party actually hold power?"
+        sources={src.parties}
         note={
           <>
+            {/* WHAT THE PANEL COUNTED OVER comes first: it is the sentence a reader needs before the numbers, and the one that goes missing when a
+                panel is shared or reached from the rail. It is absent when the registry holds every seat (repo/home-scope.ts). */}
+            {partyScope === null ? null : <>{partyScope} </>}
             Assembly seats are summed across <b>each jurisdiction&rsquo;s most recent election</b>, spanning{' '}
             {v.standings.length === 0 ? 'no years' : oldest(v) === newest(v) ? `${oldest(v)}` : `${oldest(v)}–${newest(v)}`} — so this is who sits now, not
             a national vote at one moment. Lok Sabha figures are{' '}
-            {v.parties.houseYear === null ? 'the latest on record' : v.parties.houseYear}.
+            {v.parties.houseYear === null ? 'the latest on record' : v.parties.houseYear}. {PARTY_RANK_RULE}
           </>
         }
       >

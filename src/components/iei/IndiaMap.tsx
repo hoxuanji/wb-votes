@@ -66,6 +66,24 @@ const LABEL_FRACTION = 1 / 58;
  */
 const CLICKABLE_FRACTION = 1 / 80;
 
+/**
+ * How many more letters than a state's name it must have room for before the name is drawn, and not its code.
+ *
+ * `labelFits` measures a polygon's bounding box, which is generous to a long word in an irregular shape. At the plain test "JHARKHAND" ran into
+ * West Bengal, "ANDHRA PRADESH" out over the sea and "TAMIL NADU" across Kerala's border. The code needs no slack: it is two letters, and it is what
+ * the tile row and the table already call the state.
+ */
+const NAME_SLACK = 4;
+
+/**
+ * How much of its bounding box a polygon has to fill before a full name is drawn in it.
+ *
+ * The slack above is not enough alone: Andhra Pradesh's box is 163 units by 143, which holds a long name, and only 26% of that box is land (a coastal
+ * crescent), so "ANDHRA PRADESH" still ran out over the sea. The states whose names sit well fill 45% to 58% of their boxes (Madhya Pradesh, Rajasthan,
+ * Maharashtra, Uttar Pradesh), so 40% separates a compact shape from a strip. A strip takes its code, which needs no more room than a word's worth.
+ */
+const NAME_SOLIDITY = 0.4;
+
 /** The frame's own proportions, so the figure claims the width its shape needs and no more. */
 const [, , FRAME_W, FRAME_H] = INDIA_VIEWBOX.split(' ').map(Number) as [number, number, number, number];
 const LABEL_PX = FRAME_W * LABEL_FRACTION;
@@ -101,6 +119,8 @@ export function IndiaMap({
 
   const tiles: Cell[] = [];
   const marks: { x: number; y: number; text: string }[] = [];
+  // The names of the states that have no result to label: see below.
+  const names: { x: number; y: number; text: string }[] = [];
 
   const fills = INDIA_SHAPES.map(({ name, path: d, anchor: a }) => {
     const cell = byName.get(name.toLowerCase());
@@ -116,6 +136,17 @@ export function IndiaMap({
     const fits = a !== null && cell.label !== null && labelFits(a, cell.label.length, LABEL_PX);
     if (labels && fits && a !== null && cell.label !== null && !muted) {
       marks.push({ x: a.x, y: a.y, text: cell.label });
+    }
+    // A STATE WITH NO RESULT IS NAMED. A party's abbreviation labels a lit state; an unlit one carried nothing, so thirty-five of thirty-six polygons
+    // were anonymous and the map said where the country was and not which state was which. The name goes where it fits (the same rule as the party
+    // labels, `labelFits`), the two-letter code where only that fits, and nothing where neither does: the tile row and the table beside the map name
+    // every state, and a smaller font would only move the illegibility. Never a hue: the ink is a text ink, because naming an absence is not marking one.
+    if (labels && a !== null && cell.label === null && !muted) {
+      const full = nameOf(cell.jurisdictionId).toUpperCase();
+      const code = cell.jurisdictionId.toUpperCase();
+      const compact = a.area >= NAME_SOLIDITY * a.width * a.height;
+      const text = compact && labelFits(a, full.length + NAME_SLACK, LABEL_PX) ? full : labelFits(a, code.length, LABEL_PX) ? code : null;
+      if (text !== null) names.push({ x: a.x, y: a.y, text });
     }
     // Too small for a label is too small for a cursor — but measured at the POINTER threshold, not the label
     // one, so a change to how big labels are cannot move a state off the map. See CLICKABLE_FRACTION.
@@ -165,6 +196,17 @@ export function IndiaMap({
               style={{ ['--iei-label-stroke' as string]: `${(LABEL_PX * 0.3).toFixed(2)}` }}
             >
               {marks.map((l) => (
+                <text key={`${l.x}-${l.y}-${l.text}`} x={l.x} y={l.y} fontSize={LABEL_PX.toFixed(2)}>
+                  {l.text}
+                </text>
+              ))}
+            </g>
+          )}
+          {/* The names of the unlit states, after the borders so a boundary does not cross a word, and aria-hidden for the same reason as the labels:
+              each is already in its polygon's accessible name. */}
+          {names.length === 0 ? null : (
+            <g className="iei-map-names" aria-hidden="true">
+              {names.map((l) => (
                 <text key={`${l.x}-${l.y}-${l.text}`} x={l.x} y={l.y} fontSize={LABEL_PX.toFixed(2)}>
                   {l.text}
                 </text>

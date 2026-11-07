@@ -71,7 +71,16 @@ not ask for.
   along with how the bytes were obtained;
 * on `/pl` and `/p`, no retrieval date and no hash appears outside a `<details class="iei-ev">`, and the pages
   no longer explain the `ⓘ` in prose;
-* the front page's caveat count stays at four or fewer (from Phase 2.5).
+* the front page's caveat count stays at four or fewer (from Phase 2.5);
+* on `/`, each of the three modules that put a registry result in front of a reader (the map, Recent results and the
+  party landscape) carries one drawer of the sources behind the result rows it reads (`repo/home-sources.ts`), and the
+  map's drawer holds more than the boundary file. Three drawers is the ceiling. Next up, the hero's counts and Closest
+  contests have none of their own: the first two read the elections the map reads, and a contest is a seat page,
+  which carries its own evidence;
+* on `/`, a panel that sums or ranks says what it counted over when the registry holds only part of the country
+  (`repo/home-scope.ts`): the party landscape names the seats it holds against the houses', a Lok Sabha election
+  names how much of the house it holds ("42 of 543 seats"), and both say nothing on a registry that holds every
+  seat. The party order is printed as a sentence, and `home-scope.test.ts` holds the sentence to the sort.
 
 The one `Evidence` component is still the only thing in the product that renders a url, a hash or a retrieval
 date. That is checkable by grep, and the sweep above is how it was checked.

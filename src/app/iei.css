@@ -244,6 +244,15 @@ html {
   border-radius: var(--iei-r);
 }
 
+/* A SKIP LINK THAT BELONGS TO A PLACE and not to the page. The page's own appears in the corner because it is the first thing on the page; one in
+   the middle of a panel reveals where it sits, in the flow, so a reader who has just tabbed to it sees what it is for. It follows the rule above in
+   the file because it overrides that rule's position, and it moves the content below it down by a line for as long as it holds focus. */
+.iei-skip-in:focus {
+  position: static;
+  display: inline-block;
+  margin: 0 0 var(--iei-3);
+}
+
 /* ══════════════════════════ top bar ══════════════════════════ */
 
 .iei-top {
@@ -1245,6 +1254,15 @@ html {
   margin: 2px 0;
 }
 
+/* A SOURCE'S TITLE MAY BE A URL, and a URL has nowhere to break. A press source recorded with its address as its title ("Wikipedia",
+   https://en.wikipedia.org/wiki/2024_Indian_general_election_in_West_Bengal) made the drawer 500px wide in a 390px window and the page scroll
+   sideways, once the front page cited the sources its results come from. `anywhere` rather than `break-word`, because only `anywhere` lowers
+   the drawer's minimum width, which is what a drawer that sizes itself to its content on a phone is measured by. */
+.iei-ev-body li,
+.iei-ev-t {
+  overflow-wrap: anywhere;
+}
+
 .iei-ev-a {
   color: var(--iei-ink-2);
   text-decoration: none;
@@ -1896,10 +1914,24 @@ html {
   stroke-linejoin: round;
 }
 
+/* THE NAMES OF THE STATES THAT HAVE NO RESULT. A text ink and no hue (the map's one rule: a hue on a mark means what the data says), at the label's
+   size, with no halo: it sits on the no-data ink, which is dark and flat, so the glyphs need none. `--iei-ink-2` is 6.4:1 there, above the 4.5:1 a
+   label is held to. It never takes the pointer, so a click on a name is a click on its state. */
+.iei-map-names text {
+  fill: var(--iei-ink-2);
+  font-family: var(--iei-mono);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+}
+
 /* A label is set in map units, so it is a fixed fraction of the figure's width: 9.6px beside a laptop's list and 6.3px
    on a phone, which is a smudge. It is aria-hidden, and the legend and the table below name every state in words. */
 @media (max-width: 640px) {
-  .iei-map-labels {
+  .iei-map-labels,
+  .iei-map-names {
     display: none;
   }
 }
@@ -3881,6 +3913,7 @@ ul.iei-tiles b {
 
   .iei-map a:focus-visible path,
   .iei-map-tiles a:focus-visible rect,
+  .iei-tm-fig a:focus-visible use,
   .iei-loc a:focus-visible path {
     outline: 2px solid CanvasText;
   }
@@ -6585,6 +6618,76 @@ ul.iei-tiles b {
   }
 }
 
+/* THE FIRST SCREEN IS A BUDGET, and the figures beside the sentence were spending it. The spec's goal is the sentence, the figures and the map on
+   the first screen; the three cards stacked cost 354px at a tablet's width and 353px at a phone's, and put the map a screen and a half down.
+   Below a laptop's width they sit in one row of three; on a phone they go back to stacked and cost less each. Both keep the same markup, the same
+   count-up and the same bar: only the room they take changes. */
+@media (max-width: 900px) {
+  .iei-hero-reach {
+    padding-top: var(--iei-2);
+  }
+
+  .iei-hero-reach .iei-story-reach {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  /* In a card a third of the page wide, the label sits ABOVE its figure: beside it, "ASSEMBLY SEATS" was squeezed to about 50px by "294 of 4,123 seats"
+     and ran under it. */
+  .iei-hero-reach .iei-story-reach li {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "l"
+      "v"
+      "b";
+  }
+
+  .iei-hero-reach .iei-story-reach-v {
+    text-align: left;
+  }
+}
+
+@media (max-width: 640px) {
+  .iei-hero-reach {
+    padding: var(--iei-2) 0 var(--iei-4);
+  }
+
+  .iei-hero-reach .iei-story-reach {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* A phone's card is a full row again, so label and figure sit side by side as they do on a laptop. */
+  .iei-hero-reach .iei-story-reach li {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "l v"
+      "b b";
+  }
+
+  .iei-hero-reach .iei-story-reach-v {
+    text-align: right;
+  }
+
+  /* The label over the three cards is dropped on a phone and its words kept: the list is named by them (`aria-label`), the cards say what each figure
+     is, and the sentence above has just said "1 of India's 36". It was 48px of the first screen. */
+  .iei-hero-reach .iei-eyebrow {
+    display: none;
+  }
+
+  .iei-hero-reach .iei-story-reach li {
+    padding: var(--iei-2) var(--iei-3);
+    gap: var(--iei-1) var(--iei-3);
+  }
+
+  .iei-hero-reach .iei-story-reach-v b {
+    font-size: var(--iei-f-title);
+  }
+}
+
+/* The plain door under the sentence sits close to it: it is part of the sentence's answer, not a new paragraph of the page. */
+.iei-find {
+  margin-top: var(--iei-2);
+}
+
 /* THE CHOSEN STATE'S OPENING is a card like every chapter under it: the sentence, then the proof beside four doors. */
 .iei-story-top {
   border: 1px solid var(--iei-line);
@@ -7854,6 +7957,46 @@ a.iei-live {
   }
 }
 
+/* A PHONE'S RAIL FITS ALL SIX PLACES. It scrolled sideways before, and at 390px "People" and "Data" were off the right edge: "Data" is where the
+   coverage page is, the page that says what the registry holds. Icon over word, as on a laptop, with the tracking taken off so the longest word
+   ("Landscape") is about 59px in a 64px cell. A narrower screen than that still scrolls, because a flex item will not shrink below its word. */
+@media (max-width: 640px) {
+  .iei-rail {
+    padding: var(--iei-1);
+  }
+
+  .iei-rail a {
+    flex: 1 1 0;
+    grid-auto-flow: row;
+    padding: var(--iei-2) 0;
+    letter-spacing: 0;
+  }
+
+  /* THE MAP'S LAYER STRIP IS ONE ROW, scrolled sideways. Six chips wrapped to three rows (112px), and three of them are unavailable and dashed; the
+     next chip cut off at the edge is the cue that there are more. */
+  .iei-tabs-row {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: var(--iei-1);
+    scrollbar-width: none;
+    /* A SCROLL REGION IS THE CONTAINING BLOCK OF ITS OWN SCREEN-READER TEXT (see `.iei-scroll`). Each unavailable chip holds a `.iei-sr`, which is
+       position: absolute, and in a strip wider than the screen its static position is past the right edge; with no positioned ancestor its containing
+       block was the page, which an `overflow: auto` box does not clip, so the page scrolled sideways by 198px at 390px with nothing visible out there. */
+    position: relative;
+  }
+
+  .iei-tabs-row .iei-tab {
+    flex: none;
+  }
+
+  /* A ROW'S RIGHT-HAND END DROPS BELOW ITS TITLE when it cannot sit beside it. The aside cannot shrink (`flex: none`, so a figure and its mark stay on
+     one line), and "turnout — verification pending" is 240px: beside a title in a 256px row it overflowed the page by 21px at 320px, and at 390px it
+     squeezed the title onto three lines. A short aside ("82.2% turnout") still sits beside its title. */
+  .iei-row-h {
+    flex-wrap: wrap;
+  }
+}
+
 @media (forced-colors: active) {
   .iei-rail a[aria-current='page'] {
     border-left: 2px solid CanvasText;
@@ -8047,6 +8190,18 @@ a.iei-live {
 
 .iei-tm-fig use.iei-map-off {
   fill: var(--iei-void);
+}
+
+/* A FOCUS STATE FOR THE DRAWN SHAPE, as the other map has. These anchors are out of the tab order (see Situation.tsx), so the keyboard does not
+   reach them; this is for the cases where focus lands on one anyway (a script, a hash link), and for the rule that anything that can take focus
+   shows it. The treatment goes on the `use` because an SVG anchor has no box, and the rule that styles `.iei-map a` names a `path`. */
+.iei-tm-fig a:focus-visible {
+  outline: none;
+}
+
+.iei-tm-fig a:focus-visible use {
+  stroke: var(--iei-ink);
+  stroke-width: 2.25;
 }
 
 .iei-tm-fig svg {

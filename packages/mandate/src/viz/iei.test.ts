@@ -200,6 +200,27 @@ test("focus is always visible, and forced-colors gets a real outline", () => {
   );
 });
 
+test("an anchor drawn around a `use` has a focus treatment that names the `use`, because an SVG anchor has no box to outline", () => {
+  // The History map draws `<a><use/></a>`, and the rule that styled the other map's anchors named a `path`, so for a while its links took focus and
+  // showed nothing. They are out of the tab order now (render.test.ts holds that); this holds the second line of defence, that if one does take focus
+  // it shows it, in the ordinary treatment and in forced-colors.
+  assert.match(CSS, /\.iei-tm-fig a:focus-visible use\s*\{[^}]*stroke:/, "the History map's links have no focus stroke");
+  assert.match(CSS, /\.iei-tm-fig a:focus-visible use,[^{]*\{[^}]*outline:\s*2px solid CanvasText/, "forced-colors does not restore an outline on the History map's links");
+});
+
+test("a phone's first screen: the rail fits its six places, the layer strip is one row, and the map's names are hidden with its labels", () => {
+  // The rules that put the map on a phone's first screen, held where they can fail. Each was a measured defect at 390px: the rail scrolled so "People"
+  // and "Data" were off the edge, six layer chips wrapped to three rows, and map text set in map units is a smudge at that width.
+  const phone = [...CSS.matchAll(/@media \(max-width: 640px\) \{([\s\S]*?)\n\}/g)].map((m) => m[1] as string).join("\n");
+  assert.match(phone, /\.iei-rail a \{[^}]*flex:\s*1 1 0/, "the rail's items no longer share the phone's width");
+  assert.match(phone, /\.iei-tabs-row \{[^}]*flex-wrap:\s*nowrap/, "the map's layer strip wraps on a phone again");
+  assert.match(phone, /\.iei-map-labels,\s*\.iei-map-names \{[^}]*display:\s*none/, "the map's names are drawn on a phone, where they are about 6px");
+  // Two overflow fixes, each measured: a scroll region is the containing block of its own screen-reader text (the page scrolled sideways by 198px at
+  // 390px with nothing visible out there), and a row's long aside wraps under its title (21px at 320px).
+  assert.match(phone, /\.iei-tabs-row \{[^}]*position:\s*relative/, "the layer strip is not its own containing block, so its hidden text can widen the page");
+  assert.match(phone, /\.iei-row-h \{[^}]*flex-wrap:\s*wrap/, "a row's long aside cannot wrap under its title, and overflows a 320px page");
+});
+
 test("every context that can hold a link in prose has the one link treatment", () => {
   // The defect this caught: the treatment covered `.iei-record a` and `.iei-foot a` and nothing else, so a
   // link inside a section note, a caveat, a table caption, a data row's detail or the line under an answer

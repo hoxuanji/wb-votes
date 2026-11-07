@@ -572,6 +572,29 @@ export type PartyLandscape = {
 /** How many Lok Sabha elections the sparkline reaches back over. */
 const SPARK = 5;
 
+/**
+ * The order of the party landscape, in the words the page prints under it. `partyLandscape`'s sort is this sentence: a reader who sees a
+ * party with two seats above a bloc with eighteen is owed the rule that put it there, and `home-scope.test.ts` holds the sentence and the
+ * sort together so that changing one without the other fails.
+ */
+export const PARTY_RANK_RULE = "Ranked by assemblies led, then Lok Sabha seats, then assembly seats.";
+
+/**
+ * The Lok Sabha elections the party sparklines span, oldest first.
+ *
+ * One function because two readers need the same set: the party landscape draws its sparklines from them, and
+ * `home-sources.ts` cites them. A copy of this query in the second place would let the figures and their
+ * sources be two different sets of elections without anything failing.
+ */
+export function houseRun(db: DatabaseSync): { id: string; year: number }[] {
+  return all<{ id: string; year: number }>(
+    db,
+    `SELECT id, year FROM election e WHERE ${bodyIs("lok-sabha")} AND ${FULL_HOUSE}
+      ORDER BY ${CHRONO_DESC} LIMIT ?`,
+    SPARK,
+  ).reverse();
+}
+
 export function partyLandscape(db: DatabaseSync, spine: Spine, limit = 10): PartyLandscape {
   return read(() => {
     const houseId = spine.house?.id ?? null;
@@ -593,15 +616,10 @@ export function partyLandscape(db: DatabaseSync, spine: Spine, limit = 10): Part
     }
 
     // Sparkline: the last SPARK Lok Sabha elections, winners only.
-    const houseRun = all<{ id: string; year: number }>(
-      db,
-      `SELECT id, year FROM election e WHERE ${bodyIs("lok-sabha")} AND ${FULL_HOUSE}
-        ORDER BY ${CHRONO_DESC} LIMIT ?`,
-      SPARK,
-    ).reverse();
-    const sparkRows = seatsWonBy(db, houseRun.map((e) => e.id));
+    const run = houseRun(db);
+    const sparkRows = seatsWonBy(db, run.map((e) => e.id));
     const sparkOf = (key: string): { year: number; seats: number }[] =>
-      houseRun.map((e) => ({
+      run.map((e) => ({
         year: e.year,
         seats: sparkRows.filter((r) => r.electionId === e.id && r.key === key).reduce((n, r) => n + r.seats, 0),
       }));

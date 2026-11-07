@@ -26,6 +26,7 @@ import type { ElectionSeat } from "./election-map.ts";
 import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
+import { houseScope, landscapeScope } from "./home-scope.ts";
 import { storyView } from "./home-story.ts";
 import { ordinal } from "./seat-story.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
@@ -99,6 +100,15 @@ function place(path: string, query = ""): string {
 }
 
 /** The page as a reader sees it: tags stripped, entities resolved, blank lines dropped. */
+/**
+ * How many party labels a page's maps draw: the `<text>` inside a `.iei-map-labels` group, and nothing else. The map also names the states that have no
+ * result (`.iei-map-names`), and a count of every `<text>` would read those as labels, so a seed with one lit state would clear a "labels something"
+ * threshold on the strength of thirty-odd state names.
+ */
+function partyLabels(html: string): number {
+  return [...html.matchAll(/<g class="iei-map-labels"[^>]*>([\s\S]*?)<\/g>/g)].reduce((n, m) => n + ((m[1] as string).match(/<text /g) ?? []).length, 0);
+}
+
 function text(html: string): string {
   return html
     .replace(/<(script|style)[^>]*>[\s\S]*?<\/\1>/g, " ")
@@ -123,17 +133,18 @@ test("the homepage renders, and says what it is in the first screen", live, () =
   const html = render("/");
   const t = text(html);
   // The ten-second test, as far as a text assertion can carry it: the product's name, the country's own sentence, and then the five things the page
-  // is for, in the order a visitor needs them (docs/superpowers/specs/2026-11-03-situation-room-home-design.md).
+  // is for, in the order a visitor needs them (docs/superpowers/specs/2026-11-03-situation-room-home-design.md: the landscape is second, so the map is on
+  // the first screen; next up is third).
   assert.match(t, /INDIA\nElection Intelligence/, "the wordmark is not the first thing");
   assert.match(t, /India\nThe electoral landscape/, "the page does not open on the country");
   assert.match(t.replace(/\s+/g, " "), /The registry holds election results for \d+ of India's \d+ states and territories/, "the country's sentence is missing");
   // "Next up" is also a label in the rail, which comes first in the text, so the panel is found by its own question.
-  const order = ["Which elections come next?", "India · Government", "How we got here", "Closest contests", "Recent results", "Party landscape"].map((h) => [h, t.indexOf(h)] as const);
+  const order = ["India · Government", "Which elections come next?", "How we got here", "Closest contests", "Recent results", "Party landscape"].map((h) => [h, t.indexOf(h)] as const);
   for (const [h, at] of order) assert.ok(at >= 0, `the "${h}" section is missing`);
   assert.deepEqual(
     order.map(([h]) => h),
     [...order].sort((x, y) => x[1] - y[1]).map(([h]) => h),
-    "the sections are out of order: next up, the landscape, how we got here, then the reference layer",
+    "the sections are out of order: the landscape, next up, how we got here, then the reference layer",
   );
   // The rail: six places, the current one marked, every one a real destination.
   const rail = /<nav class="iei-rail"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? "";
@@ -172,10 +183,116 @@ test("the front page shows no provenance class labels and no dataset status", li
   for (const word of ["Complete", "Partial", "Unavailable"]) {
     assert.ok(!new RegExp(`\\b${word}\\b`).test(t), `a coverage chip ("${word}") is back beside a result`);
   }
-  // The evidence is still THERE — one drawer for the map's geometry, offered once, not per figure.
+  // The evidence is still THERE, as one drawer for each module that puts a registry result in front of a reader: the map (results, turnout and
+  // the outlines), Recent results, and the party landscape. Three is the ceiling and it is held on purpose: the drawer is how the evidence stays
+  // one click away without being said beside every figure.
   const drawers = (render("/").match(/class="iei-ev(?:\s|")/g) ?? []).length;
   assert.ok(drawers >= 1, "the front page offers no evidence at all");
   assert.ok(drawers <= 3, `${drawers} evidence drawers on the front page — one per module is the rule`);
+});
+
+test("the front page's three result modules each cite their sources, and the map's drawer holds more than its outlines", live, () => {
+  // THE DEFECT, as a measurement. The map panel's drawer held the boundary file and nothing else, so a source stood behind the outlines and none behind
+  // the seat counts, the state card and the table drawn over them, and a correspondent could not defend "BJP 192 of 294" from the page. The boundary file
+  // is one source; a map that has results to show has at least one more.
+  const html = render("/");
+  const named = [...html.matchAll(/aria-label="(\d+) sources? for ([^"]+)"/g)].map((m) => ({ n: Number(m[1]), of: m[2] as string }));
+  const map = named.find((d) => /^India · /.test(d.of));
+  assert.ok(map !== undefined, "the map has no evidence drawer");
+  assert.ok(map.n >= 2, `the map's drawer cites ${map.n} source: the outlines, and no result`);
+  for (const title of ["Recent results", "Party landscape"]) {
+    assert.ok(named.some((d) => d.of === title && d.n >= 1), `${title} shows registry results and has no evidence drawer`);
+  }
+  // A drawer says what the quiet words beside the figures mean, and only where one is on the page: each marker the surface prints is explained.
+  const outside = html.replace(/<details class="iei-ev[\s\S]*?<\/details>/g, " ");
+  if (/partly loaded/.test(outside)) assert.ok(html.includes("“Partly loaded” marks an election"), "the surface says 'partly loaded' and nothing explains it");
+  if (/result unavailable/.test(outside)) assert.ok(html.includes("“Result unavailable” marks an election"), "the surface says 'result unavailable' and nothing explains it");
+});
+
+test("the front page says how much of India it counted over wherever the registry holds only part of it", live, () => {
+  // THE DEFECT, as a measurement. "India · Lok Sabha 2024 — TMC 29 · BJP 12 of 42" read as a national result, and the party landscape ranked a party first
+  // on the seats of one assembly, in a panel that said nothing about how much of the country it was looking at. The expected sentences are computed from
+  // the registry's own numbers and not written into the test, so the assertion holds on a registry of any size: partial, it must say so; whole, it must not.
+  const html = render("/");
+  const t = text(html);
+  const view = home.homeView(db, { thisYear: 2026 });
+  const scope = landscapeScope(view.snapshot);
+  if (scope === null) assert.ok(!t.includes("Counted over the"), "the party landscape says it counted over part of the country when it counted over all of it");
+  else assert.ok(t.includes(scope), `the party landscape does not say what it counted over: expected "${scope}"`);
+  // The order is stated, in the words the sort is held to (home-scope.test.ts).
+  assert.ok(t.includes(home.PARTY_RANK_RULE), "the party landscape does not say how it is ranked");
+  // A Lok Sabha election the registry holds part of says how much of the house that is.
+  for (const r of view.held) {
+    const row = houseScope({ body: r.body, fill: r.fill, loaded: r.seatsContested, houseTotal: view.snapshot.lokSabhaSeatsTotal });
+    if (row !== null) assert.ok(t.includes(row), `${r.id} is listed in Recent results without saying it is ${row}`);
+  }
+});
+
+test("the second map is out of the tab order and still goes to a state, and the first can be skipped by keyboard", live, () => {
+  // THE DEFECT, as a measurement: 106 tab stops, 36 of them on a copy of the map with no focus indicator at all (an SVG anchor has no box to outline, and
+  // the rule that styled the other map's anchors named a `path` where this one draws a `use`). The links are not removed, so a click and a screen reader
+  // still open the state; they are taken out of the order, as the arc's are, because the first map and the table beside it already are the keyboard's way.
+  const html = render("/");
+  const fig = /<figure class="iei-map iei-tm-fig"[\s\S]*?<\/figure>/.exec(html)?.[0] ?? "";
+  const links = [...fig.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]);
+  assert.ok(links.length >= 1, "the History map has no links, or this test has stopped finding it");
+  for (const l of links) {
+    assert.match(l, /tabindex="-1"/, `a link on the History map is in the tab order and shows no focus: ${l.slice(0, 90)}`);
+    assert.match(l, /href="\/state\//, "a link on the History map no longer goes to a state");
+  }
+  // A skip past the first map: it comes before that map's first polygon, and its target is on the page exactly once.
+  const skip = html.indexOf('class="iei-skip iei-skip-in" href="#map-list"');
+  const firstPolygon = html.indexOf('class="iei-map-fills"');
+  assert.ok(skip !== -1, "the map has no skip link");
+  assert.ok(skip < firstPolygon, "the skip link comes after the map's first polygon, so it skips nothing");
+  assert.equal((html.match(/id="map-list"/g) ?? []).length, 1, "the skip link's target is missing or duplicated");
+});
+
+test("the front page reads in the rail's order, with the map straight after the sentence and the figures", live, () => {
+  // THE OWNER'S ORDER (docs/superpowers/specs/2026-11-03-situation-room-home-design.md): the sentence and the figures, the landscape, then what comes next,
+  // then how the country got here. The page had Next up above the map, so at 1440x900 about 11px of the map was on the first screen and at 390x844 none
+  // of it was, and the rail (Landscape, Next up, History) listed the places in an order the page did not follow.
+  const html = render("/");
+  const at = (needle: string): number => {
+    const i = html.indexOf(needle);
+    assert.ok(i !== -1, `${needle} is not on the page`);
+    return i;
+  };
+  const hero = at('class="iei-hero"');
+  const landscape = at('id="landscape"');
+  const map = at('id="map"');
+  const next = at('id="next"');
+  const history = at('id="history"');
+  assert.ok(hero < landscape && landscape < map, "the map does not come straight after the hero");
+  assert.ok(map < next, "Next up is above the map again");
+  assert.ok(next < history, "History is above Next up");
+  // The rail names the same places in the same order as the page.
+  const rail = [at('href="/#landscape"'), at('href="/#next"'), at('href="/#history"')];
+  assert.deepEqual([...rail].sort((a, b) => a - b), rail, "the rail lists Landscape, Next up and History in an order the page does not follow");
+});
+
+test("a state with no result is named on the map where the name fits, and the plain door to the search field is on the page", live, () => {
+  // THE DEFECT, as a measurement: thirty-five of thirty-six polygons carried nothing, so the map said where the country was and not which state was
+  // which. A name is the registry's own (or the state's code, which the tile row prints), only for a cell with no label of its own, and never for one a
+  // party highlight has muted.
+  const html = render("/");
+  const group = /<g class="iei-map-names"[^>]*>([\s\S]*?)<\/g>/.exec(html);
+  const view = home.homeView(db, { thisYear: 2026 });
+  const unlit = view.layer.cells.filter((c) => c.label === null);
+  if (unlit.length > 0) {
+    assert.ok(group !== null, "states with no result are on the map and none is named");
+    assert.match(html, /<g class="iei-map-names" aria-hidden="true">/, "the names are read out a second time: each is already in its polygon's accessible name");
+    const allowed = new Set(unlit.flatMap((c) => [c.jurisdictionName.toUpperCase(), c.jurisdictionId.toUpperCase()]));
+    for (const m of (group?.[1] ?? "").matchAll(/<text\b[^>]*>([^<]*)<\/text>/g)) {
+      assert.ok(allowed.has(m[1] as string), `"${m[1]}" is drawn as a name and is neither an unlit state's name nor its code`);
+    }
+  }
+  // The plain door: a link to the search field, which exists once. It is a link and not a second field.
+  assert.match(html, /<a href="#iei-q">Search by name<\/a>/, "the hero has no plain door to the search");
+  assert.equal((html.match(/id="iei-q"/g) ?? []).length, 1, "the search field the door points at is missing or duplicated");
+  assert.ok(!/class="iei-find"[^>]*>\s*<input/.test(html), "the plain door became a second search field");
+  // The layer strip is the one that scrolls sideways on a phone.
+  assert.match(html, /class="iei-tabs iei-tabs-row" role="group" aria-label="Map layer"/, "the map's layer strip is not the one-row variant");
 });
 
 test("the front page stays inside its stated weight, and a table a reader has to open is not a table they meet", live, () => {
@@ -567,7 +684,7 @@ test("every map layer renders, and an unknown one falls back instead of breaking
     // At least one label, or the layer is a colour-matching exercise. FEWER THAN BEFORE, deliberately: a
     // label sized in viewBox units rendered at about 7px on this frame, and raising it to reading size means
     // `labelFits` refuses the polygons that no longer have room rather than shrinking the glyphs.
-    assert.ok((html.match(/<text /g) ?? []).length > 12, `${layer} labels almost nothing`);
+    assert.ok(partyLabels(html) > 12, `${layer} labels almost nothing`);
     assert.ok(t.includes("a dated snapshot"), `${layer} does not date its geometry`);
   }
   // A hand-edited layer must not reach the SQL or produce a broken page.
@@ -596,13 +713,14 @@ test("the front page opens on India and chooses a state on a click", live, () =>
   const flat = (h: string): string => text(h).replace(/\s+/g, " ");
   const base = render("/");
   const t = flat(base);
-  // The country first: the sentence names every jurisdiction with a result, the glance lists each, and next up and the map come before the reference layer.
+  // The country first: the sentence names every jurisdiction with a result, the glance lists each, and the map comes before next up, and both before the
+  // reference layer (the owner's order, docs/superpowers/specs/2026-11-03-situation-room-home-design.md: the landscape is second and next up third).
   assert.match(t, /The registry holds election results for 1 of India's 36 states and territories: West Bengal\./);
   assert.match(t, /Latest elections, state by state/);
   assert.match(t, /Assembly 2026: BJP 192 of 294 · majority/);
   assert.match(t, /Lok Sabha 2024: TMC 29 of 42 · majority/);
-  assert.ok(t.indexOf("The electoral landscape") < t.indexOf("Which elections come next?"));
-  assert.ok(t.indexOf("Which elections come next?") < t.indexOf("India · Government"), "the elections that come next are below the map");
+  assert.ok(t.indexOf("The electoral landscape") < t.indexOf("India · Government"));
+  assert.ok(t.indexOf("India · Government") < t.indexOf("Which elections come next?"), "the elections that come next are above the map, which puts the map off the first screen");
   assert.equal((base.match(/<h1\b/g) ?? []).length, 1, "the page has a second title");
   // A state polygon, its row and its tile choose that state; the state's own page is a step on from the card.
   const chosen = render("/", "state=wb");
@@ -873,7 +991,7 @@ test("a party can be isolated, and the isolation is in the URL", live, () => {
   assert.ok(/opacity="0\.22"/.test(only), "nothing is muted");
   assert.ok(!/opacity="0\.22"/.test(plain), "the unfiltered map mutes something");
   // The labels of muted polygons go with them — 36 abbreviations over a dimmed map is noise.
-  const labels = (s: string): number => (s.match(/<text /g) ?? []).length;
+  const labels = partyLabels;
   assert.ok(labels(only) < labels(plain), "isolating a party did not reduce the labels");
   assert.ok(labels(only) > 0, "isolating a party removed every label");
 
