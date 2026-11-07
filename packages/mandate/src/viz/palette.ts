@@ -31,11 +31,13 @@ export const TEXT_SECONDARY = "#a3a3b3";
 /**
  * --iei-ink-3. Axes, units, tick labels.
  *
- * 4.82:1 on the worst surface it is drawn on, which is the floor small text has to clear. §24.2's #6E687F
- * is 3.51:1 and is NOT used: charts follow the CSS the page is wearing, and that tier was lifted precisely
- * so axis text clears 4.5:1.
+ * 5.82:1 on SURFACE, where the charts draw, and 5.51:1 on the raised surface, the worst one it can sit on; the
+ * floor small text has to clear is 4.5:1. §24.2's #6E687F is 3.51:1 and is NOT used: charts follow the CSS the
+ * page is wearing, and that tier was lifted precisely so axis text clears 4.5:1. It was #818198 here after the
+ * stylesheet moved to #8b8ba2 (a card's lit top edge is lighter than any token, and a label needs the headroom),
+ * and iei.test.ts now holds every colour in this file that copies a token equal to it.
  */
-export const TEXT_MUTED = "#818198";
+export const TEXT_MUTED = "#8b8ba2";
 
 /**
  * Eight slots, dark. Slots 4-8 are docs/mandate/05-craft.md §24.4's, which are adjacency-gated: legal in full

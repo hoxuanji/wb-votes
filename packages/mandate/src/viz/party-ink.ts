@@ -185,10 +185,14 @@ export function fillFor(raw: string | null | undefined): string {
 /**
  * The ink for "no election of this kind is loaded here".
  *
- * Not a party and not a token: an unlit polygon must not read as a mark, so it deliberately sits below the
- * 3:1 floor a real mark has to clear. It is the one colour on a map that means absence.
+ * Not a party: an unlit polygon must not read as a mark, so it deliberately sits below the 3:1 floor a real
+ * mark has to clear. It is the one colour on a map that means absence, and it is `--iei-void`, a deep indigo,
+ * copied because an SVG fill built as a string cannot read a CSS variable. It was a grey-violet (#1d1b26) until
+ * the stylesheet's void moved to indigo and this did not, so a legend's "none" swatch and an unlit state were one
+ * colour while an unlit seat, the arc's empty seats and the time machine's frames were another; iei.test.ts now
+ * holds the two equal.
  */
-export const NOT_HELD = "#1d1b26";
+export const NOT_HELD = "#1c203b";
 
 /** The OKLab chroma of a colour — what separates the curated register from the derived one. */
 export function chromaOf(hex: string): number {

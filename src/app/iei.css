@@ -84,7 +84,8 @@
   --iei-a-teal: #61d7b2;
 
   /* The no-data ink. Deliberately below the 3:1 mark floor: an unlit polygon must not read as a mark,
-     because it is the absence of one. Named here so the map and the legend cannot disagree about it. */
+     because it is the absence of one. Named here so the map and the legend cannot disagree about it: NOT_HELD in
+     packages/mandate/src/viz/party-ink.ts is this value for the fills a string builder writes, and iei.test.ts holds them equal. */
   --iei-void: #1c203b;
 
   --iei-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;

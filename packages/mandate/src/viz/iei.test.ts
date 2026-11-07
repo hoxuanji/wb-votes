@@ -14,6 +14,9 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
+import { DIVERGING, LINE_SUBTLE, SURFACE, TEXT_MUTED, TEXT_PRIMARY, TEXT_SECONDARY } from "./palette.ts";
+import { NOT_HELD } from "./party-ink.ts";
+import { NEUTRAL_RIBBON_INK } from "./ribbon-ink.ts";
 
 const CSS = readFileSync(new URL("../../../../src/app/iei.css", import.meta.url), "utf8");
 
@@ -115,6 +118,39 @@ test("the borders and marks that are not text still clear the mark floor against
     assert.ok(c > 1.15, `--${line} is invisible against the canvas (${c.toFixed(2)}:1)`);
     assert.ok(c < MARK_FLOOR, `--${line} is loud enough to read as a mark (${c.toFixed(2)}:1)`);
   }
+});
+
+test("every colour the TypeScript copies from the stylesheet is the stylesheet's, role for role", () => {
+  // Charts and seat fills are built as strings and cannot read a CSS variable, so each of these is a copy of a
+  // token. Two of them had drifted: the chart axis ink was #818198 after --iei-ink-3 moved to #8b8ba2, and the
+  // no-data fill was a grey-violet after --iei-void moved to indigo, so the same absence was two colours on one
+  // map. The test reads the stylesheet, so whichever side moves next, the other is told.
+  const t = tokens();
+  const copies: Record<string, string> = {
+    "iei-panel": SURFACE,
+    "iei-line": LINE_SUBTLE,
+    "iei-ink": TEXT_PRIMARY,
+    "iei-ink-2": TEXT_SECONDARY,
+    "iei-ink-3": TEXT_MUTED,
+    "iei-good": DIVERGING.up,
+    "iei-alert": DIVERGING.down,
+    "iei-void": NOT_HELD,
+  };
+  for (const [token, copy] of Object.entries(copies)) {
+    assert.ok(t[token] !== undefined, `--${token} is not declared`);
+    assert.equal(copy.toLowerCase(), t[token], `the TypeScript copy of --${token} is ${copy}, the stylesheet's is ${t[token]}`);
+  }
+  assert.equal(NEUTRAL_RIBBON_INK.toLowerCase(), t["iei-ink-3"], "the neutral ribbon is --iei-ink-3, and is not");
+});
+
+test("the no-data ink is not a mark: below the mark floor on every surface, and still visible against the canvas", () => {
+  // The claim the stylesheet makes in a comment, held where it can fail. party-ink.test.ts holds the same for NOT_HELD.
+  const t = tokens();
+  for (const surface of ["iei-bg", "iei-panel", "iei-raised"]) {
+    const c = contrast(t["iei-void"] as string, t[surface] as string);
+    assert.ok(c < MARK_FLOOR, `--iei-void reads as a mark on ${surface} (${c.toFixed(2)}:1)`);
+  }
+  assert.ok(contrast(t["iei-void"] as string, t["iei-bg"] as string) > 1.05, "--iei-void is invisible against the canvas");
 });
 
 test("status is never colour alone — every status class ships a shape or a word", () => {
