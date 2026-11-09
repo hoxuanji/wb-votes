@@ -136,7 +136,11 @@ test("the homepage renders, and says what it is in the first screen", live, () =
   // is for, in the order a visitor needs them (docs/superpowers/specs/2026-11-03-situation-room-home-design.md: the landscape is second, so the map is on
   // the first screen; next up is third).
   assert.match(t, /INDIA\nElection Intelligence/, "the wordmark is not the first thing");
-  assert.match(t, /India\nThe electoral landscape/, "the page does not open on the country");
+  // THE TITLE IS THE ANSWER (2026-11-08): the page used to open on an eyebrow ("India") and a topic title ("The electoral landscape") with the country's
+  // sentence under them. The sentence is the one <h1> now, and neither of the other two is on the page: the wordmark and the rail already say which product
+  // and which place this is, and a title that names a topic does not state the answer (docs/product, principle 4).
+  assert.match(html, /<h1 class="iei-answer[^"]*">The registry holds election results for/, "the page's title is not the country's sentence");
+  assert.ok(!/The electoral landscape/.test(t), "the topic title is back above the country's sentence");
   assert.match(t.replace(/\s+/g, " "), /The registry holds election results for \d+ of India's \d+ states and territories/, "the country's sentence is missing");
   // "Next up" is also a label in the rail, which comes first in the text, so the panel is found by its own question.
   const order = ["India · Government", "Which elections come next?", "How we got here", "Closest contests", "Recent results", "Party landscape"].map((h) => [h, t.indexOf(h)] as const);
@@ -719,7 +723,7 @@ test("the front page opens on India and chooses a state on a click", live, () =>
   assert.match(t, /Latest elections, state by state/);
   assert.match(t, /Assembly 2026: BJP 192 of 294 · majority/);
   assert.match(t, /Lok Sabha 2024: TMC 29 of 42 · majority/);
-  assert.ok(t.indexOf("The electoral landscape") < t.indexOf("India · Government"));
+  assert.ok(t.indexOf("The registry holds election results") < t.indexOf("India · Government"), "the country's sentence is not above the map");
   assert.ok(t.indexOf("India · Government") < t.indexOf("Which elections come next?"), "the elections that come next are above the map, which puts the map off the first screen");
   assert.equal((base.match(/<h1\b/g) ?? []).length, 1, "the page has a second title");
   // A state polygon, its row and its tile choose that state; the state's own page is a step on from the card.

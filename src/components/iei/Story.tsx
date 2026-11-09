@@ -137,7 +137,7 @@ export function StateCard({
     const name = chosen.status === 'loaded' ? chosen.row.name : chosen.name;
     return (
       <section className="iei-story-card" aria-label={`Latest elections in ${name}`}>
-        <p className="iei-eyebrow">{name}</p>
+        <p className="iei-story-card-h iei-story-card-name">{name}</p>
         {chosen.status === 'loaded' ? (
           <>
             <p className="iei-story-card-l">{houseLine('Assembly', chosen.row.assembly)}</p>
@@ -159,7 +159,7 @@ export function StateCard({
   }
   return (
     <section className="iei-story-card" aria-label="Latest elections, state by state">
-      <p className="iei-eyebrow">Latest elections, state by state</p>
+      <p className="iei-story-card-h iei-story-card-sub">Latest elections, state by state</p>
       {rows.length === 0 ? (
         <p className="iei-absent">No election result is on record yet.</p>
       ) : (

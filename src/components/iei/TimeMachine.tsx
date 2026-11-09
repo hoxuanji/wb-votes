@@ -169,6 +169,9 @@ export function TimeMachine({ frames, sentences, children }: { frames: Frame[]; 
               </div>
             ))}
           </div>
+          {/* WHAT THE EMPTY SPACE IS, IN WORDS. A column is every state and territory, so with a registry that holds a few states the coloured part is a sliver
+              and the rest looks empty. Each segment's party and count are in its title, which a phone has no way to hover. */}
+          <p className="iei-note iei-tm-key">Each column is every state and territory. The coloured part is the states with an assembly election on record by that year; the rest have none loaded.</p>
         </div>
       </div>
 

@@ -9,9 +9,9 @@
    THE ONE RULE THIS FILE ENFORCES: a hue on a DATA MARK means what the data says, and nothing else.
 
    A party's colour is the party's, the magnitude ramp is a magnitude, and the semantic inks are their
-   meaning. The chrome has a signal palette of its own (`--iei-a-*`, below): six hues that say WHERE you are
-   (the rail's six places, a section's top edge, its eyebrow) and never WHAT a mark is. They are used only
-   as a 1-2px edge, a small marker, a label or a faint wash, never as the fill of a seat, a bar, a ribbon, a
+   meaning. The chrome has a signal palette of its own (`--iei-a-*`, below): six hues of which a page shows ONE, the one for its kind
+   of page, saying WHERE you are (the current rail place, a heading's marker, the selected tab's underline, the page's label, a dim
+   glow) and never WHAT a mark is. They are used only as a bar, a small marker, a label or a faint wash, never as the fill of a seat, a bar, a ribbon, a
    dot or a legend swatch, because every hue in the band is within a few ΔE of some party's colour
    (palette.ts measures it) and a fill is where that would be mistaken. This replaced a stricter rule
    ("the interface is monochrome"), which kept the map unambiguous and left the product flat.
@@ -75,7 +75,7 @@
   --iei-alert: #e8927c;
 
   /* The chrome's signal palette. Wayfinding, not data: see the rule at the top of this file. Each clears 4.5:1 as text
-     on all three surfaces, because an eyebrow in one is text. Order is the order sections and the rail take them in. */
+     on all three surfaces, because a page's label in one is text. A kind of page picks one (`.iei[data-here]`, at the end of this file). */
   --iei-a-indigo: #8b9bff;
   --iei-a-cyan: #49d2ea;
   --iei-a-amber: #ebbd57;
@@ -6375,17 +6375,15 @@ ul.iei-tiles b {
   border-bottom: none;
 }
 
+/* A LABEL, NOT A CHIP: the kind of page, or the name of a block, in label ink with nothing drawn around it. It was a bordered chip on a 3% fill, which was
+   a box above a heading that already said the same thing. */
 .iei-eyebrow {
   display: block;
   width: fit-content;
   justify-self: start;
-  padding: var(--iei-1) var(--iei-3);
-  margin: 0 0 var(--iei-4);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  background: rgba(255, 255, 255, 0.03);
-  color: var(--iei-ink-2);
-  letter-spacing: 0.16em;
+  margin: 0 0 var(--iei-2);
+  color: var(--iei-ink-3);
+  letter-spacing: 0.14em;
 }
 
 .iei-answer {
@@ -6545,30 +6543,40 @@ ul.iei-tiles b {
   background: rgba(255, 255, 255, 0.035);
 }
 
-/* THE HOME HERO: the sentence on the left, and on the right how much of the country the registry holds, as three stat cards. */
+/* THE HOME HERO: a title that is the answer, and one status strip. It was a topic title beside three stat cards stacked at the right, which spent
+   250px of the first screen on figures before the map, with a bar under each that said again what the title says. The figures are the same three,
+   with the same count-up and the same bar; set as one strip, the room they take is all that changed. */
 .iei-hero {
-  display: grid;
-  grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
-  gap: var(--iei-8);
-  align-items: end;
+  display: block;
 }
 
 .iei-hero .iei-head {
+  padding: var(--iei-6) 0 var(--iei-4);
   border-bottom: none;
 }
 
-.iei-hero-reach {
-  padding: var(--iei-8) 0 var(--iei-6);
-}
-
-.iei-hero-reach .iei-eyebrow {
+.iei-hero .iei-answer {
   margin-bottom: var(--iei-3);
 }
 
+/* The plain door sits in the same line as the disclaimer: both are one breath under the title. */
+.iei-hero .iei-sub {
+  margin-top: 0;
+  max-width: none;
+}
+
+.iei-hero-reach {
+  padding: 0 0 var(--iei-6);
+}
+
 .iei-hero-reach .iei-story-reach {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0;
   max-width: none;
   margin: 0;
-  gap: var(--iei-2);
+  border: 1px solid var(--iei-line);
+  border-radius: var(--iei-r);
+  background: var(--iei-panel);
 }
 
 .iei-hero-reach .iei-story-reach li {
@@ -6578,18 +6586,17 @@ ul.iei-tiles b {
     "b b";
   gap: var(--iei-2) var(--iei-3);
   padding: var(--iei-3) var(--iei-4);
-  border: 1px solid var(--iei-line);
-  border-radius: var(--iei-r);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
-    var(--iei-raised);
+}
+
+.iei-hero-reach .iei-story-reach li + li {
+  border-left: 1px solid var(--iei-line);
 }
 
 .iei-hero-reach .iei-story-reach-l {
   grid-area: l;
   font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.12em;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--iei-ink-3);
 }
@@ -6609,30 +6616,11 @@ ul.iei-tiles b {
 
 .iei-hero-reach .iei-story-reach-bar {
   grid-area: b;
+  height: var(--iei-1);
 }
 
-@media (max-width: 900px) {
-  .iei-hero {
-    grid-template-columns: minmax(0, 1fr);
-    gap: 0;
-  }
-}
-
-/* THE FIRST SCREEN IS A BUDGET, and the figures beside the sentence were spending it. The spec's goal is the sentence, the figures and the map on
-   the first screen; the three cards stacked cost 354px at a tablet's width and 353px at a phone's, and put the map a screen and a half down.
-   Below a laptop's width they sit in one row of three; on a phone they go back to stacked and cost less each. Both keep the same markup, the same
-   count-up and the same bar: only the room they take changes. */
-@media (max-width: 900px) {
-  .iei-hero-reach {
-    padding-top: var(--iei-2);
-  }
-
-  .iei-hero-reach .iei-story-reach {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-
-  /* In a card a third of the page wide, the label sits ABOVE its figure: beside it, "ASSEMBLY SEATS" was squeezed to about 50px by "294 of 4,123 seats"
-     and ran under it. */
+/* In a cell a third of a small laptop's width, the label sits ABOVE its figure: beside it, "STATES AND TERRITORIES WITH RESULTS" ran under "1 of 36". */
+@media (max-width: 1080px) {
   .iei-hero-reach .iei-story-reach li {
     grid-template-columns: minmax(0, 1fr);
     grid-template-areas:
@@ -6646,46 +6634,37 @@ ul.iei-tiles b {
   }
 }
 
+/* On a phone the three are rows of one list: label and figure side by side, a rule between them, and little of the first screen spent. */
 @media (max-width: 640px) {
-  .iei-hero-reach {
-    padding: var(--iei-2) 0 var(--iei-4);
+  .iei-hero .iei-head {
+    padding-top: var(--iei-4);
   }
 
   .iei-hero-reach .iei-story-reach {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* A phone's card is a full row again, so label and figure sit side by side as they do on a laptop. */
   .iei-hero-reach .iei-story-reach li {
     grid-template-columns: minmax(0, 1fr) auto;
     grid-template-areas:
       "l v"
       "b b";
+    padding: var(--iei-2) var(--iei-3);
+    gap: var(--iei-1) var(--iei-3);
+  }
+
+  .iei-hero-reach .iei-story-reach li + li {
+    border-left: 0;
+    border-top: 1px solid var(--iei-line);
   }
 
   .iei-hero-reach .iei-story-reach-v {
     text-align: right;
   }
 
-  /* The label over the three cards is dropped on a phone and its words kept: the list is named by them (`aria-label`), the cards say what each figure
-     is, and the sentence above has just said "1 of India's 36". It was 48px of the first screen. */
-  .iei-hero-reach .iei-eyebrow {
-    display: none;
-  }
-
-  .iei-hero-reach .iei-story-reach li {
-    padding: var(--iei-2) var(--iei-3);
-    gap: var(--iei-1) var(--iei-3);
-  }
-
   .iei-hero-reach .iei-story-reach-v b {
     font-size: var(--iei-f-title);
   }
-}
-
-/* The plain door under the sentence sits close to it: it is part of the sentence's answer, not a new paragraph of the page. */
-.iei-find {
-  margin-top: var(--iei-2);
 }
 
 /* THE CHOSEN STATE'S OPENING is a card like every chapter under it: the sentence, then the proof beside four doors. */
@@ -8012,38 +7991,44 @@ a.iei-live {
   font-variant-numeric: tabular-nums;
 }
 
-/* ── next up ── */
+/* ── next up ──
+   A SCHEDULE: one ruled row per election, with the date, the name, the term's meter and the context as columns. It was a grid of boxes inside the
+   section's own box, which is a card inside a card; a list of dated things is read down a column, and four cells in a row can be compared across rows. */
 
 .iei-next {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-  gap: var(--iei-3);
+  gap: 0;
   margin: 0;
   padding: 0;
   list-style: none;
 }
 
+.iei-next-i + .iei-next-i {
+  border-top: 1px solid var(--iei-line);
+}
+
 .iei-next-i a {
   display: grid;
-  gap: var(--iei-1);
-  height: 100%;
-  padding: var(--iei-3) var(--iei-4);
-  border: 1px solid var(--iei-line);
+  grid-template-columns: 11rem minmax(0, 1.1fr) minmax(8rem, 1fr) minmax(0, 1.3fr);
+  grid-template-areas:
+    "when name term after"
+    "when rule term after";
+  column-gap: var(--iei-6);
+  align-items: center;
+  padding: var(--iei-3) var(--iei-2);
   border-radius: var(--iei-r);
-  background: var(--iei-panel);
   color: inherit;
   text-decoration: none;
-  transition: border-color var(--iei-t-1), background var(--iei-t-1);
+  transition: background var(--iei-t-1);
 }
 
 .iei-next-i a:hover {
-  border-color: var(--iei-line-2);
   background: var(--iei-raised);
 }
 
 .iei-next-i a:focus-visible {
   outline: 2px solid var(--iei-ink);
-  outline-offset: 2px;
+  outline-offset: -2px;
 }
 
 .iei-next-when {
@@ -8092,6 +8077,50 @@ a.iei-live {
 
 .iei-next-more {
   margin-top: var(--iei-3);
+}
+
+.iei-next-when {
+  grid-area: when;
+}
+
+.iei-next-name {
+  grid-area: name;
+}
+
+.iei-next-i .iei-rule {
+  grid-area: rule;
+}
+
+.iei-next-term {
+  grid-area: term;
+}
+
+.iei-next-after {
+  grid-area: after;
+}
+
+@media (max-width: 900px) {
+  .iei-next-i a {
+    grid-template-columns: 8rem minmax(0, 1fr);
+    grid-template-areas:
+      "when name"
+      "when rule"
+      "term term"
+      "after after";
+    column-gap: var(--iei-4);
+  }
+}
+
+@media (max-width: 640px) {
+  .iei-next-i a {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "when"
+      "name"
+      "rule"
+      "term"
+      "after";
+  }
 }
 
 /* ── how we got here ── */
@@ -8527,18 +8556,6 @@ a.iei-live {
   .iei-tm-controls {
     flex-basis: 100%;
   }
-  /* The next-up cards are a swipeable row on a phone, snapping a card at a time with the next one's edge showing, so five cards cost one card's height. */
-  .iei-next {
-    grid-template-columns: none;
-    grid-auto-flow: column;
-    grid-auto-columns: 78%;
-    overflow-x: auto;
-    scroll-snap-type: x mandatory;
-    padding-bottom: var(--iei-2);
-  }
-  .iei-next-i {
-    scroll-snap-align: start;
-  }
   .iei-live-board {
     padding: var(--iei-4);
   }
@@ -8760,31 +8777,18 @@ a.iei-live {
 }
 
 /* ══════════════════════════ SIGNAL COLOUR ══════════════════════════
-   Six hues for the chrome (see the rule at the top). Everything here sets or reads ONE custom property, `--accent`, so a
-   section, the rail item and the eyebrow inside it agree, and so changing a hue is one token. Nothing here touches a data
-   mark: no seat, bar, ribbon, dot or swatch reads --accent. */
+   ONE HUE FOR THE CHROME, and it says where you are. The six-hue band is declared at the top of this file because a kind of page picks its hue from
+   it, but a page shows exactly one of them. It used to show six: a section took the next hue in order, the rail's six places were six colours, the bar
+   carried a hairline through all six, and a title faded into the page's hue, so a page of seven panels was a rainbow of equals and the eye had nothing to
+   rank by. Now the page's hue is the current rail place, the marker before a heading, the selected edge of a tab and a kind-of-page label, and every
+   other colour on a screen is data. Everything here sets or reads ONE custom property, `--accent`, which is always the page's hue. Nothing here touches
+   a data mark: no seat, bar, ribbon, dot or swatch reads it. */
 
 .iei {
-  --accent: var(--iei-a-indigo);
+  --accent: var(--page);
 }
 
-/* A section takes the next hue in the order, so a page of six panels is six colours and a map is never beside two of the same. */
-.iei-sec:nth-of-type(6n + 1) { --accent: var(--page, var(--iei-a-indigo)); }
-.iei-sec:nth-of-type(6n + 2) { --accent: var(--iei-a-cyan); }
-.iei-sec:nth-of-type(6n + 3) { --accent: var(--iei-a-amber); }
-.iei-sec:nth-of-type(6n + 4) { --accent: var(--iei-a-violet); }
-.iei-sec:nth-of-type(6n + 5) { --accent: var(--iei-a-rose); }
-.iei-sec:nth-of-type(6n + 6) { --accent: var(--iei-a-teal); }
-
-/* The section: a coloured top edge and a wash that fades by the time the figures start. */
-.iei-sec {
-  background:
-    linear-gradient(180deg, color-mix(in oklab, var(--accent) 10%, transparent), transparent 140px),
-    var(--iei-panel);
-  box-shadow: inset 0 2px 0 0 color-mix(in oklab, var(--accent) 70%, transparent);
-}
-
-/* The heading carries a marker in its hue, and its hairline takes the hue too. */
+/* The heading carries the one marker. */
 .iei-h h2::before {
   content: '';
   display: inline-block;
@@ -8796,76 +8800,26 @@ a.iei-live {
   vertical-align: 0.1em;
 }
 
-.iei-h {
-  border-bottom-color: color-mix(in oklab, var(--accent) 22%, var(--iei-line));
+/* THE RAIL: icons are label ink at rest and bright when pointed at; the current place is bright, with a bar in the page's hue, which is two signals. */
+.iei-rail a[aria-current='page'] {
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
-/* Labels over figures are the section's hue, softened toward the ink so a page of them is quiet. */
-.iei-sec .iei-eyebrow,
-.iei-metric dt,
-.iei-seat-k {
-  color: color-mix(in oklab, var(--accent) 62%, var(--iei-ink-2));
-}
-
-/* A stat card: a coloured foot, and the hue again when pointed at. */
-.iei-metric,
-.iei-seat-kpis > div {
-  box-shadow: inset 0 -2px 0 0 color-mix(in oklab, var(--accent) 38%, transparent);
-}
-
-/* THE RAIL: each of the six places has a hue. At rest the icon is its hue, dimmed; current and hovered it is full, and the bar is the hue. */
-.iei-rail a:nth-child(1) { --accent: var(--iei-a-indigo); }
-.iei-rail a:nth-child(2) { --accent: var(--iei-a-cyan); }
-.iei-rail a:nth-child(3) { --accent: var(--iei-a-amber); }
-.iei-rail a:nth-child(4) { --accent: var(--iei-a-violet); }
-.iei-rail a:nth-child(5) { --accent: var(--iei-a-rose); }
-.iei-rail a:nth-child(6) { --accent: var(--iei-a-teal); }
-
-.iei-rail a svg {
-  color: color-mix(in oklab, var(--accent) 65%, var(--iei-ink-3));
-}
-
-.iei-rail a:hover svg,
 .iei-rail a[aria-current='page'] svg {
   color: var(--accent);
 }
 
-.iei-rail a[aria-current='page'] {
-  box-shadow: inset 2px 0 0 var(--accent);
-  background: linear-gradient(90deg, color-mix(in oklab, var(--accent) 16%, transparent), transparent), var(--iei-raised);
-}
-
-/* The bar across the top: one hairline through all six, left to right. */
-.iei-top {
-  border-bottom-color: transparent;
-  background-image: linear-gradient(90deg, var(--iei-a-indigo), var(--iei-a-cyan), var(--iei-a-teal), var(--iei-a-amber), var(--iei-a-rose), var(--iei-a-violet));
-  background-size: 100% 1px;
-  background-position: 0 100%;
-  background-repeat: no-repeat;
-}
-
-/* The light along the top of the page: indigo from the middle (or a seat's party, when a seat sets --iei-glow), with a cool and a warm
-   wash at the sides so a page with no party in it is not a single grey-violet. */
+/* The light along the top of the page: the page's hue from the middle (or a seat's party, when a seat sets --iei-glow). One device, fixed, and dim
+   enough that the dimmest label under it still clears 4.5:1. */
 .iei {
   background:
-    radial-gradient(80% 32% at 50% 0, var(--iei-glow, color-mix(in oklab, var(--page) 22%, transparent)), transparent 72%) no-repeat,
-    radial-gradient(38% 26% at 0 6%, rgba(73, 210, 234, 0.07), transparent 70%) no-repeat,
-    radial-gradient(38% 26% at 100% 10%, rgba(247, 124, 176, 0.06), transparent 70%) no-repeat,
+    radial-gradient(80% 32% at 50% 0, var(--iei-glow, color-mix(in oklab, var(--page) 16%, transparent)), transparent 72%) no-repeat,
     var(--iei-bg);
 }
 
-/* The current tab and a hovered one take the section's hue at the edge; the text stays ink, so the tab is legible by its fill as before. */
-.iei-tab:hover {
-  border-color: color-mix(in oklab, var(--accent) 55%, var(--iei-line-2));
-}
-
-.iei-tab.iei-tab-on {
-  border-color: color-mix(in oklab, var(--accent) 70%, var(--iei-ink-3));
-}
-
 /* EACH KIND OF PAGE HAS A HUE (Shell sets data-here): the front page is indigo, a place cyan, an election violet, a person rose,
-   coverage teal, search amber. It colours the light along the top, the header's chip and the end of the title's gradient, so
-   you can tell which kind of page you are on from across the room. A seat's own light, a party's colour, still wins where it is set. */
+   coverage teal, search amber. It colours the light along the top, the marker before a heading and the page's label, so you can tell
+   which kind of page you are on. A seat's own light, a party's colour, still wins where it is set. */
 .iei { --page: var(--iei-a-indigo); }
 .iei[data-here='place'] { --page: var(--iei-a-cyan); }
 .iei[data-here='election'] { --page: var(--iei-a-violet); }
@@ -8876,24 +8830,259 @@ a.iei-live {
 
 .iei-head .iei-eyebrow {
   color: var(--page);
-  border-color: color-mix(in oklab, var(--page) 45%, var(--iei-line-2));
-  background: color-mix(in oklab, var(--page) 9%, transparent);
 }
 
-/* The page title fades from ink into the page's hue. The ink end carries the first words, so the contrast floor holds where the
-   reading starts, and the hue end is still 7:1 on the canvas. Forced colours get plain text back. */
-.iei-answer {
-  background: linear-gradient(100deg, var(--iei-ink) 40%, var(--page) 135%);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+/* ══════════════════════════ THE WORKBENCH ══════════════════════════
+   The front page's map panel is its work area, set as one card in three bands instead of a heading, a row of boxes and a card inside the card: a
+   toolbar (the question, the sources), the layer tabs as an underlined strip, and the map beside its inspector with a rule between them. The
+   selected tab and the selected state are the two places the page's hue appears. */
+
+.iei-bench {
+  padding: 0;
+}
+
+.iei-bench > .iei-h {
+  margin: 0;
+  padding: var(--iei-3) var(--iei-6);
+}
+
+.iei-bench > .iei-tabs {
+  gap: var(--iei-6);
+  margin: 0;
+  padding: 0 calc(var(--iei-6) - var(--iei-1));
+  border-bottom: 1px solid var(--iei-line);
+}
+
+/* THE TAB'S UNDERLINE IS DRAWN, NOT A BORDER: a border with the system's 8px corner curls up at its ends, and one with no corner breaks the
+   one-radius rule. The bar sits on the strip's own rule, so the selected tab reads as the strip's rule lit in the page's hue. */
+.iei-bench .iei-tab {
+  position: relative;
+  padding: var(--iei-3) var(--iei-1);
+  border: 0;
+  background: none;
+}
+
+.iei-bench .iei-tab::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+}
+
+.iei-bench .iei-tab:hover {
+  color: var(--iei-ink);
+  background: none;
+}
+
+.iei-bench .iei-tab:hover::after {
+  background: var(--iei-ink-3);
+}
+
+.iei-bench .iei-tab.iei-tab-on {
+  color: var(--iei-ink);
+  background: none;
+}
+
+.iei-bench .iei-tab.iei-tab-on::after {
+  background: var(--accent);
+}
+
+/* Focus is a 2px rule drawn inside the tab's own box, as everywhere else, so the strip does not move. */
+.iei-bench .iei-tab:focus-visible,
+.iei-bench .iei-tab.iei-tab-on:focus-visible {
+  color: var(--iei-ink);
+  box-shadow: none;
+}
+
+.iei-bench .iei-tab:focus-visible::after,
+.iei-bench .iei-tab.iei-tab-on:focus-visible::after {
+  background: var(--iei-ink);
+}
+
+/* Unavailable stays dashed: the strip says what is missing rather than offering a layer that would shade the country in a colour standing for nothing. */
+.iei-bench .iei-tab.iei-tab-off,
+.iei-bench .iei-tab.iei-tab-off:hover {
+  color: var(--iei-ink-3);
+}
+
+.iei-bench .iei-tab.iei-tab-off::after,
+.iei-bench .iei-tab.iei-tab-off:hover::after {
+  height: 0;
+  background: none;
+  border-bottom: 2px dashed var(--iei-line-2);
+}
+
+.iei-bench .iei-map-split {
+  gap: 0;
+  align-items: stretch;
+}
+
+.iei-bench .iei-map-col {
+  padding: var(--iei-6);
+}
+
+.iei-bench #map-list {
+  min-width: 0;
+  padding: var(--iei-6);
+  border-left: 1px solid var(--iei-line);
+}
+
+/* The names of the states not loaded are names, so they are set as names: sans, where the mono is for numbers and marks. */
+.iei-bench .iei-story-unloaded ul {
+  font-family: var(--iei-sans);
+}
+
+/* The state card is the inspector's first block, not a card inside the card. */
+.iei-bench .iei-story-card {
+  padding: 0;
+  border: 0;
+}
+
+.iei-story-card-h {
+  margin: 0 0 var(--iei-2);
+  font-size: var(--iei-f-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
   color: var(--iei-ink);
 }
 
-@media (forced-colors: active) {
-  .iei-answer {
-    background: none;
-    -webkit-text-fill-color: currentColor;
-    color: CanvasText;
+@media (max-width: 900px) {
+  .iei-bench #map-list {
+    border-left: 0;
+    border-top: 1px solid var(--iei-line);
   }
+
+  .iei-bench > .iei-h,
+  .iei-bench > .iei-tabs,
+  .iei-bench .iei-map-col,
+  .iei-bench #map-list {
+    padding-left: var(--iei-4);
+    padding-right: var(--iei-4);
+  }
+}
+
+/* THE TWO REFERENCE CARDS ARE EACH THEIR OWN HEIGHT. "Closest contests" is often a sentence saying there is nothing to rank, and stretched to the height of
+   "Recent results" beside it, it was a tall empty card. */
+#elections.iei-two {
+  align-items: start;
+}
+
+/* THE LIST OF STATES NOT LOADED wraps on a phone. It is open on the front page when most of the country is missing, and as one name per line it was a
+   screen and a half of scrolling between the table and everything after it. */
+@media (max-width: 640px) {
+  .iei-bench .iei-story-unloaded ul {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--iei-1) var(--iei-4);
+    columns: auto;
+  }
+}
+
+/* Forced colours replace every author background, so a bar drawn as one disappears: the selected tab and a focused one are drawn as borders in the system's ink. */
+@media (forced-colors: active) {
+  .iei-bench .iei-tab.iei-tab-on::after,
+  .iei-bench .iei-tab:focus-visible::after {
+    height: 0;
+    border-bottom: 2px solid CanvasText;
+  }
+
+  .iei-bench .iei-tab:focus-visible {
+    outline: 2px solid CanvasText;
+    outline-offset: -2px;
+  }
+}
+
+/* ══════════════════════════ RANK BELOW THE WORKBENCH ══════════════════════════
+   The map panel is the one card on the front page, because it is the work area. The sections under it are reference, and they are open sections:
+   a heading and its rule, then the content, with no box. Six cards of the same weight under the workbench said nothing about which of them
+   mattered, and a card holding a single sentence ("nothing to rank") held a slot as large as one holding a list. */
+.iei-sec.iei-sec-flat {
+  padding: 0;
+  margin: 0 0 var(--iei-8);
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+
+.iei-two > .iei-sec.iei-sec-flat {
+  margin: 0;
+}
+
+.iei-two:has(> .iei-sec-flat) {
+  margin-bottom: var(--iei-8);
+}
+
+/* THE INSPECTOR READS ANSWER FIRST: the state is named at the size of a title and its figures at body size, and what the registry does not hold sits
+   at the label ink, smaller, so a list of thirty-five names never outweighs the one state that has a result. */
+.iei-bench .iei-story-gname {
+  font-size: var(--iei-f-title);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.iei-bench .iei-story-gl {
+  font-size: var(--iei-f-body);
+}
+
+.iei-bench .iei-story-unloaded ul {
+  columns: 4 9rem;
+  font-size: var(--iei-f-meta);
+}
+
+.iei-bench .iei-story-unloaded a {
+  color: var(--iei-ink-3);
+}
+
+/* A STRIP THAT SCROLLS SAYS SO: the last tab on a phone fades at the edge, so a tab cut off at "VOTE" reads as more to come and not as the end. */
+@media (max-width: 640px) {
+  .iei-bench > .iei-tabs-row {
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--iei-4)), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - var(--iei-4)), transparent);
+  }
+}
+
+/* THE ANSWER IS THE LOUDEST THING IN THE INSPECTOR. The card's own heading ("Latest elections, state by state") steps down to a sub-heading, a chosen state's
+   name is set at the lead size, and when the registry holds a single state its name and figures are set one size up, because the list is then its card. */
+.iei-bench .iei-story-card-sub {
+  font-size: var(--iei-f-body);
+  font-weight: 600;
+  letter-spacing: 0;
+  color: var(--iei-ink-2);
+}
+
+.iei-bench .iei-story-card-name {
+  font-size: var(--iei-f-lead);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.iei-bench .iei-story-glance li:only-child .iei-story-gname {
+  font-size: var(--iei-f-lead);
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+}
+
+.iei-bench .iei-story-glance li:only-child .iei-story-gl {
+  font-size: var(--iei-f-title);
+}
+
+/* A caveat above a list of reference rows is a note, not a callout. */
+.iei-sec-flat .iei-caveat {
+  padding: 0;
+  border: 0;
+  background: none;
+  font-size: var(--iei-f-data);
+  color: var(--iei-ink-2);
+  max-width: 78ch;
+}
+
+.iei-tm-key {
+  margin-top: var(--iei-3);
+}
+
+/* With a single state in the list its name is at the lead size, and the name column is wide enough to keep "West Bengal" on one line. */
+.iei-bench .iei-story-glance li:only-child {
+  grid-template-columns: 11rem minmax(0, 1fr);
 }

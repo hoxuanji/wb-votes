@@ -59,6 +59,7 @@ export function Panel({
   sources,
   note,
   caveat,
+  className,
   children,
 }: {
   id?: string;
@@ -70,10 +71,12 @@ export function Panel({
   /** A caveat the reader needs before the numbers, not after them. Keep it to one sentence: the long
    *  methodology paragraphs that used to live here belong in the evidence drawer. */
   note?: React.ReactNode;
+  /** A modifier on the card: `iei-bench` is the front page's map panel, set as a toolbar, a tab strip and a map beside its inspector. */
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="iei-sec" id={id} aria-labelledby={id === undefined ? undefined : `${id}-h`}>
+    <section className={className === undefined ? 'iei-sec' : `iei-sec ${className}`} id={id} aria-labelledby={id === undefined ? undefined : `${id}-h`}>
       <div className="iei-h">
         <div className="iei-h-title">
           <h2 id={id === undefined ? undefined : `${id}-h`}>{title}</h2>

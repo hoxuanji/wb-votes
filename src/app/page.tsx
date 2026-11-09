@@ -187,6 +187,110 @@ export default function Home({
       </>
     ) : undefined;
 
+  const emptyClosest = v.fights.length === 0;
+  const reference = (
+    <>
+      <Panel
+        id={emptyClosest ? 'elections' : undefined}
+        className="iei-sec-flat"
+        title="Closest contests"
+        question="Which seats were decided by the fewest votes?"
+      >
+        {v.fights.length === 0 ? (
+          <p className="iei-absent">No jurisdiction&rsquo;s latest election has counted results to rank: where a result has declared margins and no vote counts, there is nothing to measure a close contest by.</p>
+        ) : (
+          <DataList label="The closest counted contests" tight>
+            {v.fights.map((f) => (
+              <DataRow
+                key={`${f.placeId}-${f.year}`}
+                title={
+                  <>
+                    {f.placeName}
+                    <span className="iei-rule">{f.year}</span>
+                  </>
+                }
+                href={f.href}
+                aside={
+                  <b>
+                    {f.marginVotes === null ? `${f.marginPct.toFixed(2)}% of the votes polled` : `${IN.format(f.marginVotes)} ${f.marginVotes === 1 ? 'vote' : 'votes'}`}
+                  </b>
+                }
+                detail={
+                  <>
+                    {f.winner}
+                    {f.runnerUp === null ? null : <> over {f.runnerUp}</>}
+                  </>
+                }
+              />
+            ))}
+          </DataList>
+        )}
+      </Panel>
+
+      <Panel className="iei-sec-flat" title="Recent results" question="What has been decided most recently?" sources={src.recent} caveat={coverageWords}>
+        <DataList label="Elections most recently held" tight>
+          {v.held.map((r) => {
+            const top = v.heldTop.get(r.id) ?? [];
+            // A Lok Sabha election the registry holds part of says how much of the house that is, so "BJP 12 of 42" is not read as a national count.
+            const scope = houseScope({ body: r.body, fill: r.fill, loaded: r.seatsContested, houseTotal: s.lokSabhaSeatsTotal });
+            return (
+              <DataRow
+                key={r.id}
+                /* Each row is a link to the election it names. A state's page opens on its newest election, so a row
+                   for 2021 linked there would land on 2026. A general election's jurisdiction is the nation, whose
+                   page is this one, so its row names the nation and links to the election alone. */
+                title={
+                  <>
+                    {r.jurisdictionName}
+                    <span className="iei-rule">
+                      {bodyWord(r.body)} {r.year}
+                      {r.fill === 'bypoll' ? ' by-election' : ''}
+                    </span>
+                  </>
+                }
+                href={electionHref(r.id)}
+                aside={
+                  <b>
+                    {/* A reading, never a bare number: West Bengal 2026's 93.0% is a seed defect, and
+                        this strip is the first turnout figure a first-time reader meets. */}
+                    {turnoutHeadline(r.turnout) ?? <span className="iei-absent">turnout not reported</span>}
+                  </b>
+                }
+                detail={
+                  top.length === 0 ? (
+                    <span className="iei-absent">no winner recorded</span>
+                  ) : (
+                    <>
+                      {top.map((p, i) => (
+                        <span key={p.key} className="iei-mark">
+                          {i === 0 ? null : <span className="iei-of">&nbsp;·&nbsp;</span>}
+                          <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
+                          {p.label} {p.seats}
+                        </span>
+                      ))}
+                      {' '}
+                      {scope === null ? (
+                        <span className="iei-of">of {r.seatsContested}</span>
+                      ) : (
+                        <>
+                          <span className="iei-of">&nbsp;·&nbsp;</span>
+                          <span className="iei-of">{scope}</span>
+                        </>
+                      )}{' '}
+                      {/* ONE QUIET MARKER, ONLY WHERE IT IS TRUE. This column used to be eight coverage
+                          chips — dataset status running down a page of election results. */}
+                      <Incomplete state={v.coverageOf.get(r.id) ?? 'unavailable'} />
+                    </>
+                  )
+                }
+              />
+            );
+          })}
+        </DataList>
+      </Panel>
+    </>
+  );
+
   return (
     <Shell here="india" live={liveOn} liveLabel={liveBoard === undefined ? null : `${liveBoard.election.jurisdictionName} · ${liveBoard.status}`}>
       {/* ── THE LIVE BOARD, FIRST WHEN THERE IS ONE. A running election changes this page in place: the count, the projections other people have
@@ -205,24 +309,20 @@ export default function Home({
           below the map. ── */}
       <div id="india">
         <div className="iei-hero" id="now">
+          {/* THE TITLE IS THE ANSWER. It was the topic ("The electoral landscape") over an eyebrow ("India") over the sentence that answers the page's
+              question; the sentence is the title now, and the wordmark and the rail already say which product and which place this is. */}
           <div className="iei-head">
-            <p className="iei-eyebrow">India</p>
-            <h1 className="iei-answer">The electoral landscape</h1>
-            <p className="iei-story-lead">{indiaSentence(rows, s.jurisdictionsTotal)}</p>
-            <p className="iei-sub">
-              <b>Nothing here is a prediction.</b>
-            </p>
+            <h1 className="iei-answer iei-answer-long">{indiaSentence(rows, s.jurisdictionsTotal)}</h1>
             {/* THE PLAIN DOOR for a reader who came for one seat and not for the country. The product's one search field is in the bar, in small mono, and
                 at a phone's width its hint is cut off; this says in a sentence what the field finds and takes the reader to it. It is a link to the
                 field (`#iei-q`) and not a second field: the bar's field is the only one, on purpose (Shell.tsx). What it names is what the field's own
                 hint names. */}
             <p className="iei-sub iei-find">
-              Looking for a seat or a person? <a href="#iei-q">Search by name</a>.
+              <b>Nothing here is a prediction.</b> Looking for a seat or a person? <a href="#iei-q">Search by name</a>.
             </p>
           </div>
-          {/* How much of the country the registry holds, said once with true denominators, beside the sentence it qualifies. */}
+          {/* How much of the country the registry holds, said once with true denominators, as one strip under the sentence it qualifies. */}
           <div className="iei-hero-reach">
-            <p className="iei-eyebrow">How much of India the registry holds</p>
             <HomeReach reach={reach} />
           </div>
         </div>
@@ -232,6 +332,7 @@ export default function Home({
       <div id="landscape" />
       <Panel
         id="map"
+        className="iei-bench"
         title={`India · ${v.layer.label}`}
         question={v.layer.question}
         /* The results behind the map, the state card and the table beside it, and the boundary file, in one drawer. The boundary used to be
@@ -405,8 +506,11 @@ export default function Home({
                 );
               })}
             </Table>
+            {/* OPEN WHEN MOST OF THE COUNTRY IS MISSING. An absence is information, and when the registry holds a minority of the states the list of what it
+                does not hold is the larger half of the answer: collapsed, the inspector under a one-row table was an empty pane. With most states loaded
+                the list is short or absent, and stays folded. */}
             {bare.length === 0 ? null : (
-              <details className="iei-twin iei-story-unloaded">
+              <details className="iei-twin iei-story-unloaded" open={bare.length > held.length}>
                 <summary>
                   {bare.length} states and territories {v.layer.unknown === v.layer.unloaded ? 'not loaded' : 'with no figure here'}
                 </summary>
@@ -426,7 +530,7 @@ export default function Home({
       {/* ── NEXT UP, under the map (the owner's order, docs/superpowers/specs/2026-11-03-situation-room-home-design.md: the sentence and the figures, the landscape, then what comes next): the elections that come next are a headline of this page, not a reference table. Soonest first, with how far
           through its term each one is. An announced date prints as itself; the Commission's schedule is not in the registry yet, so today every card is a
           five-year term counted from the last election, and says "Expected". ── */}
-      <Panel id="next" title="Next up" question="Which elections come next?">
+      <Panel id="next" className="iei-sec-flat" title="Next up" question="Which elections come next?">
         {coming.length === 0 ? (
           <p className="iei-absent">No jurisdiction has an assembly election on record to count a term from.</p>
         ) : (
@@ -447,6 +551,7 @@ export default function Home({
           and with script off; with script, the year moves them. A state with no election by the year is not coloured. ── */}
       <Panel
         id="history"
+        className="iei-sec-flat"
         title="How we got here"
         question="How has the map of who governs changed over the years?"
         note={
@@ -465,105 +570,14 @@ export default function Home({
       </Panel>
 
       {/* ── what is coming, and what has just been decided ── */}
-      <div className="iei-two iei-two-wide" id="elections">
-        <Panel title="Closest contests" question="Which seats were decided by the fewest votes?">
-          {v.fights.length === 0 ? (
-            <p className="iei-absent">No jurisdiction&rsquo;s latest election has counted results to rank: where a result has declared margins and no vote counts, there is nothing to measure a close contest by.</p>
-          ) : (
-            <DataList label="The closest counted contests" tight>
-              {v.fights.map((f) => (
-                <DataRow
-                  key={`${f.placeId}-${f.year}`}
-                  title={
-                    <>
-                      {f.placeName}
-                      <span className="iei-rule">{f.year}</span>
-                    </>
-                  }
-                  href={f.href}
-                  aside={
-                    <b>
-                      {f.marginVotes === null ? `${f.marginPct.toFixed(2)}% of the votes polled` : `${IN.format(f.marginVotes)} ${f.marginVotes === 1 ? 'vote' : 'votes'}`}
-                    </b>
-                  }
-                  detail={
-                    <>
-                      {f.winner}
-                      {f.runnerUp === null ? null : <> over {f.runnerUp}</>}
-                    </>
-                  }
-                />
-              ))}
-            </DataList>
-          )}
-        </Panel>
-
-        <Panel title="Recent results" question="What has been decided most recently?" sources={src.recent} caveat={coverageWords}>
-          <DataList label="Elections most recently held" tight>
-            {v.held.map((r) => {
-              const top = v.heldTop.get(r.id) ?? [];
-              // A Lok Sabha election the registry holds part of says how much of the house that is, so "BJP 12 of 42" is not read as a national count.
-              const scope = houseScope({ body: r.body, fill: r.fill, loaded: r.seatsContested, houseTotal: s.lokSabhaSeatsTotal });
-              return (
-                <DataRow
-                  key={r.id}
-                  /* Each row is a link to the election it names. A state's page opens on its newest election, so a row
-                     for 2021 linked there would land on 2026. A general election's jurisdiction is the nation, whose
-                     page is this one, so its row names the nation and links to the election alone. */
-                  title={
-                    <>
-                      {r.jurisdictionName}
-                      <span className="iei-rule">
-                        {bodyWord(r.body)} {r.year}
-                        {r.fill === 'bypoll' ? ' by-election' : ''}
-                      </span>
-                    </>
-                  }
-                  href={electionHref(r.id)}
-                  aside={
-                    <b>
-                      {/* A reading, never a bare number: West Bengal 2026's 93.0% is a seed defect, and
-                          this strip is the first turnout figure a first-time reader meets. */}
-                      {turnoutHeadline(r.turnout) ?? <span className="iei-absent">turnout not reported</span>}
-                    </b>
-                  }
-                  detail={
-                    top.length === 0 ? (
-                      <span className="iei-absent">no winner recorded</span>
-                    ) : (
-                      <>
-                        {top.map((p, i) => (
-                          <span key={p.key} className="iei-mark">
-                            {i === 0 ? null : <span className="iei-of">&nbsp;·&nbsp;</span>}
-                            <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
-                            {p.label} {p.seats}
-                          </span>
-                        ))}
-                        {' '}
-                        {scope === null ? (
-                          <span className="iei-of">of {r.seatsContested}</span>
-                        ) : (
-                          <>
-                            <span className="iei-of">&nbsp;·&nbsp;</span>
-                            <span className="iei-of">{scope}</span>
-                          </>
-                        )}{' '}
-                        {/* ONE QUIET MARKER, ONLY WHERE IT IS TRUE. This column used to be eight coverage
-                            chips — dataset status running down a page of election results. */}
-                        <Incomplete state={v.coverageOf.get(r.id) ?? 'unavailable'} />
-                      </>
-                    )
-                  }
-                />
-              );
-            })}
-          </DataList>
-        </Panel>
-      </div>
+      {/* TWO CARDS SIDE BY SIDE ONLY WHEN BOTH HAVE SOMETHING TO SAY. "Closest contests" is often one sentence saying there is nothing to rank, and a sentence does not
+          hold half a row: it is a heading and a line above the list it sits beside. */}
+      {emptyClosest ? reference : <div className="iei-two iei-two-wide" id="elections">{reference}</div>}
 
       {/* ── who holds power, and where ── */}
       <Panel
         id="parties"
+        className="iei-sec-flat"
         title="Party landscape"
         question="Where does each party actually hold power?"
         sources={src.parties}
