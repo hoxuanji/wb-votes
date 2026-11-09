@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-06T19:20:21.829Z",
+  "generatedAt": "2026-11-09T05:18:46.000Z",
   "title": "Design System: India Election Intelligence",
   "extensions": {
     "colorMeta": {
@@ -428,15 +428,15 @@
     "typographyMeta": {
       "display": {
         "displayName": "Display",
-        "purpose": "The page title, with a gradient from bright ink to the page’s hue. 22ch at most."
+        "purpose": "The page title, in bright ink. 22ch at most; a title that is a sentence is 0.72 of this, 30ch at most."
       },
       "lead": {
         "displayName": "Lead",
-        "purpose": "A stat’s words, a year heading on a person page, the big figure in a hero card."
+        "purpose": "A stat’s words, a year heading on a person page, a figure in the status strip, the inspector’s state name."
       },
       "title": {
         "displayName": "Title",
-        "purpose": "A section heading, in sentence case, with a hue dot before it."
+        "purpose": "A section heading, in sentence case, with a dot in the page’s hue before it; a state’s name in the inspector’s list; a name in the schedule."
       },
       "body": {
         "displayName": "Body",
@@ -452,29 +452,19 @@
       },
       "label": {
         "displayName": "Label",
-        "purpose": "A column header, a tab, an eyebrow, a rail item, a provenance marker. Never a sentence."
+        "purpose": "A column header, a tab, a rail item, a provenance marker. Never a sentence."
       }
     },
     "shadows": [
       {
         "name": "card",
         "value": "inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.32)",
-        "purpose": "A section card: a lit top edge and a soft ambient drop."
-      },
-      {
-        "name": "signal-edge",
-        "value": "inset 0 2px 0 0 color-mix(in oklab, var(--accent) 70%, transparent)",
-        "purpose": "The 2px top edge of a section, in its wayfinding hue."
-      },
-      {
-        "name": "stat-foot",
-        "value": "inset 0 -2px 0 0 color-mix(in oklab, var(--accent) 38%, transparent)",
-        "purpose": "The coloured foot of a stat card."
+        "purpose": "A section card or the workbench: a lit top edge and a soft ambient drop. An open section has none."
       },
       {
         "name": "page-glow",
-        "value": "radial-gradient(80% 32% at 50% 0, color-mix(in oklab, var(--page) 22%, transparent), transparent 72%)",
-        "purpose": "The light along the top of the page, in the page’s hue; a seat’s page uses the holding party’s ink."
+        "value": "radial-gradient(80% 32% at 50% 0, color-mix(in oklab, var(--page) 16%, transparent), transparent 72%)",
+        "purpose": "The light along the top of the page, one hue and dim; a seat’s page uses the holding party’s ink."
       },
       {
         "name": "top-bar-frost",
@@ -510,7 +500,7 @@
         "value": "640px"
       },
       {
-        "name": "rail-collapses",
+        "name": "rail-collapses-inspector-stacks",
         "value": "900px"
       },
       {
@@ -518,7 +508,7 @@
         "value": "1024px"
       },
       {
-        "name": "map-stacks",
+        "name": "map-stacks-strip-cells-stack",
         "value": "1080px"
       }
     ]
@@ -528,33 +518,57 @@
       "name": "Section Card",
       "kind": "card",
       "refersTo": "section-card",
-      "description": "The unit of every page: a card on a faintly lit page, with a 2px signal edge in the section’s hue.",
+      "description": "The unit of a page that has sections to hold: a neutral card on a faintly lit page, with a dot in the page’s hue before its heading.",
       "html": "<section class=\"ds-sec\"><div class=\"ds-sec-h\"><h2>Section heading</h2></div><p class=\"ds-sec-note\">A note is a sentence, so it is set in sans.</p></section>",
-      "css": ".ds-sec{--accent:var(--iei-a-cyan, #49d2ea);border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:linear-gradient(180deg,color-mix(in oklab,var(--accent) 10%,transparent),transparent 140px),var(--iei-panel, #0d0d13);box-shadow:inset 0 2px 0 0 color-mix(in oklab,var(--accent) 70%,transparent),0 8px 24px rgba(0,0,0,.32);padding:24px;color:var(--iei-ink, #f2f2f7);font-family:var(--iei-sans, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);max-width:360px}.ds-sec-h{margin:0 0 16px;padding-bottom:12px;border-bottom:1px solid color-mix(in oklab,var(--accent) 22%,var(--iei-line, #1e1e28))}.ds-sec-h h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.02em}.ds-sec-h h2::before{content:'';display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:var(--accent);vertical-align:.1em}.ds-sec-note{margin:0;font-size:13.5px;line-height:1.6;color:var(--iei-ink-2, #a3a3b3)}"
+      "css": ".ds-sec{--accent:var(--iei-a-indigo, #8b9bff);border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,0) 120px),var(--iei-panel, #0d0d13);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 8px 24px rgba(0,0,0,.32);padding:24px;color:var(--iei-ink, #f2f2f7);font-family:var(--iei-sans, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);max-width:360px}.ds-sec-h{margin:0 0 16px;padding-bottom:16px;border-bottom:1px solid var(--iei-line, #1e1e28)}.ds-sec-h h2{margin:0;font-size:18px;font-weight:700;letter-spacing:-.02em}.ds-sec-h h2::before{content:'';display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:var(--accent);vertical-align:.1em}.ds-sec-note{margin:0;font-size:13.5px;line-height:1.6;color:var(--iei-ink-2, #a3a3b3)}"
     },
     {
       "name": "Stat Card",
       "kind": "card",
       "refersTo": "stat-card",
-      "description": "The number is the card: tabular mono under a label in the section’s hue, with a coloured foot.",
+      "description": "The number is the card: tabular mono under a Label Ink label, on a raised surface with no coloured foot.",
       "html": "<dl class=\"ds-stat\"><dt>Sample figure</dt><dd>1,234</dd><small>a sample, not data</small></dl>",
-      "css": ".ds-stat{--accent:var(--iei-a-indigo, #8b9bff);margin:0;padding:16px;min-width:200px;border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0)),var(--iei-raised, #14141c);box-shadow:inset 0 -2px 0 0 color-mix(in oklab,var(--accent) 38%,transparent);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace)}.ds-stat dt{margin:0 0 8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:color-mix(in oklab,var(--accent) 62%,var(--iei-ink-2, #a3a3b3))}.ds-stat dd{margin:0;font-size:37px;font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--iei-ink, #f2f2f7)}.ds-stat small{display:block;margin-top:8px;font-size:12.5px;color:var(--iei-ink-3, #8b8ba2)}"
+      "css": ".ds-stat{margin:0;padding:16px;min-width:200px;border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:linear-gradient(180deg,rgba(255,255,255,.045),rgba(255,255,255,0)),var(--iei-raised, #14141c);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace)}.ds-stat dt{margin:0 0 8px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--iei-ink-3, #8b8ba2)}.ds-stat dd{margin:0;font-size:37px;font-weight:700;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--iei-ink, #f2f2f7)}.ds-stat small{display:block;margin-top:8px;font-size:12.5px;color:var(--iei-ink-3, #8b8ba2)}"
     },
     {
       "name": "Tab",
       "kind": "nav",
       "refersTo": "tab",
-      "description": "A plain link that chooses a view, so the choice is URL state. Hover takes 55% of the section’s hue at the edge.",
+      "description": "A pill tab on pages other than the front page’s workbench: a plain link that chooses a view, so the choice is URL state. Hover takes an Edge border.",
       "html": "<ul class=\"ds-tabs\"><li><a class=\"ds-tab\" href=\"#\">Winners</a></li><li><a class=\"ds-tab\" href=\"#\">Margin</a></li></ul>",
-      "css": ".ds-tabs{display:flex;gap:4px;margin:0;padding:0;list-style:none}.ds-tab{--accent:var(--iei-a-violet, #c583f3);display:inline-block;padding:8px 12px;border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:rgba(255,255,255,.03);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap;color:var(--iei-ink-3, #8b8ba2)}.ds-tab:hover{color:var(--iei-ink, #f2f2f7);border-color:color-mix(in oklab,var(--accent) 55%,var(--iei-line-2, #2a2a38))}.ds-tab:focus-visible{outline:none;color:var(--iei-ink, #f2f2f7);border-color:var(--iei-ink, #f2f2f7);box-shadow:inset 0 -2px 0 0 var(--iei-ink, #f2f2f7)}"
+      "css": ".ds-tabs{display:flex;gap:4px;margin:0;padding:0;list-style:none}.ds-tab{display:inline-block;padding:8px 12px;border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:rgba(255,255,255,.03);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap;color:var(--iei-ink-3, #8b8ba2)}.ds-tab:hover{color:var(--iei-ink, #f2f2f7);border-color:var(--iei-line-2, #2a2a38)}.ds-tab:focus-visible{outline:none;color:var(--iei-ink, #f2f2f7);border-color:var(--iei-ink, #f2f2f7);box-shadow:inset 0 -2px 0 0 var(--iei-ink, #f2f2f7)}"
     },
     {
       "name": "Tab, current",
       "kind": "nav",
       "refersTo": "tab-current",
-      "description": "The chosen view: a bright-ink fill with night text, so it reads by fill and not by hue.",
+      "description": "The chosen pill tab: a bright-ink fill with night text, so it reads by fill and not by hue.",
       "html": "<a class=\"ds-tab-on\" href=\"#\" aria-current=\"page\">Winners</a>",
-      "css": ".ds-tab-on{display:inline-block;padding:8px 12px;border:1px solid color-mix(in oklab,var(--iei-a-violet, #c583f3) 70%,var(--iei-ink-3, #8b8ba2));border-radius:var(--iei-r, 8px);background:var(--iei-ink, #f2f2f7);color:var(--iei-bg, #07070b);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}.ds-tab-on:focus-visible{outline:none;box-shadow:0 0 0 2px var(--iei-bg, #07070b),0 0 0 4px var(--iei-ink, #f2f2f7)}"
+      "css": ".ds-tab-on{display:inline-block;padding:8px 12px;border:1px solid var(--iei-ink, #f2f2f7);border-radius:var(--iei-r, 8px);background:var(--iei-ink, #f2f2f7);color:var(--iei-bg, #07070b);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap}.ds-tab-on:focus-visible{outline:none;box-shadow:inset 0 -2px 0 0 var(--iei-bg, #07070b)}"
+    },
+    {
+      "name": "Workbench Tab",
+      "kind": "nav",
+      "refersTo": "workbench-tab",
+      "description": "A layer tab in the front page’s workbench: no box, an underline drawn over the strip’s rule. The selected one is lit in the page’s hue; an unavailable one has a dashed bar.",
+      "html": "<ul class=\"ds-wtabs\"><li><a class=\"ds-wtab ds-wtab-on\" href=\"#\" aria-current=\"page\">Leaders</a></li><li><a class=\"ds-wtab\" href=\"#\">Margin</a></li><li><span class=\"ds-wtab ds-wtab-off\">Vote</span></li></ul>",
+      "css": ".ds-wtabs{--accent:var(--iei-a-indigo, #8b9bff);display:flex;gap:24px;margin:0;padding:0 20px;list-style:none;border-bottom:1px solid var(--iei-line, #1e1e28)}.ds-wtab{position:relative;display:inline-block;padding:12px 4px;font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.1em;text-transform:uppercase;text-decoration:none;white-space:nowrap;color:var(--iei-ink-3, #8b8ba2)}.ds-wtab::after{content:'';position:absolute;left:0;right:0;bottom:-1px;height:2px}.ds-wtab:hover{color:var(--iei-ink, #f2f2f7)}.ds-wtab:hover::after{background:var(--iei-ink-3, #8b8ba2)}.ds-wtab-on{color:var(--iei-ink, #f2f2f7)}.ds-wtab-on::after,.ds-wtab-on:hover::after{background:var(--accent)}.ds-wtab:focus-visible{outline:none;color:var(--iei-ink, #f2f2f7)}.ds-wtab:focus-visible::after{background:var(--iei-ink, #f2f2f7)}.ds-wtab-off::after{height:0;border-bottom:2px dashed var(--iei-line-2, #2a2a38)}"
+    },
+    {
+      "name": "Status Strip",
+      "kind": "card",
+      "refersTo": "status-strip",
+      "description": "One row of three measures with true denominators, replacing three stacked stat cards. A ruled list on a phone.",
+      "html": "<ul class=\"ds-strip\"><li><span class=\"ds-l\">States with results</span><span class=\"ds-v\"><b>1</b> of 36</span><i class=\"ds-bar\"></i></li><li><span class=\"ds-l\">Assembly seats</span><span class=\"ds-v\"><b>294</b> of 4,123</span><i class=\"ds-bar\"></i></li><li><span class=\"ds-l\">Lok Sabha seats</span><span class=\"ds-v\"><b>42</b> of 543</span><i class=\"ds-bar\"></i></li></ul>",
+      "css": ".ds-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:0;padding:0;list-style:none;border:1px solid var(--iei-line, #1e1e28);border-radius:var(--iei-r, 8px);background:var(--iei-panel, #0d0d13);color:var(--iei-ink, #f2f2f7)}.ds-strip li{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 12px;padding:12px 16px}.ds-strip li+li{border-left:1px solid var(--iei-line, #1e1e28)}.ds-l{font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--iei-ink-3, #8b8ba2)}.ds-v{text-align:right;font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:12.5px;font-variant-numeric:tabular-nums}.ds-v b{margin-right:4px;font-size:26px;font-weight:700;letter-spacing:-.04em}.ds-bar{grid-column:1/-1;display:block;height:4px;background:linear-gradient(90deg,var(--iei-ink-2, #a3a3b3) 3%,var(--iei-line, #1e1e28) 3%)}"
+    },
+    {
+      "name": "Schedule Row",
+      "kind": "custom",
+      "refersTo": "schedule-row",
+      "description": "Next up as a ruled schedule: date, name over its context, the term meter, and the context, one election per row.",
+      "html": "<ol class=\"ds-next\"><li><a href=\"#\"><span class=\"ds-when\">Expected 2027</span><b class=\"ds-name\">Sample state</b><span class=\"ds-term\"><span class=\"ds-fill\"></span></span><span class=\"ds-after\">term 80% through</span></a></li><li><a href=\"#\"><span class=\"ds-when\">Announced for 2028</span><b class=\"ds-name\">Sample territory</b><span class=\"ds-term\"><span class=\"ds-fill ds-over\"></span></span><span class=\"ds-after\">term past its end</span></a></li></ol>",
+      "css": ".ds-next{margin:0;padding:0;list-style:none;max-width:640px;font-family:var(--iei-sans, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif);color:var(--iei-ink, #f2f2f7)}.ds-next li+li{border-top:1px solid var(--iei-line, #1e1e28)}.ds-next a{display:grid;grid-template-columns:8rem minmax(0,1fr) 6rem minmax(0,1fr);column-gap:24px;align-items:center;padding:12px 8px;border-radius:var(--iei-r, 8px);color:inherit;text-decoration:none}.ds-next a:hover{background:var(--iei-raised, #14141c)}.ds-next a:focus-visible{outline:2px solid var(--iei-ink, #f2f2f7);outline-offset:-2px}.ds-when{font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--iei-ink-2, #a3a3b3)}.ds-name{font-size:18px;font-weight:650;line-height:1.2}.ds-term{display:block;height:6px;overflow:hidden;background:var(--iei-line, #1e1e28)}.ds-fill{display:block;height:100%;width:80%;background:var(--iei-ink-2, #a3a3b3)}.ds-fill.ds-over{width:100%;background:var(--iei-alert, #e8927c)}.ds-after{font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;color:var(--iei-ink-3, #8b8ba2)}"
     },
     {
       "name": "Command Bar",
@@ -563,14 +577,6 @@
       "description": "The product’s only search field, a joined control with a ⌘K hint that stays visible while focused.",
       "html": "<form class=\"ds-cmd\" role=\"search\" onsubmit=\"return false\"><input type=\"search\" placeholder=\"Search states, elections, people\" aria-label=\"Search\"><kbd>⌘K</kbd></form>",
       "css": ".ds-cmd{position:relative;display:flex;max-width:420px;border:1px solid var(--iei-line-2, #2a2a38);border-radius:var(--iei-r, 8px);background:rgba(255,255,255,.04)}.ds-cmd:focus-within{border-color:var(--iei-ink-3, #8b8ba2)}.ds-cmd input{width:100%;min-width:0;padding:8px 32px 8px 12px;border:0;background:transparent;color:var(--iei-ink, #f2f2f7);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:12.5px;text-overflow:ellipsis}.ds-cmd input::placeholder{color:var(--iei-ink-3, #8b8ba2)}.ds-cmd input:focus-visible{outline:none;box-shadow:inset 0 -2px 0 0 var(--iei-ink, #f2f2f7)}.ds-cmd kbd{position:absolute;right:8px;top:50%;transform:translateY(-50%);padding:0 4px;border:1px solid var(--iei-line-2, #2a2a38);border-radius:var(--iei-r, 8px);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.04em;color:var(--iei-ink-3, #8b8ba2);pointer-events:none}"
-    },
-    {
-      "name": "Eyebrow",
-      "kind": "chip",
-      "refersTo": "eyebrow",
-      "description": "A bordered chip in the page’s hue that names the kind of page.",
-      "html": "<span class=\"ds-eyebrow\">Election</span>",
-      "css": ".ds-eyebrow{--page:var(--iei-a-violet, #c583f3);display:inline-block;padding:4px 12px;border:1px solid color-mix(in oklab,var(--page) 45%,var(--iei-line-2, #2a2a38));border-radius:var(--iei-r, 8px);background:color-mix(in oklab,var(--page) 9%,transparent);color:var(--page);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;letter-spacing:.16em;text-transform:uppercase}"
     },
     {
       "name": "Provenance Marker",
@@ -584,9 +590,9 @@
       "name": "Rail Item",
       "kind": "nav",
       "refersTo": "rail-item",
-      "description": "One of six places: an icon over a word of 11px mono. The current place carries a bar and a lit wash, two signals so it is not colour alone.",
-      "html": "<nav class=\"ds-rail\" aria-label=\"Places\"><a href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg>Overview</a><a href=\"#\" class=\"ds-rail-b\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18\"/><path d=\"M12 3c3.2 3 3.2 15 0 18\"/><path d=\"M12 3c-3.2 3-3.2 15 0 18\"/></svg>Landscape</a></nav>",
-      "css": ".ds-rail{display:flex;flex-direction:column;gap:4px;width:72px;padding:12px 4px;border-right:1px solid var(--iei-line, #1e1e28);background:rgba(13,13,19,.5)}.ds-rail a{--accent:var(--iei-a-indigo, #8b9bff);display:grid;justify-items:center;gap:4px;padding:8px 0;border-radius:var(--iei-r, 8px);color:var(--iei-ink-3, #8b8ba2);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;text-decoration:none}.ds-rail a.ds-rail-b{--accent:var(--iei-a-cyan, #49d2ea)}.ds-rail svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round;color:color-mix(in oklab,var(--accent) 65%,var(--iei-ink-3, #8b8ba2))}.ds-rail a:hover{color:var(--iei-ink, #f2f2f7);background:var(--iei-raised, #14141c)}.ds-rail a:hover svg,.ds-rail a[aria-current=page] svg{color:var(--accent)}.ds-rail a[aria-current=page]{color:var(--iei-ink, #f2f2f7);box-shadow:inset 2px 0 0 var(--accent);background:linear-gradient(90deg,color-mix(in oklab,var(--accent) 16%,transparent),transparent),var(--iei-raised, #14141c)}.ds-rail a:focus-visible{outline:2px solid var(--iei-ink, #f2f2f7);outline-offset:-2px}"
+      "description": "One of six places: an icon over a word of 11px mono. The current place carries a 2px bar and its icon in the page’s hue on a raised surface, two signals so it is not colour alone.",
+      "html": "<nav class=\"ds-rail\" aria-label=\"Places\"><a href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"3\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"3\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"3\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/><rect x=\"14\" y=\"14\" width=\"7\" height=\"7\" rx=\"1\"/></svg>Overview</a><a href=\"#\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><circle cx=\"12\" cy=\"12\" r=\"9\"/><path d=\"M3 12h18\"/><path d=\"M12 3c3.2 3 3.2 15 0 18\"/><path d=\"M12 3c-3.2 3-3.2 15 0 18\"/></svg>Landscape</a></nav>",
+      "css": ".ds-rail{display:flex;flex-direction:column;gap:4px;width:72px;padding:12px 4px;border-right:1px solid var(--iei-line, #1e1e28);background:rgba(13,13,19,.5)}.ds-rail a{--accent:var(--iei-a-indigo, #8b9bff);display:grid;justify-items:center;gap:4px;padding:8px 0;border-radius:var(--iei-r, 8px);color:var(--iei-ink-3, #8b8ba2);font-family:var(--iei-mono, ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace);font-size:11px;line-height:1.2;letter-spacing:.04em;text-transform:uppercase;text-decoration:none}.ds-rail svg{width:24px;height:24px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.ds-rail a:hover{color:var(--iei-ink, #f2f2f7);background:var(--iei-raised, #14141c)}.ds-rail a[aria-current=page]{color:var(--iei-ink, #f2f2f7);background:var(--iei-raised, #14141c);box-shadow:inset 2px 0 0 var(--accent)}.ds-rail a[aria-current=page] svg{color:var(--accent)}.ds-rail a:focus-visible{outline:2px solid var(--iei-ink, #f2f2f7);outline-offset:-2px}"
     },
     {
       "name": "Data Table",
@@ -607,13 +613,13 @@
   ],
   "narrative": {
     "northStar": "The Situation Room",
-    "overview": "The product is a tool for looking at elections, and the interface behaves like the room that tool would live in: dark, quiet, built from a rail of six places, a command bar and a sticky strip across the top, with the data as the only thing that glows. Structure, shape and density do the work. The canvas is a blue-violet black, the chrome is a stack of near-black cards, and a party's own colour is the loudest thing a screen can contain because it is the thing the screen is about.\n\nThe voice is forensic, instrument-like and civic. Forensic, because every figure carries its source, how it was derived and what is missing, and the surface says so in words: an absence is a phrase, never a bare dash; a derived value is a marked word, never a plain number. Instrument-like, because it is operated: tabs choose a view and the view is URL state, numerals are tabular, labels are small uppercase mono. Civic, because it takes no side: party colours are the parties' own, never the product's, and nothing here recommends, ranks or editorialises.\n\nIt rules three looks out, each confirmed. Not a lab report or a school project: flat, all-monospace, hairlines between sections, which this stylesheet used to be and replaced with the card skin. Not TV-news election graphics: saturated party slabs, tickers and hue as decoration. Not a generic SaaS dashboard: glass cards and gradients with nothing behind them. Where the system uses a gradient, a blur or a glow, it is a fixed, bounded device with a stated job, and the data never sits on a decorative one.",
+    "overview": "The product is a tool for looking at elections, and the interface behaves like the room that tool would live in: dark, quiet, built from a rail of six places, a command bar and a sticky strip across the top, with the data as the only thing that glows. Structure, shape and density do the work. The canvas is a blue-violet black, the chrome is near-black surfaces held to one hue per page, and a party's own colour is the loudest thing a screen can contain because it is the thing the screen is about.\n\nThe voice is forensic, instrument-like and civic. Forensic, because every figure carries its source, how it was derived and what is missing, and the surface says so in words: an absence is a phrase, never a bare dash; a derived value is a marked word, never a plain number. Instrument-like, because it is operated: tabs choose a view and the view is URL state, numerals are tabular, labels are small uppercase mono. Civic, because it takes no side: party colours are the parties' own, never the product's, and nothing here recommends, ranks or editorialises.\n\nIt rules three looks out, each confirmed. Not a lab report or a school project: flat, all-monospace, hairlines between sections, which this stylesheet used to be and replaced with the card skin. Not TV-news election graphics: saturated party slabs, tickers and hue as decoration. Not a generic SaaS dashboard: glass cards and gradients with nothing behind them. Where the system uses a gradient, a blur or a glow, it is a fixed, bounded device with a stated job, and the data never sits on a decorative one.",
     "keyCharacteristics": [
       "Dark only. There is no light surface, and every contrast in the system is measured against the three night surfaces.",
-      "Sections are cards on a faintly lit page; the page's hue says what kind of page it is.",
+      "Surfaces are neutral near-black. A page shows one signal hue, its own, in a handful of small places; the front page's workbench is its one card, and the reference sections under it are open.",
       "One voice for prose (sans) and one for numbers, marks and metadata (mono, tabular).",
       "Seven spacing steps, seven type sizes, one radius, three inks.",
-      "Hue is spent on data first and wayfinding second, and never the other way round.",
+      "Hue is spent on data first and wayfinding second, and never the other way round. The chrome never shows two signal hues on one page.",
       "Status survives greyscale: a word with a rule under it, never colour alone.",
       "System fonts only; no webfont is loaded."
     ],
@@ -625,7 +631,7 @@
       },
       {
         "name": "The Wayfinding Edge Rule",
-        "body": "The six signal hues say where you are, never what a mark is. They appear only as a 1–2px edge, a small marker, a label or a faint wash, and never as the fill of a seat, a bar, a ribbon, a dot or a legend swatch, because every hue in the band sits within a few ΔE of some party's colour.",
+        "body": "A page shows one signal hue, its own (`--page`, read through `--accent`), and it says where you are, never what a mark is. It appears in five places: the current rail place (a 2px bar and its icon), the 8px marker before a heading, the 2px underline of the selected workbench tab, the kind-of-page label, and one dim glow along the top of the page (16%). It is never cycled by section, never tints a card's edge, wash or foot, never sets type in a gradient, and never fills a seat, a bar, a ribbon, a dot or a legend swatch, because every hue in the band sits within a few ΔE of some party's colour. The other five hues still exist: a kind of page picks one.",
         "section": "colors"
       },
       {
@@ -660,7 +666,7 @@
       },
       {
         "name": "The Bounded Glow Rule",
-        "body": "Every gradient and blur is a fixed device with a job: the page glow, the card's top highlight, the signal edge and the bar's frost. A data mark never sits on a decorative one, and alpha is chosen so the dimmest label still clears 4.5:1 under it.",
+        "body": "Every gradient and blur is a fixed device with a job: the page glow, the card's top highlight, the bar's frost, and the fade that tells a scrolling tab strip there is more. Type is never set in a gradient. A data mark never sits on a decorative one, and alpha is chosen so the dimmest label still clears 4.5:1 under it.",
         "section": "elevation"
       },
       {
@@ -670,7 +676,7 @@
       },
       {
         "name": "The Word Not Colour Rule",
-        "body": "Status is a word, a rule style or a shape, never a colour alone: a provenance marker, a party abbreviation beside a swatch, a current-place bar beside a hue.",
+        "body": "Status is a word, a rule style or a shape, never a colour alone: a provenance marker, a party abbreviation beside a swatch, a current-place bar beside a hue, a dashed bar under an unavailable tab.",
         "section": "components"
       },
       {
@@ -680,25 +686,27 @@
       }
     ],
     "dos": [
-      "Do spend hue on data first: a party's own ink, the margin ramp, a semantic ink for its meaning only.",
-      "Do keep the signal hues to a 1–2px edge, a small marker, a label or a faint wash.",
-      "Do pair every colour mark with a word, an abbreviation or a shape.",
-      "Do set numbers in tabular mono and right-align them with their headers; set sentences in sans.",
-      "Do use only the seven spacing steps and the seven type sizes, and one 8px radius.",
-      "Do say an absence in words (\"not loaded\", \"not reported\"), at a ink that clears 4.5:1.",
-      "Do run `iei.test.ts` after any change to a neutral hex or a party ink, and `party-ink.test.ts` after any change to the party colours.",
-      "Do keep every animation inside `prefers-reduced-motion: no-preference`."
+      "**Do** spend hue on data first: a party's own ink, the margin ramp, a semantic ink for its meaning only.",
+      "**Do** give a page one signal hue, its own, in the five places the Wayfinding Edge Rule lists, and no more.",
+      "**Do** pair every colour mark with a word, an abbreviation or a shape.",
+      "**Do** set numbers in tabular mono and right-align them with their headers; set sentences in sans.",
+      "**Do** use only the seven spacing steps and the seven type sizes, and one 8px radius.",
+      "**Do** say an absence in words (\"not loaded\", \"not reported\"), at a ink that clears 4.5:1.",
+      "**Do** run `iei.test.ts` after any change to a neutral hex or a party ink, and `party-ink.test.ts` after any change to the party colours.",
+      "**Do** keep every animation inside `prefers-reduced-motion: no-preference`.",
+      "**Do** draw a selected-state bar over a rule instead of a border on a corner-less control, so the one-radius rule holds."
     ],
     "donts": [
-      "Don't fill a seat, bar, ribbon, dot or legend swatch with a wayfinding hue.",
-      "Don't let a party's colour change with rank, count, page or neighbour.",
-      "Don't make it a lab report: all-monospace, hairlines between every section, grey 11px captions.",
-      "Don't make it TV-news graphics: saturated party slabs, tickers, hue as decoration.",
-      "Don't make it a generic SaaS dashboard: glass cards and gradients with nothing to say.",
-      "Don't add a fourth ink tier, a second radius, or a length off the seven-step scale.",
-      "Don't change a shadow on hover or focus, or draw a focus ring that grows the control's box.",
-      "Don't print an absence as a bare dash, or a derived figure as if it were announced.",
-      "Don't load a webfont, or loop an animation."
+      "**Don't** fill a seat, bar, ribbon, dot or legend swatch with a wayfinding hue.",
+      "**Don't** cycle the signal hues by section, tint a card's edge, wash or foot with one, or set a title in a gradient.",
+      "**Don't** let a party's colour change with rank, count, page or neighbour.",
+      "**Don't** make it a lab report: all-monospace, hairlines between every section, grey 11px captions.",
+      "**Don't** make it TV-news graphics: saturated party slabs, tickers, hue as decoration.",
+      "**Don't** make it a generic SaaS dashboard: glass cards and gradients with nothing to say.",
+      "**Don't** add a fourth ink tier, a second radius, or a length off the seven-step scale.",
+      "**Don't** change a shadow on hover or focus, or draw a focus ring that grows the control's box.",
+      "**Don't** print an absence as a bare dash, or a derived figure as if it were announced.",
+      "**Don't** load a webfont, or loop an animation."
     ]
   }
 }
