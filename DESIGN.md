@@ -1,81 +1,96 @@
 ---
 name: India Election Intelligence
-description: A canonical registry of Indian elections in which every figure carries its source, how it was derived, and what is missing, set as a dark instrument room.
+description: A canonical registry of Indian elections in which every figure carries its source, how it was derived, and what is missing, set as an adaptive, sans-only tool with one accent and two themes.
 colors:
-  night-desk: "#07070b"
-  night-panel: "#0d0d13"
-  night-raised: "#14141c"
-  hairline: "#1e1e28"
-  edge: "#2a2a38"
-  bright-ink: "#f2f2f7"
-  reading-ink: "#a3a3b3"
-  label-ink: "#8b8ba2"
-  unlit-void: "#1c203b"
-  signal-green: "#7fd4a8"
-  caution-amber: "#e0b458"
-  ember: "#e8927c"
-  wayfinding-indigo: "#8b9bff"
-  wayfinding-cyan: "#49d2ea"
-  wayfinding-amber: "#ebbd57"
-  wayfinding-violet: "#c583f3"
-  wayfinding-rose: "#f77cb0"
-  wayfinding-teal: "#61d7b2"
-  margin-ramp-1: "#7055b0"
-  margin-ramp-2: "#8669cd"
-  margin-ramp-3: "#9d80e7"
-  margin-ramp-4: "#b399fb"
-  margin-ramp-5: "#c7b6fe"
-  margin-ramp-6: "#dad0fe"
+  canvas-light: "#eef0f6"
+  panel-light: "#f8f9fc"
+  raised-light: "#ffffff"
+  line-light: "#dcdfea"
+  line-strong-light: "#c3c7d6"
+  ink-light: "#12131c"
+  ink-2-light: "#454859"
+  ink-3-light: "#585b70"
+  void-light: "#dfe3f2"
+  canvas-dark: "#07070b"
+  panel-dark: "#0d0d13"
+  raised-dark: "#14141c"
+  line-dark: "#1e1e28"
+  line-strong-dark: "#2a2a38"
+  ink-dark: "#f2f2f7"
+  ink-2-dark: "#a3a3b3"
+  ink-3-dark: "#8b8ba2"
+  void-dark: "#1c203b"
+  accent-light: "#4350d6"
+  on-accent-light: "#ffffff"
+  accent-dark: "#8b9bff"
+  on-accent-dark: "#07070b"
+  good-light: "#0b6b3f"
+  warn-light: "#7a4f00"
+  alert-light: "#a8341c"
+  good-dark: "#7fd4a8"
+  warn-dark: "#e0b458"
+  alert-dark: "#e8927c"
   series-vermilion: "#d05320"
   series-blue: "#6fa4fc"
   series-rose: "#e1a6a2"
-  series-fold: "#7b7490"
+  series-fold-dark: "#7b7490"
+  series-fold-light: "#828094"
 typography:
-  display:
+  answer:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-    fontSize: "52px"
-    fontWeight: 760
-    lineHeight: 1.08
-    letterSpacing: "-0.03em"
+    fontSize: "clamp(32px, 1.25rem + 3.2vw, 56px)"
+    fontWeight: 650
+    lineHeight: 1.15
+    letterSpacing: "-0.025em"
+    fontFeature: "tnum"
   lead:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-    fontSize: "26px"
+    fontSize: "clamp(22px, 1rem + 1vw, 30px)"
     fontWeight: 700
     lineHeight: 1.15
-    letterSpacing: "-0.02em"
+    letterSpacing: "-0.03em"
+    fontFeature: "tnum"
   title:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-    fontSize: "18px"
-    fontWeight: 700
+    fontSize: "clamp(18px, 1rem + 0.35vw, 22px)"
+    fontWeight: 600
     lineHeight: 1.5
-    letterSpacing: "-0.02em"
+    letterSpacing: "-0.01em"
   body:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-    fontSize: "15px"
+    fontSize: "clamp(15px, 0.9rem + 0.15vw, 16px)"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0em"
+    fontFeature: "tnum"
   data:
     fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
-    fontSize: "13.5px"
+    fontSize: "14px"
     fontWeight: 400
     lineHeight: 1.5
     letterSpacing: "0em"
-  meta:
-    fontFamily: "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "12.5px"
-    fontWeight: 400
-    lineHeight: 1.5
-    letterSpacing: "0.02em"
     fontFeature: "tnum"
+  meta:
+    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+    fontSize: "13px"
+    fontWeight: 600
+    lineHeight: 1.4
+    letterSpacing: "0em"
   label:
-    fontFamily: "ui-monospace, SFMono-Regular, SF Mono, Menlo, Consolas, monospace"
-    fontSize: "11px"
-    fontWeight: 500
+    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+    fontSize: "12px"
+    fontWeight: 600
     lineHeight: 1.2
-    letterSpacing: "0.1em"
+    letterSpacing: "0em"
+  inspector-value:
+    fontFamily: "ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif"
+    fontSize: "20px"
+    fontWeight: 600
+    lineHeight: 1.3
+    fontFeature: "tnum"
 rounded:
-  r: "8px"
+  card: "12px"
+  control: "8px"
   dot: "50%"
 spacing:
   step-1: "4px"
@@ -87,274 +102,232 @@ spacing:
   step-12: "48px"
 components:
   section-card:
-    backgroundColor: "{colors.night-panel}"
-    textColor: "{colors.bright-ink}"
-    rounded: "{rounded.r}"
+    backgroundColor: "{colors.panel-light}"
+    textColor: "{colors.ink-light}"
+    rounded: "{rounded.card}"
     padding: "24px"
-  stat-card:
-    backgroundColor: "{colors.night-raised}"
-    textColor: "{colors.bright-ink}"
-    rounded: "{rounded.r}"
-    padding: "16px"
-  tab:
-    backgroundColor: "rgba(255, 255, 255, 0.03)"
-    textColor: "{colors.label-ink}"
-    typography: "{typography.label}"
-    rounded: "{rounded.r}"
-    padding: "8px 12px"
-  tab-current:
-    backgroundColor: "{colors.bright-ink}"
-    textColor: "{colors.night-desk}"
-    typography: "{typography.label}"
-    rounded: "{rounded.r}"
-    padding: "8px 12px"
-  workbench-tab:
-    textColor: "{colors.label-ink}"
-    typography: "{typography.label}"
-    padding: "12px 4px"
-  workbench-tab-current:
-    textColor: "{colors.bright-ink}"
-    typography: "{typography.label}"
-    padding: "12px 4px"
-  status-strip:
-    backgroundColor: "{colors.night-panel}"
-    textColor: "{colors.bright-ink}"
-    rounded: "{rounded.r}"
-    padding: "12px 16px"
-  schedule-row:
-    textColor: "{colors.bright-ink}"
-    rounded: "{rounded.r}"
-    padding: "12px 8px"
-  command-bar:
-    backgroundColor: "rgba(255, 255, 255, 0.04)"
-    textColor: "{colors.bright-ink}"
+  segment:
+    textColor: "{colors.ink-2-light}"
     typography: "{typography.meta}"
-    rounded: "{rounded.r}"
-    padding: "8px 32px 8px 12px"
-  provenance-marker:
-    textColor: "{colors.label-ink}"
+    rounded: "{rounded.control}"
+    padding: "4px 12px"
+  segment-selected:
+    backgroundColor: "{colors.accent-light}"
+    textColor: "{colors.on-accent-light}"
+    typography: "{typography.meta}"
+    rounded: "{rounded.control}"
+    padding: "4px 12px"
+  button-primary:
+    backgroundColor: "{colors.accent-light}"
+    textColor: "{colors.on-accent-light}"
     typography: "{typography.label}"
-  provenance-marker-derived:
-    textColor: "{colors.caution-amber}"
-    typography: "{typography.label}"
+    rounded: "{rounded.control}"
+    padding: "8px"
   rail-item:
-    textColor: "{colors.label-ink}"
+    textColor: "{colors.ink-2-light}"
     typography: "{typography.label}"
-    rounded: "{rounded.r}"
-    padding: "8px 0"
+    rounded: "{rounded.control}"
+    padding: "8px 4px"
     width: "72px"
+  command-bar:
+    textColor: "{colors.ink-light}"
+    rounded: "{rounded.control}"
+    height: "32px"
+  provenance-marker:
+    textColor: "{colors.ink-3-light}"
+    typography: "{typography.label}"
 ---
 
 # Design System: India Election Intelligence
 
 ## Overview
 
-**Creative North Star: "The Situation Room"**
+**Creative North Star: "The Adaptive Workbench"**
 
-The product is a tool for looking at elections, and the interface behaves like the room that tool would live in: dark, quiet, built from a rail of six places, a command bar and a sticky strip across the top, with the data as the only thing that glows. Structure, shape and density do the work. The canvas is a blue-violet black, the chrome is near-black surfaces held to one hue per page, and a party's own colour is the loudest thing a screen can contain because it is the thing the screen is about.
+The product is a tool for looking at elections, and it now behaves like a modern tool rather than an instrument room: one sans voice, sentence-case labels, soft rounded cards, a single accent, two themes that follow the reader's system, and a shell that rearranges itself to the screen (a labelled sidebar on a wide laptop, an icon rail on a laptop, a bottom tab bar on a phone). The data is still the loudest thing on a screen, because a party's own colour is never the product's. This file replaces the earlier dark-only "Night Desk / Situation Room" world; its neutral hexes, contrast floors, party-colour rules and provenance rules carry over unchanged, and its mono labels, six-hue wayfinding and bounded glows do not.
 
-The voice is forensic, instrument-like and civic. Forensic, because every figure carries its source, how it was derived and what is missing, and the surface says so in words: an absence is a phrase, never a bare dash; a derived value is a marked word, never a plain number. Instrument-like, because it is operated: tabs choose a view and the view is URL state, numerals are tabular, labels are small uppercase mono. Civic, because it takes no side: party colours are the parties' own, never the product's, and nothing here recommends, ranks or editorialises.
-
-It rules three looks out, each confirmed. Not a lab report or a school project: flat, all-monospace, hairlines between sections, which this stylesheet used to be and replaced with the card skin. Not TV-news election graphics: saturated party slabs, tickers and hue as decoration. Not a generic SaaS dashboard: glass cards and gradients with nothing behind them. Where the system uses a gradient, a blur or a glow, it is a fixed, bounded device with a stated job, and the data never sits on a decorative one.
+The voice is forensic, calm and civic. Forensic, because every figure carries its source, how it was derived and what is missing, and the surface says so in words: an absence is a phrase, never a bare dash. Calm, because the chrome is neutral and rounded and moves only to carry state. Civic, because it takes no side: nothing here recommends, ranks or editorialises, and the one accent is used for wayfinding and affordance, never for a mark that means something about an election.
 
 **Key Characteristics:**
-- Dark only. There is no light surface, and every contrast in the system is measured against the three night surfaces.
-- Surfaces are neutral near-black. A page shows one signal hue, its own, in a handful of small places; the front page's workbench is its one card, and the reference sections under it are open.
-- One voice for prose (sans) and one for numbers, marks and metadata (mono, tabular).
-- Seven spacing steps, seven type sizes, one radius, three inks.
-- Hue is spent on data first and wayfinding second, and never the other way round. The chrome never shows two signal hues on one page.
-- Status survives greyscale: a word with a rule under it, never colour alone.
-- System fonts only; no webfont is loaded.
+- Two themes from one token block: `light-dark()` values, `color-scheme: light dark` (the system's choice) and an `<html data-theme>` override the reader sets with a System / Light / Dark toggle, applied by a script in the head before first paint.
+- One voice: the system sans for everything, numerals tabular. Monospace survives only for real code.
+- One accent (indigo, per theme). No page has its own hue.
+- Two radii (12px, 8px) and seven spacing steps.
+- Depth differs by theme: a soft two-layer shadow in light, a 1px low-alpha ring and a faint shadow in dark.
+- Adaptive by construction: fluid type and gutter, a three-form navigation, a status strip and workbench that reflow at 900, 1080 and 640px.
+- Motion carries state or does not exist, and sits entirely inside `prefers-reduced-motion: no-preference`.
 
 ## Colors
 
-A blue-violet black with three reading inks, a small set of meaning inks, a six-hue wayfinding palette of which a page uses exactly one, and the parties' own colours, which belong to the data.
+A cool-tinted canvas with three reading inks, one indigo accent, three meaning inks, and the parties' own colours, which belong to the data. Every token is declared once as `light-dark(LIGHT, DARK)`; the frontmatter lists both halves.
 
 ### Primary
-- **Night Desk** (#07070b): the canvas. The page, and the text colour on a filled tab. Also the browser's theme colour, and repeated inline in the root layout so the page doesn't flash white before the stylesheet arrives.
-- **Wayfinding Indigo** (#8b9bff): the front page's hue, and the default page hue wherever nothing else sets one.
-
-### Secondary
-- **Wayfinding Cyan** (#49d2ea): the hue of a place (state or district) page.
-- **Wayfinding Violet** (#c583f3): the hue of an election page and the review pages.
-- **Wayfinding Rose** (#f77cb0): the hue of a person page.
-- **Wayfinding Teal** (#61d7b2): the hue of the coverage page.
-- **Wayfinding Amber** (#ebbd57): the hue of search.
-
-### Tertiary
-- **Signal Green** (#7fd4a8): a figure that went up, or a good state. Meaning only.
-- **Caution Amber** (#e0b458): a derived value, a warning. It is the colour of "this number was computed, not announced".
-- **Ember** (#e8927c): a figure that went down, an alert, and the live indicator.
+- **Accent Indigo** (light #4350d6, dark #8b9bff; `--iei-a-indigo`, read through `--accent`): the current rail place, the selected segment, links, the focus outline, primary buttons, and the dot before a section heading. The same on every page. Never the fill or stroke of a data mark.
+- **On-Accent Ink** (light #ffffff, dark #07070b): text on a filled accent. 6.26:1 on #4350d6 and 7.88:1 on #8b9bff.
 
 ### Neutral
-- **Night Panel** (#0d0d13): a card (a section card, the workbench, the status strip), and the top bar at 78% over a blur.
-- **Night Raised** (#14141c): a stat card, the current rail place, a hovered rail item or schedule row, a seat that held.
-- **Hairline** (#1e1e28): the border of a card, the rule under a heading, and the rule between table rows, schedule rows and workbench bands.
-- **Edge** (#2a2a38): the border of a control, the rule under a table header, a scrollbar thumb.
-- **Bright Ink** (#f2f2f7): values, headings, a focus underline.
-- **Reading Ink** (#a3a3b3): prose notes, legend text, sub-lines.
-- **Label Ink** (#8b8ba2): every label, table header, caption and metadata line. Held at 4.5:1 or better on the lightest surface a label can sit on.
-- **Unlit Void** (#1c203b): the ink of a seat or district that has no data. Deliberately below the 3:1 mark floor, because an unlit polygon is the absence of a mark.
+- **Canvas** (light #eef0f6, dark #07070b): the page, the tinted ground cards sit on.
+- **Panel** (light #f8f9fc, dark #0d0d13): a card, the workbench, the evidence drawer, and the top bar and bottom bar at 84% and 92% over a blur.
+- **Raised** (light #ffffff, dark #14141c): the lifted surface inside a card.
+- **Line** (light #dcdfea, dark #1e1e28) and **Line Strong** (light #c3c7d6, dark #2a2a38): rules, the dashed edge of an unavailable segment, scrollbar thumb.
+- **Ink** (light #12131c, dark #f2f2f7): values and headings. **Ink 2** (light #454859, dark #a3a3b3): prose, sub-lines, notes. **Ink 3** (light #585b70, dark #8b8ba2): every label, table header, caption, placeholder and metadata line, the tier with the least headroom.
+- **Void** (light #dfe3f2, dark #1c203b): the ink of a seat or district with no data, deliberately below the 3:1 mark floor because an unlit polygon is the absence of a mark.
+- **Tint** (4.5% ink in light, 4% white in dark) and **Tint 2** (7.5% and 7%): the quiet fill of a segment track, a tile, a note, a hover; derived tokens, not new inks.
+- **Accent wash** (12% accent in oklab): the current rail pill. Rail text on its wash is 6.82:1 dark, 6.45:1 on the other dark surface, and 4.64:1 and 5.00:1 in light.
+
+### Tertiary (meaning only)
+- **Good** (light #0b6b3f, dark #7fd4a8): a figure that went up, a good state.
+- **Warn** (light #7a4f00, dark #e0b458): a derived value, a warning: "this number was computed, not announced".
+- **Alert** (light #a8341c, dark #e8927c): a figure that went down, an alert, the live indicator.
 
 ### Data inks
-- **Party ink.** A party has one colour, everywhere, and nothing about where it is drawn changes it: not rank, seat count, page or neighbour. About sixty are curated in OKLCH in `data/party-ink.json` (the hue is the association; lightness separates same-family parties); every other party gets a quieter, hashed colour, so "this party's colour is not recorded here" is itself visible. A party mark also carries its abbreviation, and the legend names every party it shows.
-- **Margin ramp** (#7055b0 to #dad0fe): a six-step violet ramp that means a size of margin, and is brightest at the knife edge, because a tight seat is the finding.
-- **Series inks** (#d05320, #6fa4fc, #e1a6a2, and the fold #7b7490): for chart series that are not parties. Only three hues are ever handed out; everything past them folds to the grey. Every line is also named at its end.
+- **Party ink.** A party has one colour, everywhere; rank, seat count, page and neighbour never change it. About sixty are curated in OKLCH in `data/party-ink.json`; every other party gets a quieter hashed colour, so "this party's colour is not recorded here" is itself visible. Each has a light and a dark half (the same hue and chroma, lightness moved): light fills clear 3:1 on all three light surfaces (the minimum measured is 3.06:1) and text on a fill clears 4.5:1 (minimum 4.52:1). A party mark also carries its abbreviation, and the legend names every party it shows.
+- **Series inks** (dark #d05320, #6fa4fc, #e1a6a2; light #cc6004, #385db8, #784756; the fold grey #7b7490 dark, #828094 light): for chart series that are not parties. Three are handed out, the rest fold to the grey, and every line is named at its end. `palette.ts` holds five more slots; the test gate, not this file, says which are in use.
+- **Diverging** (up/down/zero): the Good and Alert inks and the fold grey.
 
 ### Named Rules
-**The Data Hue Rule.** A hue on a data mark means what the data says, and nothing else. A party's colour is the party's, the ramp is a magnitude, the semantic inks are their meaning.
+**The Data Hue Rule.** A hue on a data mark means what the data says, and nothing else. A party's colour is the party's, a ramp is a magnitude, a semantic ink is its meaning. The accent is not on this list, and `iei.test.ts` refuses a rule that paints a seat, bar, ribbon, dot or swatch with it.
 
-**The Wayfinding Edge Rule.** A page shows one signal hue, its own (`--page`, read through `--accent`), and it says where you are, never what a mark is. It appears in five places: the current rail place (a 2px bar and its icon), the 8px marker before a heading, the 2px underline of the selected workbench tab, the kind-of-page label, and one dim glow along the top of the page (16%). It is never cycled by section, never tints a card's edge, wash or foot, never sets type in a gradient, and never fills a seat, a bar, a ribbon, a dot or a legend swatch, because every hue in the band sits within a few ΔE of some party's colour. The other five hues still exist: a kind of page picks one.
+**The One Accent Rule.** There is one accent hue per theme and it is the same on every page. It says where you are and what you can press, never what a mark is.
 
-**The Floor Rule.** Every ink clears 4.5:1 as text on all three night surfaces, and every mark clears 3:1. `iei.test.ts` locks the neutral hexes: do not change one without running it.
+**The Floor Rule.** Every ink clears 4.5:1 as text on all three surfaces, and every mark clears 3:1, in both themes. `iei.test.ts` parses both halves of the token block and holds the neutral hexes: do not change one without running it.
 
-**The Three-Ink Rule.** There are three reading inks and no fourth. A tier nothing may legitimately use is a tier to delete.
+**The Three-Ink Rule.** Three reading inks and no fourth. A tier nothing may legitimately use is a tier to delete.
 
 ## Typography
 
-**Display Font:** the system UI sans (`ui-sans-serif`, with `system-ui` and the platform stack as fallback)
-**Body Font:** the same sans
-**Label/Mono Font:** the system monospace (`ui-monospace`, with SF Mono, Menlo and Consolas as fallback)
+**Display, Body and Label Font:** the system UI sans (`ui-sans-serif`, then `system-ui` and the platform stack). No webfont is loaded.
+**Code Font:** the system monospace, used only for real code such as a command to run. `--iei-mono` is kept as a name and resolves to the sans.
 
-**Character:** Two voices that never swap jobs. The sans is for sentences and names; the mono is for numbers, marks and metadata, tabular and right-aligned. There is no webfont, by decision: a face fetched on every load to render text that doesn't exist is paying for something no reader receives.
+**Character:** One voice. Hierarchy comes from size, weight and tightening, not from changing face. Numerals are tabular wherever they appear (set once on the page wrapper), so columns line up without a second face.
 
 ### Hierarchy
-- **Display** (760, 52px, 1.08): the page title, in bright ink, with a -0.03em tightening. Capped at 22ch. A title that is a sentence drops to 0.72 of this (about 37px, 1.12, capped at 30ch), never below the lead size; the front page's title is such a sentence, with no label above it.
-- **Lead** (700, 26px, 1.15): a stat's words, a year heading on a person page, a figure in the status strip, and the name of the state the inspector shows.
-- **Title** (700, 18px, 1.5): a section heading, in sentence case, with a dot in the page's hue before it; a state's name in the inspector's list; a name in the schedule (650).
-- **Body** (400, 15px, 1.5): prose, at 64ch in a sub-line and 78ch in a note. A sub-line runs at 1.6.
-- **Data** (400, 13.5px, 1.5): a table cell, a note under a chart, a row header.
-- **Meta** (400, 12.5px, tabular mono): captions, the command bar's text, a number's unit.
-- **Label** (500, 11px, mono, 0.1em, uppercase): a column header, a tab, a rail item, a provenance marker. Never a sentence.
+- **Answer** (650, `clamp(32px, 1.25rem + 3.2vw, 56px)`, 1.15, -0.025em): the page's one large line, capped at 30ch and balanced.
+- **Lead** (700, `clamp(22px, 1rem + 1vw, 30px)`, 1.15, -0.03em): a figure, a lead sentence, the name of the state the inspector shows.
+- **Title** (600, `clamp(18px, 1rem + 0.35vw, 22px)`, -0.01em): a section heading, with an 8px accent dot before it; a state name in a list (700, -0.02em).
+- **Body** (400, `clamp(15px, 0.9rem + 0.15vw, 16px)`, 1.5): prose. The scope statement under a title is body in Ink 2 at 64ch and line-height 1.6.
+- **Data** (400, 14px): a table cell, a note, a caveat.
+- **Meta** (600 as a label, 13px): a segment, a caption, a note under a value.
+- **Label** (600, 12px, sentence case, no tracking): a column title, a rail word, a figure's name, an evidence summary.
+- **Inspector value** (600, 20px, 1.3): the figure in an inspector row; see Components.
 
 ### Named Rules
-**The Two Voices Rule.** Numbers, marks and metadata are monospace and tabular. Prose is sans. A note under a chart is a sentence and is set as one.
+**The One Voice Rule.** Sans for everything; tabular numerals for every figure. Never uppercase, never tracked, never monospace for a label, a figure or a tag.
 
-**The Four Tiers Rule.** A screen has a title, a metric, body and a label, and they are far enough apart in size that no two look alike. The scale runs 11 to 52px for a reason: when it ran 9.5 to 25, everything had the same visual weight.
+**The Fluid Three Rule.** Answer, lead and title are `clamp()` between a phone's size and a laptop's, so they settle at every width instead of jumping at a breakpoint. Body is fluid within one pixel; data, meta and label are fixed.
 
 ## Layout
 
-Content sits in a column of at most 1340px with a 16px gutter. From 901px up, a 72px rail of six places sits beside it, sticky under a 48px bar; at 900px and below the rail turns into a horizontal strip under the bar, and the bar wraps to two rows. Other breakpoints are 1080px, 1024px and 640px, where the gutter, the answer's size, the section padding and the tight cell are redeclared as tokens rather than overridden rule by rule.
+Content sits in a column of at most 1340px under a fluid gutter, `clamp(16px, 0.5rem + 2vw, 32px)`. The top bar is one row at every width (a 48px minimum: wordmark, the one command bar, then the theme button and the live indicator). Navigation takes three forms: a 72px icon rail beside the content from 641px; an 11.5rem labelled sidebar (icon beside word) from 1360px; and, at 640px and below, a fixed bottom tab bar with three 44px targets, safe-area aware, with the page padded so nothing hides under it. There are three places: Overview, People, Data.
 
-Spacing is seven steps and every length is one of them: 4, 8, 12, 16, 24, 32 and 48px. A 1px or 2px nudge beside a hairline is the only exception. A table row has 8px of vertical padding and 12px of horizontal; the 36-row jurisdiction lists use a 4px "tight" row, which exists so that every state in India fits one screen. Pages are stacks of sections 24px apart, with stat cards in an auto-fit grid of 200px minimum.
+Spacing is seven steps: 4, 8, 12, 16, 24, 32 and 48px, declared as tokens and used for every margin, padding and gap, with a 1px or 2px nudge beside a rule as the stated exception (the build also carries a few fixed sizes outside the scale: 6px bars, 44px touch targets, 20px for inspector values). Sections are stacked 24px apart; open sections are 32px apart. A table row is 8px by 12px; the 36-row jurisdiction lists use a 4px "tight" row so every state in India fits a screen.
 
-The front page is composed in one order: the title as the answer sentence, one quiet line, a status strip of three measures in a row, then the workbench, then open reference sections. The workbench is one card in three bands (a toolbar with the heading, the question and the sources drawer; the layer tabs; the map beside its inspector with a hairline between them). The map column and the inspector each take 24px of padding. Under 900px the inspector drops below the map behind a top rule; under 1080px each status-strip cell stacks its label over its figure; under 640px the strip becomes a ruled list and the map is still on the first screen. The reference sections under the workbench (next up, history, closest contests, recent results, party landscape) are open: a heading and its rule, no box, 32px apart.
-
-Heights that belong to a mark are pixels, not viewport units: the map is at most 620px tall, the margin distribution band is 128px, the seat flow is 260px, and the arc is at most 720px wide. A map's width may depend on its own shape; it may never depend on how tall the window is.
+The front page reads in one order: the answer as the title, one descriptor line, the status strip, the workbench, then open reference sections. The workbench is one card in three bands: a toolbar (heading, question, sources drawer), the segmented layer tabs, and the map beside its inspector with a rule between them. Under 900px the inspector drops below the map behind a top rule; at 640px the layer strip becomes one sideways-scrolling row. Heights that belong to a mark are pixels (map at most 620px, margin band 128px, seat flow 260px, arc 720px wide), never viewport units, so a map's width may depend on its shape and never on the window's height.
 
 ### Named Rules
-**The Seven Steps Rule.** Every length is a token. A rule that wants 18px is a rule that hasn't decided whether it means 16 or 24.
+**The Seven Steps Rule.** Every length is a token on the 4-8-12-16-24-32-48 scale. A rule that wants 18px has not decided whether it means 16 or 24. Where the build holds a value off the scale (above), it is carried drift, not a licence.
 
 ## Elevation & Depth
 
-Depth is layered and ambient. A card sits on a faintly lit page, and its depth says "this is a card", never "this was clicked"; an open section has none. States are carried by borders and ink, not lift. The top bar is the one frosted surface and lets the page scroll beneath it.
+Depth is by theme, composed into two tokens from colour pieces because `light-dark()` takes colours only. A card is a card because of its surface and its edge, never because of what happened to it.
 
 ### Shadow Vocabulary
-- **Card** (`box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 8px 24px rgba(0, 0, 0, 0.32)`): a section card or the workbench, over a 4% white gradient that fades out across its first 120px.
-- **Page glow** (`radial-gradient(80% 32% at 50% 0, page hue at 16%, transparent 72%)`): the light along the top of the page, one hue and nothing at the sides. A seat's page uses the holding party's ink instead.
-- **Top bar frost** (`background: rgba(13, 13, 19, 0.78); backdrop-filter: blur(12px)`): the only blur.
+- **Card, light** (`--iei-elev`: `0 0 0 1px transparent, 0 1px 2px rgba(24,30,72,0.07), 0 8px 24px -8px rgba(24,30,72,0.1)`): a soft two-layer shadow on the tinted canvas, no border.
+- **Card, dark** (the same token: `0 0 0 1px rgba(255,255,255,0.075), 0 1px 2px rgba(0,0,0,0.5), 0 8px 24px -8px rgba(0,0,0,0.3)`): a 1px low-alpha ring and a faint shadow.
+- **Floating** (`--iei-elev-up`, with the same pieces and a deeper second layer): the evidence drawer.
+- **Frost** (`rgba(248,249,252,0.84)` light, `rgba(13,13,19,0.84)` dark, with `blur(12px)` and a 1px foot): the top bar; the bottom tab bar is the same at 92%. On a phone both are opaque, so a line of content cannot show through the search field.
 
 ### Named Rules
-**The Ambient Rule.** Shadows say what a surface is, never what happened to it. Hover and focus change a border or an ink, and never a shadow.
+**The Theme Elevation Rule.** Light separates by shadow and no border; dark separates by a ring and a faint shadow. Never a border in light, never a shadow alone in dark.
 
-**The Bounded Glow Rule.** Every gradient and blur is a fixed device with a job: the page glow, the card's top highlight, the bar's frost, and the fade that tells a scrolling tab strip there is more. Type is never set in a gradient. A data mark never sits on a decorative one, and alpha is chosen so the dimmest label still clears 4.5:1 under it.
+**The Quiet State Rule.** Hover and press change a fill or an ink, and press moves a control down 1px. They do not change a shadow.
 
 ## Shapes
 
-One radius, 8px, on every card, control, input, chip and keyboard hint. A dot is a circle (50%): the 6px live indicator, the 8px section marker. A party swatch is 9px with the same 8px radius, so it reads as a dot beside its label. Borders are 1px in the two line inks; the one thick line is a 2px bar that carries a signal (the current rail place, the selected tab) or a focus.
-
-Inside a map, every stroke is a device measurement (`vector-effect: non-scaling-stroke`), because zoom is a viewBox change and a hairline in user units becomes 25px inside a framed district. Icons are one family: 24 units, stroke only, 1.5 wide, round caps and joins, in `currentColor`.
+Two radii. **12px** is a card, a panel, the workbench, the status strip and a segmented track. **8px** is a control, an input, a segment, a chip, a keyboard hint, a rail pill and the end of a bar. A dot is a circle (50%). Cards have no border (see Elevation); the one thick line is the 2px focus outline. Inside a map every stroke is a device measurement (`vector-effect: non-scaling-stroke`). Icons are one family: 24 units, stroke only, 1.5 wide, round caps and joins, in `currentColor`.
 
 ### Named Rules
-**The One Radius Rule.** The corner is 8px everywhere. A new shape that wants a different corner is a new decision, and is made once here.
+**The Two Radii Rule.** 12px holds things, 8px is pressed. A third corner is a new decision, made once here.
 
 ## Components
 
-Controls say exactly what they are and nothing more: small uppercase mono labels, 8px corners, borders in the line inks, and a filled state for the current one.
+Controls say what they are in plain sentence-case words, sit on soft 8px corners, and fill with the accent when chosen.
 
-### Section cards
-- **Corner Style:** 8px.
-- **Background:** Night Panel, with the top highlight gradient (see Elevation).
-- **Border:** 1px Hairline. No coloured edge, wash or foot.
-- **Internal Padding:** 24px, 16px at 640px and below.
-- **Heading:** the title, with an 8px dot in the page's hue, over a 1px Hairline rule.
+### Top bar and command bar
+- **Top bar:** sticky, frosted, one row. Wordmark in the title size at weight 800, with a 13px quiet tag in Ink 3; the theme toggle (System / Light / Dark) and, only while an election is being counted, the live indicator in Alert at the right.
+- **Command bar:** the product's only search field. A tinted field with no edge, 420px at most; hover deepens the tint, focus lifts it to the card colour and draws the accent outline round the whole joined group. A `<kbd>` hint goes away on a touch screen.
 
-### Open sections
-- **Style:** a heading and its rule, then the content, with no box, border, fill or shadow. Used for reference that should not outweigh the work area above it (on the front page: next up, history, closest contests, recent results, party landscape). 32px between sections.
-- **Caveat:** a note in Reading Ink at 13.5px and 78ch, not a callout. A section with nothing to rank is a heading and one line, not a card holding a sentence.
+### Rail and bottom tab bar
+- **Rail:** three places, each an icon (24px) over a 12px/600 word, Ink 2 at rest, Ink on a Tint 2 pill on hover. The **current place** is a pill in the accent wash with the accent as text and weight 700. From 1360px the pill is the width of an 11.5rem column with the icon beside the word.
+- **Bottom bar (640px and below):** the same three links as 44px targets, fixed, opaque, with a 1px top foot and safe-area padding.
+- **Persistence:** the top bar and the rail carry a `view-transition-name`, so they stay put while the page cross-fades.
+
+### Segmented tabs
+- **Track:** a Tint-filled 12px pill holding 8px segments (13px, 600, Ink 2, 4px by 12px). Standing alone, a segment carries its own tint.
+- **Selected:** filled with the accent, text in On-Accent Ink. **Hover:** Ink on Tint 2. **Press:** 1px down. **Focus:** 2px accent outline with a 2px offset.
+- **Unavailable:** Ink 3 over a dashed edge in Line Strong with a not-allowed cursor, and a screen-reader word. The strip says what is missing rather than offering a layer that would shade a country in a colour standing for nothing.
+
+### Section cards and open sections
+- **Card:** Panel, 12px, `--iei-elev`, 24px padding (16px on a phone), no border. A figure inside a card is a Tint tile, never a nested card.
+- **Heading:** the title with an 8px accent dot before it. Inside a card it has no rule; in an open section it sits over a 1px Line rule.
+- **Open section:** a heading and its rule, then content, with no box, fill or shadow, 32px apart. Used for reference that should not outweigh the work area above it. Its caveat is a note in Ink 2, not a callout.
 
 ### Workbench (signature)
-- **Shape:** the front page's map panel, and its one card: Night Panel, 8px, 1px Hairline, no padding of its own, set in bands. A toolbar (heading, question, sources drawer) at 12px and 24px; the layer tabs on a 1px rule; the map at 24px beside an inspector at 24px with a Hairline between them.
-- **Inspector:** reads answer first. A state the registry holds one of, or the reader has chosen, is named at the lead size (26px, -0.03em); the card's own heading steps down to a 15px, 600, Reading Ink sub-heading; states in the list are named at the title size (18px, 700) with their figures at body size. The states not loaded come last, in Label Ink at the meta size, set in sans as names, in four columns (open when most of the country is missing, wrapping inline on a phone).
-- **Phone:** the map is on the first screen; the inspector stacks under it behind a top rule.
+- **Shape:** the front page's one card, Panel, 12px, no padding of its own, in three bands: toolbar at 12px by 24px, layer tabs at 24px margins, map and inspector at 24px each with a Line rule between them.
+- **Inspector:** reads answer first. Rows are a Ink 3 label (13px) over a value (20px, 600, tabular), with a change note (13px, Ink 2) beneath. A state the registry holds one of, or the reader has chosen, is named at the lead size; states not loaded come last, in Ink 3 as names, in columns. A closing note sits behind a quiet top rule.
+- **Phone:** the map is on the first screen; the inspector stacks under it.
 
-### Status strip
-- **Style:** one row of three measures in a Night Panel strip with a 1px Hairline border and 8px corner, cells divided by Hairline rules. Each cell: a Label Ink label, the figure at the lead size (700, -0.04em), its denominator at meta size, and a 4px bar. It replaced three stacked stat cards.
-- **Narrow:** at 1080px and below the label sits above the figure; at 640px the three are a ruled list, label and figure side by side.
+### Scope statement and status strip
+- **Descriptor line:** one line of body in Ink 2, 64ch, directly under the title, saying what the page covers. It replaces the kicker or eyebrow label that used to sit above the title. The title is the answer sentence.
+- **Status strip:** a card of measures in a row, each a label, a figure at the lead size, and its denominator; at 1080px and below the label stacks over the figure; at 640px it becomes a ruled list.
 
-### Stat cards
-- **Style:** Night Raised with a 4.5% white top gradient and a 1px Hairline border. The number is the card: tabular mono, about 37px, weight 700, tightened to -0.04em, under a Label Ink label. No coloured foot.
-- **Padding:** 16px.
+### Schedule, tables and lists
+- **Schedule (Next up):** a ruled list, one row per election, read down columns: date, name over its context, a term meter, context. Rows divided by a Line rule, a Tint 2 row on hover; at 900px and below the meter and context take their own lines.
+- **Tables:** one treatment. Headers are 12px/600 sentence case in Ink 3 over a Line Strong rule; numbers are right-aligned and tabular, with the header aligned over them; a row header is a sans label; a row lights on hover. A denominator has its own left-aligned column.
 
-### Tabs
-- **Underline strip (the workbench):** a plain link, so the view is URL state. Mono, 11px, uppercase, 0.1em, Label Ink, no box and no corner, 24px apart, 12px by 4px of padding, on a 1px Hairline strip rule. The underline is a 2px bar drawn over that rule (not a border, which would curl at the 8px corner). Hover lights the bar in Label Ink. The selected tab is Bright Ink with the bar in the page's hue. Focus draws the bar in Bright Ink. Unavailable is Label Ink over a dashed 2px bar in Edge: the strip says what is missing rather than offering a layer that would shade the country in a colour standing for nothing. Under forced colours the bars are borders in the system's ink. On a phone the strip scrolls and fades out over its last 16px at the right edge, so a cut-off tab reads as more to come.
-- **Pill tabs (everywhere else):** mono, 11px, uppercase, 0.1em, Label Ink on a 3% white fill, 1px Hairline border, 8px corner. Hover takes Bright Ink and an Edge border. Current is a Bright Ink fill with Night Desk text, weight 700, and a Bright Ink border. Unavailable is a dashed border with the not-allowed cursor.
+### Buttons and links
+- **Primary:** accent fill, On-Accent Ink, 8px corner, 600; hover mixes 14% of Ink into the accent; press 1px down. Used for submit actions (filters, the find control).
+- **Links:** prose links are the accent with an underline; focus is the shared 2px accent outline with a 2px offset. Under forced colours the system outline takes over (CanvasText).
 
-### Command bar
-- **Style:** the product's only search field: a joined control on a 4% white fill, a 1px Edge border, 8px corner, 420px at most. Placeholder in Label Ink, and a `<kbd>` hint that stays visible while focused and goes away on a touch screen.
-- **Focus:** the whole group's border moves to Label Ink, and the field gets a 2px Bright Ink underline inset, never a ring.
-
-### Navigation
-- **Top bar:** 48px minimum, sticky, frosted, with a Hairline under it. The wordmark is an 18px bold sans over a quiet mono tag; the live indicator, in Ember, appears at the right only while an election is being counted.
-- **Rail:** six places, each an icon over a word of 11px mono, in Label Ink at rest. Hovered, it goes to Bright Ink on Night Raised. The current place is Bright Ink on Night Raised with a 2px bar and its icon in the page's hue, which is two signals, so it isn't colour alone.
-
-### Schedule (Next up)
-- **Style:** a ruled list, one row per election, read down a column: date (mono 11px uppercase, Reading Ink), name (18px, 650) over its context line, the term meter (a 6px bar in Reading Ink on Hairline, Ember once the term has run past its end, also said in words) and the context (mono 11px, Label Ink). Four columns at 11rem, 1.1fr, 8rem+ and 1.3fr with a 24px gap; rows divided by a Hairline, 12px by 8px of padding, and a Night Raised row on hover. At 900px and below the meter and context take their own lines; at 640px each row is one column.
-
-### Tables
-- **One treatment.** Headers are 11px mono, uppercase, in Label Ink over an Edge rule; numbers are right-aligned, tabular and mono, with the header aligned over them; a row header is a sans label, not a heading; a row lights at 3.5% white on hover. A denominator has its own left-aligned column so the figures line up.
+### Evidence drawer
+A `details` disclosure: a 12px Ink 3 summary over a 2px Line Strong rule. Opened, in the workbench toolbar it is **floating**: absolutely positioned under the toolbar, Panel with the floating elevation, at most 70vh and 72ch, inside the window by its gutters. Elsewhere it opens inline on a Tint fill. Escape closes an open drawer and returns the keyboard to its summary.
 
 ### Provenance marker (signature)
-A word with a rule under it. It says what kind of number a figure is, and it has to survive greyscale, forced colours and a screen reader. *Measured* is reading ink over a solid rule; *derived* is Caution Amber over an amber rule, because a computed term expiry printed like an announced date is the fabrication this product refuses; *reference* is a dashed rule; *absent* is a dotted one. An absence is words, never a dash, because a dash beside numbers reads as zero.
+A word with a rule under it that says what kind of number a figure is, and survives greyscale, forced colours and a screen reader. *Measured* is Ink 2 over a solid rule; *derived* is Warn over a Warn rule, because a computed term expiry printed like an announced date is the fabrication this product refuses; *reference* is a dashed rule; *absent* is a dotted one. An absence is words, never a dash.
 
 ### Maps and marks (signature)
-A seat is a polygon or a square, and the two read from one source so a colour means one thing in both. Party ink fills it; a seat with no data is Unlit Void; the hover card is one line and differs by mode, because the mode is the question being asked. A party swatch always sits beside its label, and the pair never breaks across lines. A state with no result is named in Reading Ink where it fits: its name in a compact polygon, its two-letter code where only that fits, and nothing where neither does, because the tile row and the table name every state and a smaller font only moves the illegibility. On a phone the map's text is not drawn, as it would be about 6px. The History ribbon carries a one-line note saying what its empty space is: a column is every state and territory, the coloured part those with an election on record by that year, and the rest have none loaded.
-
-### Links and focus
-Prose links are Reading Ink with a 1px Edge underline, going to Bright Ink on hover and a 2px Bright Ink underline on focus. Everything that takes focus shows a 2px Bright Ink rule drawn on or inside the control itself, so its box doesn't grow. Under forced colours the browser's system outline takes over.
+A seat is a polygon or a square, and both read from one source so a colour means one thing in both. Party ink fills it; a seat with no data is Void. A party swatch always sits beside its label and never breaks across lines. A state with no result is named in Ink 2 where it fits, by two-letter code where only that fits, and not at all where neither does. On a phone the map's text is not drawn. The seat page's light along the top is the holding party's own ink, at 45% in light and full strength in dark, and exists on seat pages only.
 
 ### Motion
-Motion carries information or it doesn't exist: a bar grows from its baseline to say this is a quantity, and a wedge arrives to say these seats are one party's. It runs once on load and never loops. There are three durations (160, 360 and 640ms) and one curve, and 700ms is the ceiling. Every animation sits inside `prefers-reduced-motion: no-preference`, and a keyframe names only its starting state, so a page at rest is exactly the page the screenshots judge.
+Motion carries state or does not exist. One easing (`cubic-bezier(0.2, 0.7, 0.2, 1)`) and three duration tokens (160ms for state, 360ms for entrances, 640ms available). Between pages, a cross-document view transition cross-fades the content in 160ms while the top bar and rail persist. On load the first five sections of a page rise 8px and fade in, once, 60ms apart. Data marks that are a quantity or a place (a bar from its baseline, a wedge, an outline round a seat) arrive with the same duration and curve and no delay; a keyframe names only its starting state, so a page at rest is exactly the page the screenshots judge. Nothing loops. Every animation, the view transition included, sits inside `prefers-reduced-motion: no-preference` (`motion.test.ts` holds this, the single entrance pattern and the tokens).
 
 ### Named Rules
-**The Word Not Colour Rule.** Status is a word, a rule style or a shape, never a colour alone: a provenance marker, a party abbreviation beside a swatch, a current-place bar beside a hue, a dashed bar under an unavailable tab.
+**The Word Not Colour Rule.** Status is a word, a rule style or a shape, never a colour alone: a provenance marker, a party abbreviation beside a swatch, the current rail place (a pill, a weight and an accent), a dashed edge on an unavailable segment.
 
-**The Once Rule.** An animation runs once and never loops, and it lasts at most 700ms. It exists only where the motion is the information.
+**The Once Rule.** An animation runs once and never loops. It exists only where the motion is the information or the state change.
 
 ## Do's and Don'ts
 
 ### Do:
-- **Do** spend hue on data first: a party's own ink, the margin ramp, a semantic ink for its meaning only.
-- **Do** give a page one signal hue, its own, in the five places the Wayfinding Edge Rule lists, and no more.
+- **Do** spend hue on data first: a party's own ink, a semantic ink for its meaning only, series inks for non-party lines.
+- **Do** use the one accent for the current place, the selected segment, links, focus, primary buttons and the section dot, and nothing else.
 - **Do** pair every colour mark with a word, an abbreviation or a shape.
-- **Do** set numbers in tabular mono and right-align them with their headers; set sentences in sans.
-- **Do** use only the seven spacing steps and the seven type sizes, and one 8px radius.
-- **Do** say an absence in words ("not loaded", "not reported"), at a ink that clears 4.5:1.
-- **Do** run `iei.test.ts` after any change to a neutral hex or a party ink, and `party-ink.test.ts` after any change to the party colours.
+- **Do** write labels in sentence case at 12-13px, weight 600, and set every figure in tabular numerals.
+- **Do** declare a new colour once as `light-dark(LIGHT, DARK)` and run `iei.test.ts`, `party-ink.test.ts` and `palette.test.ts` after any change to a neutral, an accent or a party ink.
+- **Do** say an absence in words ("not loaded", "not reported") at an ink that clears 4.5:1.
 - **Do** keep every animation inside `prefers-reduced-motion: no-preference`.
-- **Do** draw a selected-state bar over a rule instead of a border on a corner-less control, so the one-radius rule holds.
+- **Do** put a page's scope in the one-line descriptor under its title.
 
 ### Don't:
-- **Don't** fill a seat, bar, ribbon, dot or legend swatch with a wayfinding hue.
-- **Don't** cycle the signal hues by section, tint a card's edge, wash or foot with one, or set a title in a gradient.
+- **Don't** fill or stroke a seat, bar, ribbon, dot or legend swatch with the accent.
+- **Don't** give a page its own hue, or cycle hues by section.
 - **Don't** let a party's colour change with rank, count, page or neighbour.
-- **Don't** make it a lab report: all-monospace, hairlines between every section, grey 11px captions.
-- **Don't** make it TV-news graphics: saturated party slabs, tickers, hue as decoration.
-- **Don't** make it a generic SaaS dashboard: glass cards and gradients with nothing to say.
-- **Don't** add a fourth ink tier, a second radius, or a length off the seven-step scale.
-- **Don't** change a shadow on hover or focus, or draw a focus ring that grows the control's box.
+- **Don't** set a label, figure or tag in uppercase, tracked or monospace type.
+- **Don't** add a kicker or eyebrow above a title; the descriptor goes below it.
+- **Don't** add a third radius, a fourth ink tier, or a border to a card in the light theme.
+- **Don't** change a shadow on hover or press, or draw a focus ring that is not the 2px accent outline.
 - **Don't** print an absence as a bare dash, or a derived figure as if it were announced.
 - **Don't** load a webfont, or loop an animation.
 
-### Open decision (not a rule)
-The kind-of-page label (`.iei-eyebrow`) is still set on pages other than the front page, as plain uppercase mono text, in the page's hue under a page head, with no chip, border or fill. The craft floor refuses kickers, and an earlier version of this file named it a component. The owner has not decided whether it stays. Until then it is recorded as carried, not as a pattern: do not add one to a new surface.
+### Not verified
+This system was checked in one WebKit browser. Not checked: Safari and Firefox beyond that engine, real phones (the 390px and 320px views were emulated), screen readers, and keyboard focus rings seen in a browser (a CSS test covers that every control has one). `getAnimations()` under `prefers-reduced-motion: reduce` was not measured; the guarantee rests on the CSS structure and `motion.test.ts`.
