@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { stateHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { labelWidth, placeLabels } from '../../../packages/mandate/src/viz/plot-labels.ts';
 import {
@@ -31,9 +32,10 @@ import type { SeatLocatorView } from '../../../packages/mandate/src/repo/seat-lo
  *
  * ── KEYBOARD ──
  *
- * The neighbours are links and a state has hundreds of them, so the figure opens with a skip link to what follows it:
- * without one a keyboard user would pass a tab stop per seat to reach the lens tabs. The links do not prefetch for the
- * same reason (a seat page viewed would otherwise ask for every other seat of its state).
+ * Only the nearest `NEAR` neighbours are links (repo/seat-locator.ts): a state has hundreds, and a link for each was 292 tab stops and a
+ * third of the page's links. The rest are drawn and named by their tooltip, and one link under the figure goes to the state's page, where
+ * every seat is. The figure still opens with a skip link to what follows it, and the links do not prefetch (a seat page viewed would
+ * otherwise ask for the pages of its neighbours).
  */
 
 /** The box's side in its own units. The stylesheet's `--iei-locator-w` is this number of CSS pixels. */
@@ -81,12 +83,19 @@ export function SeatLocator({ view }: { view: SeatLocatorView }) {
         <desc id="iei-loc-d">{locatorDescription(view)}</desc>
         <g transform={`scale(${scale.toFixed(4)}) translate(${-vx} ${-vy})`}>
           <g className="iei-loc-hood">
-            {view.neighbours.map((n) => (
-              <Link key={n.id} href={n.href} prefetch={false}>
-                <title>{n.name}</title>
-                <path d={n.path} />
-              </Link>
-            ))}
+            {view.neighbours.map((n) =>
+              n.near ? (
+                <Link key={n.id} href={n.href} prefetch={false}>
+                  <title>{n.name}</title>
+                  <path d={n.path} />
+                </Link>
+              ) : (
+                <g key={n.id}>
+                  <title>{n.name}</title>
+                  <path d={n.path} />
+                </g>
+              ),
+            )}
           </g>
           <path
             d={seat.path}
@@ -119,6 +128,13 @@ export function SeatLocator({ view }: { view: SeatLocatorView }) {
           </>
         )}
         {locatorCaption(view)}
+        {/* The seats beyond the nearest are drawn and named but are not links: every seat of the state is on the state's page, once. */}
+        {view.neighbours.some((n) => !n.near) ? (
+          <>
+            {' '}
+            <Link href={stateHref(view.state.id)}>Every {view.state.name} seat</Link>
+          </>
+        ) : null}
       </figcaption>
     </figure>
   );

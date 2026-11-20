@@ -103,9 +103,10 @@ const LABELS = [
   "Constituency development funds", "Promises vs delivery", "Political funding", "Court cases", "RTI datasets", "Coalitions",
 ];
 
-/** The page without the exact table's disclosure, which is where every row keeps every column. */
-const outsideTwin = (html: string): string => html.replace(/<details class="iei-twin">[\s\S]*?<\/details>/g, " ");
-const twinOf = (html: string): string => /<details class="iei-twin">([\s\S]*?)<\/details>/.exec(html)?.[1] ?? "";
+/** The page as it is: the exact table of all eighteen that used to sit behind a disclosure under the groups is gone, so this is the identity. */
+const outsideTwin = (html: string): string => html;
+/** The ledger of subject areas alone. */
+const ledgerOf = (html: string): string => /<div class="iei-led">([\s\S]*?)<\/div><\/section><div class="iei-foot">/.exec(html)?.[1] ?? "";
 
 test("the ledger is groups by status, each headed once with its count of the eighteen", () => {
   const html = outsideTwin(render(""));
@@ -131,23 +132,21 @@ test("what every subject of a group lacks is said once, in the group, and not on
   assert.doesNotMatch(outsideTwin(render("")), />none</, "'none' is printed as a subject's row count");
 });
 
-test("the exact table keeps all eighteen rows with their five columns, behind a disclosure", () => {
+test("the eighteen subjects are said once, and there is no second copy of them behind a disclosure", () => {
   const html = render("");
-  const twin = twinOf(html);
-  assert.match(html, /<details class="iei-twin"><summary>The exact table: all 18 subject areas<\/summary>/);
-  const rows = [...twin.matchAll(/<tr><th scope="row">([\s\S]*?)<\/tr>/g)];
-  assert.equal(rows.length, 18, "the exact table lost a row");
-  for (const [, row] of rows) assert.equal((row as string).match(/<td/g)?.length, 4, "a row lost a column");
-  const t = text(twin);
-  for (const label of LABELS) assert.ok(t.includes(label), `${label} is not in the exact table`);
-  // The words of every row are in it: the status of each, and the question and the source.
-  assert.ok((t.match(/Not modelled/g) ?? []).length >= 11);
-  assert.match(t, /Who won this seat, by how much, and how has it behaved across cycles\?/);
-  assert.match(t, /PRS India, Lok Sabha bill tracker/);
+  assert.doesNotMatch(html, /iei-twin/, "the exact table is back");
+  const led = ledgerOf(html);
+  assert.ok(led.length > 0, "no ledger");
+  const t = text(led);
+  // Every subject once, with the one source it needs: a subject with no model says "needs <source>", a subject with rows has its source column.
+  for (const label of LABELS) assert.equal((t.match(new RegExp(`\\b${label.replace(/[/]/g, "\\/")}\\b`, "g")) ?? []).length, 1, `${label} is not said exactly once`);
+  assert.match(t, /Bills\s*:\s*needs PRS India, Lok Sabha bill tracker\s*\./);
+  assert.match(t, /Voting records\s*:.*rarely hold division votes.*; needs division lists/);
+  assert.match(t, /Court cases[\s\S]*because charged is not convicted/);
+  assert.ok(text(html).split(/\s+/).length < 900, "the coverage page is over 900 words");
 });
 
-test("the twin is not an evidence drawer, so the page keeps its drawers", () => {
+test("the page keeps its drawers", () => {
   const html = render("");
   assert.ok((html.match(/class="iei-ev(?:\s|")/g) ?? []).length <= 3);
-  assert.doesNotMatch(twinOf(html), /iei-ev/);
 });

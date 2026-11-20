@@ -60,16 +60,25 @@ function Side({ c, other }: { c: Candidate; other: Candidate }) {
         {c.id}
       </Link>
       <dl className="rv-facts">
-        <dt>Born</dt>
-        <dd>
-          {c.birthYear === null ? (
-            <span className="iei-absent">not reported</span>
-          ) : (
-            `${c.birthYear}${c.birthYearConfidence === null ? '' : ` (${c.birthYearConfidence})`}`
-          )}
-        </dd>
-        <dt>Sex</dt>
-        <dd>{c.sex ?? <span className="iei-absent">not reported</span>}</dd>
+        {/* A fact neither record has is said once for the pair (under them), not as "not reported" on each of the four lines. */}
+        {c.birthYear === null && other.birthYear === null ? null : (
+          <>
+            <dt>Born</dt>
+            <dd>
+              {c.birthYear === null ? (
+                <span className="iei-absent">not reported</span>
+              ) : (
+                `${c.birthYear}${c.birthYearConfidence === null ? '' : ` (${c.birthYearConfidence})`}`
+              )}
+            </dd>
+          </>
+        )}
+        {c.sex === null && other.sex === null ? null : (
+          <>
+            <dt>Sex</dt>
+            <dd>{c.sex ?? <span className="iei-absent">not reported</span>}</dd>
+          </>
+        )}
         <dt>Names on file</dt>
         <dd>{c.aliases.length === 0 ? <span className="iei-absent">none</span> : c.aliases.join(' · ')}</dd>
       </dl>
@@ -168,8 +177,8 @@ export default function MergeReview({
   return (
     <Shell here="review" reading>
         <div className="iei-head">
-          <p className="iei-eyebrow">Merge review · recall measurement</p>
           <h1 className="iei-answer iei-answer-long">Are these two records the same person?</h1>
+          <p className="iei-note">Merge review · recall measurement</p>
         </div>
 
         {unavailable && <RegistryMissing level={2} />}
@@ -234,8 +243,11 @@ export default function MergeReview({
             <p className="iei-note rv-est">
               {est.recallPct === null ? (
                 <>
-                  <strong>No recall figure yet.</strong> {est.unsampled.length} of{' '}
-                  {est.bands.length} bands have no reviewed pair ({est.unsampled.join(', ')}), and a
+                  <strong>No recall figure yet.</strong>{' '}
+                  {est.unsampled.length === est.bands.length
+                    ? 'No band has a reviewed pair'
+                    : `${est.unsampled.length} of ${est.bands.length} bands have no reviewed pair (${est.unsampled.join(', ')})`}
+                  , and a
                   total that treated an unreviewed band as zero would be biased low by exactly the
                   bands nobody has looked at. The sample is stratified with a target of{' '}
                   {est.bands[0]?.target ?? 0} per band because the {widest?.label} band holds{' '}
@@ -293,6 +305,14 @@ export default function MergeReview({
               <Side c={pair.a} other={pair.b} />
               <Side c={pair.b} other={pair.a} />
             </section>
+
+            {pair.a.birthYear === null && pair.b.birthYear === null && pair.a.sex === null && pair.b.sex === null ? (
+              <p className="iei-note">Neither record reports a birth year or a sex.</p>
+            ) : pair.a.birthYear === null && pair.b.birthYear === null ? (
+              <p className="iei-note">Neither record reports a birth year.</p>
+            ) : pair.a.sex === null && pair.b.sex === null ? (
+              <p className="iei-note">Neither record reports a sex.</p>
+            ) : null}
 
             <Evidence p={pair} />
 

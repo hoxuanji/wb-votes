@@ -81,6 +81,9 @@ function markup(route, query = "", segments = "") {
  * shrunken state, so a capture taken while one runs would judge a frame nobody keeps. The end state is the state a page rests in,
  * and with the animation off the page IS in its end state, which is what these captures and `measure.sh` should see. To keep
  * motion live (to count what a browser animates), run with SHOT_MOTION=1.
+ *
+ * THEME. The stylesheet follows `prefers-color-scheme`, and headless Chromium reports light (and ignores a request for dark), so a capture is the
+ * LIGHT page. SHOT_SCHEME=dark puts `data-theme="dark"` on <html>, which is the reader's own choice (ThemeToggle) and beats the system.
  */
 function document(body) {
   const css = readFileSync(path.join(ROOT, "src/app/iei.css"), "utf8");
@@ -88,10 +91,11 @@ function document(body) {
     process.env.SHOT_MOTION === "1"
       ? ""
       : "<style>*,*::before,*::after{animation:none!important;transition:none!important}</style>";
-  return `<!DOCTYPE html><html lang="en"><head><meta charset="utf-8">
+  const theme = process.env.SHOT_SCHEME === "dark" ? ' data-theme="dark"' : process.env.SHOT_SCHEME === "light" ? ' data-theme="light"' : "";
+  return `<!DOCTYPE html><html lang="en"${theme}><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <style>${css}</style>${freeze}</head>
-<body style="background:#07070b;color:#f2f2f7;margin:0">${body}</body></html>`;
+<body style="margin:0">${body}</body></html>`;
 }
 
 /**

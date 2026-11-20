@@ -1,4 +1,5 @@
 import { inr } from '../../../packages/mandate/src/repo/brief.ts';
+import { displayName } from '../../../packages/mandate/src/repo/display-name.ts';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { PersonLink } from './marks.tsx';
 import { heldCaption, segmentLabel, shareText } from '../../../packages/mandate/src/repo/seat-history.ts';
@@ -58,7 +59,7 @@ export function HeldBy({ history }: { history: SeatHistory }) {
               title={
                 b.party === null
                   ? `${b.label}: no winner declared`
-                  : `${b.label}: won by ${b.party.label}${b.winner === null ? '' : ` (${b.winner})`}${
+                  : `${b.label}: won by ${b.party.label}${b.winner === null ? '' : ` (${displayName(b.winner)})`}${
                       b.changedHands ? ', and the seat changed hands' : ''
                     }`
               }

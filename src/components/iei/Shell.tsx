@@ -2,7 +2,9 @@ import Link from 'next/link';
 import { Children, isValidElement } from 'react';
 import type { CSSProperties } from 'react';
 import { CommandKey } from './CommandKey.tsx';
+import { DrawerKey } from './DrawerKey.tsx';
 import { Icon } from './Icon.tsx';
+import { ThemeToggle } from './ThemeToggle.tsx';
 import type { IconName } from './Icon.tsx';
 
 /**
@@ -28,11 +30,11 @@ import type { IconName } from './Icon.tsx';
  * STRUCTURAL ONLY — it opens no database and holds no list of states. Every page mounts it itself, the 404 and the
  * registry-is-missing notice included; the root layout does not.
  *
- * THE RAIL (2026-11-03, docs/superpowers/specs/2026-11-03-situation-room-home-design.md). A narrow column of six places, on a laptop,
- * and a row under the bar on a phone. It is what made the product feel like a document and not a tool that there was nowhere to
- * look for "where else can I go"; it is NOT an index of states, elections or people, which stay out for the reason above. Four of
- * its six destinations are sections of the front page (they are anchors, so they work from any page and with script off), and two
- * are pages that already exist. It is static and holds no list of anything the registry owns.
+ * THE RAIL (2026-11-03, redesigned 2026-11-20). THREE places: Overview, People, Data. It was six: Landscape, Next up and History were anchors into
+ * sections of the front page, which are reached by scrolling it and by its own links, and a rail that lists a page's sections beside two other
+ * pages is a table of contents pretending to be navigation. A rounded pill marks the current place; on a laptop it is a column beside the
+ * content, and on a phone (640px and below) it is a fixed bottom tab bar. It is NOT an index of states, elections or people, which stay out
+ * for the reason above, and it is static and holds no list of anything the registry owns.
  *
  * THE LIVE INDICATOR IS CONDITIONAL AND CURRENTLY ABSENT. `election.lifecycle` is 'declared' for all 1,202
  * rows and `election_phase` holds none, so there is no election running and the dot does not appear. A
@@ -42,14 +44,15 @@ import type { IconName } from './Icon.tsx';
 
 export type Section = 'india' | 'coverage' | 'search' | 'place' | 'person' | 'election' | 'review';
 
-/** The six places. `at` is the surface that makes an item the current one; the anchors are never "current" because the page they are on is. */
-const RAIL: { key: IconName; label: string; href: string; at: Section | null }[] = [
-  { key: 'now', label: 'Overview', href: '/', at: 'india' },
-  { key: 'landscape', label: 'Landscape', href: '/#landscape', at: null },
-  { key: 'next', label: 'Next up', href: '/#next', at: null },
-  { key: 'history', label: 'History', href: '/#history', at: null },
-  { key: 'people', label: 'People', href: '/candidates', at: 'person' },
-  { key: 'data', label: 'Data', href: '/coverage', at: 'coverage' },
+/**
+ * The three places. `at` lists the kinds of page that belong to one: the front page, a state, a seat and an election are all Overview's (the
+ * electoral record, reached from the country down), a person's page is People's, and the coverage ledger is Data's. Search and the review queue
+ * are in none of the three, so the rail marks nothing there rather than a place the reader is not in.
+ */
+const RAIL: { key: IconName; label: string; href: string; at: Section[] }[] = [
+  { key: 'now', label: 'Overview', href: '/', at: ['india', 'place', 'election'] },
+  { key: 'people', label: 'People', href: '/candidates', at: ['person'] },
+  { key: 'data', label: 'Data', href: '/coverage', at: ['coverage'] },
 ];
 
 export function Shell({
@@ -116,18 +119,22 @@ export function Shell({
           <kbd aria-hidden="true">⌘K</kbd>
         </form>
 
-        {live ? (
-          <a className="iei-live" href="/#live">
-            <span className="iei-dot iei-dot-live" aria-hidden="true" />
-            Live{liveLabel === null ? null : <span className="iei-live-what"> · {liveLabel}</span>}
-          </a>
-        ) : null}
+        <div className="iei-top-end">
+          {live ? (
+            <a className="iei-live" href="/#live">
+              <span className="iei-dot iei-dot-live" aria-hidden="true" />
+              Live{liveLabel === null ? null : <span className="iei-live-what"> · {liveLabel}</span>}
+            </a>
+          ) : null}
+          <ThemeToggle />
+        </div>
       </header>
       <CommandKey target="iei-q" />
+      <DrawerKey />
       <div className="iei-frame">
         <nav className="iei-rail" aria-label="Places">
           {RAIL.map((r) => (
-            <Link key={r.key} href={r.href} aria-current={r.at !== null && r.at === here ? 'page' : undefined}>
+            <Link key={r.key} href={r.href} aria-current={r.at.includes(here) ? 'page' : undefined}>
               <Icon name={r.key} />
               <span>{r.label}</span>
             </Link>

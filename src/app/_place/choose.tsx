@@ -45,10 +45,10 @@ export function Choose({ places: found }: { places: readonly Place[] }) {
         ]}
       />
       <div className="iei-head">
-        <p className="iei-eyebrow">
+        <h1 className="iei-answer">{first.name}</h1>
+        <p className="iei-note">
           {places.length === 2 ? "Two constituencies share this name" : `${places.length} constituencies share this name`}
         </p>
-        <h1 className="iei-answer">{first.name}</h1>
         {places.length === 2 && bodies.size === 2 ? <p className="iei-sub">One is an assembly seat, the other a Lok Sabha seat.</p> : null}
       </div>
       <Panel title="Which did you mean?">

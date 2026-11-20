@@ -333,7 +333,7 @@ test("a drawn map keeps every control and caption that refers to it", () => {
   const html = render("/state", "", "aa");
   const t = text(html);
   assert.match(html, /<figure class="iei-map[ "]/, "the figure is drawn");
-  assert.equal(t.split("find on map").length - 1, 2, "one on each listed seat");
+  assert.equal(t.split("find on map").length - 1, 0, "a listed seat does not repeat an offer to find it on the map");
   assert.ok(t.includes("Show this on the map"), "the link that applies the flips mode is a control and stays");
   for (const gone of ["Select a band to find those seats on the map.", "Select a party to find its seats on the map."]) {
     assert.ok(!t.includes(gone), `how-to-use hint is back: ${gone}`);
@@ -341,7 +341,7 @@ test("a drawn map keeps every control and caption that refers to it", () => {
   // The flips legend is the one mode of the four the default does not show.
   assert.ok(text(render("/state", "mode=flips", "aa")).includes("A flipped seat wears the colour of the party that gained it."));
   assert.ok(html.includes('aria-label="What the map shows"'));
-  assert.ok(text(render("/state", "seat=aa.ac.001", "aa")).includes("unfocus"), "the focused seat offers to be released");
+  assert.ok(text(render("/state", "seat=aa.ac.001", "aa")).includes("Clear the selection"), "the focused seat offers to be released");
 
   const election = text(render("/election", "", "aa-assembly-2021"));
   assert.ok(election.includes("Show this on the map"), "missing on the election page: the link that applies the flips mode");

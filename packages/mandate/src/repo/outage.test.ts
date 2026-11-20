@@ -183,6 +183,10 @@ test("no page opens the registry itself or catches around a read", () => {
   // there is the network, a failed poll keeps the last count and says so, and no registry is anywhere near it.
   const catchesThatAreNotReads: Record<string, string> = {
     "components/iei/LiveBoard.tsx": "a fetch of /v1/live",
+    // The reader's theme choice. localStorage throws when storage is blocked (private mode, a locked-down browser), and a page that cannot
+    // remember a choice is still a page. Neither file is anywhere near a registry.
+    "components/iei/ThemeToggle.tsx": "localStorage",
+    "components/iei/theme.ts": "localStorage, in the script that runs before first paint",
   };
   let scanned = 0;
   for (const f of readdirSync(src, { recursive: true, encoding: "utf8" })) {

@@ -16,6 +16,9 @@ import { percent, percentagePoints } from "../semantic/index.ts";
 import { lines, slope } from "./charts.ts";
 import { CATEGORICAL, LINE_SUBTLE, TEXT_PRIMARY, TEXT_SECONDARY } from "./palette.ts";
 
+/** A palette value as it appears inside a regex: the paints are `light-dark(a, b)`, whose parentheses are not groups. */
+const esc = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 const FRAMES = [
   { name: "narrow", w: 380 },
   { name: "mid", w: 640 },
@@ -65,7 +68,9 @@ function tags(svg: string): Tag[] {
 
 /** The point values printed along the lines, which are not end labels: a glyph box from 9 above the baseline to 3 below. */
 function pointValues(svg: string): Box[] {
-  return [...svg.matchAll(/<text x="([\d.-]+)" y="([\d.-]+)" fill="#f2f2f7" font-size="11"( text-anchor="(\w+)")?[^>]*>([^<]*)<\/text>/g)].map(
+  return [...svg.matchAll(
+      new RegExp(`<text x="([\\d.-]+)" y="([\\d.-]+)" fill="${esc(TEXT_PRIMARY)}" font-size="11"( text-anchor="(\\w+)")?[^>]*>([^<]*)<\\/text>`, "g"),
+    )].map(
     (m) => {
       const w = [...(m[5] as string)].length * 6.8;
       const x0 = m[4] === "middle" ? Number(m[1]) - w / 2 : Number(m[1]);
@@ -195,7 +200,9 @@ test("no data point moved: every marker is where the old chart put it, as a frac
   ];
   for (const f of FRAMES) {
     const svg = frame(lines(TURNOUT).svg, f.name);
-    const grid = [...svg.matchAll(/<line x1="([\d.]+)" y1="([\d.]+)" x2="([\d.]+)" y2="[\d.]+" stroke="#1e1e28"/g)].map((m) => ({
+    const grid = [...svg.matchAll(
+      new RegExp(`<line x1="([\\d.]+)" y1="([\\d.]+)" x2="([\\d.]+)" y2="[\\d.]+" stroke="${esc(LINE_SUBTLE)}"`, "g"),
+    )].map((m) => ({
       x0: Number(m[1]),
       x1: Number(m[3]),
       y: Number(m[2]),
@@ -311,7 +318,7 @@ test("a line that stops before the last election is named where it stops", () =>
     const named = tags(svg);
     assert.deepEqual(named.map((t) => t.text).sort(), ["AIFB 3.4%", "BJP 42.6%", "TMC 50.0%"]);
     const third = Math.max(...circles(svg).map((d) => d.x));
-    const px1 = Math.max(...[...svg.matchAll(/<line x1="[\d.]+" y1="[\d.]+" x2="([\d.]+)" y2="[\d.]+" stroke="#1e1e28"/g)].map((m) => Number(m[1])));
+    const px1 = Math.max(...[...svg.matchAll(new RegExp(`<line x1="[\\d.]+" y1="[\\d.]+" x2="([\\d.]+)" y2="[\\d.]+" stroke="${esc(LINE_SUBTLE)}"`, "g"))].map((m) => Number(m[1])));
     assert.ok(third < px1, `${f.name}: the lines end short of the right edge of the plot`);
     for (const t of named) assert.ok(t.box.x0 >= third, `${f.name}: ${t.text} is to the right of where its line ends, not over the lines`);
     assertLegible(svg, f.name);

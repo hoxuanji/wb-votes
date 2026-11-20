@@ -146,7 +146,7 @@ test("a row with nothing to show says so instead of drawing an empty frame", () 
 
 test("search says who has the seat of a nomination in a declared contest, and not that it is still contesting", () => {
   const t = text(render("", "/search", "q=veteran"));
-  assert.match(t, /VETERAN Testpur 2026 · BBB · seat won by CHAMP TWENTYSIX · 2 contests/);
+  assert.match(t, /Veteran Testpur 2026 · BBB · seat won by Champ Twentysix · 2 contests/);
   assert.doesNotMatch(t, /contesting/);
-  assert.match(text(render("", "/search", "q=champ")), /CHAMP TWENTYSIX Testpur 2026 · AAA · won · 1 contest/);
+  assert.match(text(render("", "/search", "q=champ")), /Champ Twentysix Testpur 2026 · AAA · won · 1 contest/);
 });

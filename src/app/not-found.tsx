@@ -20,6 +20,10 @@ export const metadata = { title: 'No page at that address' };
 export default function NotFound() {
   return (
     <Shell here="place" reading>
+      {/* THE TITLE AGAIN, IN THE PAGE. A not-found answered from a dynamic route is hydrated as Next's error root (`<html id="__next_error__">`), which
+          discards the head's metadata: the tab said "localhost" and the page had no title. A title element in the body is the document's title all the
+          same, and is what keeps one here. */}
+      <title>No page at that address · India Election Intelligence</title>
       <EmptyState
         title="No page sits at that address."
         detail={

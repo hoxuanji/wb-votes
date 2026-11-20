@@ -8,7 +8,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { open } from "../db/index.ts";
 import { PARTY_RANK_RULE, homeView } from "./home.ts";
-import { houseScope, landscapeScope } from "./home-scope.ts";
+import { houseScope, landscapeScope, seatsLoadedLine } from "./home-scope.ts";
 import { electionsFixture } from "./testkit.ts";
 
 const whole = { assemblySeatsHeld: 4123, assemblySeatsTotal: 4123, lokSabhaSeatsHeld: 543, lokSabhaSeatsTotal: 543 };
@@ -66,5 +66,21 @@ test("the sentence under the party landscape is the order it is in: assemblies l
     assert.deepEqual(order, ["AAA", "BBB", "CCC", "EEE", "DDD"]);
   } finally {
     d.close();
+  }
+});
+
+test("the scope line under the title names what each total counted over, and says nothing where there is no total", () => {
+  assert.equal(
+    seatsLoadedLine({ assemblySeatsHeld: 294, assemblySeatsTotal: 4123, lokSabhaSeatsHeld: 42, lokSabhaSeatsTotal: 543 }),
+    "294 of 4,123 assembly seats and 42 of 543 Lok Sabha seats are loaded.",
+  );
+  assert.equal(
+    seatsLoadedLine({ assemblySeatsHeld: 4123, assemblySeatsTotal: 4123, lokSabhaSeatsHeld: 0, lokSabhaSeatsTotal: 0 }),
+    "4,123 of 4,123 assembly seats are loaded.",
+    "a house with no reference total has no denominator to say, and is left out",
+  );
+  assert.equal(seatsLoadedLine({ assemblySeatsHeld: 0, assemblySeatsTotal: 0, lokSabhaSeatsHeld: 0, lokSabhaSeatsTotal: 0 }), null);
+  for (const w of ["Measured", "Derived", "Complete", "Partial", "Unavailable"]) {
+    assert.ok(!(seatsLoadedLine({ assemblySeatsHeld: 1, assemblySeatsTotal: 2, lokSabhaSeatsHeld: 1, lokSabhaSeatsTotal: 2 }) ?? "").includes(w), `${w} is in the scope line`);
   }
 });

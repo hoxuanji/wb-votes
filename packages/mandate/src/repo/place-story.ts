@@ -395,11 +395,11 @@ export function placeStory(input: StoryInput): PlaceStory {
     });
   }
 
-  /* ───────── what the page leaves out ───────── */
-  const decl = oldestFirst.filter((r) => r.winner !== null && r.bar === null).map((r) => r.year);
+  /* ───────── what the ladder cannot say ───────── */
+  // Said under the ladder, at the picture each statement qualifies. The absence of a declared year (no shares, swing, runner-up or turnout) is not
+  // here: it is said at that year's own row of the ladder, in the margin picture and in the turnout row, where the reader meets it.
   const unitem = countedRows.map((r) => r.unitemised).filter((u) => u > 0);
   const leavesOut: string[] = [
-    ...(decl.length === 0 ? [] : [`${decl.join(" and ")}: only the winner, the party and a declared margin are on record, so shares, swing, the runner-up and turnout are not drawn for ${decl.length === 1 ? "it" : "them"}.`]),
     ...(countedRows.length === 0
       ? []
       : [`Only the leading candidates are on record for ${countedRows.map((r) => r.label).join(", ")}, so the shares add up to less than 100%${unitem.length === 0 ? "" : `: the unfilled part is ${Math.min(...unitem).toFixed(1)}% to ${Math.max(...unitem).toFixed(1)}%`}, and it is "not itemised", never "others".`]),

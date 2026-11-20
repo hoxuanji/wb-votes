@@ -150,7 +150,9 @@ export function IndiaMap({
     }
     // Too small for a label is too small for a cursor — but measured at the POINTER threshold, not the label
     // one, so a change to how big labels are cannot move a state off the map. See CLICKABLE_FRACTION.
-    if (a !== null && !labelFits(a, 3, CLICKABLE_PX)) tiles.push(cell);
+    // A state with no election loaded is not offered a chip: the inspector names every one of them once, in one disclosure, and a row of eight "not loaded" chips
+    // was the same list a third time. A small state that HAS a result still gets its chip, because the polygon is too small to click and the chip is its way in.
+    if (a !== null && !labelFits(a, 3, CLICKABLE_PX) && cell.electionId !== null) tiles.push(cell);
     return (
       <Link
         key={name}

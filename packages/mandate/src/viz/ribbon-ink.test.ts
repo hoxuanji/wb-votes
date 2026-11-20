@@ -4,12 +4,16 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { contrastOf, linearOf, oklabOf } from "./colour.ts";
-import { SURFACE } from "./palette.ts";
+import { SURFACE, SURFACE_LIGHT } from "./palette.ts";
 import { CURATED_KEYS, tokenFor } from "./party-ink.ts";
-import { NEUTRAL_RIBBON_INK, RIBBON_CAP, RIBBON_SHARE, ribbonInk } from "./ribbon-ink.ts";
+import { NEUTRAL_RIBBON_INK, NEUTRAL_RIBBON_INK_DARK, NEUTRAL_RIBBON_INK_LIGHT, RIBBON_CAP, RIBBON_SHARE, ribbonInk as ribbonPaint, ribbonInkOn } from "./ribbon-ink.ts";
 import type { RibbonTier } from "./ribbon-ink.ts";
 
 const TIERS: readonly RibbonTier[] = ["bright", "mid", "faint"];
+/** The maths for the dark page, which is what every test below was written against: one plain `#rrggbb` in, one out. `ribbonPaint` is the DOM's. */
+const ribbonInk = (ink: string, tier: RibbonTier): string => ribbonInkOn(ink, tier, SURFACE);
+/** The same on the light page. */
+const ribbonLight = (ink: string, tier: RibbonTier): string => ribbonInkOn(ink, tier, SURFACE_LIGHT);
 const CSS = readFileSync(new URL("../../../../src/app/iei.css", import.meta.url), "utf8");
 
 /** Every curated party, and four hundred of the generated register. */
@@ -71,10 +75,12 @@ test("a party whose ink is dark keeps that ink as its brightest tier and is not 
 });
 
 test("the neutral ribbon is the stylesheet's third ink, and the card is the stylesheet's panel", () => {
-  const token = (name: string): string => new RegExp(`${name}:\\s*(#[0-9a-fA-F]{6})`).exec(CSS)?.[1]?.toLowerCase() ?? "";
-  assert.equal(NEUTRAL_RIBBON_INK, token("--iei-ink-3"));
+  // The dark half: a token that differs by theme is `light-dark(LIGHT, DARK)`, and the TypeScript copies are the dark page's.
+  const token = (name: string): string =>
+    new RegExp(`${name}:\\s*(?:light-dark\\(\\s*#[0-9a-fA-F]{6}\\s*,\\s*)?(#[0-9a-fA-F]{6})`).exec(CSS)?.[1]?.toLowerCase() ?? "";
+  assert.equal(NEUTRAL_RIBBON_INK_DARK, token("--iei-ink-3"));
   assert.equal(SURFACE, token("--iei-panel"));
-  assert.ok(chromaOf(NEUTRAL_RIBBON_INK) < 0.04, "the neutral ribbon has a hue, so it reads as a party's");
+  assert.ok(chromaOf(NEUTRAL_RIBBON_INK_DARK) < 0.04, "the neutral ribbon has a hue, so it reads as a party's");
 });
 
 test("the stylesheet does not make a ribbon fainter with an opacity, and a gap line in the card's colour separates ribbons that touch", () => {
@@ -87,4 +93,50 @@ test("the stylesheet does not make a ribbon fainter with an opacity, and a gap l
   assert.match(gap, /stroke:\s*var\(--iei-panel\)/);
   assert.match(gap, /paint-order:\s*stroke/, "the line is over the fill and eats a one-seat ribbon");
   assert.match(gap, /vector-effect:\s*non-scaling-stroke/);
+});
+
+/* ────────────────────────────── the light page ──────────────────────────────
+   On a light surface contrast FALLS as a ribbon gets lighter, so the search runs the other way; the tiers mean the same (bright is the most contrast,
+   which is now the darkest), and the same floors hold against the light panel. */
+
+test("on the light page each tier is its share of the brightest tier's contrast against the card, and the brightest is a mark", () => {
+  for (const k of KEYS) {
+    const ink = tokenFor(k).fillLight;
+    const brightest = Math.min(RIBBON_CAP, contrastOf(ink, SURFACE_LIGHT));
+    for (const t of TIERS) {
+      const want = 1 + RIBBON_SHARE[t] * (brightest - 1);
+      const got = contrastOf(ribbonLight(ink, t), SURFACE_LIGHT);
+      assert.ok(Math.abs(got - want) < 0.1, `${k} ${t}: ${got.toFixed(2)} against ${want.toFixed(2)}`);
+    }
+    assert.ok(contrastOf(ribbonLight(ink, "bright"), SURFACE_LIGHT) >= 3.1, `${k} bright`);
+    assert.ok(contrastOf(ribbonLight(ink, "faint"), SURFACE_LIGHT) >= 1.9, `${k} faint is ${contrastOf(ribbonLight(ink, "faint"), SURFACE_LIGHT).toFixed(2)}`);
+  }
+});
+
+test("on the light page the three tiers differ in lightness (the brightest is the darkest), and a tint keeps its party's hue", () => {
+  for (const k of KEYS) {
+    const ink = tokenFor(k).fillLight;
+    const [b, m, f] = TIERS.map((t) => lab(ribbonLight(ink, t))[0]) as [number, number, number];
+    assert.ok(f - m >= 0.04 && m - b >= 0.04, `${k}: ${b.toFixed(3)} ${m.toFixed(3)} ${f.toFixed(3)}`);
+    assert.ok(f - b >= 0.1, `${k}: bright and faint are ${(f - b).toFixed(3)} apart in lightness`);
+    if (chromaOf(ink) < 0.05) continue;
+    for (const t of TIERS) {
+      const d = Math.abs(hueOf(ribbonLight(ink, t)) - hueOf(ink));
+      assert.ok(Math.min(d, 360 - d) < 2, `${k} ${t} moved ${d} degrees on the light page`);
+    }
+  }
+});
+
+test("what the DOM is given for a ribbon is the two halves, each worked out on its own page's card", () => {
+  for (const k of KEYS) {
+    const t = tokenFor(k);
+    for (const tier of TIERS) {
+      const paint = ribbonPaint(t.paint, tier);
+      assert.equal(paint, `light-dark(${ribbonLight(t.fillLight, tier)}, ${ribbonInk(t.fill, tier)})`, `${k} ${tier}`);
+    }
+  }
+  assert.equal(NEUTRAL_RIBBON_INK, `light-dark(${NEUTRAL_RIBBON_INK_LIGHT}, ${NEUTRAL_RIBBON_INK_DARK})`);
+  // The neutral ribbon is a ribbon like another: both halves of it come out as plain hex.
+  assert.match(ribbonPaint(NEUTRAL_RIBBON_INK, "mid"), /^light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\)$/);
+  assert.equal(chromaOf(NEUTRAL_RIBBON_INK_LIGHT) < 0.04, true, "the light neutral ribbon has a hue, so it reads as a party's");
 });

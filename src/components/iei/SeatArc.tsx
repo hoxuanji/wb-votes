@@ -5,7 +5,7 @@ import { houseArc } from '../../../packages/mandate/src/repo/house-arc.ts';
 import type { HouseArc } from '../../../packages/mandate/src/repo/house-arc.ts';
 import type { MapSelection } from '../../../packages/mandate/src/repo/map-selection.ts';
 import { fillFor, NOT_HELD } from '../../../packages/mandate/src/viz/party-ink.ts';
-import { Panel, Table } from './parts.tsx';
+import { Panel } from './parts.tsx';
 
 /**
  * The house as a parliament arc: one dot per seat, in the party that won it, on a half ring.
@@ -24,17 +24,14 @@ import { Panel, Table } from './parts.tsx';
  * ── HOW IT IS READ ──
  *
  * A wedge links to the party isolation the page already has (the map and the list narrow to that party; the other wedges dim).
- * Those links are for the pointer: the dots are hidden from assistive technology and out of the tab order, because the key beside
- * them carries the same links as real list items, and the table twin carries every number. Colour is never the only channel: the
- * key prints the party's code beside every swatch.
+ * Those links are for the pointer: the dots are hidden from assistive technology and out of the tab order. The page's own key beside its map
+ * (the legend of parties, with the same links and the same counts) is the keyboard's way to them, and the ring's name lists every count in
+ * words, so the arc carries neither a second key nor a table of the same numbers. Colour is never the only channel: the key prints each party's code.
  *
  * The dots are in the party's ink (its KEY, as on the maps), so a party is the same colour here as there. Nothing else is coloured.
  */
 
 const IN = new Intl.NumberFormat('en-IN');
-/** How many parties the key names before the rest are counted together. The table twin lists every one. */
-const KEY_LIMIT = 8;
-
 function Dots({ dots }: { dots: readonly ArcDot[] }) {
   return (
     <>
@@ -68,9 +65,6 @@ export function SeatArc({
   });
   const hollow = dots.slice(from);
   const lead = arc.leader;
-  const named = arc.parties.slice(0, KEY_LIMIT);
-  const folded = arc.parties.slice(KEY_LIMIT);
-  const foldedSeats = folded.reduce((n, p) => n + p.n, 0);
 
   const summary =
     `Seats by party: ${arc.parties.map((p) => `${p.label} ${p.n}`).join(', ')}` +
@@ -133,65 +127,14 @@ export function SeatArc({
           </p>
         )}
 
+        {/* WHAT A HOLLOW DOT IS, without its count: the page's own key beside the map says "no declared winner N", and the ring's name has every count. */}
+        {arc.undeclared === 0 ? null : <p className="iei-note iei-arc-hollow">A hollow dot is a seat with no declared winner.</p>}
+
         <figcaption className="iei-sr">
           {delegation === null ? 'Every seat of the house' : `Every seat in ${delegation}`}, one dot each, in the party that won it.
         </figcaption>
       </figure>
 
-      <div className="iei-arc-side">
-        <ul className="iei-arc-key">
-          {named.map((p) => (
-            <li key={p.key}>
-              <a href={hrefFor(p.key)} aria-current={selected === p.key ? 'true' : undefined}>
-                <span className="iei-sw" style={{ background: fillFor(p.key) }} aria-hidden="true" />
-                <span className="iei-chip">{p.label}</span> <b>{IN.format(p.n)}</b>
-              </a>
-            </li>
-          ))}
-          {folded.length === 0 ? null : (
-            <li className="iei-arc-rest">
-              + {IN.format(folded.length)} smaller {folded.length === 1 ? 'party' : 'parties'} ·{' '}
-              {IN.format(foldedSeats)} {foldedSeats === 1 ? 'seat' : 'seats'}
-            </li>
-          )}
-          {arc.undeclared === 0 ? null : (
-            <li className="iei-arc-rest">
-              <span className="iei-sw iei-sw-hollow" aria-hidden="true" />
-              no declared winner <b>{IN.format(arc.undeclared)}</b>
-            </li>
-          )}
-        </ul>
-
-        <details className="iei-arc-table">
-          <summary>Seats by party, as a table</summary>
-          <Table
-            label="Seats by party"
-            tight
-            head={
-              <>
-                <th scope="col">Party</th>
-                <th scope="col" className="iei-n">
-                  Seats
-                </th>
-                <th scope="col" className="iei-n">
-                  {delegation === null ? 'Of the house' : 'Of these seats'}
-                </th>
-              </>
-            }
-          >
-            {[
-              ...arc.parties.map((p) => ({ key: p.key, name: p.label, n: p.n })),
-              ...(arc.undeclared === 0 ? [] : [{ key: '', name: 'No declared winner', n: arc.undeclared }]),
-            ].map((r) => (
-              <tr key={r.key || 'none'}>
-                <th scope="row">{r.name}</th>
-                <td className="iei-n">{IN.format(r.n)}</td>
-                <td className="iei-n">{((100 * r.n) / arc.total).toFixed(1)}%</td>
-              </tr>
-            ))}
-          </Table>
-        </details>
-      </div>
     </div>
   );
 }

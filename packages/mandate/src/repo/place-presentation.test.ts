@@ -4,7 +4,7 @@ import { DEV_DB_PATH, openRead } from "../db/index.ts";
 import { getPlaceAnalysis } from "./place-analysis.ts";
 import type { PlaceAnalysis } from "./place-analysis.ts";
 import type { PlaceBrief, SourceRef } from "./index.ts";
-import { analysisCards, anomalies, placeHeadline, placeTiles, provenance, tally } from "./place-presentation.ts";
+import { analysisCards, anomalies, hoistShared, placeHeadline, placeTiles, provenance, tally } from "./place-presentation.ts";
 
 // Same guard idiom as place-analysis.test.ts: the schema, not the file.
 function haveRegistry(): boolean {
@@ -354,4 +354,21 @@ test("placeTiles and anomalies survive an analysis that is null", { skip }, () =
   assert.deepEqual(anomalies(b, null), [
     "2026's margin was 0.5% of votes cast — under one point, so a recount-scale error would change the winner.",
   ]);
+});
+
+test("hoistShared: a caveat every row repeats is said once above the table, and a row that differs keeps its own", () => {
+  const head = ["No.", "Seat", "Won by", "Member", "Margin", "Turnout"];
+  const numeric = [true, false, false, false, true, true];
+  const row = (n: string, margin: string, turnout: string) => ({ href: `/c/${n}`, cols: [n, `Seat ${n}`, "TMC", "A", margin, turnout] });
+  const same = hoistShared({ headers: head, numeric, rows: [row("1", "10 (declared)", "verification pending"), row("2", "20 (declared)", "verification pending")] });
+  assert.deepEqual(same.table.headers, ["No.", "Seat", "Won by", "Member", "Margin"]);
+  assert.deepEqual(same.table.rows.map((r) => r.cols), [["1", "Seat 1", "TMC", "A", "10"], ["2", "Seat 2", "TMC", "A", "20"]]);
+  assert.deepEqual(same.said, ["Turnout: verification pending for every seat listed.", "Every margin is as the source declared it, not counted from candidates' votes."]);
+  // One row with a figure, or one margin that was counted: each row says what differs, and nothing is lifted.
+  const mixed = hoistShared({ headers: head, numeric, rows: [row("1", "10 (declared)", "verification pending"), row("2", "20", "61.0%")] });
+  assert.deepEqual(mixed.said, []);
+  assert.equal(mixed.table.rows[1]?.cols[5], "61.0%");
+  assert.equal(mixed.table.rows[0]?.cols[4], "10 (declared)");
+  // A lone row has nothing to share with.
+  assert.deepEqual(hoistShared({ headers: head, numeric, rows: [row("1", "10 (declared)", "verification pending")] }).said, []);
 });

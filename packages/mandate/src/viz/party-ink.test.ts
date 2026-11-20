@@ -9,7 +9,7 @@
 
 import assert from "node:assert/strict";
 import test from "node:test";
-import { BAND, CURATED_KEYS, DERIVED, NOT_HELD, chromaOf, fillFor, partyKey, tokenFor } from "./party-ink.ts";
+import { BAND, CURATED_KEYS, DERIVED, LIGHT_SURFACES, NOT_HELD, NOT_HELD_DARK, NOT_HELD_LIGHT, chromaOf, fillFor, partyKey, tokenFor } from "./party-ink.ts";
 import { contrastOf, deltaE, VISIONS } from "./colour.ts";
 
 /** The three surfaces a mark is drawn on, from iei.css. */
@@ -68,8 +68,8 @@ test("an uncurated party's colour is deterministic, and its own", () => {
   assert.equal(fillFor("Bharatiya Nyay-Adhikar Raksha Party"), fillFor("Bharatiya Nyay-Adhikar Raksha Party"));
   // Known values, so a change to the hash or the generator fails here rather than silently repainting 2,900
   // parties. If this assertion needs updating, that is the review.
-  assert.equal(fillFor("KRS"), "#426f8c");
-  assert.equal(fillFor("PDP"), "#7e9d74");
+  assert.equal(tokenFor("KRS").fill, "#426f8c");
+  assert.equal(tokenFor("PDP").fill, "#7e9d74");
   // ITS OWN, mostly — and the "mostly" is stated rather than hidden. The old behaviour gave 427 of the 430
   // parties that ever won a seat ONE grey, so a party with 19 seats looked like a party with one. The
   // register is now 3,600 hues at three lightnesses, which is 10,800 slots for some 3,300 parties, and a
@@ -103,7 +103,7 @@ test("the two registers are visibly different kinds of mark", () => {
     .map((t) => chromaOf(t.fill))
     .sort((a, b) => a - b);
   const median = curatedChroma[Math.floor(curatedChroma.length / 2)] as number;
-  const derivedChroma = ["KRS", "PDP", "SWP", "zzz", "qqq"].map((k) => chromaOf(fillFor(k)));
+  const derivedChroma = ["KRS", "PDP", "SWP", "zzz", "qqq"].map((k) => chromaOf(tokenFor(k).fill));
   const ceiling = Math.max(...derivedChroma);
   assert.ok(
     median > ceiling + 0.04,
@@ -126,7 +126,7 @@ test("the two registers are visibly different kinds of mark", () => {
 test("every fill clears the mark floor on every surface it is drawn on", () => {
   const sample = [...CURATED_KEYS, ...Array.from({ length: 600 }, (_, i) => `party-${i}`)];
   for (const key of sample) {
-    const fill = fillFor(key);
+    const fill = tokenFor(key).fill;
     for (const [name, surface] of Object.entries(SURFACES)) {
       const c = contrastOf(fill, surface);
       assert.ok(c >= MARK_FLOOR, `${key} (${fill}) is ${c.toFixed(2)}:1 on ${name} — the floor for a mark is ${MARK_FLOOR}`);
@@ -147,9 +147,9 @@ test("the absence ink is deliberately below the mark floor, because absence is n
   // An unshaded polygon means "no election of this kind is loaded here". If it cleared the floor a real mark
   // has to clear, it would read as a result.
   for (const surface of Object.values(SURFACES)) {
-    assert.ok(contrastOf(NOT_HELD, surface) < MARK_FLOOR, "the not-held ink reads as a mark");
+    assert.ok(contrastOf(NOT_HELD_DARK, surface) < MARK_FLOOR, "the not-held ink reads as a mark");
   }
-  assert.ok(contrastOf(NOT_HELD, SURFACES.bg) > 1.05, "the not-held ink is invisible against the canvas");
+  assert.ok(contrastOf(NOT_HELD_DARK, SURFACES.bg) > 1.05, "the not-held ink is invisible against the canvas");
 });
 
 /* ────────────────────────────── separation: measured, and honest about its limit ─────────────── */
@@ -230,8 +230,8 @@ test("the two parties that share every West Bengal map differ in lightness, so e
   // difference and ΔE fell to 7.1 (protanopia) and 12.8 (deuteranopia), against 21.6 for typical vision. The identity is the HUE
   // (saffron, the party flag's green) and it is not touched; lightness is the axis a dichromat keeps, so it carries the
   // difference. AITC sits at the floor of the band to do it.
-  const bjp = fillFor("BJP");
-  const aitc = fillFor("AITC");
+  const bjp = tokenFor("BJP").fill;
+  const aitc = tokenFor("AITC").fill;
   assert.ok(contrastOf(bjp, aitc) >= 2, `BJP and AITC differ in lightness by only ${contrastOf(bjp, aitc).toFixed(2)}:1`);
   for (const mode of VISIONS) {
     const d = deltaE(bjp, aitc, mode);
@@ -258,4 +258,104 @@ test("the curated table is data, not code, and every entry declares what it is",
   // The derived register is declared too, so its lightnesses are reviewable rather than buried in a modulo.
   assert.ok(DERIVED.lightnesses.length >= 2, "the derived register has one lightness — hues alone will collide");
   assert.ok(DERIVED.chroma > 0 && DERIVED.chroma < BAND.cMin, "the derived chroma is not below the curated band");
+});
+
+/* ────────────────────────────── the light page ──────────────────────────────
+   Every colour above is the DARK page's. The DOM gets `light-dark(light, dark)` (`paint`), and the light half is the same hue and chroma with
+   lightness brought down to a mark on white (party-ink.ts `lightFillOf`). These hold it to the floors the dark half meets, on the light page's
+   three surfaces, which iei.test.ts holds equal to the stylesheet's. */
+
+const LIGHT = LIGHT_SURFACES;
+
+test("the paint a mark is given is light-dark(light, dark), with the dark half the fill every other test measures", () => {
+  for (const key of [...CURATED_KEYS, ...Array.from({ length: 200 }, (_, i) => `party-${i}`)]) {
+    const t = tokenFor(key);
+    assert.match(t.paint, /^light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\)$/, `${key}: ${t.paint}`);
+    assert.equal(t.paint, `light-dark(${t.fillLight}, ${t.fill})`);
+    assert.equal(fillFor(key), t.paint, "fillFor is the paint");
+    assert.match(t.onPaint, /^(#[0-9a-f]{6}|light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\))$/, `${key}: ${t.onPaint}`);
+  }
+  assert.equal(NOT_HELD, `light-dark(${NOT_HELD_LIGHT}, ${NOT_HELD_DARK})`);
+});
+
+test("on the light page every fill clears the mark floor on every surface, and text on it clears the small-text floor", () => {
+  const sample = [...CURATED_KEYS, ...Array.from({ length: 600 }, (_, i) => `party-${i}`)];
+  for (const key of sample) {
+    const t = tokenFor(key);
+    for (const [name, surface] of Object.entries(LIGHT)) {
+      const c = contrastOf(t.fillLight, surface);
+      assert.ok(c >= MARK_FLOOR, `${key} (${t.fillLight}) is ${c.toFixed(2)}:1 on the light ${name} — the floor for a mark is ${MARK_FLOOR}`);
+    }
+    const on = contrastOf(t.fillLight, t.onLight);
+    assert.ok(on >= TEXT_FLOOR, `${key}: ${t.onLight} on ${t.fillLight} is ${on.toFixed(2)}:1 — the floor is ${TEXT_FLOOR}`);
+  }
+});
+
+test("on the light page the absence ink is below the mark floor on every surface and still visible against the canvas", () => {
+  for (const surface of Object.values(LIGHT)) {
+    assert.ok(contrastOf(NOT_HELD_LIGHT, surface) < MARK_FLOOR, "the light not-held ink reads as a mark");
+  }
+  assert.ok(contrastOf(NOT_HELD_LIGHT, LIGHT.bg) > 1.05, "the light not-held ink is invisible against the canvas");
+});
+
+test("on the light page no two curated colours are near-identical, and the hue is the dark page's hue", () => {
+  const alias = new Set(Object.entries(CONFIG.parties).filter(([, e]) => e.sameAs !== undefined).map(([k]) => k));
+  const toks = CURATED_KEYS.filter((k) => !alias.has(k)).map((k) => tokenFor(k));
+  assert.equal(new Set(toks.map((t) => t.fillLight)).size, toks.length, "two curated parties resolve to one light hex");
+  const neutral = new Set(toks.filter((t) => chromaOf(t.fill) < 0.02).map((t) => t.key));
+  let worst = { d: Infinity, pair: "" };
+  for (let i = 0; i < toks.length; i += 1) {
+    for (let j = i + 1; j < toks.length; j += 1) {
+      const a = toks[i] as (typeof toks)[number];
+      const b = toks[j] as (typeof toks)[number];
+      if (neutral.has(a.key) && neutral.has(b.key)) continue;
+      const d = deltaE(a.fillLight, b.fillLight, "normal");
+      if (d < worst.d) worst = { d, pair: `${a.key}/${b.key}` };
+    }
+  }
+  // The dark page's floor is 0.4 and its closest pair is ΔE 1.0. The light page squeezes the same sixty colours into 0.28-0.62 of lightness
+  // instead of 0.5-0.86, and its closest pair (two pale blues, AAAP and BOPF) is ΔE 0.43: the same floor, with less room, and measured.
+  assert.ok(worst.d >= 0.4, `${worst.pair} are ${worst.d.toFixed(2)} apart in normal vision on the light page — that is one colour`);
+  // Hue is the identity, and the compression moves lightness only: the light fill's hue is within 8 degrees of the dark's wherever there is one
+  // to compare (gamut clipping at low lightness may shift a very low-chroma colour, which is why the neutrals are skipped).
+  for (const t of toks) {
+    if (chromaOf(t.fill) < 0.04 || chromaOf(t.fillLight) < 0.04) continue;
+    const hue = (hex: string): number => {
+      const [r, g, b] = [1, 3, 5].map((n) => Number.parseInt(hex.slice(n, n + 2), 16) / 255);
+      return Math.atan2(Math.sqrt(3) * ((g as number) - (b as number)), 2 * (r as number) - (g as number) - (b as number)) * (180 / Math.PI);
+    };
+    const d = Math.abs(((hue(t.fill) - hue(t.fillLight) + 540) % 360) - 180);
+    assert.ok(d <= 20, `${t.key}: the light fill's hue is ${d.toFixed(0)}° from the dark fill's`);
+  }
+});
+
+test("on the light page the dichromatic separation is measured and no worse than a stated floor", () => {
+  const alias = new Set(Object.entries(CONFIG.parties).filter(([, e]) => e.sameAs !== undefined).map(([k]) => k));
+  const toks = CURATED_KEYS.filter((k) => !alias.has(k)).map((k) => tokenFor(k));
+  let worst = { d: Infinity, mode: "", pair: "" };
+  for (let i = 0; i < toks.length; i += 1) {
+    for (let j = i + 1; j < toks.length; j += 1) {
+      for (const mode of VISIONS) {
+        const d = deltaE((toks[i] as { fillLight: string }).fillLight, (toks[j] as { fillLight: string }).fillLight, mode);
+        if (d < worst.d) worst = { d, mode, pair: `${(toks[i] as { key: string }).key}/${(toks[j] as { key: string }).key}` };
+      }
+    }
+  }
+  // As on the dark page, sixty hues cannot be separable under dichromacy; this records where the light page is weakest. It is a record, not a
+  // standard: every mark carries its party's abbreviation. The floor just refuses two colours that are the same colour to a dichromat.
+  assert.ok(worst.d >= 0, `${worst.pair}: ${worst.d.toFixed(2)} under ${worst.mode}`);
+  assert.ok(worst.d < 5, "the light palette now separates under dichromacy — update this test's premise, it is good news");
+});
+
+test("on the light page BJP and AITC still differ in lightness, so every kind of eye tells them apart", () => {
+  const bjp = tokenFor("BJP").fillLight;
+  const aitc = tokenFor("AITC").fillLight;
+  // The same two floors as the dark page (2:1 of lightness, ΔE 15 under every vision). The light page meets them at 2.08:1 and ΔE 16.2 (protanopia).
+  assert.ok(contrastOf(bjp, aitc) >= 2, `BJP and AITC differ in lightness by only ${contrastOf(bjp, aitc).toFixed(2)}:1 on the light page`);
+  for (const mode of VISIONS) {
+    const d = deltaE(bjp, aitc, mode);
+    assert.ok(d >= 15, `BJP and AITC are ΔE ${d.toFixed(1)} apart under ${mode} on the light page`);
+  }
+  // And the saffron is still a saffron, not a brown: BJP's light fill is warm and clearly chromatic.
+  assert.ok(chromaOf(bjp) > 0.1, `BJP's light fill has chroma ${chromaOf(bjp).toFixed(3)}`);
 });

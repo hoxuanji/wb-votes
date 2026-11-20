@@ -55,8 +55,8 @@ export const MINOR_SHARE = 1;
 
 /**
  * The width of a name, estimated rather than measured: the server cannot ask a browser, and the face is whichever
- * monospace the reader's system has. 0.62em is Chrome's measured advance for the macOS mono stack (0.612) with a
- * little slack for the faces that are wider, so a box is never narrower than its text.
+ * sans the reader's system has. 0.62em is deliberately generous (the system sans runs about 0.55-0.6em for capitals and tabular digits),
+ * so a box is never narrower than its text.
  */
 export function labelWidth(text: string, fontSize = 14): number {
   return text.length * fontSize * 0.62;

@@ -8,7 +8,11 @@
 // raised a step so they still read at 16 px, on --iei-panel. Rasterised with the headless Chromium the screenshot tool
 // uses, so no image library is added to the repo.
 //
-//   node ops/probe/brand/build-favicon.mjs
+// icon.svg ADAPTS: it carries a `prefers-color-scheme: light` rule, so a browser that takes an SVG favicon and follows the system theme shows a light
+// tile (the light page's --iei-bg, with --iei-ink for the lit seat) on a light tab strip. favicon.ico and apple-icon.png are rasters of the dark tile, which
+// is what a client that cannot read the rule gets. `--svg-only` writes icon.svg and nothing else (no browser needed).
+//
+//   node ops/probe/brand/build-favicon.mjs [--svg-only]
 import { execFileSync } from 'node:child_process';
 import { mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { homedir, tmpdir } from 'node:os';
@@ -16,24 +20,47 @@ import { join } from 'node:path';
 
 const BG = '#0d0d13'; // --iei-panel
 const LIT = '#f2f2f7'; // --iei-ink
+const BG_LIGHT = '#eef0f6'; // --iei-bg, light
+const LIT_LIGHT = '#12131c'; // --iei-ink, light
+const DIM_LIGHT = '#b4b8cb'; // between --iei-line-2 and --iei-ink-3, light: recedes, still shows at 16 px
 const DIM = '#3a3a4d'; // between --iei-line-2 and --iei-ink-3: three tiles that recede but still show at 16 px
 
 /** `inset` is the margin around the grid in a 32-unit square; `round` the tile background's corner. */
-const mark = ({ round, inset }) => {
+const mark = ({ round, inset, adaptive = false }) => {
   const gap = 3;
   const t = (32 - 2 * inset - gap) / 2;
   const at = [inset, inset + t + gap];
   const tiles = [];
   for (const [r, y] of at.entries()) {
     for (const [c, x] of at.entries()) {
-      tiles.push(`<rect x="${x}" y="${y}" width="${t}" height="${t}" rx="1.5" fill="${r === 0 && c === 1 ? LIT : DIM}"/>`);
+      const lit = r === 0 && c === 1;
+      tiles.push(
+        adaptive
+          ? `<rect class="${lit ? 'lit' : 'dim'}" x="${x}" y="${y}" width="${t}" height="${t}" rx="1.5"/>`
+          : `<rect x="${x}" y="${y}" width="${t}" height="${t}" rx="1.5" fill="${lit ? LIT : DIM}"/>`,
+      );
     }
+  }
+  if (adaptive) {
+    return (
+      `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">` +
+      `<style>.bg{fill:${BG}}.lit{fill:${LIT}}.dim{fill:${DIM}}` +
+      `@media (prefers-color-scheme:light){.bg{fill:${BG_LIGHT}}.lit{fill:${LIT_LIGHT}}.dim{fill:${DIM_LIGHT}}}</style>` +
+      `<rect class="bg" width="32" height="32" rx="${round}"/>${tiles.join('')}</svg>\n`
+    );
   }
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">` +
     `<rect width="32" height="32" rx="${round}" fill="${BG}"/>${tiles.join('')}</svg>\n`
   );
 };
+
+const rounded = mark({ round: 7, inset: 5 });
+writeFileSync('src/app/icon.svg', mark({ round: 7, inset: 5, adaptive: true }));
+if (process.argv.includes('--svg-only')) {
+  console.log('wrote src/app/icon.svg');
+  process.exit(0);
+}
 
 const shells = join(homedir(), 'Library/Caches/ms-playwright');
 const chrome = readdirSync(shells)
@@ -67,9 +94,7 @@ function ico(images) {
   return Buffer.concat([head, ...entries, ...images.map((i) => i.data)]);
 }
 
-const rounded = mark({ round: 7, inset: 5 });
 const square = mark({ round: 0, inset: 6 });
-writeFileSync('src/app/icon.svg', rounded);
 writeFileSync('src/app/apple-icon.png', png(square, 180));
 writeFileSync('src/app/favicon.ico', ico([16, 32, 48].map((px) => ({ px, data: png(rounded, px) }))));
 console.log('wrote src/app/icon.svg, favicon.ico, apple-icon.png');

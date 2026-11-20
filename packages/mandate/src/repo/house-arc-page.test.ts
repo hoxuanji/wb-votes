@@ -154,21 +154,24 @@ test("a party's dots are inked by its key, so TMC is the curated green of AITC a
   assert.equal(g[1]?.fill, fillFor("BBB"));
 });
 
-test("each party's wedge links to the page's own isolation of that party, and the key says the same", () => {
+// CHANGED 2026-11-20, on purpose: the arc's own key and its table twin said every party's seats and "no declared winner" a second and third time beside
+// the map's key. The wedge is the pointer's link, the page's key the keyboard's, and the ring's name has every count in words.
+test("each party's wedge links to the page's own isolation of that party, once, and the arc carries no second key", () => {
   const house = panel(render("/election", "", ELECTION), "house");
   const g = groups(house);
   for (const x of g) {
     assert.ok(x.href !== null && x.href.startsWith(`/election/${ELECTION}?`) && x.href.includes(`party=${x.party}`), `${x.party}: ${x.href}`);
     const links = house.replace(/&amp;/g, "&").split(`<a href="${x.href}"`).length - 1;
-    assert.equal(links, 2, `${x.href} is linked from the wedge and from the key, ${links} times in all`);
+    assert.equal(links, 1, `${x.href} is linked from the wedge and nowhere else in the arc, ${links} times in all`);
   }
+  assert.doesNotMatch(house, /iei-arc-key|iei-arc-table/, "the arc has its own key or table again");
 });
 
 test("a seat with no declared winner is a dot in the no-data ink, in no party and not a link", () => {
   const house = panel(render("/election", "", ELECTION), "house");
   const none = /<g class="iei-arc-none"([^>]*)>([\s\S]*?)<\/g>/.exec(house);
   assert.ok(none !== null, "no group for the undeclared seat");
-  assert.match(none[1] as string, new RegExp(`fill="${NOT_HELD}"`));
+  assert.match(none[1] as string, new RegExp(`fill="${NOT_HELD.replace(/[()]/g, "\\$&")}"`));
   assert.equal((none[2]!.match(/<circle/g) ?? []).length, 1);
   assert.match(none[2] as string, /<title>1 seat with no declared winner<\/title>/);
   assert.doesNotMatch(house, /<a [^>]*>(?:<title>[^<]*<\/title>)?<g class="iei-arc-none"/, "the undeclared seats are inside a link");
@@ -188,13 +191,13 @@ test("the arc is explained to a screen reader and not printed under it: no sente
   assert.doesNotMatch(text(house), /Ordered by seats|left or right|who would govern/);
 });
 
-test("the table twin lists every party and the undeclared seat, and its seats add up to the house", () => {
+test("the ring's name lists every party and the undeclared seat, and its seats add up to the house; a hollow dot is explained without a second count", () => {
   const house = panel(render("/election", "", ELECTION), "house");
-  const table = house.slice(house.indexOf("<details"), house.indexOf("</details>"));
-  assert.match(table, /<summary[^>]*>[^<]*Seats by party/);
-  const rows = [...table.matchAll(/<tr><th scope="row">([\s\S]*?)<\/th><td[^>]*>(\d+)<\/td>/g)].map((m) => [text(m[1] as string), Number(m[2])] as const);
-  assert.deepEqual(rows.map((r) => r[0]), ["TMC", "BBB", "CCC", "No declared winner"]);
-  assert.equal(rows.reduce((n, r) => n + r[1], 0), 8);
+  const label = /<svg[^>]*aria-label="([^"]*)"/.exec(house)?.[1] ?? "";
+  assert.match(label, /^Seats by party: TMC 4, BBB 2, CCC 1, 1 with no declared winner\. 8 seats, majority 5\.$/);
+  assert.match(text(house), /A hollow dot is a seat with no declared winner\./);
+  assert.equal((text(house.replace(/<svg[\s\S]*?<\/svg>/, "")).match(/no declared winner/gi) ?? []).length, 1, "the undeclared seat is said once in the visible words");
+  assert.doesNotMatch(house, /<table|Seats by party, as a table/);
 });
 
 test("with a party isolated, every other party is dimmed and its own wedge releases it", () => {
@@ -216,7 +219,7 @@ test("a state's seats in the Lok Sabha are a delegation, not a house: no majorit
   assert.match(t, /Hh State\u2019s seats/);
   assert.doesNotMatch(t, /majority|has it|short by|The house|Every seat of the house/);
   assert.match(t, /Every seat in Hh State, one dot each/);
-  assert.match(t, /Of these seats/);
+  assert.match(/aria-label="([^"]*)"/.exec(house)?.[1] ?? "", /^Seats by party: TMC 2, BBB 1\. 3 seats\.$/, "the ring's name has every count and no majority");
   assert.deepEqual(groups(house).map((x) => [x.party, x.dots]), [["AITC", 2], ["BBB", 1]]);
   assert.match(text(render("/state", "house=pc", "hh")), /narrowed to the seats in Hh State/, "the page's own notice is the same claim");
 });

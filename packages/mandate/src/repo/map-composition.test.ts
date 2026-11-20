@@ -188,12 +188,14 @@ test("the heading the map section used to print is there for a screen reader and
   assert.match(html, /aria-label="\d+ sources? for Aa State · Winners"/);
 });
 
-test("the evidence drawer shares the header's eyebrow line, and is not a section heading's", () => {
+test("the evidence drawer sits on the header's own line above the title, with no label beside it, and is not a section heading's", () => {
   const html = render("/state", "", "aa");
   const top = at(html, 'class="iei-head-top"');
-  const eyebrow = at(html, 'class="iei-eyebrow"', top);
-  const drawer = at(html, 'class="iei-ev"', eyebrow);
+  const drawer = at(html, 'class="iei-ev"', top);
+  assert.ok(drawer < at(html, "<h1", top), "the drawer's line comes before the title and holds nothing but the drawer");
+  assert.equal(html.slice(top, drawer).includes("<p"), false, "no label shares the drawer's line");
   assert.ok(drawer < at(html, 'class="iei-controls"'), "the drawer is above the controls");
+  assert.doesNotMatch(html, /iei-eyebrow/, "no page-kind label above the title");
   assert.equal(html.split('class="iei-ev"').length - 1, 1, "one drawer for the page's figures");
   // Same on the election page.
   const election = render("/election", "", "aa-assembly-2021");

@@ -3,8 +3,6 @@ import type { CSSProperties } from 'react';
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { shareText } from '../../../packages/mandate/src/viz/bullet.ts';
 import type { Spark } from '../../../packages/mandate/src/viz/spark.ts';
-import { inr } from '../../../packages/mandate/src/repo/brief.ts';
-import { marginShareText } from '../../../packages/mandate/src/repo/close-call.ts';
 import type { PlaceBrief } from '../../../packages/mandate/src/repo/place.ts';
 import type { FieldCandidate, FieldElection, SeatField } from '../../../packages/mandate/src/repo/seat-field.ts';
 import type { SeatHistory } from '../../../packages/mandate/src/repo/seat-history.ts';
@@ -15,7 +13,7 @@ import type { RosterOrder } from '../../../packages/mandate/src/repo/place-filte
 import type { MarginRankFigure, PhotoFinish } from '../../../packages/mandate/src/repo/seat-proof.ts';
 import { Icon, trend } from './Icon.tsx';
 import { Limits, MarginFigure, PartyChip, PersonLink, TableTwin } from './marks.tsx';
-import { DataList, DataRow, Panel, Table, Tabs } from './parts.tsx';
+import { Panel, Table, Tabs } from './parts.tsx';
 
 /**
  * The seat page below its finding: the numbers, how each election divided the vote, everyone who stood, and what the record cannot say.
@@ -127,7 +125,7 @@ function SeatSpark({ spark, label, ink, format }: { spark: Spark; label: string;
 
 /* ───────────────────────────── the numbers ───────────────────────────── */
 
-export function SeatKpis({ nums, retrieved }: { nums: SeatNumbers; retrieved: string | null }) {
+export function SeatKpis({ nums }: { nums: SeatNumbers }) {
   const { hero, share, turnout, absent, closest } = nums;
   if (hero === null && share === null && turnout === null) return null;
   return (
@@ -154,24 +152,8 @@ export function SeatKpis({ nums, retrieved }: { nums: SeatNumbers; retrieved: st
             </p>
           )}
           <SeatSpark spark={hero.spark} label={`Winning margin by election: ${hero.twin.map((t) => `${t.year} ${t.votes === null ? 'none' : IN.format(t.votes)}`).join(', ')}`} ink={fillFor(hero.party.key)} format={(v) => IN.format(v)} />
-          {hero.twin.length < 2 ? null : (
-            <dl className="iei-seat-twin">
-              {hero.twin.map((t) => (
-                <div key={t.year}>
-                  <dt>{t.year}</dt>
-                  <dd>
-                    {t.party === null ? <span className="iei-absent">no winner declared</span> : <PartyChip partyId={t.party.key} code={t.party.label} />}{' '}
-                    {t.votes === null || t.basis === null ? null : <MarginFigure votes={t.votes} basis={t.basis} counted />}
-                  </dd>
-                </div>
-              ))}
-            </dl>
-          )}
           {hero.basis === 'declared' ? (
-            <p className="iei-note">
-              Declared, not counted: {hero.year} published the winner and the margin and no candidate&rsquo;s votes, so there is no runner-up and no share to compare. A
-              hollow ring is a declared figure.
-            </p>
+            <p className="iei-note">A hollow ring is a margin the source declared and did not count.</p>
           ) : null}
           {closest === null ? null : (
             <p className="iei-seat-line">
@@ -226,7 +208,6 @@ export function SeatKpis({ nums, retrieved }: { nums: SeatNumbers; retrieved: st
               {Math.abs(turnout.delta.pp).toFixed(1)} pp on {turnout.delta.year}
             </p>
           )}
-          {turnout.pending === null ? null : <p className="iei-seat-line">{turnout.pending}: verification pending. No turnout is drawn for it.</p>}
         </div>
       )}
 
@@ -243,7 +224,6 @@ export function SeatKpis({ nums, retrieved }: { nums: SeatNumbers; retrieved: st
           </p>
         </div>
       )}
-      {retrieved === null ? null : <p className="iei-rule iei-seat-retrieved">Results retrieved {retrieved}</p>}
     </div>
   );
 }
@@ -253,8 +233,11 @@ export function SeatKpis({ nums, retrieved }: { nums: SeatNumbers; retrieved: st
 const trailOf = (c: FieldCandidate): string[] =>
   c.elsewhere.map((e) => (e.won ? `${e.year} won` : e.rank === null ? `${e.year} stood` : `${e.year} ${ordinal(e.rank)}`));
 
-/** What an election did, in a heading: who held or took the seat, by how many. */
-function headingOf(e: FieldElection, history: SeatHistory, brief: PlaceBrief): string {
+/**
+ * What an election did, in a heading: who held or took the seat. NOT by how many: the margin is said once in the page's lead and once per election in
+ * the history table, and a heading that said it a third time was the repeat the page was cut for.
+ */
+function headingOf(e: FieldElection, history: SeatHistory): string {
   const r = history.results.find((x) => x.contestId === e.contestId);
   if (r === undefined || r.winner === null) return e.namedAsElected === null ? 'No winner is declared' : `No result row is loaded; the candidacy record names ${e.namedAsElected.display} as elected`;
   const i = history.results.indexOf(r);
@@ -265,13 +248,7 @@ function headingOf(e: FieldElection, history: SeatHistory, brief: PlaceBrief): s
       : before.winner.party.key === r.winner.party.key
         ? 'held the seat'
         : `took the seat from ${before.winner.party.label}`;
-  const by = r.margin === null ? '' : ` by ${IN.format(Math.abs(r.margin.votes))} votes`;
-  const c = brief.contests.find((x) => x.contestId === e.contestId);
-  const share =
-    r.margin !== null && r.margin.basis === 'counted' && c !== undefined && c.turnout.state === 'reported' && c.voters !== null && c.voters > 0
-      ? `, ${marginShareText((100 * Math.abs(r.margin.votes)) / c.voters)}% of votes polled`
-      : '';
-  return `${r.winner.party.label} ${verb}${by} (${r.margin?.basis ?? 'no margin'}${share})`.replace('(no margin)', '').trim();
+  return `${r.winner.party.label} ${verb}`;
 }
 
 /**
@@ -296,13 +273,12 @@ function CountedPanel({ e, scale, history, brief, index }: { e: FieldElection; s
   const foot = [
     bars && 100 - itemised >= 0.05 ? `Not itemised ${(100 - itemised).toFixed(1)}%` : null,
     why,
-    c !== undefined && c.turnout.state === 'reported' ? `turnout ${c.turnout.pct.toFixed(1)}%` : null,
     c !== undefined && c.turnout.state === 'reported' && c.electors !== null ? `electors ${IN.format(c.electors)}` : null,
   ].filter((x): x is string => x !== null);
   return (
     <>
       <h3 className="iei-seat-ph">
-        <span className="iei-seat-py">{e.year}{e.byPoll ? ' by-poll' : ''}</span> {headingOf(e, history, brief)}
+        <span className="iei-seat-py">{e.year}{e.byPoll ? ' by-poll' : ''}</span> {headingOf(e, history)}
       </h3>
       <ol className="iei-seat-rows" style={at(index)}>
         {rows.map((r, i) => (
@@ -310,7 +286,6 @@ function CountedPanel({ e, scale, history, brief, index }: { e: FieldElection; s
             <PartyChip partyId={r.party.key} code={r.party.label} />
             <span className="iei-seat-nm">
               <PersonLink id={r.personId} name={r.name} />
-              {trailOf(r).length === 0 ? null : <span className="iei-seat-trail">also {trailOf(r).join(', ')}</span>}
             </span>
             <span className="iei-seat-sh">{r.share === null ? <span className="iei-absent">no share</span> : `${shareText(r.share)}%`}</span>
             <span className="iei-seat-vt">{r.votes === null ? '' : IN.format(r.votes)}</span>
@@ -339,11 +314,11 @@ function UnitStrip({ e }: { e: FieldElection }) {
   );
 }
 
-function DeclaredPanel({ e, history, brief, single }: { e: FieldElection; history: SeatHistory; brief: PlaceBrief; single: boolean }) {
+function DeclaredPanel({ e, history, single, rosterBelow }: { e: FieldElection; history: SeatHistory; single: boolean; rosterBelow: boolean }) {
   const w = e.winner ?? e.namedAsElected;
-  const c = brief.contests.find((x) => x.contestId === e.contestId);
   const others = e.candidates.length - (w === null ? 0 : 1);
-  const facts = w === null ? [] : [
+  // THE WINNER'S AFFIDAVIT IS THE ROSTER'S FIRST ROW when the roster is below; said twice it was the same line twice.
+  const facts = w === null || rosterBelow ? [] : [
     w.age === null ? null : `age ${w.age}`,
     w.education,
     w.occupation,
@@ -353,7 +328,7 @@ function DeclaredPanel({ e, history, brief, single }: { e: FieldElection; histor
   return (
     <>
       <h3 className="iei-seat-ph">
-        <span className="iei-seat-py">{single ? 'The one election on record' : `${e.year}${e.byPoll ? ' by-poll' : ''}`}</span> {headingOf(e, history, brief)}
+        <span className="iei-seat-py">{single ? 'The one election on record' : `${e.year}${e.byPoll ? ' by-poll' : ''}`}</span> {headingOf(e, history)}
       </h3>
       {w === null ? (
         <p className="iei-seat-line">No candidate is named as elected.</p>
@@ -363,26 +338,24 @@ function DeclaredPanel({ e, history, brief, single }: { e: FieldElection; histor
             <b><PersonLink id={w.personId} name={w.name} /></b> <PartyChip partyId={w.party.key} code={w.party.label} />{' '}
             <span className="iei-seat-tag">{w.isWinner ? 'declared winner' : 'named as elected'}</span>
           </p>
-          {facts.length === 0 ? <p className="iei-absent">nothing declared is on record</p> : <p className="iei-seat-line">{facts.join(' · ')}</p>}
+          {rosterBelow ? null : facts.length === 0 ? <p className="iei-absent">nothing declared is on record</p> : <p className="iei-seat-line">{facts.join(' · ')}</p>}
           {trailOf(w).length === 0 ? null : <p className="iei-seat-trail">Stood here: {trailOf(w).join(' · ')}</p>}
         </div>
       )}
-      <p className="iei-seat-line">
-        No candidate&rsquo;s votes are on record for {e.year}, so there are no bars.
-        {others > 0 ? (
-          <>
-            {' '}
-            {others} {others === 1 ? 'other' : 'others'} stood: <Link href="#field">who they are</Link>.
-          </>
-        ) : null}
-      </p>
+      {/* That no candidate's votes are on record is said once, in "What the record does not say"; here the panel says who else stood. */}
+      {others > 0 ? (
+        <p className="iei-seat-line">
+          {others} {others === 1 ? 'other' : 'others'} stood: <Link href="#field">who they are</Link>.
+        </p>
+      ) : (
+        <p className="iei-seat-line">No candidate&rsquo;s votes are on record for {e.year}, so there are no bars.</p>
+      )}
       {e.candidates.length > 1 ? <UnitStrip e={e} /> : null}
-      {c !== undefined && c.turnout.state === 'unverified' ? <p className="iei-seat-foot">Turnout: verification pending</p> : null}
     </>
   );
 }
 
-export function SeatPanels({ field, history, brief }: { field: SeatField; history: SeatHistory; brief: PlaceBrief }) {
+export function SeatPanels({ field, history, brief, rosterBelow = false }: { field: SeatField; history: SeatHistory; brief: PlaceBrief; rosterBelow?: boolean }) {
   const scale = panelScale(field);
   const only = field.elections.length === 1;
   let drawn = 0;
@@ -406,7 +379,7 @@ export function SeatPanels({ field, history, brief }: { field: SeatField; histor
                   </h3>
                 </>
               ) : (
-                <DeclaredPanel e={e} history={history} brief={brief} single={only} />
+                <DeclaredPanel e={e} history={history} single={only} rosterBelow={rosterBelow && e === field.elections[0]} />
               )}
             </section>
           );
@@ -442,10 +415,7 @@ export function SeatRoster({ election, order, dir, base }: { election: FieldElec
   return (
     <Panel id="field" title={`Who stood in ${election.year}`} question="Who is on the ballot, and what did each declare?">
       <p className="iei-story-lead iei-seat-rl">{rosterLead(election)}</p>
-      <p className="iei-note">
-        {election.evidence === 'roster' ? 'The registry holds no result for this seat' : `The registry holds no votes, shares or finish order for the ${election.candidates.length - 1 === 1 ? 'other candidate' : 'other candidates'}`},
-        so the order is the winner first, then A to Z. Everything below is what each candidate declared in an affidavit; none of it is a result.
-      </p>
+      <p className="iei-note">The winner first, then A to Z: no order of finish is on record. Everything below is declared in an affidavit; none of it is a result.</p>
       <Tabs label="Order the candidates by" current={order} choices={ROSTER_ORDERS.map((o) => ({ key: o.key, label: o.label, href: href(o.key) }))} />
       <Table
         label={`Candidates in ${election.year}`}
@@ -460,17 +430,8 @@ export function SeatRoster({ election, order, dir, base }: { election: FieldElec
             <th scope="col" className="iei-n" aria-sort={aria('age')}>
               Age
             </th>
-            <th scope="col" className="iei-seat-hide">
-              Education
-            </th>
-            <th scope="col" className="iei-seat-hide">
-              Occupation
-            </th>
             <th scope="col" className="iei-n">
               Declared assets
-            </th>
-            <th scope="col" className="iei-n iei-seat-hide">
-              Liabilities
             </th>
             <th scope="col" className="iei-n iei-seat-hide">
               Cases declared pending
@@ -491,16 +452,13 @@ export function SeatRoster({ election, order, dir, base }: { election: FieldElec
               {trailOf(c).length === 0 ? null : <span className="iei-seat-trail">Stood here: {trailOf(c).join(' · ')}</span>}
             </td>
             <td className="iei-n">{c.age ?? NR}</td>
-            <td className="iei-seat-hide">{c.education ?? NR}</td>
-            <td className="iei-seat-hide">{c.occupation ?? NR}</td>
             <td className="iei-n">{c.assets === null ? NR : `Rs ${IN.format(c.assets)}`}</td>
-            <td className="iei-n iei-seat-hide">{c.liabilities === null ? NR : `Rs ${IN.format(c.liabilities)}`}</td>
             <td className="iei-n iei-seat-hide">{c.cases === null ? NR : c.cases}</td>
           </tr>
         ))}
       </Table>
       <p className="iei-note">
-        Cases declared are the pending cases the candidate listed in the affidavit; they are not a criminal record. Self-declared{election.declaredAsOf === null ? '' : `, as of ${election.declaredAsOf}`}.
+        Pending cases as listed in the affidavit, not a criminal record. Education, occupation and liabilities are on each candidate&rsquo;s page. Self-declared{election.declaredAsOf === null ? '' : `, as of ${election.declaredAsOf}`}.
       </p>
     </Panel>
   );
@@ -745,29 +703,27 @@ export function SeatMarginRank({ figure }: { figure: MarginRankFigure }) {
 
 /* ───────────────────────────── what the record does not say, and what is flagged ───────────────────────────── */
 
-export function SeatLimits({ limits }: { limits: readonly Limit[] }) {
-  if (limits.length === 0) return null;
+/**
+ * ONE SECTION FOR WHAT THE RECORD DOES NOT SAY, where there were two ("Flagged" and "Each absence, once"). Each absence is stated here once, and the panels,
+ * the tiles and the table beside the figures carry only the word that marks the gap (a "declared" ring, "not reported"), never the explanation again.
+ * A flag is a stated rule a record met (a margin under a point of the votes polled); it is listed under the absences, with its rule, when one fires, and
+ * said nowhere when none does: a rule that found nothing is not something the record fails to say.
+ */
+export function SeatLimits({ limits, flags }: { limits: readonly Limit[]; flags: readonly Flag[] }) {
+  if (limits.length === 0 && flags.length === 0) return null;
   return (
     <Panel id="limits" title="What the record does not say" question="Where does this seat's record stop?">
-      <Limits heading="Each absence, once" items={limits.map((l) => ({ id: l.id, text: l.text }))} />
-    </Panel>
-  );
-}
-
-export function SeatFlags({ flags, elections }: { flags: readonly Flag[]; elections: number }) {
-  if (flags.length === 0 && elections < 2) return null;
-  return (
-    <Panel id="flagged" title="Flagged" question="Does anything about this seat's record meet a stated rule?">
-      {flags.length === 0 ? (
-        <p className="iei-note">
-          Nothing is, by these rules: a counted winning margin under 1% of the votes polled; a contest with nobody in it; a candidacy and a result that disagree.
-        </p>
-      ) : (
-        <DataList label="Flags">
-          {flags.map((f) => (
-            <DataRow key={f.text} title={f.text} rule={`Rule: ${f.rule}`} />
-          ))}
-        </DataList>
+      {limits.length === 0 ? null : (
+        <div className="iei-limits">
+          <ul>
+            {limits.map((l) => (
+              <li key={l.id}>{l.text}</li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {flags.length === 0 ? null : (
+        <Limits heading="Flagged by a stated rule" items={flags.map((f) => ({ id: f.text, text: `${f.text} Rule: ${f.rule}.` }))} />
       )}
     </Panel>
   );

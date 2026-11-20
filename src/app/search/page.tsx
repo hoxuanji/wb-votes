@@ -1,7 +1,8 @@
 import Link from 'next/link';
 import type { Metadata } from 'next';
-import { PER_GROUP, outcomeWords, searchAll } from '../../../packages/mandate/src/repo/search.ts';
-import type { Hit, PartyHit, Results } from '../../../packages/mandate/src/repo/search.ts';
+import { PER_GROUP, outcomeWords, searchAll, searchExamples } from '../../../packages/mandate/src/repo/search.ts';
+import type { Example, Hit, PartyHit, Results } from '../../../packages/mandate/src/repo/search.ts';
+import { displayName } from '../../../packages/mandate/src/repo/display-name.ts';
 import { personHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { readAsk } from '../../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
@@ -58,6 +59,9 @@ function Cut({ shown, of, atLeast = false }: { shown: number; of: number; atLeas
   );
 }
 
+/** "1 match", "3 matches", "at least 200 matches": what a kind found, said under its heading, where the count is read. */
+const matches = (n: number, atLeast = false): string => `${atLeast ? 'at least ' : ''}${IN.format(n)} ${n === 1 ? 'match' : 'matches'}`;
+
 /** A group of hits, or nothing at all. An empty group is not rendered: a heading over no rows is noise. */
 function Group({
   title,
@@ -75,7 +79,7 @@ function Group({
 }) {
   if (hits.length === 0) return null;
   return (
-    <Panel title={title} question={question} note={note}>
+    <Panel title={title} question={`${question} ${matches(of)}`} note={note}>
       <DataList label={title}>
         {hits.map((h) => (
           <DataRow key={h.id} title={h.label} href={h.href ?? undefined} detail={h.detail} />
@@ -95,11 +99,11 @@ function Person({ p }: { p: PersonRow }) {
   // A nomination in a seat already declared for someone else is not 'no result declared'; say who has it, as the person page does.
   const outcome =
     !p.isWinner && p.latestStatus === 'contesting' && p.latestWonBy !== null
-      ? `seat won by ${p.latestWonBy}`
+      ? `seat won by ${displayName(p.latestWonBy)}`
       : outcomeWords(p);
   return (
     <DataRow
-      title={p.canonicalName}
+      title={displayName(p.canonicalName)}
       href={personHref(p.id)}
       detail={`${where} · ${p.latestPartyShortName ?? 'party not recorded'} · ${outcome} · ${p.candidacyCount} contest${p.candidacyCount === 1 ? '' : 's'}`}
     />
@@ -132,6 +136,37 @@ function answer(r: Results): string {
   return `Nothing in the registry matches “${r.q}”.`;
 }
 
+const KINDS: Record<Example['group'], string> = {
+  state: 'State',
+  election: 'Election',
+  seat: 'Constituency',
+  person: 'Person',
+  party: 'Party',
+};
+
+/**
+ * THE EMPTY SEARCH: what can be searched, in one sentence, and a search of each kind to start from. Every example is a row this registry
+ * holds (repo/search.ts `searchExamples`), checked to find itself, so a click lands on a result and never on "nothing matches".
+ */
+function Start({ examples }: { examples: readonly Example[] }) {
+  return (
+    <Panel title="Start from one" question="Each is a row this registry holds. Or type in the field above.">
+      {examples.length === 0 ? null : (
+        <DataList label="Example searches">
+          {examples.map((x) => (
+            <DataRow key={x.group} title={x.label} href={`/search?q=${encodeURIComponent(x.q)}`} detail={KINDS[x.group]} />
+          ))}
+        </DataList>
+      )}
+      <p className="iei-note">
+        All 36 states and union territories are searchable, whether or not an election is loaded for them. People are matched as written,
+        then by sound, across Latin, Bengali and Devanagari scripts. A party has no page of its own yet, so a party hit opens its line in the
+        national landscape where there is one.
+      </p>
+    </Panel>
+  );
+}
+
 export default function SearchPage({
   searchParams,
 }: {
@@ -141,7 +176,7 @@ export default function SearchPage({
 
   // An outage reads as "registry not built". A defect in the search is thrown: it used to be caught here and
   // shown as the same page, so a broken query looked like a fresh clone.
-  const read = readRegistry((db) => searchAll(db, q));
+  const read = readRegistry((db) => ({ results: searchAll(db, q), examples: q === '' ? searchExamples(db) : [] }));
   if (!read.ok) {
     return (
       <Shell here="search" q={q} reading>
@@ -149,48 +184,19 @@ export default function SearchPage({
       </Shell>
     );
   }
-  const r = read.value;
+  const r = read.value.results;
+  const examples = read.value.examples;
 
   return (
     <Shell here="search" q={q} reading>
       <div className="iei-head">
-        <p className="iei-eyebrow">Search</p>
         <h1 className="iei-answer iei-answer-long">{answer(r)}</h1>
         {r.transliterated === null ? null : (
           <p className="iei-sub">Read as {r.script === 'beng' ? 'Bengali' : 'Devanagari'} and matched as “{r.transliterated}”.</p>
         )}
       </div>
 
-      {q === '' ? (
-        <Panel title="What is searchable" question="Every kind of thing this registry can navigate to">
-          <DataList label="Searchable kinds">
-            <DataRow
-              title="States and union territories"
-              detail="All 36, whether or not an election is loaded for them."
-            />
-            <DataRow
-              title="Elections"
-              detail="By jurisdiction, body, year or the election's own name."
-            />
-            <DataRow
-              title="Districts"
-              detail="By name."
-            />
-            <DataRow
-              title="Constituencies"
-              detail="Assembly and parliamentary seats, under the name each carries now."
-            />
-            <DataRow
-              title="People"
-              detail="Matched as text, then phonetically, across scripts."
-            />
-            <DataRow
-              title="Parties"
-              detail="By full name or abbreviation — searching “Trinamool” finds TMC. A party has no page of its own yet, so a hit carries its measured reach and, where the national party landscape lists the party, opens its line there."
-            />
-          </DataList>
-        </Panel>
-      ) : null}
+      {q === '' ? <Start examples={examples} /> : null}
 
       <Group title="States" question="Which jurisdiction?" hits={r.states} of={r.counts.states} />
       <Group title="Elections" question="Which election?" hits={r.elections} of={r.counts.elections} />
@@ -198,7 +204,7 @@ export default function SearchPage({
       <Group title="Constituencies" question="Which seat?" hits={r.constituencies} of={r.counts.constituencies} />
 
       {r.people.length === 0 ? null : (
-        <Panel title="People" question="Who?">
+        <Panel title="People" question={`Who? ${matches(r.counts.people, r.capped)}`}>
           <DataList label="People">
             {r.people.map((p) => (
               <Person key={p.id} p={p} />
@@ -211,7 +217,7 @@ export default function SearchPage({
       {r.alike.length === 0 ? null : (
         <Panel
           title={`Sounds like “${r.q}”`}
-          question="Names that share a phonetic key with the query"
+          question={`Names that share a phonetic key with the query: ${matches(r.counts.alike, r.capped)}`}
           note={
             <>
               {r.people.length === 0 ? 'No recorded name contains what you typed; these share a phonetic key with it. ' : null}

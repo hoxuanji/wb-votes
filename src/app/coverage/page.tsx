@@ -9,7 +9,6 @@ import { coverageHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { readAsk } from '../../../packages/mandate/src/repo/map-selection.ts';
 import { readRegistry } from '../../../packages/mandate/src/repo/session.ts';
 import { Shell } from '../../components/iei/Shell.tsx';
-import { TableTwin } from '../../components/iei/marks.tsx';
 import {
   CoverageChip,
   Metric,
@@ -78,8 +77,8 @@ function Election({
   return (
     <Panel
       id="election"
-      title="One election at a time"
-      question="How much of this election do we actually hold?"
+      title="What each election holds"
+      question="How much of this election is loaded?"
       sources={c.sources}
     >
       <Tabs
@@ -93,9 +92,8 @@ function Election({
       />
 
       <p className="iei-caveat">
-        <b>{c.name}</b> <CoverageChip state={c.completeness} /> — <b>complete</b> means every constituency
-        this house elects is loaded and every contest carries a vote count or a stated reason it does not.
-        <b> Partial</b> names what is missing, below.
+        <b>{c.name}</b> <CoverageChip state={c.completeness} /> — complete means every constituency this house elects is
+        loaded and every contest carries a vote count or a stated reason it does not.
       </p>
 
       <Metrics>
@@ -126,8 +124,8 @@ function Election({
       </Metrics>
 
       <p className="iei-note">
-        <b>Expected</b> comes from reference data — {c.expectedBasis}.{' '}
-        {c.referenceSeats === null ? null : <>This house elects {c.referenceSeats} members today. </>}
+        <b>Expected</b> is {c.expectedBasis}
+        {c.referenceSeats === null ? null : <>: {c.referenceSeats} members today</>}.{' '}
         {c.epochs.length === 1 ? (
           <>Its seats were drawn under one delimitation ({c.epochs[0]?.id}).</>
         ) : (
@@ -170,7 +168,7 @@ function Election({
  *
  * Eighteen rows in the spec's order, each with a status, a row count and a measured reach, was a table in which eleven rows said "Not modelled",
  * "none" and "no <x> model exists yet" in turn. Each group says what is true of every row once (repo/coverage-ledger.ts), a row keeps what only it has,
- * and the subjects with no model are named rather than described: their questions and sources are in the exact table below.
+ * and the subjects with no model are named with the one source each waits for. There is no second, exact copy of all eighteen: the reader who wanted it had two tables saying one thing.
  */
 function Ledger({ groups, total }: { groups: readonly LedgerGroup[]; total: number }) {
   return (
@@ -194,29 +192,14 @@ function Ledger({ groups, total }: { groups: readonly LedgerGroup[]; total: numb
             </div>
 
             {g.status === 'no-model' ? (
-              <>
-                <ul className="iei-led-names">
-                  {g.entries.map((e) => (
-                    <li key={e.key}>{e.label}</li>
-                  ))}
-                </ul>
-                {g.waiting.map((w) => (
-                  <p className="iei-led-wait" key={w.model}>
-                    {w.sentence}
-                  </p>
+              /* Each subject, and the one source it is waiting for. A caveat is kept where it says more than "there is no model yet". */
+              <ul className="iei-led-more">
+                {g.entries.map((e) => (
+                  <li key={e.key}>
+                    <b>{e.label}</b>: <span>{e.caveat === null ? '' : `${e.caveat}; `}needs {e.source}.</span>
+                  </li>
                 ))}
-                {g.entries.some((e) => e.caveat !== null) ? (
-                  <ul className="iei-led-more">
-                    {g.entries.map((e) =>
-                      e.caveat === null ? null : (
-                        <li key={e.key}>
-                          <b>{e.label}</b>: <span>{e.caveat}</span>
-                        </li>
-                      ),
-                    )}
-                  </ul>
-                ) : null}
-              </>
+              </ul>
             ) : (
               <ul className="iei-led-list">
                 {/* The column names, once, where there is room for columns. Each cell names itself for a screen reader and, on a phone, in sight. */}
@@ -233,7 +216,6 @@ function Ledger({ groups, total }: { groups: readonly LedgerGroup[]; total: numb
                   <li className={e.rows === null ? 'iei-led-row' : 'iei-led-row iei-led-has'} key={e.key}>
                     <div className="iei-led-who">
                       <b>{e.label}</b>
-                      <span>{e.question}</span>
                     </div>
                     {e.rows === null ? null : (
                       <p className="iei-led-rows">
@@ -278,10 +260,10 @@ function Body({
   return (
     <>
       <div className="iei-head">
-        <p className="iei-eyebrow">Coverage · computed at request time</p>
         <h1 className="iei-answer iei-answer-long">
           {c.present} of {c.total} subject areas hold data. {c.noModel} have no model in the schema at all.
         </h1>
+        <p className="iei-note">Coverage, computed at request time</p>
       </div>
 
       {election === null ? null : <Election c={election} choices={choices} />}
@@ -291,14 +273,13 @@ function Body({
         question="How much of India's electoral map is loaded?"
         note={
           <>
-            Counted against the seat totals India has <b>today</b>, and from each jurisdiction&rsquo;s most
-            recent election in each house.
+            Against the seat totals India has <b>today</b>, from each jurisdiction&rsquo;s most recent election in each house.
           </>
         }
       >
         <Table
           label="Electoral geography loaded against India's own totals"
-          caption="Units loaded, against the number India has today"
+          caption="Units loaded"
           head={
             <>
               <th scope="col">Unit</th>
@@ -335,92 +316,28 @@ function Body({
             <td className="iei-n">{INDIA.lokSabhaSeats}</td>
             <td className="iei-n">{g.parliamentaryPct.toFixed(1)}%</td>
           </tr>
-          <tr>
-            <th scope="row">
-              Constituencies from an earlier delimitation
-              <span className="iei-rule">
-                Real seats, and not current ones — undivided Bihar numbered 324, and Andhra Pradesh&rsquo;s
-                2009 and 2014 elections precede Telangana. Counted so no ratio above can exceed 100%.
-              </span>
-            </th>
-            <td className="iei-n">{IN.format(g.historicalSeatsLoaded)}</td>
-            <td className="iei-n">
-              <Value value={null} absent="n/a" />
-            </td>
-            <td className="iei-n">
-              <Value value={null} absent="n/a" />
-            </td>
-          </tr>
+          {g.historicalSeatsLoaded === 0 ? null : (
+            <tr>
+              <th scope="row">
+                Constituencies from an earlier delimitation
+                <span className="iei-rule">
+                  Real seats and not current ones (undivided Bihar numbered 324), counted so no share above can exceed 100%.
+                </span>
+              </th>
+              <td className="iei-n">{IN.format(g.historicalSeatsLoaded)}</td>
+              <td className="iei-n">
+                <Value value={null} absent="n/a" />
+              </td>
+              <td className="iei-n">
+                <Value value={null} absent="n/a" />
+              </td>
+            </tr>
+          )}
         </Table>
       </Panel>
 
-      <Panel
-        title="The eighteen subject areas"
-        question="What does this platform model, and what does it only intend to?"
-      >
+      <Panel title="What the platform covers" question="Which subject areas hold data, and which are still to be built?">
         <Ledger groups={ledgerGroups(c.verticals)} total={c.total} />
-
-        {/* THE EXACT TABLE, all eighteen rows and every column, behind a disclosure. The groups above say what is true of each
-            status once; this is where a subject's question and source, and the missing model of every subject with none, are
-            read side by side. Nothing the groups leave out is left out of the page. */}
-        <TableTwin summary={`The exact table: all ${c.total} subject areas`}>
-        <Table
-          label="The eighteen subject areas and what each holds"
-          caption="Every subject area in the model, its status, its measured reach and the source it still needs"
-          wide
-          head={
-            <>
-              <th scope="col">Subject</th>
-              <th scope="col">Status</th>
-              <th scope="col" className="iei-n">
-                Rows
-              </th>
-              <th scope="col">
-                How far it reaches
-              </th>
-              <th scope="col">
-                Source it needs
-              </th>
-            </>
-          }
-        >
-          {c.verticals.map((v) => (
-            <tr key={v.key}>
-              <th scope="row">
-                {v.label}
-                <span className="iei-rule">{v.question}</span>
-              </th>
-              <td>
-                {/* Status is a word with a shape beside it, never colour alone: the three states have to
-                    survive a greyscale print and a forced-colors palette. ONE vocabulary — the chip used to
-                    print "Complete" with "Has data" underneath it, which is the same fact said twice in two
-                    different languages. */}
-                <CoverageChip state={STATUS[v.status].state} word={STATUS[v.status].word} />
-              </td>
-              <td className="iei-n">
-                {v.status === 'present' ? (
-                  <>
-                    {IN.format(v.count)}
-                    <span className="iei-of"> {v.unit}</span>
-                  </>
-                ) : (
-                  <Value value={null} absent="none" />
-                )}
-              </td>
-              <td>
-                {/* Reach is MEASURED; scope is the caveat. Keeping them apart is what stops the second from
-                    being read as the first — the line that said "one state" was a caveat that had become a
-                    false count. */}
-                {v.reach === null ? null : <span className="iei-chip">{v.reach}</span>}
-                <span className="iei-rule">{v.scope}</span>
-              </td>
-              <td title={v.source}>
-                {v.source}
-              </td>
-            </tr>
-          ))}
-        </Table>
-        </TableTwin>
       </Panel>
 
       <div className="iei-foot">

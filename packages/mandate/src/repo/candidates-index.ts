@@ -62,7 +62,7 @@ export type CandidateRow = {
 export type Facet = { key: string; label: string; n: number; won: number; on: boolean; href: string; ink: string | null };
 
 export type CandidatesView = {
-  election: { id: string; label: string; year: number; seats: number; candidates: number; winners: number; before: number; counted: boolean };
+  election: { id: string; label: string; year: number; seats: number; candidates: number; winners: number; /** Candidacies the record names as elected that no result row declares: said in words, never counted as won. */ namedOnly: number; before: number; counted: boolean };
   elections: { id: string; label: string; href: string }[];
   query: CandidateQuery;
   /** Parameters that were asked and not honoured, in words. */
@@ -166,7 +166,8 @@ export function candidatesIndex(db: DatabaseSync, search: Search | undefined): C
 
     // The ladder's columns: the full-house elections on record, oldest first, at most five.
     const columns = [...choices].sort((a, b) => Number(a.body === "lok-sabha") - Number(b.body === "lok-sabha") || a.year - b.year || byText(a.id, b.id)).slice(-5).map((e) => ({ id: e.id, label: label(e) }));
-    const won = (r: Raw): boolean => r.isWinner === 1 || r.status === "elected";
+    // A win is a result row's winner, as on the election page and /coverage: a candidacy flagged "elected" with no result row is named as elected, never counted as won.
+    const won = (r: Raw): boolean => r.isWinner === 1;
     const byPerson = new Map<string, Raw[]>();
     for (const r of careers) byPerson.set(r.personId, [...(byPerson.get(r.personId) ?? []), r]);
     const ties = seatTies(db);
@@ -251,7 +252,7 @@ export function candidatesIndex(db: DatabaseSync, search: Search | undefined): C
         if (k === null) continue;
         const f = g.get(k.key) ?? { key: k.key, label: k.label, n: 0, won: 0, on: current === k.key, href: href({ [param]: current === k.key ? null : k.key }), ink: k.ink };
         f.n += 1;
-        if (r.declaredWinner || r.namedAsElected) f.won += 1;
+        if (r.declaredWinner) f.won += 1;
         g.set(k.key, f);
       }
       return [...g.values()].sort((a, b) => b.n - a.n || byText(a.label, b.label));
@@ -263,7 +264,7 @@ export function candidatesIndex(db: DatabaseSync, search: Search | undefined): C
       const rows = allRows.filter((r) => keep(r, "career") && r.shape === key);
       return rows.length === 0 && query.career !== key
         ? []
-        : [{ key, label: shapeLabel.get(key) ?? key, n: rows.length, won: rows.filter((r) => r.declaredWinner || r.namedAsElected).length, on: query.career === key, href: href({ career: query.career === key ? null : key }), ink: null }];
+        : [{ key, label: shapeLabel.get(key) ?? key, n: rows.length, won: rows.filter((r) => r.declaredWinner).length, on: query.career === key, href: href({ career: query.career === key ? null : key }), ink: null }];
     });
 
     const matching = allRows.filter((r) => keep(r));
@@ -291,7 +292,8 @@ export function candidatesIndex(db: DatabaseSync, search: Search | undefined): C
         year: chosen.year,
         seats: chosen.seats,
         candidates: allRows.length,
-        winners: allRows.filter((r) => r.declaredWinner || r.namedAsElected).length,
+        winners: allRows.filter((r) => r.declaredWinner).length,
+        namedOnly: allRows.filter((r) => r.namedAsElected).length,
         before: allRows.filter((r) => r.before).length,
         counted: here.some((r) => r.votes !== null),
       },

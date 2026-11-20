@@ -42,3 +42,15 @@ export function houseScope(e: { body: Body; fill: string; loaded: number; houseT
   if (e.houseTotal <= 0 || e.loaded >= e.houseTotal) return null;
   return `${IN_NUM.format(e.loaded)} of ${IN_NUM.format(e.houseTotal)} seats`;
 }
+
+/**
+ * What the registry holds of the two houses' seats, as the one scope line under the front page's title: "294 of 4,123 assembly seats and 42 of 543 Lok Sabha seats are
+ * loaded." It names what the totals counted over (seats, in each house), carries both denominators, and says nothing a source did not publish. A house with no reference
+ * total has no denominator to say and is left out; with neither, there is no line.
+ */
+export function seatsLoadedLine(s: Held): string | null {
+  const parts: string[] = [];
+  if (s.assemblySeatsTotal > 0) parts.push(`${IN_NUM.format(s.assemblySeatsHeld)} of ${IN_NUM.format(s.assemblySeatsTotal)} assembly seats`);
+  if (s.lokSabhaSeatsTotal > 0) parts.push(`${IN_NUM.format(s.lokSabhaSeatsHeld)} of ${IN_NUM.format(s.lokSabhaSeatsTotal)} Lok Sabha seats`);
+  return parts.length === 0 ? null : `${parts.join(" and ")} are loaded.`;
+}

@@ -1,8 +1,8 @@
 import Link from 'next/link';
 import { electionHref, stateHref } from '../../packages/mandate/src/repo/routes.ts';
-import { homeView, layerChoices, leaderOf, PARTY_RANK_RULE } from '../../packages/mandate/src/repo/home.ts';
+import { homeView, layerChoices, leaderOf, PARTY_RANK_RULE, showsPartyLandscape } from '../../packages/mandate/src/repo/home.ts';
 import { homeSources } from '../../packages/mandate/src/repo/home-sources.ts';
-import { houseScope, landscapeScope } from '../../packages/mandate/src/repo/home-scope.ts';
+import { houseScope, landscapeScope, seatsLoadedLine } from '../../packages/mandate/src/repo/home-scope.ts';
 import { bodyWord } from '../../packages/mandate/src/core/election-kind.ts';
 import { turnoutHeadline } from '../../packages/mandate/src/repo/turnout-trust.ts';
 import type { HomeView } from '../../packages/mandate/src/repo/home.ts';
@@ -11,7 +11,7 @@ import { readAsk, readSelection, queryHref } from '../../packages/mandate/src/re
 import { readRegistry } from '../../packages/mandate/src/repo/session.ts';
 import { glanceOf, indiaSentence, stateChoice } from '../../packages/mandate/src/repo/home-glance.ts';
 import { landscapeOverTime } from '../../packages/mandate/src/repo/landscape.ts';
-import { frameSentence, framesOf } from '../../packages/mandate/src/repo/landscape-frames.ts';
+import { frameSentence, framesOf, hasHistory } from '../../packages/mandate/src/repo/landscape-frames.ts';
 import { nextUp } from '../../packages/mandate/src/repo/next-up.ts';
 import { readLiveFeed } from '../../packages/mandate/src/repo/live-feed.ts';
 import { liveReply } from '../../packages/mandate/src/repo/live-reply.ts';
@@ -20,7 +20,7 @@ import { fillFor } from '../../packages/mandate/src/viz/party-ink.ts';
 import { GEOMETRY_SOURCE } from '../lib/india-geo.ts';
 import { Foot, Shell } from '../components/iei/Shell.tsx';
 import { IndiaMap } from '../components/iei/IndiaMap.tsx';
-import { HomeReach, StateCard } from '../components/iei/Story.tsx';
+import { StateCard } from '../components/iei/Story.tsx';
 import { LandscapeMap, NextUpRail } from '../components/iei/Situation.tsx';
 import { TimeMachine } from '../components/iei/TimeMachine.tsx';
 import { LiveBoard } from '../components/iei/LiveBoard.tsx';
@@ -141,10 +141,22 @@ export default function Home({
   // Only a layer that colours a party has a party in each row for a seat count to belong to.
   const seated = v.layer.encoding === 'categorical';
 
+  // The layers nothing in the registry can fill, grouped by the reason they cannot, so a reason is said once.
+  const unfilled: { why: string; labels: string[] }[] = [];
+  for (const l of v.layers) {
+    if (l.available || l.why === null || l.key === v.layer.key) continue;
+    const at = unfilled.find((u) => u.why === l.why);
+    if (at === undefined) unfilled.push({ why: l.why, labels: [l.label] });
+    else at.labels.push(l.label);
+  }
+
   // The whole country first: every jurisdiction with a result, side by side, and the state the reader chose.
   const askedState = typeof searchParams?.state === 'string' ? searchParams.state : null;
   const rows = glanceOf({ standings: v.standings, houseStandings: v.houseStandings });
   const chosen = stateChoice({ standings: v.standings, houseStandings: v.houseStandings, states: v.states }, askedState);
+  // The note on what "majority" means is in the drawer only where the word is on the panel: the state card prints it for a loaded state's houses (the chosen
+  // state's, or every state's in the glance), so a chosen state with no result, or a registry whose leaders hold no majority, has nothing for it to qualify.
+  const majorityShown = (chosen === null ? rows : chosen.status === 'loaded' ? [chosen.row] : []).some((r) => r.assembly?.majority === true || r.loksabha?.majority === true);
   const choose = (c: Cell): string => queryHref('/', ask, { state: c.jurisdictionId }, 'map');
   const chooseId = (id: string): string => queryHref('/', ask, { state: id }, 'map');
   const clearHref = queryHref('/', ask, { state: '' }, 'map');
@@ -156,11 +168,9 @@ export default function Home({
   const liveBoard = live.state === 'boards' ? live.boards[0] : undefined;
   const liveOn = s.live || liveBoard !== undefined;
 
-  const reach = [
-    { label: 'States and territories with results', have: s.jurisdictionsWithResults, of: s.jurisdictionsTotal, unit: '' },
-    { label: 'Assembly seats', have: s.assemblySeatsHeld, of: s.assemblySeatsTotal, unit: 'seats' },
-    { label: 'Lok Sabha seats', have: s.lokSabhaSeatsHeld, of: s.lokSabhaSeatsTotal, unit: 'seats' },
-  ].filter((r) => r.of > 0);
+  // HOW MUCH OF THE COUNTRY THE REGISTRY HOLDS, as one sentence beside the disclaimer it qualifies and not as a strip of big figures with bars: the title says how many
+  // states, and this says what the seat totals counted over (repo/home-scope.ts).
+  const loadedLine = seatsLoadedLine(s);
   // The map's rows that hold nothing on this layer are one line under the table, not thirty-five rows of "not loaded".
   const lit = v.layer.cells.filter((c) => c.label !== null);
   const held = lit.length > 0 ? lit : v.layer.cells;
@@ -175,30 +185,48 @@ export default function Home({
   const coverage = (id: string) => v.coverageOf.get(id) ?? 'unavailable';
   const partly = v.held.some((r) => coverage(r.id) === 'partial');
   const nothing = v.held.some((r) => coverage(r.id) === 'unavailable');
+  // SAID ONCE WHEN IT IS TRUE OF EVERY ROW. Five rows each ending in "partly loaded" is one fact printed five times; when every election listed is short in
+  // the same way, the fact is one sentence above the list and the rows carry nothing. Only when the rows differ does a row wear its own marker, and then the
+  // sentence says what the markers mean.
+  const uniform = v.held.length > 0 && v.held.every((r) => coverage(r.id) === coverage(v.held[0]!.id)) && coverage(v.held[0]!.id) !== 'complete';
+  const coverageLink = (
+    <>
+      <Link className="iei-ev-a" href="/coverage">
+        Coverage
+      </Link>{' '}
+      lists which.
+    </>
+  );
   const coverageWords =
-    partly || nothing ? (
+    !(partly || nothing) ? undefined : uniform ? (
+      <>
+        {partly
+          ? <>Each election below is partly loaded: the registry is missing some constituencies, vote counts or turnout rows. </>
+          : <>No contest is loaded for any election below. </>}
+        {coverageLink}
+      </>
+    ) : (
       <>
         {partly ? <>&ldquo;Partly loaded&rdquo; marks an election with a gap in what the registry holds: constituencies not loaded, contests with no vote count, or contests with no turnout row. </> : null}
         {nothing ? <>&ldquo;Result unavailable&rdquo; marks an election with no contest loaded. </> : null}
-        <Link className="iei-ev-a" href="/coverage">
-          Coverage
-        </Link>{' '}
-        lists which.
+        {coverageLink}
       </>
-    ) : undefined;
+    );
+  // "Recent results" has a drawer of its own only for sources the map's drawer does not already hold: the same two publishers behind the same elections, listed
+  // twice, was a source line repeated per section. Where the rows read an election the map does not, the drawer is there and complete.
+  const recentSources = src.recent.every((r) => src.map.some((m) => m.id === r.id)) ? [] : src.recent;
 
-  const emptyClosest = v.fights.length === 0;
-  const reference = (
-    <>
+  // A SECTION APPEARS ONLY WHEN THE REGISTRY CAN ANSWER ITS QUESTION. Absent, it is not an apology: what the registry lacks is /coverage's to say.
+  const showHistory = hasHistory(frames);
+  const showClosest = v.fights.length > 0;
+  const showParties = showsPartyLandscape(v);
+
+  const closest = !showClosest ? null : (
       <Panel
-        id={emptyClosest ? 'elections' : undefined}
         className="iei-sec-flat"
         title="Closest contests"
         question="Which seats were decided by the fewest votes?"
       >
-        {v.fights.length === 0 ? (
-          <p className="iei-absent">No jurisdiction&rsquo;s latest election has counted results to rank: where a result has declared margins and no vote counts, there is nothing to measure a close contest by.</p>
-        ) : (
           <DataList label="The closest counted contests" tight>
             {v.fights.map((f) => (
               <DataRow
@@ -224,10 +252,11 @@ export default function Home({
               />
             ))}
           </DataList>
-        )}
       </Panel>
+  );
 
-      <Panel className="iei-sec-flat" title="Recent results" question="What has been decided most recently?" sources={src.recent} caveat={coverageWords}>
+  const recentResults = (
+      <Panel className="iei-sec-flat" title="Recent results" question="What has been decided most recently?" sources={recentSources} note={coverageWords}>
         <DataList label="Elections most recently held" tight>
           {v.held.map((r) => {
             const top = v.heldTop.get(r.id) ?? [];
@@ -279,7 +308,7 @@ export default function Home({
                       )}{' '}
                       {/* ONE QUIET MARKER, ONLY WHERE IT IS TRUE. This column used to be eight coverage
                           chips — dataset status running down a page of election results. */}
-                      <Incomplete state={v.coverageOf.get(r.id) ?? 'unavailable'} />
+                      {uniform ? null : <Incomplete state={v.coverageOf.get(r.id) ?? 'unavailable'} />}
                     </>
                   )
                 }
@@ -288,7 +317,6 @@ export default function Home({
           })}
         </DataList>
       </Panel>
-    </>
   );
 
   return (
@@ -298,11 +326,10 @@ export default function Home({
           invalid feed is said to be invalid rather than guessed at. ── */}
       {live.state === 'error' ? (
         <section className="iei-live-board" id="live" aria-label="Live election">
-          <p className="iei-eyebrow">Live feed</p>
           <p className="iei-absent">The live feed is configured but cannot be used, so no live count is shown: {live.error}</p>
         </section>
       ) : live.state === 'boards' ? (
-        <LiveBoard initial={live.boards} sentences={live.sentences} fills={live.fills} endpoint="/v1/live" />
+        <LiveBoard initial={live.boards} sentences={live.sentences} fills={live.paints} endpoint="/v1/live" />
       ) : null}
       {/* ── THE COUNTRY FIRST. The page used to open on one state's story, which made that state the page's subject; it opens on India now, with every
           state that has a result in one glance, and a state's story is what the reader's choice (or, failing one, the most recent election) opens
@@ -318,18 +345,17 @@ export default function Home({
                 field (`#iei-q`) and not a second field: the bar's field is the only one, on purpose (Shell.tsx). What it names is what the field's own
                 hint names. */}
             <p className="iei-sub iei-find">
-              <b>Nothing here is a prediction.</b> Looking for a seat or a person? <a href="#iei-q">Search by name</a>.
+              <b>Nothing here is a prediction.</b> {loadedLine === null ? null : <>{loadedLine} </>}Looking for a seat or a person? <a href="#iei-q">Search by name</a>.
             </p>
-          </div>
-          {/* How much of the country the registry holds, said once with true denominators, as one strip under the sentence it qualifies. */}
-          <div className="iei-hero-reach">
-            <HomeReach reach={reach} />
           </div>
         </div>
 
 
       {/* ── the map: the product's primary analytical instrument, and its primary navigation ── */}
       <div id="landscape" />
+      {/* KEYED BY WHAT THE WORKBENCH SHOWS. A native <details> keeps its open state when the page is navigated in place, so a drawer opened on one layer stayed open on the
+          next. The key has to sit on a host element: a key on a server component is gone by the time the markup reaches the browser. */}
+      <div key={`${v.layer.key}|${selectedId ?? ''}|${party ?? ''}`} style={{ display: 'contents' }}>
       <Panel
         id="map"
         className="iei-bench"
@@ -339,18 +365,20 @@ export default function Home({
            the only thing in it, which put a source on the outlines and none on the seat counts drawn over them. It is listed first because a
            drawer shows its first eight and says how many more it holds, and the outlines are not to be the entry that goes missing. */
         sources={[GEOMETRY_SOURCE, ...src.map]}
-        caveat={<>&ldquo;Majority&rdquo; is counted here, not published: more than half of the seats contested, from the seat totals.</>}
+        caveat={majorityShown ? <>&ldquo;Majority&rdquo; is counted here, not published: more than half of the seats contested, from the seat totals.</> : undefined}
       >
         <Tabs
           label="Map layer"
           row
           current={v.layer.key}
-          choices={v.layers.map((l) => ({
-            key: l.key,
-            label: l.label,
-            href: href({ layer: l.key }),
-            available: l.available,
-          }))}
+          choices={v.layers
+            .filter((l) => l.available || l.key === v.layer.key)
+            .map((l) => ({
+              key: l.key,
+              label: l.label,
+              href: href({ layer: l.key }),
+              available: l.available,
+            }))}
         />
 
         {/* A WAY PAST THE MAP FOR A KEYBOARD. The map is thirty-six links in a row, and the table beside it names the same states once each, so a
@@ -364,7 +392,7 @@ export default function Home({
           <IndiaMap layer={v.layer} nameOf={(id) => nameOf(v, id)} selection={sel} hrefFor={choose} selectedId={selectedId} />
 
           <div id="map-list">
-            <StateCard rows={rows} chosen={chosen} hrefFor={chooseId} clearHref={clearHref} storyHere={null} />
+            <StateCard rows={rows} chosen={chosen} hrefFor={chooseId} clearHref={clearHref} storyHere={null} changes={v.changes} />
             {/* A CONTEXTUAL LEGEND, and an interactive one. It names the parties this layer actually shows —
                 not three slots and an "Others" bucket, and not every party in the registry — and each entry is
                 a link that isolates that party on the map. The isolation is URL state, so it is shareable and
@@ -395,7 +423,7 @@ export default function Home({
               {v.layer.unloaded === 0 ? null : (
                 <li>
                   <span className="iei-sw iei-sw-none" aria-hidden="true" />
-                  Not loaded <b>{v.layer.unloaded}</b>
+                  Not loaded
                 </li>
               )}
               {v.layer.unknown === v.layer.unloaded ? null : (
@@ -506,26 +534,40 @@ export default function Home({
                 );
               })}
             </Table>
-            {/* OPEN WHEN MOST OF THE COUNTRY IS MISSING. An absence is information, and when the registry holds a minority of the states the list of what it
-                does not hold is the larger half of the answer: collapsed, the inspector under a one-row table was an empty pane. With most states loaded
-                the list is short or absent, and stays folded. */}
+            {/* THE STATES THE REGISTRY DOES NOT HOLD, NAMED ONCE, here and folded. The map's own labels name the ones that fit, and the old chip row and
+                second list are gone: this is the one list. Plain names, not links: every polygon on the map is already a way to the same card, and 35 more links
+                to "no election on record yet" were the page's largest block of tab stops. */}
             {bare.length === 0 ? null : (
-              <details className="iei-twin iei-story-unloaded" open={bare.length > held.length}>
+              <details className="iei-twin iei-story-unloaded">
                 <summary>
                   {bare.length} states and territories {v.layer.unknown === v.layer.unloaded ? 'not loaded' : 'with no figure here'}
                 </summary>
                 <ul>
                   {bare.map((c) => (
-                    <li key={c.jurisdictionId}>
-                      <Link href={choose(c)}>{c.jurisdictionName}</Link>
-                    </li>
+                    <li key={c.jurisdictionId}>{c.jurisdictionName}</li>
                   ))}
                 </ul>
               </details>
             )}
+            {/* WHAT THE LAYERS CANNOT SHOW, SAID ONCE, in the footer of the instrument that would have shown it: a tab that reads "unavailable" three times is
+                the same absence three times, and not a tab at all is the honest shape of a layer nothing in the registry can fill. Layers with the same reason are
+                one clause, and the reason is the layer's own (repo/home.ts, `whyEmpty`). */}
+            {unfilled.length === 0 ? null : (
+              <p className="iei-note">
+                Not available from this registry, for the states it holds:{' '}
+                {unfilled.map((u, i) => (
+                  <span key={u.why}>
+                    {i === 0 ? '' : '; '}
+                    {u.labels.join(', ').replace(/, ([^,]*)$/, ' and $1')}, because {u.why}
+                  </span>
+                ))}
+                .
+              </p>
+            )}
           </div>
         </div>
       </Panel>
+      </div>
 
       {/* ── NEXT UP, under the map (the owner's order, docs/superpowers/specs/2026-11-03-situation-room-home-design.md: the sentence and the figures, the landscape, then what comes next): the elections that come next are a headline of this page, not a reference table. Soonest first, with how far
           through its term each one is. An announced date prints as itself; the Commission's schedule is not in the registry yet, so today every card is a
@@ -548,33 +590,31 @@ export default function Home({
       </div>
 
       {/* ── HOW WE GOT HERE. A scrubber over every year the registry holds an assembly election in. The map and the tally are the present when the page loads
-          and with script off; with script, the year moves them. A state with no election by the year is not coloured. ── */}
-      <Panel
-        id="history"
-        className="iei-sec-flat"
-        title="How we got here"
-        question="How has the map of who governs changed over the years?"
-        note={
-          landscape.years.length < 2 ? (
-            <>The registry holds assembly elections in {landscape.years.length === 0 ? 'no year' : `one year, ${landscape.years[0]}`}, so there is no change to show yet: this fills in as more elections are loaded.</>
-          ) : undefined
-        }
-      >
-        {frames.length === 0 ? (
-          <p className="iei-absent">No assembly election is loaded, so there is no history to show.</p>
-        ) : (
+          and with script off; with script, the year moves them. A state with no election by the year is not coloured. It is on the page only when TWO OR MORE
+          states have an election on record: with one, the picture is one state's colour and a scrubber over that state's own years, which is the state page's
+          chapter and not the country's. ── */}
+      {!showHistory ? null : (
+        <Panel id="history" className="iei-sec-flat" title="How we got here" question="How has the map of who governs changed over the years?">
           <TimeMachine frames={frames} sentences={frameLines}>
             <LandscapeMap states={(landscape.byYear[landscape.byYear.length - 1]?.states ?? []).map((st) => ({ id: st.id, name: st.name }))} initial={frames[frames.length - 1]!} />
           </TimeMachine>
-        )}
-      </Panel>
+        </Panel>
+      )}
 
-      {/* ── what is coming, and what has just been decided ── */}
-      {/* TWO CARDS SIDE BY SIDE ONLY WHEN BOTH HAVE SOMETHING TO SAY. "Closest contests" is often one sentence saying there is nothing to rank, and a sentence does not
-          hold half a row: it is a heading and a line above the list it sits beside. */}
-      {emptyClosest ? reference : <div className="iei-two iei-two-wide" id="elections">{reference}</div>}
+      {/* ── what has just been decided, and how close the closest seats were. TWO CARDS SIDE BY SIDE ONLY WHEN BOTH EXIST: "Closest contests" is a section only
+          when there is at least one counted contest to rank (what is missing is /coverage's to say), and a lone card takes the width. ── */}
+      {closest === null ? (
+        <div id="elections">{recentResults}</div>
+      ) : (
+        <div className="iei-two iei-two-wide" id="elections">
+          {closest}
+          {recentResults}
+        </div>
+      )}
 
-      {/* ── who holds power, and where ── */}
+      {/* ── who holds power, and where. TWO OR MORE JURISDICTIONS only: with one, this is the inspector's own state card ranked again. The id and the party
+          anchors go with it, so search points at a party row only when this section is on the page (repo/home.ts `showsPartyLandscape`). ── */}
+      {!showParties ? null : (
       <Panel
         id="parties"
         className="iei-sec-flat"
@@ -648,6 +688,7 @@ export default function Home({
           ))}
         </DataList>
       </Panel>
+      )}
 
       <Foot />
     </Shell>

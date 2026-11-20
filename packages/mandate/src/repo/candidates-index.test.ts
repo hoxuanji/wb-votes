@@ -11,6 +11,7 @@ import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import { all, get } from "../db/index.ts";
 import { PAGE_SIZE, SORTS, candidatesIndex } from "./candidates-index.ts";
 import { CAREER_SHAPES } from "./person-story.ts";
+import { electionMapView } from "./election-map.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
 const live = { skip: HAVE_DB ? false : "no .data/registry.db — run npm run registry:ingest" };
@@ -152,4 +153,25 @@ test("every row's links are a person and a seat the registry has", live, () => {
     assert.equal(r.ladder.length, v.columns.length);
   }
   assert.ok(all(db, "SELECT 1 FROM election LIMIT 1").length === 1);
+});
+
+test("the party won-counts are the election page's seat totals: a win is a result row's winner, and a candidacy named as elected with no result row is not one", live, () => {
+  for (const id of ["wb-assembly-2026", "wb-assembly-2021", "ls-2024"]) {
+    const v = view({ election: id });
+    const page = electionMapView(db, id);
+    const seats = new Map(page.legend.map((l) => [l.label, l.n]));
+    const wonBy = new Map(v.parties.filter((f) => f.won > 0).map((f) => [f.label, f.won]));
+    assert.deepEqual([...wonBy].sort(), [...seats].sort(), `${id}: /candidates and the election page disagree on seats won by party`);
+    const declared = page.seats.filter((s) => s.partyKey !== null).length;
+    assert.equal(v.parties.reduce((n, f) => n + f.won, 0), declared, `${id}: the won-counts do not sum to the declared winners`);
+    assert.equal(v.election.winners, declared, `${id}: the election's winner count is not the declared winners`);
+    // What the record names as elected without a result row is counted apart, and in words.
+    const named = get<{ n: number }>(
+      db,
+      `SELECT COUNT(*) AS n FROM candidacy ca JOIN contest c ON c.id = ca.contest_id LEFT JOIN current_result r ON r.candidacy_id = ca.id
+        WHERE c.election_id = ? AND ca.status = 'elected' AND COALESCE(r.is_winner, 0) <> 1`,
+      id,
+    );
+    assert.equal(v.election.namedOnly, named?.n ?? 0, `${id}: named-as-elected is not counted apart`);
+  }
 });

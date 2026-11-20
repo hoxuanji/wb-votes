@@ -1,66 +1,51 @@
 /* INDIA ELECTION INTELLIGENCE — the design system. One stylesheet, and the only one the product has.
 
-   There used to be four. iei.css served `/`, mandate.css and place.css served `/pl` and `/p`,
-   situation.css and its two children served `/coverage`, `/search` and `/map`, and Tailwind served the
-   West Bengal dashboard. Three of them declared their own copy of the same dark palette two hexes apart,
-   two of them set a different base font size, and each had its own table treatment — which is why the
-   product read as assembled widgets: a component written for one page could not be mounted on the next.
+   THE DIRECTION (2026-11-20, "Adaptive tool UI"; DESIGN.md records it): a serious analytical product that adapts to the screen and the
+   theme it is on. One voice (the system sans, tabular numerals), sentence-case labels, two radii (12px for a card or panel, 8px for a
+   control or a mark), ONE accent (the indigo token, per theme), elevation that differs by theme (light: a card on a tinted canvas with
+   a soft two-layer shadow and no border; dark: a 1px low-alpha ring and a faint shadow), a rail that is a bottom tab bar on a phone,
+   fluid type and a fluid gutter, and motion that carries state (a view transition between pages, a press on every control).
 
    THE ONE RULE THIS FILE ENFORCES: a hue on a DATA MARK means what the data says, and nothing else.
+   A party's colour is the party's, the magnitude ramp is a magnitude, and the semantic inks are their meaning. The accent (`--accent`,
+   below) is wayfinding and affordance: the current rail place, the selected tab, a link, focus, a primary button, a heading's marker.
+   It is never the fill of a seat, a bar, a ribbon, a dot or a legend swatch, because the hue is within a few ΔE of some party's colour
+   (palette.ts measures it) and a fill is where that would be mistaken. iei.test.ts reads every rule that uses it and refuses a data mark.
 
-   A party's colour is the party's, the magnitude ramp is a magnitude, and the semantic inks are their
-   meaning. The chrome has a signal palette of its own (`--iei-a-*`, below): six hues of which a page shows ONE, the one for its kind
-   of page, saying WHERE you are (the current rail place, a heading's marker, the selected tab's underline, the page's label, a dim
-   glow) and never WHAT a mark is. They are used only as a bar, a small marker, a label or a faint wash, never as the fill of a seat, a bar, a ribbon, a
-   dot or a legend swatch, because every hue in the band is within a few ΔE of some party's colour
-   (palette.ts measures it) and a fill is where that would be mistaken. This replaced a stricter rule
-   ("the interface is monochrome"), which kept the map unambiguous and left the product flat.
+   THE SECOND RULE: every length is a token. A rule that wants 18px is a rule that has not decided whether it means 16 or 24. The scale is
+   4·8·12·16·24·32·48 and there are seven type sizes (three of them fluid); both are declared once, below. What changes at the phone
+   breakpoint (the gutter, the tight cell) is redeclared there as a token rather than overridden rule by rule.
 
-   THE SECOND RULE: every length is a token. A rule that wants 18px is a rule that has not decided
-   whether it means 16 or 24. The scale is 4·8·12·16·24·32·48 and there are seven type sizes; both are
-   declared once, below. What changes at the phone breakpoint (the gutter, the answer's size, the tight cell) is
-   redeclared there as a token rather than overridden rule by rule.
-
-   WHAT THE FINAL DESIGN PASS CHANGED HERE, because a stylesheet that describes an older version of itself is
-   worse than one with no comments:
-
-   · THE TYPE SCALE OPENED UP, 9.5–25px to 10–34px. A page title at 25px over a section heading at 11px is
-     not a hierarchy, and "too much information has the same visual weight" was measurably true.
-   · A SECTION HEADING IS A HEADING. It was tracked uppercase mono at 11px — the same treatment as a table
-     column header — so neither read as the top of anything. Sans, 15px, sentence case.
-   · EVERY STROKE INSIDE A MAP IS A DEVICE MEASUREMENT (`vector-effect: non-scaling-stroke`), because zoom
-     here is a viewBox change and a user-unit hairline is 25px inside a framed district.
-   · THE DATELINE STRIP AND THE NAVIGATION STRIP ARE GONE. Each has a note at the place it used to be, saying
-     what it was and why it went.
-
-   The rest follows from the same instinct, as amended by THE SKIN (the block at the foot of this file, 2026-10-29):
-   · A section is a card on a faintly lit page, with a soft shadow and a top highlight; sections used to be divided by hairlines "as a
-     document divides sections", and the result read as a document. Nothing floats for decoration, and nothing is coloured.
-   · Numbers, marks and metadata are monospace and tabular. Prose is SANS — a note under a chart is a sentence, and the sentence
-     was in 11px mono. That split is what lets a table run at 13px and stay readable.
-   · Radius is one token and it is 8px.
-   · Focus is a 2px bright-ink underline on the control itself, never a ring. forced-colors gets a real
-     outline, because there the system owns the treatment. */
+   THE REST FOLLOWS FROM THE SAME INSTINCT:
+   · EVERY STROKE INSIDE A MAP IS A DEVICE MEASUREMENT (`vector-effect: non-scaling-stroke`), because zoom here is a viewBox change and a
+     user-unit stroke is 25px inside a framed district.
+   · A section is a card; the reference sections under the front page's workbench are open (no box). Nothing is nested in a card that is
+     a card: a figure inside a section is a quiet tinted tile.
+   · Focus is a 2px accent outline with an offset, on every control; forced-colors gets a real CanvasText outline, because there the
+     system owns the treatment. */
 
 :root {
   /* ── surfaces and ink ──
      Locked by packages/mandate/src/viz/iei.test.ts, which parses this block and computes the contrast of
      every ink against every surface. Do not change a hex here without running it. */
-  --iei-bg: #07070b;
-  --iei-panel: #0d0d13;
-  --iei-raised: #14141c;
-  --iei-line: #1e1e28;
-  --iei-line-2: #2a2a38;
-  --iei-ink: #f2f2f7;
-  --iei-ink-2: #a3a3b3;
+  /* THEMES. Every colour that differs between the light and the dark page is declared ONCE, as light-dark(LIGHT, DARK), and
+     `color-scheme` says which one an element gets: the system's choice by default, the reader's when <html data-theme> is set
+     (Shell's ThemeToggle writes it, and a script in <head> reads it back before first paint). iei.test.ts parses both halves and
+     holds every contrast floor below on BOTH themes, so a light value cannot be edited without the same checks the dark ones get. */
+  color-scheme: light dark;
+  --iei-bg: light-dark(#eef0f6, #07070b);
+  --iei-panel: light-dark(#f8f9fc, #0d0d13);
+  --iei-raised: light-dark(#ffffff, #14141c);
+  --iei-line: light-dark(#dcdfea, #1e1e28);
+  --iei-line-2: light-dark(#c3c7d6, #2a2a38);
+  --iei-ink: light-dark(#12131c, #f2f2f7);
+  --iei-ink-2: light-dark(#454859, #a3a3b3);
   /*
-   * ink-3 is every label, table header, caption and metadata line on the page, and it was #74748a — 4.41:1
-   * on the canvas and 4.02:1 on the raised surface, which misses the 4.5:1 floor that small text has to
-   * clear. It was #818198 (4.82:1 on the worst token surface), and is #8b8ba2 since the skin: a card's top edge is lit by a 4% white gradient, so the
-   * surface a label sits on is lighter than any token, and the extra headroom keeps a label over 4.5:1 there too. Measured
-   * by iei.test.ts rather than by eye, because this is exactly the kind of claim that cannot be eyeballed.
+   * ink-3 is every label, table header, caption, placeholder and metadata line on the page, so it is the ink with the least headroom: it clears
+   * the 4.5:1 floor that small text has to clear on all three surfaces in both themes (and on the tint a tile or a field sits on, 4.98:1 or more).
+   * Measured by iei.test.ts rather than by eye, because this is exactly the kind of claim that cannot be eyeballed.
    */
-  --iei-ink-3: #8b8ba2;
+  --iei-ink-3: light-dark(#585b70, #8b8ba2);
   /*
    * There is no fourth ink tier. There was one at #4b4b5c — 2.2:1 on the raised surface, which no text can
    * clear — and everything it rendered turned out to carry meaning: `.iei-absent` made "not reported" the
@@ -70,30 +55,47 @@
    */
 
   /* Semantic, and each used ONLY for its meaning. These are data, not decoration. */
-  --iei-good: #7fd4a8;
-  --iei-warn: #e0b458;
-  --iei-alert: #e8927c;
+  --iei-good: light-dark(#0b6b3f, #7fd4a8);
+  --iei-warn: light-dark(#7a4f00, #e0b458);
+  --iei-alert: light-dark(#a8341c, #e8927c);
 
-  /* The chrome's signal palette. Wayfinding, not data: see the rule at the top of this file. Each clears 4.5:1 as text
-     on all three surfaces, because a page's label in one is text. A kind of page picks one (`.iei[data-here]`, at the end of this file). */
-  --iei-a-indigo: #8b9bff;
-  --iei-a-cyan: #49d2ea;
-  --iei-a-amber: #ebbd57;
-  --iei-a-violet: #c583f3;
-  --iei-a-rose: #f77cb0;
-  --iei-a-teal: #61d7b2;
+  /* THE ONE ACCENT. Wayfinding and affordance, never data: see the rule at the top of this file. Indigo, per theme, clears 4.5:1 as text on all
+     three surfaces (iei.test.ts), and `--iei-on-accent` is the ink that sits ON a fill of it (the selected segment, a primary button), which
+     clears 4.5:1 against the fill in both themes (iei.test.ts holds that too). `--accent` and `--page` are the names a rule reads, and both are this one token. There is no
+     second hue. */
+  --iei-a-indigo: light-dark(#4350d6, #8b9bff);
+  --iei-on-accent: light-dark(#ffffff, #07070b);
+  --accent: var(--iei-a-indigo);
+  --page: var(--accent);
 
   /* The no-data ink. Deliberately below the 3:1 mark floor: an unlit polygon must not read as a mark,
      because it is the absence of one. Named here so the map and the legend cannot disagree about it: NOT_HELD in
      packages/mandate/src/viz/party-ink.ts is this value for the fills a string builder writes, and iei.test.ts holds them equal. */
-  --iei-void: #1c203b;
+  --iei-void: light-dark(#dfe3f2, #1c203b);
 
-  --iei-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+  /* ── elevation, per theme ──
+     LIGHT: a card sits on the tinted canvas on a soft two-layer shadow, and has no border. DARK: a shadow does not read on a near-black page,
+     so a card gets a 1px low-alpha ring and a faint shadow. `light-dark()` takes colours only, so the pieces are colour tokens and each
+     composed value is one token a rule reads. The panel is the card's surface in both themes (the ribbons' gap line, the TypeScript copies
+     and the contrast floors are held against it); `--iei-tint` is the quiet fill of a tile or note inside a card, which has no edge. */
+  --iei-ring: light-dark(rgba(24, 28, 64, 0), rgba(255, 255, 255, 0.075));
+  --iei-sh-1: light-dark(rgba(24, 30, 72, 0.07), rgba(0, 0, 0, 0.5));
+  --iei-sh-2: light-dark(rgba(24, 30, 72, 0.1), rgba(0, 0, 0, 0.3));
+  --iei-tint: light-dark(rgba(24, 28, 64, 0.045), rgba(255, 255, 255, 0.04));
+  --iei-tint-2: light-dark(rgba(24, 28, 64, 0.075), rgba(255, 255, 255, 0.07));
+  --iei-wash: color-mix(in oklab, var(--accent) 12%, transparent);
+  --iei-elev: 0 0 0 1px var(--iei-ring), 0 1px 2px var(--iei-sh-1), 0 8px 24px -8px var(--iei-sh-2);
+  --iei-elev-up: 0 0 0 1px var(--iei-ring), 0 1px 3px var(--iei-sh-1), 0 12px 32px -8px var(--iei-sh-2);
+
+  /* ONE VOICE. The sans is the only face; `--iei-mono` is kept as a name so a rule that says "a figure" still reads, and it IS the sans (the
+     numerals are tabular: `.iei` sets font-variant-numeric). Real code (a command to run) is the one thing set in a monospace. */
   --iei-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  --iei-mono: var(--iei-sans);
+  --iei-code: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
 
   /* ── space ──
      Seven steps. Every margin, padding and gap in this file is one of them, except a 1px or 2px nudge beside a
-     hairline, and a rule that needs a value between two of them is a rule that has not decided which it means. */
+     1px rule, and a rule that needs a value between two of them is a rule that has not decided which it means. */
   --iei-1: 4px;
   --iei-2: 8px;
   --iei-3: 12px;
@@ -103,37 +105,37 @@
   --iei-12: 48px;
 
   /* ── motion ──
-     Motion here carries information or it does not exist: a bar growing from its baseline says "this is a quantity", a wedge
-     arriving says "these seats are one party's". It runs ONCE, on load, and never loops. Three durations and one curve, and 700ms
-     is the ceiling (locked by packages/mandate/src/viz/motion.test.ts, which also holds that every animation sits inside
-     `prefers-reduced-motion: no-preference` and that a @keyframes names only its starting state, so a page at rest is exactly the
-     page the screenshots judge). */
+     ONE ENTRANCE: a page's first five sections rise into place once on load (`--iei-t-2`, `--iei-ease`, 60ms apart; see "motion that
+     carries state between pages"). The only other thing that moves on load is a mark that IS a quantity or a place, arriving with the
+     same duration and curve and no delay: a bar growing from its baseline, a wedge, an outline drawn round a seat. Nothing loops. State
+     changes (hover, press, a theme) use `--iei-t-1`. motion.test.ts holds the tokens, the single entrance pattern, that every animation
+     sits inside `prefers-reduced-motion: no-preference`, and that a @keyframes names only its starting state. */
   --iei-t-1: 160ms;
   --iei-t-2: 360ms;
   --iei-t-3: 640ms;
   --iei-ease: cubic-bezier(0.2, 0.7, 0.2, 1);
 
   /* ── type ──
-     Seven sizes, each with a job, and the SPREAD is the point. They used to run 9.5 → 25, so a page title
-     was 2.6× a label and a section heading was smaller than the prose under it: "too much information has
-     the same visual weight" was a measurable fact rather than an impression. They run 10 → 34 now, which
-     puts four clear tiers on a screen — title, metric, body, label — instead of one crowded band.
-
-     The two smallest are mono-only: `mark` is an uppercase label and never a sentence (a note, a caption, the
-     footer and a table's second line are sentences, and are `meta`), `meta` is mono at reading size. `data` is a
-     table cell, `body` is prose, `title` is a section heading. */
-  --iei-f-mark: 11px;
-  --iei-f-meta: 12.5px;
-  --iei-f-data: 13.5px;
-  --iei-f-body: 15px;
-  --iei-f-title: 18px;
-  --iei-f-lead: 26px;
-  --iei-f-answer: 52px;
+     Seven sizes, each with a job. The three that carry hierarchy are FLUID, a clamp() between a phone's size and a laptop's, so the title,
+     the lead and the answer settle at each width instead of jumping at a breakpoint; the four small ones are fixed, because a label, a
+     table cell and a paragraph are read at one size. A label is 12-13px, 600, sentence case, no tracking: `mark` and `meta` are the label
+     tiers, `data` is a table cell, `body` is prose, `title` is a section heading, `lead` is a figure or a lead sentence, `answer` is the
+     page's one large line. iei.test.ts reads the clamp()s and holds seven, smallest first, each used. */
+  --iei-f-mark: 12px;
+  --iei-f-meta: 13px;
+  --iei-f-data: 14px;
+  --iei-f-body: clamp(15px, 0.9rem + 0.15vw, 16px);
+  --iei-f-title: clamp(18px, 1rem + 0.35vw, 22px);
+  --iei-f-lead: clamp(22px, 1rem + 1vw, 30px);
+  --iei-f-answer: clamp(32px, 1.25rem + 3.2vw, 56px);
 
   /* ── frame ── */
-  --iei-r: 8px;
+  /* TWO RADII. 12px is a card, a panel, the workbench and the status strip; 8px is a control, an input, a tab, a chip, a key and a bar's end. */
+  --iei-r: 12px;
+  --iei-r-sm: 8px;
   --iei-max: 1340px;
-  --iei-gutter: var(--iei-4);
+  /* A fluid gutter: 16px on a phone, 32px on a wide laptop. */
+  --iei-gutter: clamp(var(--iei-4), 0.5rem + 2vw, var(--iei-8));
   /* One row density, and one tighter one for the 36-row jurisdiction lists. Both are on the scale, and
      `tight` exists so that a table of every state in India fits a screen — a documented reason, which is
      the only kind this file allows. */
@@ -154,7 +156,7 @@
   /* The seat locator's box: a square this wide, beside the page header where there is room and under it where there is
      not. SeatLocator.tsx draws in a box of this many units, so the two are one number. */
   --iei-locator-w: 320px;
-  /* The rail's width: an icon over a word of eleven-pixel mono, in a column that does not move the content on a laptop. */
+  /* The rail's width: an icon over a sentence-case word, in a column that does not move the content on a laptop. */
   --iei-rail-w: 72px;
   /* The parliament arc's widest box. SeatArc draws in a frame of 640 units; the picture scales with its column up to this. */
   --iei-arc-w: 720px;
@@ -165,6 +167,11 @@
   --iei-cell-x: var(--iei-3);
 }
 
+/* The reader's choice beats the system's. No attribute = follow the system. */
+:root[data-theme='light'] { color-scheme: light; }
+:root[data-theme='dark'] { color-scheme: dark; }
+html { background: var(--iei-bg); color: var(--iei-ink); }
+
 /* ══════════════════════════ document ══════════════════════════
    The four rules worth rescuing from the deleted globals.css. Everything else it declared — a blue focus
    ring on every element, a fade-in on <main>, a light-grey scrollbar thumb — was fighting this file. */
@@ -173,6 +180,11 @@ html {
   /* The section strip and the layer links are in-page anchors, so this is functional, not decorative.
      It is switched off with the rest of the motion below. */
   scroll-behavior: smooth;
+  /* THE BROWSER'S OWN SURFACES CARRY THE DESIGN: the selection, the caret, a checkbox or a range, and the scrollbar are the accent's and the
+     page's, in whichever theme is on, rather than the platform's blue and grey. */
+  accent-color: var(--accent);
+  caret-color: var(--accent);
+  scrollbar-color: var(--iei-line-2) transparent;
   /* Without it the page shifts horizontally the moment a scrollbar appears, which on a choropleth means
      every polygon moves. */
   scrollbar-gutter: stable;
@@ -191,6 +203,8 @@ html {
   font-size: var(--iei-f-body);
   line-height: 1.5;
   min-height: 100vh;
+  /* ONE VOICE, and its numerals line up: every figure on the page is tabular, so a column of them needs no second face. */
+  font-variant-numeric: tabular-nums;
   -webkit-font-smoothing: antialiased;
   -webkit-tap-highlight-color: transparent;
 }
@@ -199,7 +213,20 @@ html {
   box-sizing: border-box;
 }
 
-/* A dark thumb, because the page is near-black and the browser default is not. */
+/* A control does not inherit the page's face by default; this is what makes a button, a field and a select the same sans as the words round them. */
+.iei button,
+.iei input,
+.iei select,
+.iei textarea {
+  font-family: inherit;
+}
+
+.iei ::selection {
+  background: color-mix(in oklab, var(--accent) 32%, transparent);
+  color: var(--iei-ink);
+}
+
+/* A thumb in the page's own line colour, in both themes, because the browser default is neither. */
 .iei ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -207,7 +234,7 @@ html {
 
 .iei ::-webkit-scrollbar-thumb {
   background: var(--iei-line-2);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei ::-webkit-scrollbar-track {
@@ -233,15 +260,15 @@ html {
   width: auto;
   height: auto;
   clip-path: none;
-  padding: var(--iei-1) var(--iei-3);
-  background: var(--iei-ink);
-  color: var(--iei-bg);
+  padding: var(--iei-2) var(--iei-4);
+  background: var(--accent);
+  color: var(--iei-on-accent);
+  font-weight: 600;
   text-decoration: none;
   /* The pill is its own focus treatment; the browser's ring round it was the one blue on the page. */
   outline: none;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 /* A SKIP LINK THAT BELONGS TO A PLACE and not to the page. The page's own appears in the corner because it is the first thing on the page; one in
@@ -257,17 +284,19 @@ html {
 
 .iei-top {
   display: grid;
-  /* Two columns and an optional third. The third used to hold two destination links; it holds the live
-     indicator when an election is running, and nothing the rest of the time. */
-  grid-template-columns: auto 1fr auto;
+  /* The wordmark, the one search field, and a trailing cell: the theme button always, and the live indicator while an election is running. */
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--iei-2) var(--iei-6);
   padding: 0 var(--iei-gutter);
-  /* html's scroll-padding-top is this and a step of air; at 900px and below the bar wraps to two rows and the
-     padding is redeclared there. */
+  /* html's scroll-padding-top is this and a step of air. The bar is ONE row at every width: on a phone the rail is a bottom bar and the
+     wordmark, the field and the theme button share this row. */
   min-height: var(--iei-12);
-  border-bottom: 1px solid var(--iei-line);
-  background: var(--iei-panel);
+  /* The page scrolls under it, so the bar is a lightly frosted panel with a one-pixel foot (the line is a shadow, so it takes no height). */
+  background: light-dark(rgba(248, 249, 252, 0.84), rgba(13, 13, 19, 0.84));
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  box-shadow: 0 1px 0 var(--iei-line);
   position: sticky;
   top: 0;
   z-index: 20;
@@ -282,58 +311,62 @@ html {
   align-items: baseline;
   text-decoration: none;
   white-space: nowrap;
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-mark-a {
   font-family: var(--iei-sans);
   font-size: var(--iei-f-title);
   font-weight: 800;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
   color: var(--iei-ink);
 }
 
 .iei-mark-b {
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-mark);
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
+  font-size: var(--iei-f-meta);
+  font-weight: 500;
   color: var(--iei-ink-3);
 }
 
 .iei-mark:focus-visible {
-  outline: none;
-}
-
-.iei-mark:focus-visible .iei-mark-a {
-  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ── the command bar ──
    One control, and the product's only search field. It replaced three: this input (people only), a state
    <select> that submitted to /pl, and an election <select> that submitted back to /. Three inputs side by
    side, each able to reach one kind of thing, is not a search system — it is a menu that makes the reader
-   classify their own query before they type it. */
+   classify their own query before they type it.
+   It is a tinted field with no edge; hover deepens the tint, focus lifts it to the card colour and puts the accent's outline round the whole
+   group (`:focus-within`), so a joined control never looks broken apart. */
 .iei-cmd {
   display: flex;
   align-items: stretch;
   min-width: 0;
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  background: var(--iei-raised);
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  background: var(--iei-tint);
   /* The bar is a grid, so the field takes its column's width up to the maximum below. It was `justify-self: start`
      with a `flex` basis, which a grid item ignores: the form shrank to the input's default 190px and its hint was
      cut to "Search states, elec" beside an empty column. */
   justify-self: stretch;
   position: relative;
   max-width: 420px;
+  transition:
+    background var(--iei-t-1) var(--iei-ease),
+    box-shadow var(--iei-t-1) var(--iei-ease);
+}
+
+.iei-cmd:hover {
+  background: var(--iei-tint-2);
 }
 
 .iei-cmd input {
   background: transparent;
   border: 0;
   color: var(--iei-ink);
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-meta);
+  font-size: var(--iei-f-data);
   padding: var(--iei-2) var(--iei-8) var(--iei-2) var(--iei-3);
   width: 100%;
   min-width: 0;
@@ -352,12 +385,13 @@ html {
   right: var(--iei-2);
   top: 50%;
   transform: translateY(-50%);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.04em;
+  font-weight: 600;
   color: var(--iei-ink-3);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
+  background: var(--iei-panel);
+  border: 0;
+  box-shadow: 0 0 0 1px var(--iei-line-2);
+  border-radius: var(--iei-r-sm);
   padding: 0 var(--iei-1);
   pointer-events: none;
 }
@@ -373,15 +407,17 @@ html {
   }
 }
 
-/* Focus shows on the group as well as the field, so a joined control never looks broken apart. */
 .iei-cmd:focus-within {
-  border-color: var(--iei-ink-3);
+  background: var(--iei-panel);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
+/* The group draws the focus; the field inside it draws none of its own. */
 .iei-cmd input:focus-visible {
   outline: none;
+  background: transparent;
   color: var(--iei-ink);
-  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
 }
 
 /*
@@ -395,10 +431,8 @@ html {
 .iei-live {
   display: inline-flex;
   align-items: center;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-alert);
   justify-self: end;
 }
@@ -465,9 +499,24 @@ html {
 .iei-sibs a,
 .iei-fig figcaption a,
 .iei-body-link {
-  color: var(--iei-ink-2);
-  text-decoration: none;
-  border-bottom: 1px solid var(--iei-line-2);
+  /* A LINK IS THE ACCENT, underlined from the baseline with room, so a link in a sentence differs from the sentence by more than a hue. */
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+  text-decoration-color: color-mix(in oklab, var(--accent) 45%, transparent);
+  transition:
+    color var(--iei-t-1) var(--iei-ease),
+    text-decoration-color var(--iei-t-1) var(--iei-ease);
+}
+
+/* AND A DEFAULT FOR ANY OTHER LINK, so none falls back to the browser's blue: a plain anchor with no class of its own is the accent, underlined. It is a
+   :where() (no specificity), so every class-based link rule in this file, and the tables' and rows' own, beats it. */
+.iei :where(a:not([class])) {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
 }
 
 .iei-foot a:hover,
@@ -480,7 +529,8 @@ html {
 .iei-sibs a:hover,
 .iei-fig figcaption a:hover,
 .iei-body-link:hover {
-  color: var(--iei-ink);
+  color: var(--accent);
+  text-decoration-color: currentColor;
 }
 
 .iei-foot a:focus-visible,
@@ -493,16 +543,14 @@ html {
 .iei-sibs a:focus-visible,
 .iei-fig figcaption a:focus-visible,
 .iei-body-link:focus-visible {
-  outline: none;
-  color: var(--iei-ink);
-  border-bottom: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  text-decoration-color: currentColor;
 }
 
-/* THE CONTROLS THAT ARE NOT PROSE, and had no focus rule at all, so each showed the browser's ring: the one blue on
-   the page, and on the competitiveness bar, whose box clips it, two blue slivers. They are rows and chips whose
-   boxes must not grow when they take focus, so the 2px bright-ink rule is drawn inside the box (a summary, which
-   is a block, underlines its words instead). The arc's own anchors are not here: they are out of the tab order
-   (`tabindex="-1"`), and the key beside the ring is the keyboard's way in. */
+/* THE CONTROLS THAT ARE NOT PROSE take the same 2px accent outline as everything else. The ones in a box that clips it (the district list
+   scrolls, the competitiveness bar is overflow: hidden) draw it inside the box instead. The arc's own anchors are not here: they are out of
+   the tab order (`tabindex="-1"`), and the key beside the ring is the keyboard's way in. */
 .iei-district-list a:focus-visible,
 .iei-district-cta:focus-visible,
 .iei-district-clear:focus-visible,
@@ -512,25 +560,22 @@ html {
 .iei-bands-key a:focus-visible,
 .iei-partyrows a:focus-visible,
 .iei-traj-row:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   color: var(--iei-ink);
-  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
 }
 
 .iei-districts summary:focus-visible,
 .iei-arc-table summary:focus-visible,
 .iei-flow-table summary:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   color: var(--iei-ink);
-  text-decoration: underline;
-  text-decoration-thickness: 2px;
-  text-underline-offset: var(--iei-1);
 }
 
-/* A segment of the competitiveness bar is a colour with no text, in a box that clips: the edge goes inside it. */
+.iei-district-list a:focus-visible,
 .iei-bands-bar > a:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--iei-ink);
+  outline-offset: -2px;
 }
 
 /* ══════════════════════════ the answer ══════════════════════════
@@ -543,16 +588,14 @@ html {
   border-bottom: 1px solid var(--iei-line);
 }
 
-.iei-eyebrow {
-  font-family: var(--iei-mono);
+.iei-label {
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
   margin: 0 0 var(--iei-2);
 }
 
-/* 34px, and a short title rather than a long sentence. The computed sentence moved to the sub-line below,
+/* The page's one large line (`--iei-f-answer`, fluid): a short title rather than a long sentence. The computed sentence moved to the sub-line below,
    which is where a sentence belongs — a 20-word claim set at display size is a slogan, and a claim with a
    methodology clause in it ("— derived, not announced") is a footnote in the largest type on the page. */
 .iei-answer {
@@ -568,7 +611,6 @@ html {
 }
 
 .iei-answer b {
-  font-family: var(--iei-mono);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
@@ -591,8 +633,8 @@ html {
 }
 
 /* The footer draws the rule that ends the page, so the block before it does not. This is not `:last-of-type`, which
-   matches the last <section> among its siblings and not the last block on the page: on `/` that took the hairline off
-   "Party landscape", which is followed by a row of two panels, and left that row's own rule 25px above the footer's. */
+   matches the last <section> among its siblings and not the last block on the page: on `/` that took the rule off
+   "Party landscape", which is followed by a row of two panels. */
 .iei-body > .iei-sec:has(+ .iei-foot),
 .iei-body > .iei-two:has(+ .iei-foot) {
   border-bottom: none;
@@ -626,10 +668,8 @@ html {
 }
 
 /* A SECTION HEADING IS A HEADING, NOT A LABEL.
-   It was mono, uppercase, 11px, 0.14em tracking — the same treatment as a table header, so a section title
-   and a column title looked alike and neither read as the top of anything. Sans at 15px in sentence case is
-   a heading; the tracked mono tier is still there and still does its job, on the eyebrows and the labels
-   where a small uppercase mark is what is wanted. */
+   A heading is the title token at weight 650 and a label (a column title, a figure's name) is a 12-13px sentence-case line at weight 600, so
+   a section title and a column title cannot be mistaken for each other. */
 .iei-h h2 {
   font-family: var(--iei-sans);
   font-size: var(--iei-f-title);
@@ -652,7 +692,7 @@ html {
   margin: 0 0 var(--iei-3);
   font-size: var(--iei-f-data);
   color: var(--iei-ink-2);
-  border-left: 2px solid var(--iei-line-2);
+  border-left: 1px solid var(--iei-line-2);
   padding-left: var(--iei-3);
   max-width: 88ch;
 }
@@ -663,8 +703,8 @@ html {
   gap: var(--iei-8);
   align-items: start;
   /* THE RULE BELONGS TO THE ROW, NOT TO EACH PANEL IN IT. Two sections side by side each drew their own
-     bottom hairline, and their content is never the same height, so the page carried two parallel rules
-     thirty pixels apart — which reads as a misalignment because it is one. */
+     bottom rule, and their content is never the same height, so the page carried two parallel rules
+     thirty pixels apart — which reads as a misalignment because it is one. (Cards have no rule now; this is what a row of open sections does.) */
   border-bottom: 1px solid var(--iei-line);
   padding-bottom: var(--iei-6);
 }
@@ -674,8 +714,8 @@ html {
   padding-bottom: 0;
 }
 
-/* A row inside a panel is not a row of panels: the panel already draws its own rule and its own padding, and the row's
-   made two hairlines 25px apart under "What changed" and "Party landscape" (and a note floating between them). */
+/* A row inside a panel is not a row of panels: the panel already draws its own padding, and a row's own rule made
+   two rules 25px apart under "What changed" and "Party landscape" (and a note floating between them). */
 .iei-sec > .iei-two {
   border-bottom: none;
   padding-bottom: 0;
@@ -690,11 +730,8 @@ html {
    screen reader — and because "derived" is the most important thing this product says about a number. */
 
 .iei-basis {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   font-weight: 600;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
   color: var(--iei-ink-3);
   padding-bottom: 2px;
   border-bottom: 2px solid var(--iei-line-2);
@@ -726,13 +763,11 @@ html {
 
 /* An absence is words, never a bare dash: a dash beside other numbers reads as zero. */
 .iei-absent {
-  font-family: var(--iei-mono);
-  /* Relative, so it sits a step under the figures it replaces, but never under the smallest type size: 0.86 of a 10px
-     tile value was 8.6px. */
+  /* Relative, so it sits a step under the figures it replaces, but never under the smallest type size: 0.86 of a small
+     tile value was under 9px. */
   font-size: max(0.86em, var(--iei-f-mark));
   color: var(--iei-ink-3);
   font-variant-numeric: normal;
-  letter-spacing: 0.02em;
 }
 
 /* In a dense table beside the map an absence is a short phrase, and it stays on one line: the national table's column is
@@ -747,7 +782,7 @@ html {
 
 /* ══════════════════════════ tables ══════════════════════════
    One treatment. Header typography, row height, padding, alignment, borders and hover are declared here
-   and nowhere else, because the audit found four table idioms with 6px, 8px, 10px and 12px of cell padding
+   and nowhere else, because the audit found four table idioms with four different cell paddings
    and three different header weights. Numbers right, text left, headers with their columns. */
 
 .iei-t {
@@ -758,9 +793,7 @@ html {
 
 .iei-t caption {
   text-align: left;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
-  letter-spacing: 0.08em;
   color: var(--iei-ink-3);
   padding-bottom: var(--iei-2);
   /* The caption is inside the table, so it scrolls with it: on a phone a 530px caption over a 366px window was cut
@@ -770,11 +803,8 @@ html {
 
 .iei-t th {
   text-align: left;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  font-weight: 500;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
   padding: 0 var(--iei-cell-x) var(--iei-2) 0;
   border-bottom: 1px solid var(--iei-line-2);
@@ -817,7 +847,6 @@ html {
    41, 60, 75, 156 stepping left and right down a column whose entire purpose is that numbers line up. Two
    columns: the figure right-aligned against its own edge, the denominator left-aligned after it. */
 .iei-t .iei-den {
-  font-family: var(--iei-mono);
   font-size: 0.86em;
   font-variant-numeric: tabular-nums;
   color: var(--iei-ink-3);
@@ -827,9 +856,8 @@ html {
   width: 1%;
 }
 
-/* Numbers are monospace and tabular, always, and right-aligned, always. */
+/* Numbers are tabular and right-aligned, always. */
 .iei-n {
-  font-family: var(--iei-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
   white-space: nowrap;
@@ -879,8 +907,8 @@ html {
 }
 
 .iei-t a:focus-visible {
-  outline: none;
-  border-bottom: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* The tighter density, for the lists that are every jurisdiction in India. The only reason a second
@@ -923,8 +951,8 @@ html {
 }
 
 .iei-scroll:focus-visible {
-  outline: none;
-  box-shadow: inset 0 0 0 2px var(--iei-ink-3);
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
 }
 
 /* A list of every jurisdiction in India is 36 rows and would push the sections below the map off the
@@ -937,7 +965,6 @@ html {
 }
 
 .iei-note {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   line-height: 1.6;
   color: var(--iei-ink-3);
@@ -952,7 +979,6 @@ html {
    assertion could see it. */
 .iei-rule {
   display: block;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   line-height: 1.55;
   color: var(--iei-ink-3);
@@ -965,7 +991,7 @@ html {
 
 /* As many tiles per row as fit, separated by whitespace and one rule above them.
    THE GRID NO LONGER PAINTS ITS OWN GAPS, and that is a fix rather than a simplification. It used to set
-   `background: var(--iei-line)` with a 1px gap and an opaque tile over it, which draws a hairline between
+   `background: var(--iei-line)` with a 1px gap and an opaque tile over it, which draws a line between
    tiles — and paints the REMAINDER OF AN INCOMPLETE LAST ROW as a solid grey block. `auto-fit` collapses empty
    TRACKS; it cannot collapse the empty cells after the last tile in a row, so a seat page with seven tiles in a
    six-column row rendered a grey slab two thirds of the row wide. The visual pass caught it on Mekliganj.
@@ -984,17 +1010,14 @@ html {
 }
 
 .iei-metric dt {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
   margin: 0 0 var(--iei-1);
 }
 
 .iei-metric dd {
   margin: 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-lead);
   font-weight: 600;
   letter-spacing: -0.02em;
@@ -1071,10 +1094,8 @@ html {
 }
 
 .iei-chip {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-weight: 600;
-  letter-spacing: 0.02em;
   white-space: nowrap;
 }
 
@@ -1092,7 +1113,7 @@ html {
   display: inline-block;
   width: 9px;
   height: 9px;
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   margin-right: var(--iei-1);
   vertical-align: -1px;
 }
@@ -1116,11 +1137,8 @@ html {
   display: inline-flex;
   align-items: center;
   gap: var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   font-weight: 600;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
   white-space: nowrap;
 }
 
@@ -1165,14 +1183,12 @@ html {
    them, on every page, for every reader. */
 
 .iei-ev {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
 }
 
 .iei-ev summary {
   cursor: pointer;
   color: var(--iei-ink-3);
-  letter-spacing: 0.06em;
   list-style: none;
   padding-bottom: 2px;
   border-bottom: 2px solid var(--iei-line-2);
@@ -1191,15 +1207,16 @@ html {
 }
 
 .iei-ev summary:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   color: var(--iei-ink);
   border-bottom-color: var(--iei-ink);
 }
 
 .iei-ev-body {
   margin-top: var(--iei-3);
-  border: 1px solid var(--iei-line);
-  background: var(--iei-panel);
+  border: 0;
+  background: var(--iei-tint);
   padding: var(--iei-3);
   text-align: left;
   max-width: 72ch;
@@ -1214,7 +1231,7 @@ html {
    who opened the drawer for a different reason still needs to see. No colour: an alarm hue here would
    read as an error in the product rather than a limit of the data. */
 .iei-ev-caveat {
-  border-left: 2px solid var(--iei-ink-2);
+  border-left: 1px solid var(--iei-ink-3);
   padding-left: var(--iei-3);
   margin-bottom: var(--iei-3);
   font-size: var(--iei-f-meta);
@@ -1274,8 +1291,8 @@ html {
 }
 
 .iei-ev-a:focus-visible {
-  outline: none;
-  border-bottom: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* ══════════════════════════ tabs ══════════════════════════
@@ -1283,60 +1300,90 @@ html {
    page's Brief/Analysis lens. They are plain links, so the choice is URL state — a view can be sent to someone,
    survives a reload, and works with JavaScript off. */
 
+/* A SEGMENTED CONTROL: a tinted track holding the choices, the chosen one filled with the accent. The track is a card's radius and each segment
+   is a control's, so the corners are concentric. A segment that stands alone (a filter chip in a list) is the same segment without the track. */
 .iei-tabs {
   display: flex;
   flex-wrap: wrap;
-  gap: var(--iei-1);
+  gap: 2px;
+  width: fit-content;
+  max-width: 100%;
   margin: 0 0 var(--iei-4);
-  padding: 0;
+  padding: var(--iei-1);
   list-style: none;
+  background: var(--iei-tint);
+  border-radius: var(--iei-r);
 }
 
 .iei-tab {
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-mark);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  display: inline-flex;
+  align-items: center;
+  font-size: var(--iei-f-meta);
+  font-weight: 600;
   text-decoration: none;
-  color: var(--iei-ink-3);
-  background: var(--iei-panel);
-  border: 1px solid var(--iei-line);
-  border-radius: var(--iei-r);
-  padding: var(--iei-1) var(--iei-2);
+  color: var(--iei-ink-2);
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--iei-r-sm);
+  padding: var(--iei-1) var(--iei-3);
   white-space: nowrap;
+  cursor: pointer;
+  transition:
+    background var(--iei-t-1) var(--iei-ease),
+    color var(--iei-t-1) var(--iei-ease),
+    transform var(--iei-t-1) var(--iei-ease);
+}
+
+/* A segment standing alone has no track behind it, so it carries a tint of its own. */
+:not(.iei-tabs) > .iei-tab {
+  background: var(--iei-tint);
 }
 
 .iei-tab:hover {
   color: var(--iei-ink);
-  border-color: var(--iei-line-2);
+  background: var(--iei-tint-2);
+}
+
+.iei-tab:active {
+  transform: translateY(1px);
 }
 
 .iei-tab:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   color: var(--iei-ink);
-  border-color: var(--iei-ink);
 }
 
-/* The current tab. Two classes rather than `!important`: this sits after the hover and focus rules above at the same
-   specificity, so it holds against them, and the focus rule below can still say what focus looks like on it (an
-   `!important` here beat every focus rule, and a keyboard user landed on the current tab and saw nothing). */
-.iei-tab.iei-tab-on {
-  color: var(--iei-ink);
-  background: var(--iei-raised);
-  border-color: var(--iei-ink-3);
+/* THE CHOSEN SEGMENT is filled with the accent and carries its on-accent ink (4.5:1 in both themes: iei.test.ts). Two classes rather than
+   `!important`: this sits after the hover and focus rules above at the same specificity, so it holds against them. */
+.iei-tab.iei-tab-on,
+.iei-tab[aria-current='true'] {
+  color: var(--iei-on-accent);
+  background: var(--accent);
+}
+
+.iei-tab.iei-tab-on:hover,
+.iei-tab[aria-current='true']:hover {
+  color: var(--iei-on-accent);
+  background: var(--accent);
 }
 
 .iei-tab.iei-tab-on:focus-visible {
-  border-color: var(--iei-ink);
-  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  color: var(--iei-on-accent);
 }
 
-/* Unavailable, not "coming soon": there is nothing behind it, and the strip says so rather than offering a
-   layer that would shade a country in a colour standing for nothing. */
-.iei-tab-off {
+/* Unavailable, not "coming soon": there is nothing behind it, and the strip says so (a dashed edge and, for a screen reader, a word) rather
+   than offering a layer that would shade a country in a colour standing for nothing. */
+.iei-tab-off,
+.iei-tab-off:hover {
   color: var(--iei-ink-3);
+  background: transparent;
   border-style: dashed;
+  border-color: var(--iei-line-2);
   cursor: not-allowed;
+  transform: none;
 }
 
 /* ══════════════════════════ data list ══════════════════════════
@@ -1399,10 +1446,9 @@ html {
   flex: none;
 }
 
-/* The right-hand end of a row: a figure, a year, a count. Mono and tabular, so a column of them lines up
+/* The right-hand end of a row: a figure, a year, a count. Tabular, so a column of them lines up
    down a list the way it would in a table — which is what lets a list replace one. */
 .iei-row-h b {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-weight: 650;
   font-variant-numeric: tabular-nums;
@@ -1413,7 +1459,6 @@ html {
 
 /* A rank in a ranked list. Tabular so 1 and 10 occupy the same width and the names below start on one edge. */
 .iei-rank {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   font-variant-numeric: tabular-nums;
   color: var(--iei-ink-3);
@@ -1427,8 +1472,8 @@ html {
 }
 
 .iei-row-h a:focus-visible {
-  outline: none;
-  border-bottom: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .iei-row-d {
@@ -1450,10 +1495,8 @@ html {
   margin: var(--iei-3) 0 0;
   padding: 0;
   list-style: none;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -1469,9 +1512,9 @@ html {
 }
 
 .iei-crumbs a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   color: var(--iei-ink);
-  border-bottom: 2px solid var(--iei-ink);
 }
 
 .iei-crumbs [aria-current] {
@@ -1492,11 +1535,11 @@ html {
 .iei-caveat code,
 .iei-sub code,
 .iei-row-d code {
-  font-family: var(--iei-mono);
+  font-family: var(--iei-code);
   font-size: 0.92em;
   color: var(--iei-ink);
   background: var(--iei-raised);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   padding: 1px var(--iei-1);
 }
 
@@ -1515,30 +1558,26 @@ html {
 
 .iei-filters label {
   display: block;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
   margin-bottom: var(--iei-1);
 }
 
 .iei-filters select,
 .iei-filters button {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink);
-  background: var(--iei-raised);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
+  background: var(--iei-tint);
+  border: 0;
+  border-radius: var(--iei-r-sm);
   padding: var(--iei-1) var(--iei-2);
   cursor: pointer;
 }
 
 .iei-filters button {
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
   font-size: var(--iei-f-mark);
+  font-weight: 600;
   padding: var(--iei-2);
 }
 
@@ -1549,9 +1588,9 @@ html {
 
 .iei-filters select:focus-visible,
 .iei-filters button:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   border-color: var(--iei-ink);
-  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
 }
 
 /* A server-rendered figure. Its <svg> has a viewBox and no width, so `width: 100%` scaled it to the container and
@@ -1607,7 +1646,7 @@ html {
    headline sentence, a section heading that said the state's name again, two rows of tabs and a three-line caveat. A
    900px window showed 416 of its 620px, an 800px one 316, a phone 236 of 523.
 
-   Now the header is one band (the evidence drawer shares the eyebrow's line), the year strip and the mode tabs are one
+   Now the header is one band (the evidence drawer shares the breadcrumb's line), the year strip and the mode tabs are one
    row, and what the page cannot show is said in the column beside the list it explains. Everything the old composition
    said is still on the page. It is composed differently, and it is the map that comes first. */
 
@@ -1619,13 +1658,9 @@ html {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  justify-content: space-between;
+  justify-content: flex-end;
   gap: var(--iei-1) var(--iei-4);
   margin: 0 0 var(--iei-2);
-}
-
-.iei-head-top .iei-eyebrow {
-  margin: 0;
 }
 
 .iei-sec-atlas {
@@ -1672,7 +1707,7 @@ html {
   color: var(--iei-ink-3);
 }
 
-/* THE HEADING OF A SEAT LIST: what the list is and how much of it is shown. The hairline and the step of space above it are
+/* THE HEADING OF A SEAT LIST: what the list is and how much of it is shown. The rule and the step of space above it are
    the boundary between the list and the district chooser or the legend before it, which used to run straight into the first
    seat. The space is the column's own gap plus --iei-3 (the column zeroes its children's margins, so the margin is set on a
    selector as specific as that rule), and the title and the count share a line while there is room. */
@@ -1701,7 +1736,6 @@ html {
 
 .iei-list-count {
   margin: 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-variant-numeric: tabular-nums;
   color: var(--iei-ink-3);
@@ -1811,7 +1845,8 @@ html {
 }
 
 .iei-map a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .iei-map a:focus-visible path {
@@ -1844,9 +1879,9 @@ html {
 }
 
 .iei-legend a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   color: var(--iei-ink);
-  border-bottom: 2px solid var(--iei-ink);
 }
 
 /* The entry currently selected: the party isolated, the year shown, the district or band in focus. A word and a rule, so
@@ -1861,6 +1896,8 @@ html {
 
 :is(.iei-legend, .iei-sibs, .iei-bands-key, .iei-bands-bar, .iei-district-list, .iei-partyrows) a.iei-legend-on:focus-visible {
   border-bottom-color: var(--iei-ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* THE REST OF A SELECTION IS SET ASIDE, NOT DIMMED. It was `opacity: 0.5` on the whole link, which took the words a
@@ -1897,16 +1934,16 @@ html {
 /* Direct labels: the secondary encoding that makes four fills legal, and the thing that makes the map
    readable without a colour-matching exercise. Paint order puts them above every polygon. */
 .iei-map-labels text {
-  fill: var(--iei-bg);
-  font-family: var(--iei-mono);
+  /* Dark glyphs on a pale halo over the dark page's bright fills; the light page's fills are the same hues brought DOWN to a mark on white
+     (party-ink.ts), so there the glyph is the light one and the halo the dark one. */
+  fill: light-dark(var(--iei-raised), var(--iei-bg));
   font-weight: 700;
-  letter-spacing: 0.02em;
   text-anchor: middle;
   dominant-baseline: central;
   paint-order: stroke;
   /* A pale halo behind the dark glyphs, so a label stays readable over the darkest ramp step as well as the
      lightest. */
-  stroke: rgba(255, 255, 255, 0.55);
+  stroke: light-dark(rgba(24, 28, 64, 0.55), rgba(255, 255, 255, 0.55));
   /* In USER UNITS, so it has to scale with the label. A state map's frame is 12 units across at district
      level and 597 across the country; a fixed 2.2 is a hairline at one and swallows the glyphs at the
      other. The map component sets the variable from its own frame. */
@@ -1919,9 +1956,7 @@ html {
    label is held to. It never takes the pointer, so a click on a name is a click on its state. */
 .iei-map-names text {
   fill: var(--iei-ink-2);
-  font-family: var(--iei-mono);
   font-weight: 600;
-  letter-spacing: 0.04em;
   text-anchor: middle;
   dominant-baseline: central;
   pointer-events: none;
@@ -1937,7 +1972,6 @@ html {
 }
 
 .iei-map figcaption {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   line-height: 1.6;
   color: var(--iei-ink-3);
@@ -1989,7 +2023,8 @@ html {
 }
 
 .iei-map-national .iei-map-fills a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .iei-map-national .iei-map-fills a:focus-visible path {
@@ -2136,7 +2171,8 @@ html {
 }
 
 .iei-dist a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .iei-dist a:focus-visible rect:nth-of-type(2) {
@@ -2162,7 +2198,6 @@ html {
   grid-column: 1;
   padding-right: var(--iei-1);
   justify-self: end;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   line-height: 1;
   color: var(--iei-ink-3);
@@ -2197,7 +2232,6 @@ html {
   grid-row: 3;
   height: var(--iei-4);
   margin-top: var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
 }
@@ -2266,7 +2300,6 @@ html {
    stylesheet does not accept as a length, so the axis text had been inheriting the page's 14px. */
 .iei-vs-axis text,
 .iei-vs-parity-label {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   fill: var(--iei-ink-3);
 }
@@ -2276,7 +2309,6 @@ html {
 }
 
 .iei-vs-tag {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-body);
   fill: var(--iei-ink);
   /* A halo, so a label crossing the parity line or another marker stays readable without a box. */
@@ -2296,7 +2328,8 @@ html {
 }
 
 .iei-vs a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .iei-vs a:focus-visible .iei-vs-dot {
@@ -2344,7 +2377,7 @@ html {
   display: block;
   height: var(--iei-2);
   background: var(--iei-raised);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   overflow: hidden;
 }
 
@@ -2354,7 +2387,6 @@ html {
 }
 
 .iei-flipmx b {
-  font-family: var(--iei-mono);
   text-align: right;
 }
 
@@ -2383,7 +2415,6 @@ html {
 }
 
 .iei-standing b {
-  font-family: var(--iei-mono);
   color: var(--iei-ink);
 }
 
@@ -2398,7 +2429,6 @@ html {
 }
 
 .iei-tally b {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-lead);
   color: var(--iei-ink);
   margin-right: var(--iei-1);
@@ -2418,7 +2448,6 @@ html {
   list-style: none;
   margin: 0;
   padding: 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
 }
 
@@ -2463,13 +2492,11 @@ html {
 }
 
 .iei-hero-seats {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-lead);
   color: var(--iei-ink);
 }
 
 .iei-hero-meta {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-3);
 }
@@ -2482,7 +2509,7 @@ html {
 .iei-bands-bar {
   display: flex;
   height: var(--iei-3);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   overflow: hidden;
   gap: 1px;
 }
@@ -2499,7 +2526,6 @@ html {
   display: flex;
   flex-wrap: wrap;
   gap: var(--iei-2) var(--iei-3);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
 }
 
@@ -2529,7 +2555,6 @@ html {
 }
 
 .iei-districts summary {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
   cursor: pointer;
@@ -2563,7 +2588,6 @@ html {
 }
 
 .iei-district-clear {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-3);
   text-decoration: none;
@@ -2597,7 +2621,6 @@ html {
 .iei-district-open {
   color: var(--iei-ink-2);
   text-decoration: none;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   white-space: nowrap;
   flex: 0 0 auto;
@@ -2630,7 +2653,6 @@ html {
 }
 
 .iei-district-list b {
-  font-family: var(--iei-mono);
   color: var(--iei-ink-3);
 }
 
@@ -2675,7 +2697,7 @@ html {
 .iei-partyrows-seat {
   display: block;
   height: var(--iei-1);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   min-width: 1px;
 }
 
@@ -2684,7 +2706,6 @@ html {
 }
 
 .iei-partyrows-n {
-  font-family: var(--iei-mono);
   text-align: right;
   color: var(--iei-ink);
 }
@@ -2756,7 +2777,6 @@ a.iei-traj-row:hover {
 }
 
 .iei-traj-now {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   text-align: right;
   color: var(--iei-ink);
@@ -2775,7 +2795,6 @@ a.iei-traj-row:hover {
   justify-content: space-between;
   gap: var(--iei-2);
   margin-top: var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
 }
@@ -2823,7 +2842,7 @@ a.iei-traj-row:hover {
 
 /* Above 900px it sits beside the text. The header becomes two columns, the text in the first and the locator spanning the
    three rows the text takes and a fourth that holds the held-by strip, so the height the locator adds goes to that row and
-   the eyebrow, the title and the sentence stay together at the top. The header's own hairline runs under both. */
+   the page-kind label, the title and the sentence stay together at the top. */
 @media (width > 900px) {
   .iei-head-seat {
     display: grid;
@@ -2856,7 +2875,8 @@ a.iei-traj-row:hover {
 }
 
 .iei-loc a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .iei-loc a:focus-visible path {
@@ -2888,7 +2908,6 @@ a.iei-traj-row:hover {
 }
 
 .iei-loc-label text {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   fill: var(--iei-ink);
   paint-order: stroke;
@@ -2903,7 +2922,6 @@ a.iei-traj-row:hover {
 }
 
 .iei-loc figcaption {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   line-height: 1.6;
   color: var(--iei-ink-3);
@@ -2924,7 +2942,6 @@ a.iei-traj-row:hover {
 
 .iei-held-h {
   margin: 0 0 var(--iei-2);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   line-height: 1.6;
   color: var(--iei-ink-3);
@@ -2932,9 +2949,7 @@ a.iei-traj-row:hover {
 
 .iei-held-h b {
   margin-right: var(--iei-2);
-  font-weight: 400;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-2);
 }
 
@@ -2958,7 +2973,6 @@ a.iei-traj-row:hover {
   display: flex;
   flex-direction: column;
   gap: var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
 }
 
@@ -3035,7 +3049,6 @@ a.iei-traj-row:hover {
 
 .iei-res-yr {
   grid-area: yr;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-variant-numeric: tabular-nums;
   color: var(--iei-ink);
@@ -3059,7 +3072,7 @@ a.iei-traj-row:hover {
   display: flex;
   gap: 2px;
   height: var(--iei-3);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   overflow: hidden;
 }
 
@@ -3087,7 +3100,6 @@ a.iei-traj-row:hover {
   margin: var(--iei-2) 0 0;
   padding: 0;
   list-style: none;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
 }
@@ -3121,7 +3133,7 @@ a.iei-traj-row:hover {
 
 .iei-sw-rest {
   background: var(--iei-line);
-  border: 1px solid var(--iei-line-2);
+  border: 1px solid var(--iei-ink-3);
 }
 
 .iei-res-note {
@@ -3207,14 +3219,12 @@ a.iei-traj-row:hover {
 .iei-arc-lead {
   display: inline-flex;
   align-items: center;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-weight: 600;
   color: var(--iei-ink-2);
 }
 
 .iei-arc-n {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   color: var(--iei-ink-3);
 }
@@ -3232,7 +3242,6 @@ a.iei-traj-row:hover {
 
 .iei-arc-maj {
   margin: var(--iei-2) 0 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
   text-align: center;
@@ -3244,7 +3253,6 @@ a.iei-traj-row:hover {
   margin: 0;
   padding: 0;
   list-style: none;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
 }
 
@@ -3283,7 +3291,6 @@ a.iei-traj-row:hover {
 
 .iei-arc-table summary {
   padding: var(--iei-1) 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
   cursor: pointer;
@@ -3330,10 +3337,8 @@ a.iei-traj-row:hover {
   display: flex;
   justify-content: space-between;
   margin-bottom: var(--iei-2);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -3367,7 +3372,7 @@ a.iei-traj-row:hover {
   flex: none;
   align-self: stretch;
   width: var(--iei-3);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-flow-col span {
@@ -3376,7 +3381,6 @@ a.iei-traj-row:hover {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   color: var(--iei-ink-2);
 }
@@ -3431,7 +3435,6 @@ a.iei-traj-row:hover {
   margin: var(--iei-2) 0 0;
   padding: 0;
   list-style: none;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
 }
@@ -3447,7 +3450,6 @@ a.iei-traj-row:hover {
 
 .iei-flow-table summary {
   padding: var(--iei-1) 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
   cursor: pointer;
@@ -3478,7 +3480,8 @@ a.iei-traj-row:hover {
 }
 
 .iei-map-tiles a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .iei-map-tiles a:focus-visible rect {
@@ -3487,18 +3490,15 @@ a.iei-traj-row:hover {
   vector-effect: non-scaling-stroke;
 }
 
-/* ══════════════════════════ motion that carries information ══════════════════════════
-   Each of these happens once, on load, in under 700ms, and says something: a bar growing from its baseline says "this is a quantity",
-   a wedge arriving says "these seats are one party's", an outline drawn round a small seat says "here it is". Nothing loops, and
-   nothing animates unless the reader has not asked for reduced motion: the whole section is inside `no-preference`, so the default
-   is a page that does not move (motion.test.ts holds that, and the 700ms ceiling, and that a @keyframes names only where it starts).
+/* ══════════════════════════ data marks that arrive ══════════════════════════
+   A mark that IS a quantity or a place arrives once, on load, with the page's one duration and curve and no delay: a bar growing from its
+   baseline says "this is a quantity", a wedge arriving says "these seats are one house", an outline drawn round a small seat says "here it is".
+   Every rule of this kind is in a `prefers-reduced-motion: no-preference` block, so the default for a reader who asked for none is a page that
+   does not move.
 
    EVERY KEYFRAMES NAMES ONLY ITS START, so the end of an animation is the element's own style and a page at rest is the page the
    screenshots judge. Where the start and the rest are different kinds of value, the element states its rest explicitly so the two can
-   be interpolated: a clip-path wipes from `inset(0 100% 0 0)` to `inset(0)`, not to `none`.
-
-   Only the first and last frames can be seen where this was made (no browser window, no clock): the animations were counted and timed
-   in a browser, not watched. */
+   be interpolated: a clip-path wipes from `inset(0 100% 0 0)` to `inset(0)`, not to `none`. */
 
 @media (prefers-reduced-motion: no-preference) {
   /* Bars that are a share wipe in from their zero. */
@@ -3520,11 +3520,9 @@ a.iei-traj-row:hover {
     animation: iei-rise var(--iei-t-2) var(--iei-ease) backwards;
   }
 
-  /* The arc's wedges arrive in the order of the key, largest party first, 60ms apart and never later than 300ms in, so the last of a
-     long row of parties finishes inside the same 700ms as the first. */
+  /* The arc's wedges arrive together: the seats are one house. */
   .iei-arc-p {
     animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
-    animation-delay: min(calc(var(--i) * 60ms), 300ms);
   }
 
   /* The located seat arrives, and the ring round a small one is drawn: its length is 1 (pathLength), so one dash and one gap. */
@@ -3534,7 +3532,7 @@ a.iei-traj-row:hover {
 
   .iei-loc-ring {
     stroke-dasharray: 1;
-    animation: iei-draw var(--iei-t-3) var(--iei-ease) backwards;
+    animation: iei-draw var(--iei-t-2) var(--iei-ease) backwards;
   }
 
   @keyframes iei-wipe {
@@ -3587,9 +3585,7 @@ a.iei-traj-row:hover {
   margin: 0 0 var(--iei-3);
   padding: 0;
   list-style: none;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.04em;
   color: var(--iei-ink-2);
 }
 
@@ -3611,9 +3607,11 @@ a.iei-traj-row:hover {
   font-variant-numeric: tabular-nums;
 }
 
+/* A SWATCH FOR "NO DATA" / "NO WINNER" keeps the void ink as its fill, which is deliberately not a mark, so it carries an edge that IS one: a 1px dashed
+   ink-3, 5.5:1 or more on every surface in both themes (the line tokens are 1.2-1.5:1 and left a dark-theme swatch nearly invisible). */
 .iei-sw-none {
   background: var(--iei-void);
-  border: 1px dashed var(--iei-line-2);
+  border: 1px dashed var(--iei-ink-3);
 }
 
 /* ── the jurisdictions too small to click ──
@@ -3632,13 +3630,12 @@ ul.iei-tiles a {
   display: flex;
   align-items: center;
   gap: var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   text-decoration: none;
   color: var(--iei-ink-2);
-  background: var(--iei-panel);
-  border: 1px solid var(--iei-line);
-  border-radius: var(--iei-r);
+  background: var(--iei-tint);
+  border: 0;
+  border-radius: var(--iei-r-sm);
   padding: var(--iei-1) var(--iei-2);
   white-space: nowrap;
 }
@@ -3649,14 +3646,14 @@ ul.iei-tiles a:hover {
 }
 
 ul.iei-tiles a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   border-color: var(--iei-ink);
 }
 
 ul.iei-tiles b {
   font-weight: 700;
   color: var(--iei-ink);
-  letter-spacing: 0.06em;
 }
 
 .iei-tile-v {
@@ -3669,14 +3666,13 @@ ul.iei-tiles b {
   list-style: none;
   margin: var(--iei-2) 0 0;
   padding: 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-warn);
 }
 
 .iei-gaps li {
   padding: var(--iei-1) 0 var(--iei-1) var(--iei-3);
-  border-left: 2px solid var(--iei-warn);
+  border-left: 1px solid var(--iei-warn);
   margin-bottom: var(--iei-1);
 }
 
@@ -3696,10 +3692,8 @@ ul.iei-tiles b {
   border-top: 1px solid var(--iei-line);
   margin-top: var(--iei-6);
   padding-top: var(--iei-4);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   line-height: 1.8;
-  letter-spacing: 0.04em;
   color: var(--iei-ink-3);
   max-width: 88ch;
 }
@@ -3718,28 +3712,9 @@ ul.iei-tiles b {
 
 @media (max-width: 900px) {
   :root {
-    --iei-gutter: var(--iei-3);
-    --iei-f-answer: 34px;
-    /* Tables stay dense but stop being cramped: a 4px cell is not a reachable touch target. */
+    /* Tables stay dense but stop being cramped: a 4px cell is not a reachable touch target. The gutter and the type are fluid (:root), so they
+       are not redeclared here. */
     --iei-cell-y-tight: var(--iei-2);
-  }
-
-  .iei-top {
-    grid-template-columns: 1fr auto;
-    padding: var(--iei-2) var(--iei-gutter);
-    row-gap: var(--iei-2);
-  }
-
-  /* The bar is two rows here (the wordmark, then the field), 80px: --iei-12, --iei-8 for the second row, and a step of air. */
-  html {
-    scroll-padding-top: calc(var(--iei-12) + var(--iei-8) + var(--iei-2));
-  }
-
-  .iei-cmd {
-    grid-column: 1 / -1;
-    order: 3;
-    width: 100%;
-    max-width: none;
   }
 
   /* THE SPLIT STACKS HERE, NOT AT 1080.
@@ -3973,18 +3948,6 @@ ul.iei-tiles b {
   vertical-align: 0.06em;
 }
 
-.iei-story-head .iei-eyebrow a {
-  color: inherit;
-  text-decoration: none;
-  border-bottom: 1px solid var(--iei-line-2);
-}
-
-.iei-story-head .iei-eyebrow a:hover,
-.iei-story-head .iei-eyebrow a:focus-visible {
-  color: var(--iei-ink);
-  border-bottom-color: var(--iei-ink);
-}
-
 /* The first screen: the proof beside the invitation. */
 .iei-story-fold {
   display: grid;
@@ -4017,7 +3980,6 @@ ul.iei-tiles b {
 }
 
 .iei-story-yr {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-variant-numeric: tabular-nums;
   color: var(--iei-ink);
@@ -4029,7 +3991,7 @@ ul.iei-tiles b {
 }
 
 .iei-story-yr:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -4066,7 +4028,6 @@ ul.iei-tiles b {
   justify-content: space-between;
   gap: var(--iei-3);
   margin: 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
 }
@@ -4086,7 +4047,7 @@ ul.iei-tiles b {
 }
 
 /* The four doors: links at least 44px tall. */
-.iei-story-doors .iei-eyebrow {
+.iei-story-doors .iei-label {
   margin-bottom: var(--iei-2);
 }
 
@@ -4103,10 +4064,11 @@ ul.iei-tiles b {
   gap: 2px;
   min-height: 44px;
   padding: var(--iei-2) var(--iei-3);
-  border: 1px solid var(--iei-line);
+  border: 0;
   border-radius: var(--iei-r);
   color: var(--iei-ink);
   text-decoration: none;
+  background: var(--iei-tint);
 }
 
 .iei-story-door:hover {
@@ -4118,15 +4080,13 @@ ul.iei-tiles b {
 }
 
 .iei-story-door:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 .iei-story-door-k {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -4152,7 +4112,7 @@ ul.iei-tiles b {
 }
 
 .iei-res-key a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -4163,14 +4123,12 @@ ul.iei-tiles b {
 
 /* A table twin: a disclosure that looks like the evidence drawer's but is not one, so the page keeps one drawer per module. */
 .iei-twin {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
 }
 
 .iei-twin summary {
   cursor: pointer;
   color: var(--iei-ink-3);
-  letter-spacing: 0.06em;
   list-style: none;
   padding-bottom: 2px;
   border-bottom: 2px solid var(--iei-line-2);
@@ -4228,7 +4186,7 @@ ul.iei-tiles b {
 }
 
 .iei-twin summary:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
   color: var(--iei-ink);
 }
@@ -4248,7 +4206,6 @@ ul.iei-tiles b {
 }
 
 .iei-story-lead b {
-  font-family: var(--iei-mono);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -4287,7 +4244,7 @@ ul.iei-tiles b {
 }
 
 .iei-story-dname:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -4304,7 +4261,7 @@ ul.iei-tiles b {
 .iei-story-dbar i {
   flex-basis: 0;
   min-width: 2px;
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-story-held {
@@ -4312,7 +4269,6 @@ ul.iei-tiles b {
 }
 
 .iei-story-dval {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -4361,7 +4317,6 @@ ul.iei-tiles b {
 }
 
 .iei-story-vyr {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-variant-numeric: tabular-nums;
 }
@@ -4376,7 +4331,7 @@ ul.iei-tiles b {
 }
 
 .iei-story-vyr a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -4428,11 +4383,10 @@ ul.iei-tiles b {
 }
 
 .iei-story-seat {
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-story-vfig {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-variant-numeric: tabular-nums;
   color: var(--iei-ink-2);
@@ -4465,9 +4419,10 @@ ul.iei-tiles b {
   display: grid;
   gap: var(--iei-1);
   padding: var(--iei-3);
-  border: 1px solid var(--iei-line);
+  border: 0;
   border-radius: var(--iei-r);
   font-size: var(--iei-f-data);
+  background: var(--iei-tint);
 }
 
 .iei-story-cards a {
@@ -4480,7 +4435,7 @@ ul.iei-tiles b {
 }
 
 .iei-story-cards a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -4497,7 +4452,7 @@ ul.iei-tiles b {
   min-width: 9rem;
 }
 
-/* A name in a lead is a name, not a figure: the figures are the mono ones. */
+/* A name in a lead is a name, not a figure: the figures are the heavier ones. */
 .iei-story-lead .iei-story-nm {
   font-weight: 650;
 }
@@ -4523,55 +4478,6 @@ ul.iei-tiles b {
 }
 
 .iei-story-cannot b {
-  color: var(--iei-ink);
-  font-weight: 600;
-}
-
-/* The reach ledger: three figures against what there is to have. */
-.iei-story-reach {
-  list-style: none;
-  margin: 0 0 var(--iei-6);
-  padding: 0;
-  display: grid;
-  gap: var(--iei-3);
-  max-width: 56rem;
-}
-
-.iei-story-reach li {
-  display: grid;
-  grid-template-columns: 11rem minmax(0, 1fr) 14rem;
-  gap: var(--iei-3);
-  align-items: center;
-  font-size: var(--iei-f-data);
-}
-
-.iei-story-reach-l {
-  color: var(--iei-ink-2);
-}
-
-.iei-story-reach-bar {
-  display: block;
-  height: var(--iei-2);
-  border-radius: var(--iei-r);
-  background: var(--iei-line);
-}
-
-.iei-story-reach-bar i {
-  display: block;
-  height: 100%;
-  min-width: 2px;
-  border-radius: var(--iei-r);
-  background: var(--iei-ink-2);
-}
-
-.iei-story-reach-v {
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-meta);
-  font-variant-numeric: tabular-nums;
-  color: var(--iei-ink-2);
-}
-
-.iei-story-reach-v b {
   color: var(--iei-ink);
   font-weight: 600;
 }
@@ -4637,10 +4543,6 @@ ul.iei-tiles b {
     grid-template-columns: minmax(0, 1fr);
   }
 
-  .iei-story-reach li {
-    grid-template-columns: minmax(0, 1fr);
-    gap: var(--iei-1);
-  }
 }
 
 @media (max-width: 640px) {
@@ -4664,19 +4566,11 @@ ul.iei-tiles b {
   }
 }
 
-@media (prefers-reduced-motion: no-preference) {
-  /* The ladder's bars arrive in election order, oldest first: 90ms apart and never later than 270ms in. */
-  .iei-story-bar {
-    animation-delay: min(calc(var(--i) * 90ms), 270ms);
-  }
-}
-
 @media (forced-colors: active) {
   .iei-story-vote,
   .iei-story-seat,
   .iei-story-held,
-  .iei-story-dbar i,
-  .iei-story-reach-bar i {
+  .iei-story-dbar i {
     border: 1px solid CanvasText;
   }
 
@@ -4704,7 +4598,6 @@ ul.iei-tiles b {
 }
 
 .iei-finding-s b {
-  font-family: var(--iei-mono);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -4720,7 +4613,7 @@ ul.iei-tiles b {
 }
 
 .iei-finding-s a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -4738,7 +4631,7 @@ ul.iei-tiles b {
 }
 
 .iei-held-a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -4753,16 +4646,15 @@ ul.iei-tiles b {
 .iei-seat-tile {
   min-width: 0;
   padding: var(--iei-4);
-  border: 1px solid var(--iei-line);
+  border: 0;
   border-radius: var(--iei-r);
+  background: var(--iei-tint);
 }
 
 .iei-seat-k {
   margin: 0 0 var(--iei-2);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -4780,7 +4672,6 @@ ul.iei-tiles b {
 }
 
 .iei-seat-big b {
-  font-family: var(--iei-mono);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -4874,7 +4765,6 @@ ul.iei-tiles b {
 
 .iei-seat-sp-yr,
 .iei-seat-sp-val {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
 }
 
@@ -4900,7 +4790,6 @@ ul.iei-tiles b {
 }
 
 .iei-seat-twin dt {
-  font-family: var(--iei-mono);
   color: var(--iei-ink-3);
   font-variant-numeric: tabular-nums;
 }
@@ -4915,7 +4804,7 @@ ul.iei-tiles b {
   height: var(--iei-3);
   margin: var(--iei-3) 0 var(--iei-1);
   background: var(--iei-line);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-seat-bullet-fill {
@@ -4923,7 +4812,7 @@ ul.iei-tiles b {
   top: 0;
   bottom: 0;
   left: 0;
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-seat-bullet-tick {
@@ -4937,7 +4826,6 @@ ul.iei-tiles b {
 
 .iei-seat-ticklabel {
   margin: 0 0 var(--iei-2);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
 }
@@ -4968,7 +4856,6 @@ ul.iei-tiles b {
 
 .iei-seat-py {
   margin-right: var(--iei-1);
-  font-family: var(--iei-mono);
   font-weight: 400;
   color: var(--iei-ink-3);
 }
@@ -5016,20 +4903,18 @@ ul.iei-tiles b {
 .iei-seat-card a:focus-visible,
 .iei-seat-who a:focus-visible,
 .iei-seat-line a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 .iei-seat-trail {
   display: block;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
 }
 
 .iei-seat-sh,
 .iei-seat-vt {
-  font-family: var(--iei-mono);
   font-variant-numeric: tabular-nums;
   text-align: right;
 }
@@ -5056,7 +4941,7 @@ ul.iei-tiles b {
   display: block;
   height: 100%;
   min-width: 2px;
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-seat-tick {
@@ -5068,7 +4953,6 @@ ul.iei-tiles b {
 
 .iei-seat-foot {
   margin: var(--iei-3) 0 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-3);
 }
@@ -5076,9 +4960,10 @@ ul.iei-tiles b {
 .iei-seat-card {
   margin: 0 0 var(--iei-3);
   padding: var(--iei-3);
-  border: 1px solid var(--iei-line-2);
+  border: 0;
   border-radius: var(--iei-r);
   font-size: var(--iei-f-data);
+  background: var(--iei-tint);
 }
 
 .iei-seat-card p {
@@ -5089,13 +4974,13 @@ ul.iei-tiles b {
   display: inline-block;
   margin-left: var(--iei-2);
   padding: 0 var(--iei-1);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  font-family: var(--iei-mono);
+  border: 0;
+  border-radius: var(--iei-r-sm);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-2);
   /* It wraps rather than holding its one line: "declared winner, ahead by 29,584 (declared)" is wider than a 360px phone. */
   max-width: 100%;
+  background: var(--iei-tint);
 }
 
 /* A claim the candidate made, not a fact the record holds: dashed. */
@@ -5113,11 +4998,11 @@ ul.iei-tiles b {
 .iei-seat-unit {
   width: 12px;
   height: 12px;
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-seat-unit-win {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
 
@@ -5202,25 +5087,11 @@ ul.iei-tiles b {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* The finding arrives, and the held-by blocks after it oldest to newest: order of arrival is chronology. */
-  .iei-finding {
-    animation: iei-arrive var(--iei-t-1) var(--iei-ease) backwards;
-  }
-
-  .iei-held-b {
-    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
-    animation-delay: min(calc(var(--i) * 60ms), 300ms);
-  }
-
-  /* A quantity grows from its baseline; rank one lands first. */
+  /* A quantity grows from its baseline. */
   .iei-seat-bullet-fill,
   .iei-seat-bar {
     transform-origin: 0 50%;
     animation: iei-grow var(--iei-t-2) var(--iei-ease) backwards;
-  }
-
-  .iei-seat-bar {
-    animation-delay: min(calc(var(--i) * 40ms), 160ms);
   }
 }
 
@@ -5269,7 +5140,7 @@ ul.iei-tiles b {
 .iei-pp-same a:focus-visible,
 .iei-pp-field a:focus-visible,
 .iei-pp-samelist a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -5278,7 +5149,7 @@ ul.iei-tiles b {
   max-width: 88ch;
   margin: var(--iei-3) 0 0;
   padding-left: var(--iei-3);
-  border-left: 2px solid var(--iei-line-2);
+  border-left: 1px solid var(--iei-line-2);
   font-size: var(--iei-f-data);
   color: var(--iei-ink-2);
 }
@@ -5306,7 +5177,7 @@ ul.iei-tiles b {
 .iei-pp-hold {
   position: relative;
   height: var(--iei-6);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-pp-hold-none {
@@ -5326,7 +5197,6 @@ ul.iei-tiles b {
 
 .iei-pp-yr {
   margin: var(--iei-1) 0 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-variant-numeric: tabular-nums;
 }
@@ -5415,7 +5285,7 @@ ul.iei-tiles b {
   display: block;
   width: 1rem;
   min-height: 2px;
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   background: var(--iei-ink-3);
 }
 
@@ -5427,7 +5297,6 @@ ul.iei-tiles b {
 
 .iei-pp-mv {
   margin-top: var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-variant-numeric: tabular-nums;
   text-align: center;
@@ -5445,7 +5314,6 @@ ul.iei-tiles b {
 }
 
 .iei-pp-shares li {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   text-align: center;
   color: var(--iei-ink-2);
@@ -5459,7 +5327,6 @@ ul.iei-tiles b {
 }
 
 .iei-pp-bigline b {
-  font-family: var(--iei-mono);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
@@ -5501,10 +5368,8 @@ ul.iei-tiles b {
 
 .iei-pp-decl dt {
   margin: 0 0 var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -5514,7 +5379,6 @@ ul.iei-tiles b {
 }
 
 .iei-pp-decl-l dd b {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-lead);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
@@ -5556,16 +5420,9 @@ ul.iei-tiles b {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* The columns arrive in time order, and each bar rises from the zero line with its column: a column and its bar are one event. */
-  .iei-pp-col,
-  .iei-pp-mcell {
-    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
-    animation-delay: min(calc(var(--i) * 60ms), 180ms);
-  }
-
+  /* Each bar rises from the zero line: a quantity. */
   .iei-pp-mb {
     animation: iei-rise var(--iei-t-2) var(--iei-ease) backwards;
-    animation-delay: min(calc(var(--i) * 60ms), 180ms);
   }
 
   .iei-pp-mb-up {
@@ -5606,27 +5463,25 @@ ul.iei-tiles b {
 .iei-pp-find input[type='search'] {
   min-width: 16rem;
   padding: var(--iei-2) var(--iei-3);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  background: var(--iei-panel);
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  background: var(--iei-tint);
   color: var(--iei-ink);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
 }
 
 .iei-pp-find input[type='search']:focus-visible,
 .iei-pp-find button:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 .iei-pp-find button {
   padding: var(--iei-2) var(--iei-3);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  background: transparent;
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  background: var(--iei-tint);
   color: var(--iei-ink-2);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   cursor: pointer;
 }
@@ -5647,7 +5502,7 @@ ul.iei-tiles b {
   padding: 0;
 }
 
-.iei-pp-facet .iei-eyebrow {
+.iei-pp-facet .iei-label {
   margin: 0;
 }
 
@@ -5672,7 +5527,7 @@ ul.iei-tiles b {
 }
 
 .iei-pp-fr:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -5692,7 +5547,7 @@ ul.iei-tiles b {
   display: block;
   height: 6px;
   background: var(--iei-line);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-pp-fb i {
@@ -5700,11 +5555,10 @@ ul.iei-tiles b {
   height: 100%;
   min-width: 2px;
   background: var(--iei-ink-3);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-pp-fn {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -5745,33 +5599,17 @@ ul.iei-tiles b {
   border-bottom-color: var(--iei-ink);
 }
 
+/* A PARTY'S FULL NAME WRAPS in this table. `.iei-chip` is nowrap (a party's code is one word), but this list prints the registered name when a party has no
+   short one ("JATIYA UNNAYAN PARTY"), and as one line it made the Party column 184px of a 358px window, so the table scrolled sideways on a phone with
+   the Stood-in column off the edge. Wrapped, the four columns fit a 358px window and none is dropped. */
+.iei-pp-table .iei-chip {
+  white-space: normal;
+}
+
 .iei-pp-dist {
   display: block;
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-3);
-}
-
-/* The ladder: a square a year. Filled in the party's ink is a win; a hollow one is a contest on record that was not won; a dotted one is no contest on record. */
-.iei-pp-lad {
-  display: inline-flex;
-  gap: var(--iei-1);
-}
-
-.iei-pp-sq {
-  display: inline-block;
-  width: 12px;
-  height: 12px;
-  border: 2px solid var(--iei-ink-3);
-  border-radius: var(--iei-r);
-}
-
-.iei-pp-sq-stood {
-  background: transparent;
-}
-
-.iei-pp-sq-none {
-  background: transparent;
-  border: 1px dotted var(--iei-ink-3);
 }
 
 .iei-pp-pager {
@@ -5780,7 +5618,6 @@ ul.iei-tiles b {
   gap: var(--iei-2) var(--iei-4);
   align-items: baseline;
   margin-top: var(--iei-3);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-3);
 }
@@ -5837,7 +5674,6 @@ ul.iei-tiles b {
 
 .iei-an-rule {
   margin: var(--iei-2) 0 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-3);
   max-width: 88ch;
@@ -5867,7 +5703,6 @@ ul.iei-tiles b {
 
 .iei-an-yr,
 .iei-an-fy {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-variant-numeric: tabular-nums;
 }
@@ -5878,7 +5713,7 @@ ul.iei-tiles b {
   box-sizing: border-box;
   height: var(--iei-8);
   border: 1px solid var(--iei-line);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
 }
 
 .iei-an-seg {
@@ -5891,7 +5726,6 @@ ul.iei-tiles b {
   padding-inline: var(--iei-1);
   overflow: hidden;
   border-right: 2px solid var(--iei-bg);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
@@ -5899,7 +5733,7 @@ ul.iei-tiles b {
 
 /* The winner of the election: an inner outline in the interface's own ink. */
 .iei-an-win {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -5972,13 +5806,11 @@ ul.iei-tiles b {
 }
 
 .iei-an-fs b {
-  font-family: var(--iei-mono);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
 
 .iei-an-fd {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-3);
 }
@@ -5995,8 +5827,9 @@ ul.iei-tiles b {
 .iei-an-notdrawn {
   min-width: 0;
   padding: var(--iei-4);
-  border: 1px solid var(--iei-line);
+  border: 0;
   border-radius: var(--iei-r);
+  background: var(--iei-tint);
 }
 
 .iei-an-notdrawn {
@@ -6037,7 +5870,7 @@ ul.iei-tiles b {
   display: block;
   width: 1.5rem;
   min-height: 1px;
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   background: var(--iei-ink-3);
 }
 
@@ -6060,7 +5893,6 @@ ul.iei-tiles b {
 .iei-an-cl {
   display: block;
   text-align: center;
-  font-family: var(--iei-mono);
 }
 
 .iei-an-cv {
@@ -6148,7 +5980,6 @@ ul.iei-tiles b {
 }
 
 .iei-an-gv {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -6165,7 +5996,7 @@ ul.iei-tiles b {
 
 .iei-an-notes li {
   padding-left: var(--iei-3);
-  border-left: 2px solid var(--iei-line-2);
+  border-left: 1px solid var(--iei-line-2);
   font-size: var(--iei-f-body);
 }
 
@@ -6224,11 +6055,10 @@ ul.iei-tiles b {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  /* The ladder's rows wipe in from the left in election order, 100ms apart and never later than 300ms in: the only motion on the page. */
+  /* The ladder's rows wipe in from the left: each is a quantity. */
   .iei-an-bar {
     clip-path: inset(0);
     animation: iei-wipe var(--iei-t-2) var(--iei-ease) backwards;
-    animation-delay: min(calc(var(--i) * 100ms), 300ms);
   }
 }
 
@@ -6247,12 +6077,9 @@ ul.iei-tiles b {
 .iei-story-card {
   margin-bottom: var(--iei-4);
   padding: var(--iei-3) var(--iei-4);
-  border: 1px solid var(--iei-line);
+  border: 0;
   border-radius: var(--iei-r);
-}
-
-.iei-story-card .iei-eyebrow {
-  margin: 0 0 var(--iei-2);
+  background: var(--iei-tint);
 }
 
 .iei-story-card .iei-note {
@@ -6267,7 +6094,6 @@ ul.iei-tiles b {
 
 .iei-story-card-l b,
 .iei-story-gl b {
-  font-family: var(--iei-mono);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
   color: var(--iei-ink);
@@ -6295,7 +6121,7 @@ ul.iei-tiles b {
 
 .iei-story-card-go a:focus-visible,
 .iei-story-gname:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -6332,40 +6158,17 @@ ul.iei-tiles b {
   vector-effect: non-scaling-stroke;
 }
 
-/* ══════════════════════════ the skin ══════════════════════════
-   WHY THIS BLOCK EXISTS (2026-10-29). Looked at in a real browser, across every page at 1440 and 390, the product read as a
-   school project, and the cause was the stylesheet's own first rules rather than any one page: "no gradients, no glass, no
-   shadows", a 2px corner, hairlines between sections, a 10–11.5px monospace voice for every caption and a 34px title over a 15px
-   heading. Together they drew a lab report: flat, one voice, nothing above anything else, and about ten thousand characters
-   per eight pages of grey 11px mono that nobody would read. This block is the owner's "look" decision, taken:
-
-   · DEPTH. A section is a card on a faintly lit page: a one-pixel edge, a top highlight, a soft shadow, and a glow behind the
-     top of the page. Nothing here is coloured; the page is still monochrome and only data carries hue.
-   · SCALE. Title 52px at weight 760, stat numerals large and heavy in mono, headings 18px. The type tokens moved (mark 11,
-     meta 12.5, data 13.5, body 15, title 18, lead 26, answer 52); there are still seven.
-   · ONE VOICE FOR PROSE. A note under a chart is a sentence, so it is sans at reading size in the second ink, not mono at 11px
-     in the third. Mono stays for numbers, marks and metadata, which is what it is for.
-   · ONE RADIUS, 8px, on everything that was 2px.
-
-   It sits at the end so it wins on equal specificity; the narrow-screen rules for it are at the foot of the block. */
-
-.iei {
-  background:
-    radial-gradient(80% 32% at 50% 0, rgba(132, 132, 255, 0.13), transparent 72%) no-repeat,
-    radial-gradient(40% 20% at 12% 4%, rgba(255, 255, 255, 0.04), transparent 70%) no-repeat,
-    var(--iei-bg);
-}
-
-.iei-top {
-  background: rgba(13, 13, 19, 0.78);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom-color: var(--iei-line);
-}
+/* ══════════════════════════ the skin: cards, heads, tiles ══════════════════════════
+   What a surface looks like, in both themes (2026-11-20).
+   · DEPTH is the theme's: a card is the panel colour with `--iei-elev`, a soft two-layer shadow on the light canvas and a 1px low-alpha ring
+     and a faint shadow on the dark one. A tile or a note inside a card is a tint with no edge, so nothing is a card inside a card.
+   · SCALE is fluid (the three large type tokens are clamp()s), with a heavy tight title over a quiet sans heading.
+   · ONE VOICE. Prose, labels and figures are the one sans; a figure is tabular.
+   It sits after the primitives so it wins on equal specificity. */
 
 .iei-mark-a {
   font-size: var(--iei-f-title);
-  font-weight: 850;
+  font-weight: 800;
   letter-spacing: -0.03em;
 }
 
@@ -6375,21 +6178,29 @@ ul.iei-tiles b {
   border-bottom: none;
 }
 
-/* A LABEL, NOT A CHIP: the kind of page, or the name of a block, in label ink with nothing drawn around it. It was a bordered chip on a 3% fill, which was
-   a box above a heading that already said the same thing. */
-.iei-eyebrow {
+/* A LABEL, NOT A CHIP: the name of a block, in label ink with nothing drawn around it, sentence case. It is never a label over a page's
+   title: what kind of page it is goes in a quiet line (`.iei-note`) under the h1. */
+.iei-label {
   display: block;
   width: fit-content;
   justify-self: start;
   margin: 0 0 var(--iei-2);
   color: var(--iei-ink-3);
-  letter-spacing: 0.14em;
+}
+
+/* WHAT KIND OF PAGE THIS IS, in one quiet line directly under the title: the title's own bottom margin is the gap it would otherwise sit
+   behind, so the line takes most of it back and reads as part of the title. */
+.iei-head .iei-answer + .iei-note {
+  margin-top: calc(var(--iei-2) * -1);
+  margin-bottom: var(--iei-3);
 }
 
 .iei-answer {
-  font-weight: 760;
-  letter-spacing: -0.03em;
-  line-height: 1.08;
+  /* Display numerals are proportional: a tabular "11" at 56px is a gap. (A figure in a table or a tile is tabular, by `.iei`.) */
+  font-variant-numeric: proportional-nums;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+  line-height: 1.06;
   max-width: 22ch;
   margin-bottom: var(--iei-4);
 }
@@ -6402,23 +6213,15 @@ ul.iei-tiles b {
   margin-top: var(--iei-4);
 }
 
-/* SECTIONS ARE CARDS. */
+/* A SECTION IS A CARD, and its edge is the theme's: a soft two-layer shadow on the tinted canvas in the light theme and a 1px low-alpha ring in
+   the dark one (`--iei-elev`), never a border. */
 .iei-sec {
-  border: 1px solid var(--iei-line);
+  border: 0;
   border-radius: var(--iei-r);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) calc(var(--iei-12) * 2.5)),
-    var(--iei-panel);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 var(--iei-2) var(--iei-6) rgba(0, 0, 0, 0.32);
+  background: var(--iei-panel);
+  box-shadow: var(--iei-elev);
   padding: var(--iei-6);
   margin: 0 0 var(--iei-6);
-}
-
-.iei-body > .iei-sec:has(+ .iei-foot),
-.iei-body > .iei-two:has(+ .iei-foot) {
-  border-bottom: 1px solid var(--iei-line);
 }
 
 .iei-two {
@@ -6433,6 +6236,7 @@ ul.iei-tiles b {
   padding-bottom: var(--iei-6);
 }
 
+/* A section inside a card is not a card. */
 .iei-sec > .iei-sec,
 .iei-sec .iei-sec {
   border: none;
@@ -6442,16 +6246,18 @@ ul.iei-tiles b {
   margin: 0;
 }
 
+/* THE SECTION'S HEAD has no rule under it inside a card (the card is the frame); an open section keeps a quiet one (`.iei-sec-flat`, below). */
 .iei-h {
-  margin: 0 0 var(--iei-6);
-  padding-bottom: var(--iei-4);
-  border-bottom: 1px solid var(--iei-line);
+  margin: 0 0 var(--iei-4);
+  padding-bottom: 0;
+  border-bottom: none;
 }
 
 .iei-h h2 {
   font-size: var(--iei-f-title);
-  font-weight: 700;
+  font-weight: 650;
   letter-spacing: -0.02em;
+  line-height: 1.25;
 }
 
 .iei-h-title p {
@@ -6469,15 +6275,15 @@ ul.iei-tiles b {
   margin-top: var(--iei-3);
 }
 
+/* A CAVEAT IS A QUIET TINT, with no edge and no side stripe: a sentence the reader should not miss, not a box. */
 .iei-caveat {
-  background: rgba(255, 255, 255, 0.025);
-  border: 1px solid var(--iei-line);
-  border-left: 2px solid var(--iei-ink-3);
-  border-radius: var(--iei-r);
+  background: var(--iei-tint);
+  border: 0;
+  border-radius: var(--iei-r-sm);
   padding: var(--iei-3) var(--iei-4);
 }
 
-/* STAT CARDS: the number is the card. */
+/* A FIGURE'S TILE: the number is the tile. A tile inside a card is a tint with no edge and no shadow (two cards nested are one card too many). */
 .iei-metrics {
   border-top: none;
   padding-top: 0;
@@ -6487,15 +6293,12 @@ ul.iei-tiles b {
 
 .iei-metric {
   padding: var(--iei-4);
-  border: 1px solid var(--iei-line);
-  border-radius: var(--iei-r);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.045), rgba(255, 255, 255, 0)),
-    var(--iei-raised);
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  background: var(--iei-tint);
 }
 
 .iei-metric dt {
-  letter-spacing: 0.14em;
   margin-bottom: var(--iei-2);
 }
 
@@ -6516,31 +6319,9 @@ ul.iei-tiles b {
   margin-top: var(--iei-2);
 }
 
-/* CONTROLS. */
-.iei-tab {
-  padding: var(--iei-2) var(--iei-3);
-  letter-spacing: 0.1em;
-  background: rgba(255, 255, 255, 0.03);
-}
-
-.iei-tab.iei-tab-on {
-  background: var(--iei-ink);
-  color: var(--iei-bg);
-  border-color: var(--iei-ink);
-  font-weight: 700;
-}
-
-.iei-tab.iei-tab-on:focus-visible {
-  box-shadow: 0 0 0 2px var(--iei-bg), 0 0 0 var(--iei-1) var(--iei-ink);
-}
-
-.iei-cmd {
-  background: rgba(255, 255, 255, 0.04);
-}
-
 /* TABLES: a row you can find your place in. */
 .iei-t tbody tr:hover > * {
-  background: rgba(255, 255, 255, 0.035);
+  background: light-dark(rgba(24, 28, 64, 0.056), rgba(255, 255, 255, 0.035));
 }
 
 /* THE HOME HERO: a title that is the answer, and one status strip. It was a topic title beside three stat cards stacked at the right, which spent
@@ -6565,118 +6346,27 @@ ul.iei-tiles b {
   max-width: none;
 }
 
-.iei-hero-reach {
-  padding: 0 0 var(--iei-6);
-}
-
-.iei-hero-reach .iei-story-reach {
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 0;
-  max-width: none;
-  margin: 0;
-  border: 1px solid var(--iei-line);
-  border-radius: var(--iei-r);
-  background: var(--iei-panel);
-}
-
-.iei-hero-reach .iei-story-reach li {
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas:
-    "l v"
-    "b b";
-  gap: var(--iei-2) var(--iei-3);
-  padding: var(--iei-3) var(--iei-4);
-}
-
-.iei-hero-reach .iei-story-reach li + li {
-  border-left: 1px solid var(--iei-line);
-}
-
-.iei-hero-reach .iei-story-reach-l {
-  grid-area: l;
-  font-family: var(--iei-mono);
-  font-size: var(--iei-f-mark);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  color: var(--iei-ink-3);
-}
-
-.iei-hero-reach .iei-story-reach-v {
-  grid-area: v;
-  font-size: var(--iei-f-meta);
-  text-align: right;
-}
-
-.iei-hero-reach .iei-story-reach-v b {
-  font-size: var(--iei-f-lead);
-  font-weight: 700;
-  letter-spacing: -0.04em;
-  margin-right: var(--iei-1);
-}
-
-.iei-hero-reach .iei-story-reach-bar {
-  grid-area: b;
-  height: var(--iei-1);
-}
-
-/* In a cell a third of a small laptop's width, the label sits ABOVE its figure: beside it, "STATES AND TERRITORIES WITH RESULTS" ran under "1 of 36". */
-@media (max-width: 1080px) {
-  .iei-hero-reach .iei-story-reach li {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "l"
-      "v"
-      "b";
-  }
-
-  .iei-hero-reach .iei-story-reach-v {
-    text-align: left;
-  }
-}
-
-/* On a phone the three are rows of one list: label and figure side by side, a rule between them, and little of the first screen spent. */
+/* On a phone the title sits a little closer to the bar. */
 @media (max-width: 640px) {
   .iei-hero .iei-head {
-    padding-top: var(--iei-4);
+    padding-top: var(--iei-3);
+    padding-bottom: var(--iei-2);
   }
 
-  .iei-hero-reach .iei-story-reach {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .iei-hero-reach .iei-story-reach li {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "l v"
-      "b b";
-    padding: var(--iei-2) var(--iei-3);
-    gap: var(--iei-1) var(--iei-3);
-  }
-
-  .iei-hero-reach .iei-story-reach li + li {
-    border-left: 0;
-    border-top: 1px solid var(--iei-line);
-  }
-
-  .iei-hero-reach .iei-story-reach-v {
-    text-align: right;
-  }
-
-  .iei-hero-reach .iei-story-reach-v b {
-    font-size: var(--iei-f-title);
+  /* The scope line and the door to the search are the title's small print, and on a phone four lines of body type under a three-line title are the first
+     screen: at the data size they are three, and the map card starts higher. */
+  .iei-hero .iei-sub {
+    font-size: var(--iei-f-data);
+    line-height: 1.5;
   }
 }
 
 /* THE CHOSEN STATE'S OPENING is a card like every chapter under it: the sentence, then the proof beside four doors. */
 .iei-story-top {
-  border: 1px solid var(--iei-line);
+  border: 0;
   border-radius: var(--iei-r);
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0) calc(var(--iei-12) * 2.5)),
-    var(--iei-panel);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.05),
-    0 var(--iei-2) var(--iei-6) rgba(0, 0, 0, 0.32);
+  background: var(--iei-panel);
+  box-shadow: var(--iei-elev);
   padding: var(--iei-6);
   margin: 0 0 var(--iei-6);
 }
@@ -6690,18 +6380,10 @@ ul.iei-tiles b {
   padding-bottom: 0;
 }
 
-/* THE SEAT'S THREE FIGURES are three equal cards, whatever each has to say. */
+/* THE SEAT'S THREE FIGURES are three equal tiles, whatever each has to say. */
 .iei-seat-kpis {
   align-items: stretch;
   gap: var(--iei-4);
-}
-
-.iei-seat-tile,
-.iei-seat-card {
-  background:
-    linear-gradient(180deg, rgba(255, 255, 255, 0.04), rgba(255, 255, 255, 0)),
-    var(--iei-raised);
-  border-color: var(--iei-line);
 }
 
 /* A TITLE THAT IS A SENTENCE (coverage, search, candidates, an empty state) is not set at the size of a name. */
@@ -6729,8 +6411,8 @@ ul.iei-tiles b {
 .iei-list-said {
   margin: 0 0 var(--iei-3);
   padding: var(--iei-2) var(--iei-3);
-  border-left: 2px solid var(--iei-line-2);
-  background: rgba(255, 255, 255, 0.025);
+  border-left: 1px solid var(--iei-line-2);
+  background: light-dark(rgba(24, 28, 64, 0.04), rgba(255, 255, 255, 0.025));
   border-radius: var(--iei-r);
 }
 
@@ -6765,18 +6447,7 @@ ul.iei-tiles b {
   }
 }
 
-/* glow and the coverage ledger */
-
-/* THE LIGHT ALONG THE TOP OF THE PAGE is a custom property with the skin's own colour as its default. `Shell` sets `--iei-glow` on the page wrapper
-   for a seat's page and its Analysis, in the ink of the party that holds the seat (repo/seat-glow.ts); every other page, and a seat with no holder on
-   record or a holder with no recorded colour, never sets it and paints exactly what the skin paints. It is decoration: nothing is said by it that the
-   page does not say in words, and its alpha is chosen so that the dimmest ink a label may use stays above 4.6:1 under it. */
-.iei {
-  background:
-    radial-gradient(80% 32% at 50% 0, var(--iei-glow, rgba(132, 132, 255, 0.13)), transparent 72%) no-repeat,
-    radial-gradient(40% 20% at 12% 4%, rgba(255, 255, 255, 0.04), transparent 70%) no-repeat,
-    var(--iei-bg);
-}
+/* the coverage ledger */
 
 /* THE COVERAGE LEDGER (/coverage, "The eighteen subject areas") is three groups by status, not eighteen rows in the spec's order. Eleven of the
    eighteen said "Not modelled", "none" and "no <x> model exists yet" in turn, three more said "Table, no rows" and "none", and the four with data were
@@ -6817,10 +6488,8 @@ ul.iei-tiles b {
 }
 
 .iei-led-n {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -6870,10 +6539,8 @@ ul.iei-tiles b {
 .iei-led-cols {
   padding-top: 0;
   padding-bottom: var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -6891,7 +6558,6 @@ ul.iei-tiles b {
 }
 
 .iei-led-rows b {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-lead);
   font-weight: 700;
   letter-spacing: -0.04em;
@@ -6932,9 +6598,9 @@ ul.iei-tiles b {
 
 .iei-led-names li {
   padding: var(--iei-1) var(--iei-3);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  background: rgba(255, 255, 255, 0.03);
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  background: var(--iei-tint);
   font-size: var(--iei-f-data);
 }
 
@@ -6950,13 +6616,13 @@ ul.iei-tiles b {
   padding: 0;
   display: grid;
   gap: var(--iei-3) var(--iei-6);
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
 }
 
 .iei-led-more li {
   min-width: 0;
   padding-left: var(--iei-3);
-  border-left: 2px solid var(--iei-line-2);
+  border-left: 1px solid var(--iei-line-2);
   font-size: var(--iei-f-data);
   line-height: 1.55;
   color: var(--iei-ink-2);
@@ -7013,10 +6679,8 @@ ul.iei-tiles b {
     clip-path: none;
     display: inline;
     margin: 0 var(--iei-2) 0 0;
-    font-family: var(--iei-mono);
     font-size: var(--iei-f-mark);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
+    font-weight: 600;
     color: var(--iei-ink-3);
   }
 
@@ -7075,7 +6739,7 @@ ul.iei-tiles b {
 }
 
 /* THE SPARKLINE'S LABELS. The wrapper holds the picture's width (the SVG no longer carries it) and the labels are laid over it in the
-   same box, so a percentage of the box is a point of the frame. `.iei-seat-sp-val` and `.iei-seat-sp-yr` keep the font rules above (mono,
+   same box, so a percentage of the box is a point of the frame. `.iei-seat-sp-val` and `.iei-seat-sp-yr` keep the font rules above (the sans,
    the mark token, which is now the size on screen); their `fill` is an SVG property and does nothing to HTML, so the ink is set here.
    The labels take no pointer, so the dots under them still show their title. */
 .iei-seat-spw {
@@ -7195,13 +6859,12 @@ ul.iei-tiles b {
 }
 
 .iei-pf-who a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
 .iei-pf-role {
   flex-basis: 100%;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
 }
@@ -7211,7 +6874,7 @@ ul.iei-tiles b {
   display: block;
   height: var(--iei-4);
   background: var(--iei-line);
-  border-radius: 0 var(--iei-r) var(--iei-r) 0;
+  border-radius: 0 var(--iei-r-sm) var(--iei-r-sm) 0;
 }
 
 /* A bar is square at its zero and rounded where the data ends. */
@@ -7219,11 +6882,10 @@ ul.iei-tiles b {
   display: block;
   height: 100%;
   min-width: 2px;
-  border-radius: 0 var(--iei-r) var(--iei-r) 0;
+  border-radius: 0 var(--iei-r-sm) var(--iei-r-sm) 0;
 }
 
 .iei-pf-n {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-variant-numeric: tabular-nums;
   text-align: right;
@@ -7252,7 +6914,6 @@ ul.iei-tiles b {
   top: var(--iei-2);
   left: 0;
   transform: translateX(-50%);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
   white-space: nowrap;
@@ -7312,7 +6973,6 @@ ul.iei-tiles b {
 }
 
 .iei-pf-nm span {
-  font-family: var(--iei-mono);
   font-variant-numeric: tabular-nums;
   color: var(--iei-ink-2);
   white-space: nowrap;
@@ -7409,7 +7069,6 @@ ul.iei-tiles b {
   margin-top: var(--iei-1);
   transform: translateX(-50%);
   white-space: nowrap;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-weight: 600;
   font-variant-numeric: tabular-nums;
@@ -7427,7 +7086,6 @@ ul.iei-tiles b {
   position: absolute;
   left: var(--p);
   transform: translateX(-50%);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
   white-space: nowrap;
@@ -7484,7 +7142,7 @@ ul.iei-tiles b {
 
 /* The seat: its column is lifted across the whole plot, its bar is outlined, and its name sits above the bars. */
 .iei-rk-self {
-  background: rgba(255, 255, 255, 0.06);
+  background: light-dark(rgba(24, 28, 64, 0.096), rgba(255, 255, 255, 0.06));
   border-radius: 1px;
 }
 
@@ -7510,7 +7168,6 @@ ul.iei-tiles b {
 }
 
 .iei-rk-label span {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
   font-variant-numeric: tabular-nums;
@@ -7553,7 +7210,6 @@ ul.iei-tiles b {
 }
 
 .iei-rk-ends b {
-  font-family: var(--iei-mono);
   font-weight: 600;
   color: var(--iei-ink);
   font-variant-numeric: tabular-nums;
@@ -7576,7 +7232,6 @@ ul.iei-tiles b {
 }
 
 .iei-rk-key li > span {
-  font-family: var(--iei-mono);
   color: var(--iei-ink-2);
 }
 
@@ -7620,7 +7275,6 @@ ul.iei-tiles b {
 }
 
 .iei-st-self span {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
   font-variant-numeric: tabular-nums;
@@ -7661,7 +7315,7 @@ ul.iei-tiles b {
 
 .iei-st-dot-me {
   z-index: 1;
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -7703,7 +7357,6 @@ ul.iei-tiles b {
   top: var(--iei-3);
   left: 50%;
   transform: translateX(-50%);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
   white-space: nowrap;
@@ -7712,7 +7365,6 @@ ul.iei-tiles b {
 .iei-st-unit {
   margin: var(--iei-2) 0 0;
   text-align: center;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
 }
@@ -7809,19 +7461,12 @@ ul.iei-tiles b {
   }
 }
 
-/* ───────── motion: the bars grow together from zero, then the ruler's marks arrive; nothing else moves ───────── */
+/* ───────── motion: the bars grow from zero; nothing else moves ───────── */
 
 @media (prefers-reduced-motion: no-preference) {
   .iei-pf-bar {
     transform-origin: 0 50%;
     animation: iei-grow var(--iei-t-2) var(--iei-ease) backwards;
-  }
-
-  .iei-pf-dot,
-  .iei-pf-seg,
-  .iei-pf-gap {
-    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
-    animation-delay: min(calc(var(--i, 3) * 100ms), 300ms);
   }
 }
 
@@ -7834,11 +7479,11 @@ ul.iei-tiles b {
   }
 }
 
-/* ══════════════════════════ the situation room: the frame ══════════════════════════
-   2026-11-03, docs/superpowers/specs/2026-11-03-situation-room-home-design.md. The product was a stack of long articles with a bar
-   on top. This block gives every page the structure of a tool: a rail of six places beside the content on a laptop, and under the
-   bar on a phone. Nothing here changes a colour: the neutrals are locked by iei.test.ts and by the party inks' contrast against them,
-   so the new look is made of structure, shape and density. */
+/* ══════════════════════════ the shell: the frame, the rail and the bottom bar ══════════════════════════
+   The product has three places (Overview, People, Data), and the rail says which one you are in. On a laptop it is a column beside the content: icon
+   over a sentence-case word at 72px, and from 1360px a labelled sidebar with the icon beside the word. On a phone it is a bottom tab bar, fixed,
+   safe-area aware, with 44px targets. The current place is a rounded pill in a wash of the accent, bolder and in the accent's ink: three signals, so
+   it is not colour alone. Nothing here is a list of anything the registry owns. */
 
 .iei-frame {
   display: grid;
@@ -7854,25 +7499,24 @@ ul.iei-tiles b {
   flex-direction: column;
   gap: var(--iei-1);
   height: calc(100vh - var(--iei-12));
-  padding: var(--iei-3) var(--iei-1);
-  border-right: 1px solid var(--iei-line);
-  background: rgba(13, 13, 19, 0.5);
+  padding: var(--iei-4) var(--iei-2);
 }
 
 .iei-rail a {
   display: grid;
   justify-items: center;
-  gap: var(--iei-1);
-  padding: var(--iei-2) 0;
-  border-radius: var(--iei-r);
-  color: var(--iei-ink-3);
-  font-family: var(--iei-mono);
+  gap: 2px;
+  padding: var(--iei-2) var(--iei-1);
+  border-radius: var(--iei-r-sm);
+  color: var(--iei-ink-2);
   font-size: var(--iei-f-mark);
+  font-weight: 600;
   line-height: 1.2;
-  letter-spacing: 0.04em;
   text-decoration: none;
-  text-transform: uppercase;
-  transition: color var(--iei-t-1), background var(--iei-t-1);
+  transition:
+    color var(--iei-t-1) var(--iei-ease),
+    background var(--iei-t-1) var(--iei-ease),
+    transform var(--iei-t-1) var(--iei-ease);
 }
 
 .iei-rail svg {
@@ -7887,25 +7531,28 @@ ul.iei-tiles b {
 
 .iei-rail a:hover {
   color: var(--iei-ink);
-  background: var(--iei-raised);
+  background: var(--iei-tint-2);
+}
+
+.iei-rail a:active {
+  transform: translateY(1px);
 }
 
 .iei-rail a:focus-visible {
-  outline: 2px solid var(--iei-ink);
-  outline-offset: -2px;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
-/* The current place carries a bar and a lighter ink: two signals, so it is not colour alone. */
+/* THE CURRENT PLACE: a pill in a wash of the accent, the accent's own ink, and a heavier weight. */
 .iei-rail a[aria-current='page'] {
-  color: var(--iei-ink);
-  background: var(--iei-raised);
-  box-shadow: inset 2px 0 0 var(--iei-ink);
+  color: var(--accent);
+  background: var(--iei-wash);
+  font-weight: 700;
 }
 
 .iei-live-what {
   margin-left: var(--iei-1);
   color: var(--iei-ink-2);
-  letter-spacing: 0.04em;
 }
 
 a.iei-live {
@@ -7913,42 +7560,59 @@ a.iei-live {
 }
 
 @media (max-width: 900px) {
-  .iei-frame {
-    display: block;
-  }
-  .iei-rail {
-    position: static;
-    height: auto;
-    flex-direction: row;
-    gap: 0;
-    overflow-x: auto;
-    padding: var(--iei-1) var(--iei-3);
-    border-right: 0;
-    border-bottom: 1px solid var(--iei-line);
-  }
-  .iei-rail a {
-    flex: 1 0 auto;
-    grid-auto-flow: column;
-    padding: var(--iei-2) var(--iei-3);
-  }
   .iei-live-what {
     display: none;
   }
 }
 
-/* A PHONE'S RAIL FITS ALL SIX PLACES. It scrolled sideways before, and at 390px "People" and "Data" were off the right edge: "Data" is where the
-   coverage page is, the page that says what the registry holds. Icon over word, as on a laptop, with the tracking taken off so the longest word
-   ("Landscape") is about 59px in a 64px cell. A narrower screen than that still scrolls, because a flex item will not shrink below its word. */
+/* A LABELLED SIDEBAR where there is room for one: the icon beside the word, the pill the width of the column. */
+@media (min-width: 1360px) {
+  :root {
+    --iei-rail-w: 11.5rem;
+  }
+
+  .iei-rail a {
+    grid-auto-flow: column;
+    justify-content: start;
+    align-items: center;
+    gap: var(--iei-3);
+    padding: var(--iei-2) var(--iei-3);
+    font-size: var(--iei-f-data);
+  }
+}
+
+/* A PHONE'S RAIL IS A BOTTOM TAB BAR, fixed to the foot of the window, safe-area aware (the home indicator), with three 44px targets sharing its
+   width. The content is padded so that nothing it ends with hides under it (`.iei-frame`, below). */
 @media (max-width: 640px) {
+  .iei-frame {
+    display: block;
+    padding-bottom: calc(var(--iei-12) + var(--iei-4) + env(safe-area-inset-bottom, 0px));
+  }
+
   .iei-rail {
-    padding: var(--iei-1);
+    position: fixed;
+    top: auto;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 30;
+    flex-direction: row;
+    gap: var(--iei-1);
+    height: auto;
+    padding: var(--iei-1) var(--iei-2) calc(var(--iei-1) + env(safe-area-inset-bottom, 0px));
+    background: light-dark(rgba(248, 249, 252, 0.92), rgba(13, 13, 19, 0.92));
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow: 0 -1px 0 var(--iei-line);
   }
 
   .iei-rail a {
     flex: 1 1 0;
     grid-auto-flow: row;
-    padding: var(--iei-2) 0;
-    letter-spacing: 0;
+    justify-content: center;
+    align-content: center;
+    min-height: 44px;
+    padding: var(--iei-1) 0;
   }
 
   /* THE MAP'S LAYER STRIP IS ONE ROW, scrolled sideways. Six chips wrapped to three rows (112px), and three of them are unavailable and dashed; the
@@ -7987,10 +7651,6 @@ a.iei-live {
    the scale already allows (a 6px bar, a 200px card, a 460px map). Motion reuses grow, rise and arrive, runs once, and is declared inside
    the no-preference block at the end of this section. */
 
-.iei-count {
-  font-variant-numeric: tabular-nums;
-}
-
 /* ── next up ──
    A SCHEDULE: one ruled row per election, with the date, the name, the term's meter and the context as columns. It was a grid of boxes inside the
    section's own box, which is a card inside a card; a list of dated things is read down a column, and four cells in a row can be compared across rows. */
@@ -8016,7 +7676,7 @@ a.iei-live {
   column-gap: var(--iei-6);
   align-items: center;
   padding: var(--iei-3) var(--iei-2);
-  border-radius: var(--iei-r);
+  border-radius: var(--iei-r-sm);
   color: inherit;
   text-decoration: none;
   transition: background var(--iei-t-1);
@@ -8027,15 +7687,13 @@ a.iei-live {
 }
 
 .iei-next-i a:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
 .iei-next-when {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-2);
 }
 
@@ -8069,7 +7727,6 @@ a.iei-live {
 }
 
 .iei-next-after {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
   font-variant-numeric: tabular-nums;
@@ -8134,7 +7791,6 @@ a.iei-live {
 }
 
 .iei-tm-year {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-answer);
   font-weight: 700;
   line-height: 1;
@@ -8158,11 +7814,10 @@ a.iei-live {
 
 .iei-tm-controls button {
   padding: var(--iei-1) var(--iei-3);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  background: var(--iei-raised);
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  background: var(--iei-tint);
   color: var(--iei-ink);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   cursor: pointer;
 }
@@ -8178,7 +7833,7 @@ a.iei-live {
 
 .iei-tm-controls button:focus-visible,
 .iei-tm-controls input:focus-visible {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: 2px;
 }
 
@@ -8225,7 +7880,8 @@ a.iei-live {
    reach them; this is for the cases where focus lands on one anyway (a script, a hash link), and for the rule that anything that can take focus
    shows it. The treatment goes on the `use` because an SVG anchor has no box, and the rule that styles `.iei-map a` names a `path`. */
 .iei-tm-fig a:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 .iei-tm-fig a:focus-visible use {
@@ -8246,7 +7902,6 @@ a.iei-live {
   margin: 0 0 var(--iei-4);
   padding: 0;
   list-style: none;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
 }
 
@@ -8306,7 +7961,6 @@ a.iei-live {
 
 .iei-tm-yr {
   padding-top: var(--iei-1);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
   text-align: center;
@@ -8319,7 +7973,7 @@ a.iei-live {
 }
 
 .iei-tm-col[aria-current='true'] .iei-tm-stack {
-  outline: 2px solid var(--iei-ink);
+  outline: 2px solid var(--accent);
   outline-offset: -2px;
 }
 
@@ -8328,10 +7982,10 @@ a.iei-live {
 .iei-live-board {
   margin: var(--iei-6) 0;
   padding: var(--iei-6);
-  border: 1px solid var(--iei-line-2);
-  border-top: 2px solid var(--iei-alert);
+  border: 0;
   border-radius: var(--iei-r);
   background: var(--iei-panel);
+  box-shadow: var(--iei-elev);
 }
 
 .iei-lb-title {
@@ -8343,7 +7997,6 @@ a.iei-live {
 
 .iei-lb-asof {
   margin: var(--iei-2) 0 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
 }
@@ -8362,11 +8015,10 @@ a.iei-live {
 
 .iei-lb-pick button {
   padding: var(--iei-1) var(--iei-3);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  background: var(--iei-raised);
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  background: var(--iei-tint);
   color: var(--iei-ink-2);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   cursor: pointer;
 }
@@ -8388,11 +8040,8 @@ a.iei-live {
 
 .iei-lb-h {
   margin: 0 0 var(--iei-2);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  font-weight: 400;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-2);
 }
 
@@ -8419,7 +8068,6 @@ a.iei-live {
 
 .iei-lb-prog-cap {
   margin: var(--iei-1) 0 var(--iei-4);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   color: var(--iei-ink-2);
 }
@@ -8437,7 +8085,6 @@ a.iei-live {
   grid-template-columns: 6rem minmax(0, 1fr) auto;
   align-items: center;
   gap: var(--iei-3);
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
 }
 
@@ -8485,10 +8132,8 @@ a.iei-live {
 
 .iei-lb-table thead th {
   border-top: 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -8511,7 +8156,6 @@ a.iei-live {
 .iei-lb-range {
   display: inline-block;
   margin: 0 var(--iei-3) var(--iei-1) 0;
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-data);
   font-variant-numeric: tabular-nums;
 }
@@ -8531,7 +8175,6 @@ a.iei-live {
 
 .iei-lb-events time {
   margin-right: var(--iei-2);
-  font-family: var(--iei-mono);
   color: var(--iei-ink-3);
 }
 
@@ -8562,14 +8205,9 @@ a.iei-live {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .iei-next-i {
-    animation: iei-arrive var(--iei-t-2) var(--iei-ease) backwards;
-    animation-delay: min(calc(var(--i, 0) * 60ms), 300ms);
-  }
-
+  /* A term's meter grows from its start: a quantity. */
   .iei-next-fill {
     animation: iei-grow var(--iei-t-2) var(--iei-ease) backwards;
-    animation-delay: min(calc(var(--i, 0) * 60ms), 300ms);
   }
 
   /* The ribbon's columns rise from the floor, once. */
@@ -8595,14 +8233,12 @@ a.iei-live {
   }
 }
 
-/* ── MAP-FIRST, RESTORED ─────────────────────────────────────────────────────────────────────────────────────────────
-   The design document's batch 1 put the map in the first screen of the state and election pages: at least 520px of it
-   visible at 1440x900, at least 480px at 1280x800 (its top edge at or above 320px), and on a 390x844 phone its top edge at
-   or above 400px. The pages measured 267px, 267px and 368px then. They measured 379px, 379px and 607px after the skin and
-   the situation-room shell, because the rules that compacted the header (`.iei-head-map`, `.iei-sec-atlas`, `.iei-controls`)
-   have the same specificity as the skin's `.iei-head`, `.iei-answer` and `.iei-sec` and come BEFORE them in this file, so
-   the later, larger ones won. These are one class more specific, and they sit last so a later rule has to say why it
-   disagrees. They change spacing only: nothing here removes a word, a control or a colour. */
+/* ── MAP-FIRST ───────────────────────────────────────────────────────────────────────────────────────────────────────
+   The map is in the first screen of the state and election pages: at least 520px of it visible at 1440x900, at least 480px at
+   1280x800 (its top edge at or above 320px), and on a 390x844 phone its top edge at or above 400px. The rules that compact the header
+   (`.iei-head-map`, `.iei-sec-atlas`, `.iei-controls`) have the same specificity as the general `.iei-head`, `.iei-answer` and `.iei-sec`
+   and come BEFORE them in this file, so these are one class more specific and sit last: a later rule has to say why it disagrees.
+   They change spacing only: nothing here removes a word, a control or a colour. */
 .iei-head.iei-head-map {
   padding: var(--iei-3) 0;
 }
@@ -8611,7 +8247,7 @@ a.iei-live {
   margin-bottom: 0;
 }
 
-/* The election page's title is not inside the result row, so the skin's 16px under it was not reached by the rule above. */
+/* The election page's title is not inside the result row, so the head's 16px under it was not reached by the rule above. */
 .iei-head-map > .iei-answer {
   margin-bottom: var(--iei-2);
 }
@@ -8634,40 +8270,19 @@ a.iei-live {
   margin-bottom: var(--iei-3);
 }
 
-/* On a phone the chrome above the page is the cost: a two-row sticky bar (85px), a rail row (49px), a kicker row. The bar is
-   one row here (the wordmark without its tagline, then the field), the rail row is tighter, the result's figures stay on the
-   title's line, and the kicker, which the breadcrumb and the title already say, is kept for assistive technology only. */
+/* On a phone the chrome above the page is the cost. The bar is one row (the wordmark without its tagline, the field and the theme button), the
+   rail is the bottom tab bar (above), the result's figures stay on the title's line, and the page-kind label, which the breadcrumb and the title already say,
+   is kept for assistive technology only. */
 @media (max-width: 640px) {
   .iei-top {
-    grid-template-columns: auto minmax(0, 1fr);
+    /* Three on a phone as everywhere: the wordmark, the field and the theme button (or the live indicator) share the one row. */
+    grid-template-columns: auto minmax(0, 1fr) auto;
     column-gap: var(--iei-3);
     row-gap: 0;
   }
 
   .iei-top .iei-mark-b {
     display: none;
-  }
-
-  .iei-top .iei-cmd {
-    grid-column: auto;
-    order: 0;
-  }
-
-  html {
-    scroll-padding-top: calc(var(--iei-12) + var(--iei-2));
-  }
-
-  .iei-rail {
-    padding-block: 0;
-  }
-
-  .iei-head-map .iei-head-top .iei-eyebrow {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
   }
 
   .iei-head-map .iei-head-top {
@@ -8776,17 +8391,10 @@ a.iei-live {
   }
 }
 
-/* ══════════════════════════ SIGNAL COLOUR ══════════════════════════
-   ONE HUE FOR THE CHROME, and it says where you are. The six-hue band is declared at the top of this file because a kind of page picks its hue from
-   it, but a page shows exactly one of them. It used to show six: a section took the next hue in order, the rail's six places were six colours, the bar
-   carried a hairline through all six, and a title faded into the page's hue, so a page of seven panels was a rainbow of equals and the eye had nothing to
-   rank by. Now the page's hue is the current rail place, the marker before a heading, the selected edge of a tab and a kind-of-page label, and every
-   other colour on a screen is data. Everything here sets or reads ONE custom property, `--accent`, which is always the page's hue. Nothing here touches
-   a data mark: no seat, bar, ribbon, dot or swatch reads it. */
-
-.iei {
-  --accent: var(--page);
-}
+/* ══════════════════════════ THE ACCENT ══════════════════════════
+   ONE HUE FOR THE CHROME. `--accent` (declared in :root, the indigo token for the theme) is the current rail place, the chosen segment, a link,
+   focus, a primary button and the marker before a heading, and every other colour on a screen is data. It is the same on every kind of page.
+   Nothing here touches a data mark: no seat, bar, ribbon, dot or swatch reads `--accent` (iei.test.ts refuses a rule that does). */
 
 /* The heading carries the one marker. */
 .iei-h h2::before {
@@ -8800,42 +8408,19 @@ a.iei-live {
   vertical-align: 0.1em;
 }
 
-/* THE RAIL: icons are label ink at rest and bright when pointed at; the current place is bright, with a bar in the page's hue, which is two signals. */
-.iei-rail a[aria-current='page'] {
-  box-shadow: inset 2px 0 0 var(--accent);
-}
-
-.iei-rail a[aria-current='page'] svg {
-  color: var(--accent);
-}
-
-/* The light along the top of the page: the page's hue from the middle (or a seat's party, when a seat sets --iei-glow). One device, fixed, and dim
-   enough that the dimmest label under it still clears 4.5:1. */
+/* THE LIGHT ALONG THE TOP OF THE PAGE belongs to a seat: Shell sets `--iei-glow` on the page wrapper for a seat's page and its Analysis, in the
+   ink of the party that holds the seat. Every other page paints nothing here. On the light canvas the light is at 45% of its strength (the same
+   light at full strength is a green fog over a pale page), and on the dark one it is the party's own. */
 .iei {
   background:
-    radial-gradient(80% 32% at 50% 0, var(--iei-glow, color-mix(in oklab, var(--page) 16%, transparent)), transparent 72%) no-repeat,
+    radial-gradient(80% 32% at 50% 0, light-dark(color-mix(in srgb, var(--iei-glow, transparent) 45%, transparent), var(--iei-glow, transparent)), transparent 72%) no-repeat,
     var(--iei-bg);
-}
-
-/* EACH KIND OF PAGE HAS A HUE (Shell sets data-here): the front page is indigo, a place cyan, an election violet, a person rose,
-   coverage teal, search amber. It colours the light along the top, the marker before a heading and the page's label, so you can tell
-   which kind of page you are on. A seat's own light, a party's colour, still wins where it is set. */
-.iei { --page: var(--iei-a-indigo); }
-.iei[data-here='place'] { --page: var(--iei-a-cyan); }
-.iei[data-here='election'] { --page: var(--iei-a-violet); }
-.iei[data-here='person'] { --page: var(--iei-a-rose); }
-.iei[data-here='coverage'] { --page: var(--iei-a-teal); }
-.iei[data-here='search'] { --page: var(--iei-a-amber); }
-.iei[data-here='review'] { --page: var(--iei-a-violet); }
-
-.iei-head .iei-eyebrow {
-  color: var(--page);
 }
 
 /* ══════════════════════════ THE WORKBENCH ══════════════════════════
    The front page's map panel is its work area, set as one card in three bands instead of a heading, a row of boxes and a card inside the card: a
-   toolbar (the question, the sources), the layer tabs as an underlined strip, and the map beside its inspector with a rule between them. The
-   selected tab and the selected state are the two places the page's hue appears. */
+   toolbar (the question, the sources), the layer tabs as a segmented control, and the map beside its inspector with a quiet rule between them.
+   The chosen tab and the chosen state are the two places the accent appears. */
 
 .iei-bench {
   padding: 0;
@@ -8846,72 +8431,31 @@ a.iei-live {
   padding: var(--iei-3) var(--iei-6);
 }
 
-.iei-bench > .iei-tabs {
-  gap: var(--iei-6);
-  margin: 0;
-  padding: 0 calc(var(--iei-6) - var(--iei-1));
-  border-bottom: 1px solid var(--iei-line);
-}
-
-/* THE TAB'S UNDERLINE IS DRAWN, NOT A BORDER: a border with the system's 8px corner curls up at its ends, and one with no corner breaks the
-   one-radius rule. The bar sits on the strip's own rule, so the selected tab reads as the strip's rule lit in the page's hue. */
-.iei-bench .iei-tab {
+/* THE EVIDENCE DRAWER FLOATS OVER THE WORKBENCH instead of pushing it: open in the header's right-hand cell it made the header five hundred pixels tall, with the
+   title alone in an empty left column and the tabs and the map pushed off the first screen. */
+.iei-bench > .iei-h {
   position: relative;
-  padding: var(--iei-3) var(--iei-1);
-  border: 0;
-  background: none;
 }
 
-.iei-bench .iei-tab::after {
-  content: '';
+.iei-bench > .iei-h .iei-ev {
+  position: static;
+}
+
+.iei-bench > .iei-h .iei-ev-body {
   position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
+  top: calc(100% - var(--iei-2));
+  right: var(--iei-6);
+  z-index: 5;
+  width: min(72ch, calc(100% - 2 * var(--iei-6)));
+  max-height: 70vh;
+  overflow: auto;
+  background: var(--iei-panel);
+  box-shadow: var(--iei-elev);
 }
 
-.iei-bench .iei-tab:hover {
-  color: var(--iei-ink);
-  background: none;
-}
-
-.iei-bench .iei-tab:hover::after {
-  background: var(--iei-ink-3);
-}
-
-.iei-bench .iei-tab.iei-tab-on {
-  color: var(--iei-ink);
-  background: none;
-}
-
-.iei-bench .iei-tab.iei-tab-on::after {
-  background: var(--accent);
-}
-
-/* Focus is a 2px rule drawn inside the tab's own box, as everywhere else, so the strip does not move. */
-.iei-bench .iei-tab:focus-visible,
-.iei-bench .iei-tab.iei-tab-on:focus-visible {
-  color: var(--iei-ink);
-  box-shadow: none;
-}
-
-.iei-bench .iei-tab:focus-visible::after,
-.iei-bench .iei-tab.iei-tab-on:focus-visible::after {
-  background: var(--iei-ink);
-}
-
-/* Unavailable stays dashed: the strip says what is missing rather than offering a layer that would shade the country in a colour standing for nothing. */
-.iei-bench .iei-tab.iei-tab-off,
-.iei-bench .iei-tab.iei-tab-off:hover {
-  color: var(--iei-ink-3);
-}
-
-.iei-bench .iei-tab.iei-tab-off::after,
-.iei-bench .iei-tab.iei-tab-off:hover::after {
-  height: 0;
-  background: none;
-  border-bottom: 2px dashed var(--iei-line-2);
+/* THE WORKBENCH'S LAYER TABS are the same segmented control as everywhere, set in the bench's own gutter. */
+.iei-bench > .iei-tabs {
+  margin: 0 var(--iei-6) var(--iei-4);
 }
 
 .iei-bench .iei-map-split {
@@ -8929,7 +8473,7 @@ a.iei-live {
   border-left: 1px solid var(--iei-line);
 }
 
-/* The names of the states not loaded are names, so they are set as names: sans, where the mono is for numbers and marks. */
+/* The names of the states not loaded are names, so they are set as names: sans, as everything is. */
 .iei-bench .iei-story-unloaded ul {
   font-family: var(--iei-sans);
 }
@@ -8938,6 +8482,7 @@ a.iei-live {
 .iei-bench .iei-story-card {
   padding: 0;
   border: 0;
+  background: none;
 }
 
 .iei-story-card-h {
@@ -8955,11 +8500,15 @@ a.iei-live {
   }
 
   .iei-bench > .iei-h,
-  .iei-bench > .iei-tabs,
   .iei-bench .iei-map-col,
   .iei-bench #map-list {
     padding-left: var(--iei-4);
     padding-right: var(--iei-4);
+  }
+
+  .iei-bench > .iei-tabs {
+    margin-left: var(--iei-4);
+    margin-right: var(--iei-4);
   }
 }
 
@@ -8980,24 +8529,10 @@ a.iei-live {
   }
 }
 
-/* Forced colours replace every author background, so a bar drawn as one disappears: the selected tab and a focused one are drawn as borders in the system's ink. */
-@media (forced-colors: active) {
-  .iei-bench .iei-tab.iei-tab-on::after,
-  .iei-bench .iei-tab:focus-visible::after {
-    height: 0;
-    border-bottom: 2px solid CanvasText;
-  }
-
-  .iei-bench .iei-tab:focus-visible {
-    outline: 2px solid CanvasText;
-    outline-offset: -2px;
-  }
-}
-
 /* ══════════════════════════ RANK BELOW THE WORKBENCH ══════════════════════════
    The map panel is the one card on the front page, because it is the work area. The sections under it are reference, and they are open sections:
-   a heading and its rule, then the content, with no box. Six cards of the same weight under the workbench said nothing about which of them
-   mattered, and a card holding a single sentence ("nothing to rank") held a slot as large as one holding a list. */
+   a heading and a quiet rule, then the content, with no box: cards under a workbench would all weigh the same, and a card holding a single
+   sentence ("nothing to rank") would hold a slot as large as one holding a list. */
 .iei-sec.iei-sec-flat {
   padding: 0;
   margin: 0 0 var(--iei-8);
@@ -9043,6 +8578,50 @@ a.iei-live {
   }
 }
 
+/* THE WORKBENCH'S HEAD ON A PHONE IS TWO LINES, NOT FIVE: the title with its sources beside it, then what it answers on one line. The three layer tabs wrap into a
+   segmented control of their own instead of scrolling, so no tab is ever shown cut in half ("Election y"); with the full registry's six layers it wraps to two rows. */
+@media (max-width: 640px) {
+  .iei-bench > .iei-h {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 2px var(--iei-3);
+    padding-block: var(--iei-3) var(--iei-2);
+  }
+
+  .iei-bench > .iei-h .iei-h-title {
+    display: contents;
+  }
+
+  .iei-bench > .iei-h h2 {
+    grid-column: 1;
+    grid-row: 1;
+  }
+
+  .iei-bench > .iei-h .iei-h-title p {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    font-size: var(--iei-f-meta);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .iei-bench > .iei-h .iei-h-meta {
+    grid-column: 2;
+    grid-row: 1;
+    margin-top: 0;
+  }
+
+  .iei-bench > .iei-tabs-row {
+    flex-wrap: wrap;
+    overflow: visible;
+    padding-inline-end: var(--iei-1);
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
+}
+
 /* THE ANSWER IS THE LOUDEST THING IN THE INSPECTOR. The card's own heading ("Latest elections, state by state") steps down to a sub-heading, a chosen state's
    name is set at the lead size, and when the registry holds a single state its name and figures are set one size up, because the list is then its card. */
 .iei-bench .iei-story-card-sub {
@@ -9064,8 +8643,48 @@ a.iei-live {
   line-height: 1.15;
 }
 
-.iei-bench .iei-story-glance li:only-child .iei-story-gl {
-  font-size: var(--iei-f-title);
+/* EACH RESULT IS ITS OWN ROW: a small label over the value, the value at one size under the state's name and on one line where there is room, and what changed
+   since the election before sitting directly under the assembly's value (a 2px step) with a clear step before the next result. */
+.iei-hb-list {
+  display: grid;
+  gap: var(--iei-6);
+  min-width: 0;
+}
+
+.iei-story-glance li > .iei-hb-list {
+  grid-column: 2;
+}
+
+.iei-hb {
+  display: grid;
+  min-width: 0;
+}
+
+.iei-hb-l {
+  font-size: var(--iei-f-meta);
+  line-height: 1.4;
+  color: var(--iei-ink-3);
+}
+
+.iei-hb-v {
+  margin-top: 2px;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.3;
+  color: var(--iei-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.iei-hb-v b {
+  font-weight: 700;
+}
+
+.iei-hb-n {
+  display: block;
+  margin-top: 2px;
+  font-size: var(--iei-f-meta);
+  line-height: 1.45;
+  color: var(--iei-ink-2);
 }
 
 /* A caveat above a list of reference rows is a note, not a callout. */
@@ -9085,4 +8704,312 @@ a.iei-live {
 /* With a single state in the list its name is at the lead size, and the name column is wide enough to keep "West Bengal" on one line. */
 .iei-bench .iei-story-glance li:only-child {
   grid-template-columns: 11rem minmax(0, 1fr);
+}
+
+/* ══════════════════════════ THEME TOGGLE ══════════════════════════
+   System → Light → Dark. The trailing cell of the top bar holds the live indicator when an election is running and the toggle always.
+   A square the height of the bar's rhythm; 44px on a touch screen, where a thumb is the pointer. */
+.iei-top-end {
+  display: flex;
+  align-items: center;
+  gap: var(--iei-3);
+  justify-self: end;
+}
+
+.iei-theme {
+  display: inline-grid;
+  place-items: center;
+  width: var(--iei-8);
+  height: var(--iei-8);
+  padding: 0;
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  background: transparent;
+  color: var(--iei-ink-2);
+  cursor: pointer;
+  transition:
+    color var(--iei-t-1) var(--iei-ease),
+    background var(--iei-t-1) var(--iei-ease),
+    transform var(--iei-t-1) var(--iei-ease);
+}
+
+.iei-theme:hover {
+  color: var(--iei-ink);
+  background: var(--iei-tint-2);
+}
+
+.iei-theme:active {
+  transform: translateY(1px);
+}
+
+.iei-theme:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  color: var(--iei-ink);
+}
+
+@media (pointer: coarse) {
+  .iei-theme { width: 44px; height: 44px; }
+}
+
+@media (forced-colors: active) {
+  .iei-theme:focus-visible { outline: 2px solid CanvasText; }
+}
+
+/* ══════════════════════════ CONTROLS ══════════════════════════
+   Every button, field and select answers the hand the same way: a quiet tint at rest, a deeper one under the pointer, a 1px press, the accent's
+   outline for the keyboard, and 160ms between them. A primary button (the one that submits a form) is the accent filled, with the on-accent ink. */
+.iei-filters select,
+.iei-filters button,
+.iei-pp-find input[type='search'],
+.iei-pp-find button,
+.iei-tm-controls button,
+.iei-lb-pick button {
+  transition:
+    background var(--iei-t-1) var(--iei-ease),
+    color var(--iei-t-1) var(--iei-ease),
+    transform var(--iei-t-1) var(--iei-ease),
+    box-shadow var(--iei-t-1) var(--iei-ease);
+}
+
+.iei-filters select:hover,
+.iei-filters button:hover,
+.iei-pp-find input[type='search']:hover,
+.iei-tm-controls button:hover,
+.iei-lb-pick button:hover {
+  background: var(--iei-tint-2);
+  color: var(--iei-ink);
+}
+
+.iei-filters button:active,
+.iei-pp-find button:active,
+.iei-tm-controls button:active,
+.iei-lb-pick button:active {
+  transform: translateY(1px);
+}
+
+.iei-filters button,
+.iei-pp-find button {
+  background: var(--accent);
+  color: var(--iei-on-accent);
+  font-weight: 600;
+}
+
+.iei-filters button:hover,
+.iei-pp-find button:hover {
+  background: color-mix(in oklab, var(--accent) 86%, var(--iei-ink));
+  color: var(--iei-on-accent);
+}
+
+.iei-pp-find input[type='search']:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+  background: var(--iei-panel);
+}
+
+/* A choice that is on (a player's chosen state, a picked election) is the accent's wash with its ink. */
+.iei-lb-pick button[aria-pressed='true'],
+.iei-lb-pick button[aria-current='true'] {
+  background: var(--iei-wash);
+  color: var(--accent);
+}
+
+/* THE OPEN SECTIONS under the workbench keep one quiet rule under their heading, because without a card there is no other edge. */
+.iei-sec.iei-sec-flat > .iei-h {
+  padding-bottom: var(--iei-3);
+  margin-bottom: var(--iei-4);
+  border-bottom: 1px solid var(--iei-line);
+}
+
+/* ══════════════════════════ MOTION THAT CARRIES STATE BETWEEN PAGES ══════════════════════════
+   Two moments, both inside `prefers-reduced-motion: no-preference` (motion.test.ts holds that, the single entrance pattern, and that a @keyframes names only its start).
+   1. A NAVIGATION IS A CROSS-FADE, NOT A FLASH. The top bar and the rail carry a view-transition-name, so the browser keeps them where they are while
+      the page between them cross-fades (160ms; a browser without cross-document view transitions simply navigates). The theme button's own
+      transition (ThemeToggle) uses the same machinery.
+   2. THE FIRST SECTIONS OF A PAGE RISE INTO PLACE, once, on load: five at most, 60ms apart, so the last has arrived by 660ms. */
+@media (prefers-reduced-motion: no-preference) {
+  @view-transition {
+    navigation: auto;
+  }
+
+  .iei-top {
+    view-transition-name: iei-top;
+  }
+
+  .iei-rail {
+    view-transition-name: iei-rail;
+  }
+
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: var(--iei-t-1);
+  }
+
+  .iei-body > main > :nth-child(-n + 5) {
+    animation: iei-rise-in var(--iei-t-2) var(--iei-ease) backwards;
+    animation-delay: min(calc(var(--i, 0) * 60ms), 300ms);
+  }
+
+  .iei-body > main > :nth-child(2) { --i: 1; }
+  .iei-body > main > :nth-child(3) { --i: 2; }
+  .iei-body > main > :nth-child(4) { --i: 3; }
+  .iei-body > main > :nth-child(5) { --i: 4; }
+
+  @keyframes iei-rise-in {
+    from {
+      opacity: 0;
+      transform: translateY(var(--iei-2));
+    }
+  }
+}
+
+/* A WORKBENCH'S CLOSING NOTE ("Not available from this registry, for the states it holds: …") says once what the figures above cannot say. It is a
+   footnote to the inspector, not a paragraph in it: a quiet rule above, the label size and the label ink, and the whole measure. */
+.iei-bench .iei-note {
+  margin: var(--iei-4) 0 0;
+  padding-top: var(--iei-3);
+  border-top: 1px solid var(--iei-line);
+  font-size: var(--iei-f-meta);
+  line-height: 1.55;
+  color: var(--iei-ink-3);
+  max-width: none;
+}
+
+/* ══════════════════════════ QA: touch targets, phone chrome, drawer, strip ══════════════════════════ */
+
+/* A PLACEHOLDER IS TEXT: the label ink, at full opacity (the browsers' own is a grey at 4.0:1 or less on a tinted field). */
+.iei ::placeholder {
+  color: var(--iei-ink-3);
+  opacity: 1;
+}
+
+/* TARGET SIZE (WCAG 2.5.8: 24px). A link that stands alone (a breadcrumb, a year jump, a row's title, a pager, a table's name) is at least 24px
+   tall by line box, not by margin; a link inside a sentence is exempt and is not listed. On a touch screen the ones that are not in a table are
+   44px, and their rule is an underline (a border would sit 44px from the words). */
+.iei-crumbs a,
+.iei-held-a,
+.iei-row-h a,
+.iei-pp-name a,
+.iei-pp-pager a,
+.iei-pp-sort a,
+.iei-seat-nm a,
+.iei-seat-who a,
+.iei-t td a,
+.iei-story-card-go a,
+.iei-flipmx-pair a,
+.iei-fig figcaption a,
+.iei-sub a,
+.iei-find a,
+.iei-t th a,
+.iei-note > a:only-child,
+p > a:only-child,
+b > a:only-child,
+span > a[title]:only-child,
+figcaption a {
+  display: inline-block;
+  min-height: var(--iei-6);
+  line-height: calc(var(--iei-6) - 1px);
+}
+
+/* A control that is a flex row of its own words (a legend entry, a district's name and its "open") is as tall as a target. */
+.iei-legend a,
+.iei-district-list a,
+.iei-partyrows a,
+.iei-district-open {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--iei-6);
+}
+
+.iei-held-a {
+  display: block;
+}
+
+@media (pointer: coarse) {
+  .iei-crumbs a,
+  .iei-held-a,
+  .iei-row-h a,
+  .iei-pp-pager a,
+  .iei-story-card-go a,
+  .iei-sub a,
+  .iei-find a {
+    display: inline-flex;
+    align-items: center;
+    min-height: 44px;
+    border-bottom: 0;
+    text-decoration: underline;
+    text-decoration-thickness: 1px;
+    text-decoration-color: var(--iei-line-2);
+    text-underline-offset: 0.2em;
+  }
+
+  .iei-held-a {
+    display: flex;
+  }
+}
+
+/* THE DRAWER STAYS IN THE WINDOW. A drawer opened from a right-hand cell began at that cell's left edge and ran past the window's right (398 at 390,
+   328 at 320); it is as wide as its text up to the measure, never wider than the window less its two gutters, and on a phone it takes the row. */
+.iei-ev {
+  max-width: 100%;
+}
+
+.iei-ev-body {
+  max-width: min(72ch, calc(100vw - 2 * var(--iei-gutter)));
+}
+
+@media (max-width: 640px) {
+  .iei-ev {
+    display: block;
+    width: 100%;
+  }
+
+  .iei-ev-body {
+    max-width: 100%;
+  }
+
+  /* THE PHONE'S CHROME IS OPAQUE: a translucent bar over scrolled content lets a line of it show through the search field and through the tab
+     labels. The blur is gone with the transparency; a desktop's frosted bar stays. */
+  .iei-top,
+  .iei-rail {
+    background: var(--iei-panel);
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+  }
+
+  /* A STRIP THAT SCROLLS SAYS SO, wherever it is: the last tab fades at the right edge, and the strip keeps a step of room after its last tab so it can
+     be scrolled clear of the fade. */
+  .iei-tabs-row {
+    padding-inline-end: var(--iei-6);
+    -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - var(--iei-6)), transparent);
+    mask-image: linear-gradient(90deg, #000 calc(100% - var(--iei-6)), transparent);
+  }
+
+  /* No ⌘ key on a phone, whatever the pointer says. */
+  .iei-cmd kbd {
+    display: none;
+  }
+
+  .iei-cmd input {
+    padding-right: var(--iei-3);
+  }
+}
+
+@media (pointer: coarse) {
+  .iei-cmd kbd {
+    display: none;
+  }
+
+  .iei-cmd input {
+    padding-right: var(--iei-3);
+  }
+}
+
+/* A CHIP WRAPS on a narrow window: a long party name was 14px past a 320px window. (A party's code is one word and never wraps in practice.) */
+@media (max-width: 30rem) {
+  .iei-chip {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
 }

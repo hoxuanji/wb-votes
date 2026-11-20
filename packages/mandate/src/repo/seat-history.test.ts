@@ -726,14 +726,22 @@ test("a panel per election sits above the election table, which keeps every one 
   assert.equal((beta.match(/class="iei-seat-bar"/g) ?? []).length, 0);
 });
 
-test("a declared-only election says so in words beside the winner and the margin, and draws no bar", () => {
+// CHANGED 2026-11-20, on purpose: the panel's heading said who won AND by how many, a third telling of the lead's and the table's margin, and the panel
+// repeated "no candidate's votes are on record" that "What the record does not say" holds. The panel says who held the seat and who else stood; the margin
+// is in the lead and the history table (declared, in words), and the absence is in the limits section, which this test also holds.
+test("a declared-only election names the winner and says who else stood, draws no bar, and leaves its margin and its absence to the lead, the table and the limits", () => {
   const html = render("xx/assembly/alpha");
   const start = at(html, 'aria-label="2026"');
   const panel = html.slice(start, at(html, "</section>", start));
   const t = text(panel);
-  assert.match(t, /TMC took the seat from TMC|TMC (?:held the seat|won|took the seat from \w+) by 777 votes \(declared\)/);
-  assert.match(t, /No candidate.s votes are on record for 2026, so there are no bars\./);
+  assert.match(t, /TMC took the seat from TMC|TMC (?:held the seat|won|took the seat from \w+)/);
+  assert.doesNotMatch(t, /777 votes/, "the margin is told a third time");
   assert.doesNotMatch(panel, /iei-seat-bar|iei-seat-rows|iei-res-bar/);
+  // The margin is in the history table, in words as declared; the absence is in the one section that holds each absence.
+  const table = html.slice(at(html, 'aria-label="Election history"'));
+  assert.match(text(table), /2026 TMC .* 777 declared/);
+  const limits = text(html.slice(at(html, 'id="limits"')));
+  assert.match(limits, /2026: the registry holds the declared winner and the declared margin, and no candidate&#x27;s votes/);
 });
 
 test("ten candidates on record are shown as the five the source holds, with what they leave not itemised, and no Others", () => {

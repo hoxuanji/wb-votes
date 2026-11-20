@@ -158,3 +158,19 @@ export function worstSeparation(colours: readonly string[]): { deltaE: number; m
   }
   return worst;
 }
+
+/**
+ * A colour that differs by theme, as the CSS value the DOM gets: `light-dark(LIGHT, DARK)`, which the browser resolves from the element's
+ * `color-scheme` (iei.css sets it on :root and `<html data-theme>` overrides it). Valid in an SVG presentation attribute and in an inline
+ * style, which is why string-built SVG can use it where it cannot use a CSS variable. Equal halves collapse to the one colour.
+ * Colour MATHS never sees one of these: it reads the plain hex of a half (`halvesOf`).
+ */
+export function lightDark(light: string, dark: string): string {
+  return light === dark ? dark : `light-dark(${light}, ${dark})`;
+}
+
+/** The two halves of a paint made by `lightDark`; a plain colour is both halves. */
+export function halvesOf(paint: string): { light: string; dark: string } {
+  const m = /^light-dark\((#[0-9a-fA-F]{6}), (#[0-9a-fA-F]{6})\)$/.exec(paint);
+  return m === null ? { light: paint, dark: paint } : { light: m[1] as string, dark: m[2] as string };
+}

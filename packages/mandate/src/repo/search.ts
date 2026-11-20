@@ -23,11 +23,12 @@ import { inr } from "./brief.ts";
 import { districtHref, electionHref, stateHref } from "./routes.ts";
 import { all } from "../db/index.ts";
 import { read } from "./index.ts";
-import { partyLandscape, spine } from "./home.ts";
+import { partyLandscape, showsPartyLandscape, spine } from "./home.ts";
 import { searchPersons, type PersonRow } from "./person.ts";
 import { detectScript, toLatin } from "../core/indic/index.ts";
 import { CHRONO_DESC } from "./elections.ts";
-import { chipOf, facetOf } from "../core/election-kind.ts";
+import { chipOf, facetOf, fullHouse } from "../core/election-kind.ts";
+import { displayName } from "./display-name.ts";
 
 /** One navigable thing. `detail` is what the row says about itself, so a hit is informative unopened. */
 export type Hit = {
@@ -372,8 +373,11 @@ function parties(db: DatabaseSync, pattern: string, prefix: string): Counted<Par
     prefix,
     PER_GROUP,
   );
+  // The front page draws the landscape only where two or more jurisdictions feed it (`showsPartyLandscape`): where it does not, no `#party-…`
+  // anchor exists and a link to one would land at the top of the page, so nobody is listed.
+  const sp = rows.length === 0 ? null : spine(db);
   const listed =
-    rows.length === 0 ? new Set<string>() : new Set(partyLandscape(db, spine(db)).rows.map((l) => partyAnchor(l.key)));
+    sp === null || !showsPartyLandscape(sp) ? new Set<string>() : new Set(partyLandscape(db, sp).rows.map((l) => partyAnchor(l.key)));
   return {
     total: rows[0]?.total ?? 0,
     hits: rows.map((r) => {
@@ -484,5 +488,66 @@ export function searchAll(db: DatabaseSync, q: string, limit = PER_GROUP): Resul
       capped: rows.length >= PERSON_SCAN,
       total: counts.states + counts.elections + counts.districts + counts.constituencies + counts.people + counts.parties,
     };
+  });
+}
+
+/** One search a reader can run with a click, taken from a row the registry holds. */
+export type Example = { group: "state" | "election" | "seat" | "person" | "party"; label: string; q: string };
+
+/**
+ * A few real searches for the empty search page: a state, an election, a seat, a person and a party, each read from the registry and each
+ * checked to find what it names, so a click never lands on "nothing matches". Nothing is invented and nothing is ranked by merit: the state
+ * is the one with most elections on record, the election is its newest full-house one, and the seat, the person and the party are the
+ * declared winner of the seat numbered lowest in that election. A registry without them gives fewer examples, and one with none gives none.
+ */
+export function searchExamples(db: DatabaseSync): Example[] {
+  return read(() => {
+    const out: Example[] = [];
+    const finds = (q: string, group: Group): boolean => {
+      const r = searchAll(db, q);
+      return r.counts[group] > 0;
+    };
+    const add = (kind: Example["group"], label: string, q: string, group: Group): void => {
+      if (q.trim() !== "" && finds(q, group)) out.push({ group: kind, label, q });
+    };
+    const state = all<{ id: string; name: string }>(
+      db,
+      `SELECT p.id AS id, p.canonical_name AS name FROM election e JOIN place p ON p.id = e.jurisdiction_place_id
+        WHERE p.kind IN ('state', 'ut') GROUP BY p.id ORDER BY COUNT(*) DESC, p.canonical_name LIMIT 1`,
+    )[0];
+    if (state !== undefined) add("state", state.name, state.name, "states");
+    const election = all<{ id: string; house: string; kind: string; year: number; jname: string }>(
+      db,
+      `SELECT e.id AS id, e.house AS house, e.kind AS kind, e.year AS year, COALESCE(j.canonical_name, e.jurisdiction_place_id) AS jname
+         FROM election e LEFT JOIN place j ON j.id = e.jurisdiction_place_id
+        WHERE ${fullHouse("e")} AND (? IS NULL OR e.jurisdiction_place_id = ?) ORDER BY ${CHRONO_DESC} LIMIT 1`,
+      state?.id ?? null,
+      state?.id ?? null,
+    )[0];
+    if (election !== undefined) {
+      const label = `${election.jname} ${facetOf(election.house, election.kind).type} ${election.year}`;
+      add("election", label, label, "elections");
+      const winner = all<{ seat: string; person: string; party: string | null }>(
+        db,
+        `SELECT pv.canonical_name AS seat, per.canonical_name AS person, COALESCE(pt.short_name, pt.name) AS party
+           FROM contest c
+           JOIN place_version pv ON pv.id = c.place_version_id
+           JOIN candidacy ca ON ca.contest_id = c.id
+           JOIN person per ON per.id = ca.person_id
+           LEFT JOIN current_result r ON r.candidacy_id = ca.id
+           LEFT JOIN party_version pver ON pver.id = ca.party_version_id
+           LEFT JOIN party pt ON pt.id = pver.party_id
+          WHERE c.election_id = ? AND (r.is_winner = 1 OR ca.status = 'elected')
+          ORDER BY pv.number, pv.id, per.id LIMIT 1`,
+        election.id,
+      )[0];
+      if (winner !== undefined) {
+        add("seat", winner.seat, winner.seat, "constituencies");
+        const name = displayName(winner.person);
+        add("person", name, name, "people");
+        if (winner.party !== null) add("party", winner.party, winner.party, "parties");
+      }
+    }
+    return out;
   });
 }

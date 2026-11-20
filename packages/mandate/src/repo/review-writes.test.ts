@@ -129,8 +129,8 @@ test("the page shows the buttons only when the switch is on, and the pair either
     assert.equal(off.failed, false, off.err);
     assert.match(off.out, /Anil Roy/, said);
     assert.match(off.out, /Anil Rai/, said);
-    // Not `<form`: the shell's search box is one.
-    assert.doesNotMatch(off.out, /\/review\/merges\/decide|<button|Same person|Different people|Cannot tell/, said);
+    // Not `<form`: the shell's search box is one. Not every `<button`: the shell's theme toggle is one.
+    assert.doesNotMatch(off.out, /\/review\/merges\/decide|<button(?![^>]*iei-theme)|Same person|Different people|Cannot tell/, said);
     assert.match(off.out, /Decisions are recorded only on a local checkout with <code>MANDATE_REVIEW_WRITES=1<\/code>/, said);
   }
 });

@@ -5,9 +5,12 @@
 // are not parties — the seat, its district and its state on a turnout chart — and `hueMap` gives the Nth of those the
 // Nth hue. Every line is also named at its end, so the hue is never what says which series it is.
 //
-// Dark only: every value is measured against SURFACE, and the stylesheet has no light surface to measure
-// against.
-// ponytail: dark-only tokens — add the light column when a light surface actually ships.
+// TWO THEMES. Every value here exists in a dark half and a light half, and the one the DOM gets is `light-dark(LIGHT, DARK)` (colour.ts
+// `lightDark`), which a string-built SVG attribute can carry where it cannot carry a CSS variable. The `_DARK` and `_LIGHT` exports are the
+// plain hex of each half, and are what colour maths and tests read; SURFACE stays the dark panel hex because the maths that measures against
+// it (ribbon-ink.ts, the tests) was written for it, and SURFACE_LIGHT is the other.
+
+import { lightDark } from "./colour.ts";
 
 /*
  * THE SURFACE, THE INKS AND THE DIVERGING PAIR ARE THE STYLESHEET'S TOKENS, NOT A SECOND SET OF THEM.
@@ -19,14 +22,26 @@
 /** --iei-panel. The surface every mark sits on, and the surface every contrast below is measured against. */
 export const SURFACE = "#0d0d13";
 
+/** The light page's --iei-panel. */
+export const SURFACE_LIGHT = "#f8f9fc";
+
+/** What a chart's halo around a point or a label is drawn in: the card it sits on, in whichever theme it is. */
+export const SURFACE_PAINT = lightDark(SURFACE_LIGHT, SURFACE);
+
 /** --iei-line. Grid lines. Never drawn over a mark (§24.7). */
-export const LINE_SUBTLE = "#1e1e28";
+export const LINE_SUBTLE_DARK = "#1e1e28";
+export const LINE_SUBTLE_LIGHT = "#dcdfea";
+export const LINE_SUBTLE = lightDark(LINE_SUBTLE_LIGHT, LINE_SUBTLE_DARK);
 
 /** --iei-ink. Values. Never a series colour (§24.7). */
-export const TEXT_PRIMARY = "#f2f2f7";
+export const TEXT_PRIMARY_DARK = "#f2f2f7";
+export const TEXT_PRIMARY_LIGHT = "#12131c";
+export const TEXT_PRIMARY = lightDark(TEXT_PRIMARY_LIGHT, TEXT_PRIMARY_DARK);
 
 /** --iei-ink-2. Legend text and series names beside a swatch. */
-export const TEXT_SECONDARY = "#a3a3b3";
+export const TEXT_SECONDARY_DARK = "#a3a3b3";
+export const TEXT_SECONDARY_LIGHT = "#454859";
+export const TEXT_SECONDARY = lightDark(TEXT_SECONDARY_LIGHT, TEXT_SECONDARY_DARK);
 
 /**
  * --iei-ink-3. Axes, units, tick labels.
@@ -37,7 +52,9 @@ export const TEXT_SECONDARY = "#a3a3b3";
  * stylesheet moved to #8b8ba2 (a card's lit top edge is lighter than any token, and a label needs the headroom),
  * and iei.test.ts now holds every colour in this file that copies a token equal to it.
  */
-export const TEXT_MUTED = "#8b8ba2";
+export const TEXT_MUTED_DARK = "#8b8ba2";
+export const TEXT_MUTED_LIGHT = "#585b70";
+export const TEXT_MUTED = lightDark(TEXT_MUTED_LIGHT, TEXT_MUTED_DARK);
 
 /**
  * Eight slots, dark. Slots 4-8 are docs/mandate/05-craft.md §24.4's, which are adjacency-gated: legal in full
@@ -54,7 +71,7 @@ export const TEXT_MUTED = "#8b8ba2";
  * protan, deutan and tritan and from the fold grey. So the set stays where it is, with one move: slot 1 was #cd702f, ΔE 2.5 from Shiv Sena's
  * orange, and is the vermilion #d05320, ΔE 5.9 from the nearest party fill. That is nearer than ideal, and said so.
  */
-export const CATEGORICAL = [
+export const CATEGORICAL_DARK = [
   "#d05320", // 1 vermilion
   "#6fa4fc", // 2 blue
   "#e1a6a2", // 3 rose
@@ -64,6 +81,31 @@ export const CATEGORICAL = [
   "#9085e9", // 7 violet
   "#e66767", // 8 red
 ] as const;
+
+/**
+ * The same eight on the LIGHT page, where a mark has to be about L 0.62 or darker (3:1 on #eef0f6). Slots 4-8 are the dark ones brought down only as
+ * far as that needs. Slots 1-3 are NOT: darkening the dark three left the rose ΔE 7.7 from the fold grey under protanopia, so they were searched
+ * for (hue, lightness and chroma, with the grey free too) and the best set whose worst pair, over all four visions, clears ΔE 14 is the one below:
+ * 14.3. THE COST, MEASURED: those hues sit ΔE 2.3 (orange), 2.9 (blue) and 6.2 (plum) from the nearest party's light fill, where the dark set
+ * had 5.9 for its nearest. No set that separates to 14 does better (the search maximised it: 2.3), and the alternative, separating less, would
+ * put two of a chart's three series within reach of each other for a colour-blind reader; every line is also named at its end, so the
+ * choice is for the reader who is told by colour first. palette.test.ts holds both numbers.
+ */
+export const CATEGORICAL_LIGHT = [
+  "#cc6004", // 1 orange
+  "#385db8", // 2 blue
+  "#784756", // 3 plum
+  "#bb7c02", // 4 yellow
+  "#d55181", // 5 magenta
+  "#008300", // 6 green
+  "#877cdf", // 7 violet
+  "#df6161", // 8 red
+] as const;
+
+/** What the DOM is given for each slot. */
+export const CATEGORICAL = CATEGORICAL_DARK.map((d, i) => lightDark(CATEGORICAL_LIGHT[i] as string, d)) as unknown as readonly [
+  string, string, string, string, string, string, string, string,
+];
 
 /** §24.5. Three, because the doc's own set fails all-pairs once a fourth is added (ΔE 1.9 protan, #9085e9 ↔ #3987e5). */
 export const HUE_CAP = 3;
@@ -77,7 +119,10 @@ export const HUE_CAP = 3;
  * wrong for a fill. This grey is 4.38:1 on SURFACE, above the 3:1 floor a mark has to clear. charts.test.ts
  * asserts both sides of that, as thresholds — §24.8's "the colour system is a test, not a document".
  */
-export const OTHERS = "#7b7490";
+export const OTHERS_DARK = "#7b7490";
+/** 3.37:1 on the light canvas, the worst of the three light surfaces; the CVD-separation search above chose it with the three hues. */
+export const OTHERS_LIGHT = "#828094";
+export const OTHERS = lightDark(OTHERS_LIGHT, OTHERS_DARK);
 
 /**
  * Diverging, used by `slope`, where the encoded dimension is POLARITY (a share rose or fell), not identity — so
@@ -85,4 +130,11 @@ export const OTHERS = "#7b7490";
  * and --iei-alert, the two hues this product already spends on the direction of a change. `zero` is OTHERS for
  * the same visibility reason as above.
  */
-export const DIVERGING = { up: "#7fd4a8", down: "#e8927c", zero: OTHERS } as const;
+export const DIVERGING_DARK = { up: "#7fd4a8", down: "#e8927c", zero: OTHERS_DARK } as const;
+/** --iei-good and --iei-alert, light halves. */
+export const DIVERGING_LIGHT = { up: "#0b6b3f", down: "#a8341c", zero: OTHERS_LIGHT } as const;
+export const DIVERGING = {
+  up: lightDark(DIVERGING_LIGHT.up, DIVERGING_DARK.up),
+  down: lightDark(DIVERGING_LIGHT.down, DIVERGING_DARK.down),
+  zero: OTHERS,
+} as const;

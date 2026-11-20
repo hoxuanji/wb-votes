@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from 'next';
+import { THEME_INIT } from '../components/iei/theme.ts';
 
 /**
  * The root layout owns html, body and the canvas colour, and nothing else.
@@ -23,9 +24,14 @@ export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
   viewportFit: 'cover',
-  colorScheme: 'dark',
-  // The browser's own chrome (the address bar on a phone) takes the page's canvas, --iei-bg.
-  themeColor: '#07070b',
+  // Both: the page follows the system until the reader chooses (ThemeToggle), and iei.css says which half of every token applies.
+  colorScheme: 'light dark',
+  // The browser's own chrome (the address bar on a phone) takes the page's canvas, --iei-bg, in whichever theme the system is in.
+  // iei.test.ts holds these two equal to the stylesheet's light and dark --iei-bg.
+  themeColor: [
+    { media: '(prefers-color-scheme: light)', color: '#eef0f6' },
+    { media: '(prefers-color-scheme: dark)', color: '#07070b' },
+  ],
 };
 
 export const metadata: Metadata = {
@@ -50,11 +56,13 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
-      {/* The canvas is inline rather than in a stylesheet: a body with no background flashes white
-          before the route's own CSS arrives, and two declarations are not worth a file. The hex is
-          --iei-bg; there is one other copy of it, in iei.css, and no third. */}
-      <body style={{ background: '#07070b', color: '#f2f2f7', margin: 0 }}>{children}</body>
+    // suppressHydrationWarning: the script below sets data-theme before React hydrates, so the attribute differs from the server's HTML on purpose.
+    <html lang="en" suppressHydrationWarning>
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: THEME_INIT }} />
+      </head>
+      {/* The canvas colour is iei.css's (`html { background: var(--iei-bg) }`), which blocks first paint like any stylesheet. */}
+      <body style={{ margin: 0 }}>{children}</body>
     </html>
   );
 }

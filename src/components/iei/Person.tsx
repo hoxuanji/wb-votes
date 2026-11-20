@@ -32,6 +32,9 @@ const at = (i: number): CSSProperties => ({ '--i': i }) as CSSProperties;
 
 const bodyOf = bodyOfPlace;
 
+/** "2011", "2011 and 2016", "2011, 2016 and 2021". */
+const listed = (items: readonly string[]): string => (items.length < 2 ? (items[0] ?? '') : `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`);
+
 /* ───────────────────────────── identity ───────────────────────────── */
 
 export function PersonIdentity({ brief }: { brief: PersonBrief }) {
@@ -150,6 +153,7 @@ export function CareerRun({ columns, name }: { columns: readonly RunColumn[]; na
   const anyMargin = columns.some((c) => c.mine?.margin !== null && c.mine?.margin !== undefined);
   const anyDown = placed.cols.some((c) => c.dir === 'down');
   const marked = columns.filter((c) => c.mine !== null);
+  const blank = columns.filter((c) => c.mine === null);
   const one = columns.length === 1 ? columns[0] : undefined;
 
   if (one?.mine) {
@@ -179,7 +183,7 @@ export function CareerRun({ columns, name }: { columns: readonly RunColumn[]; na
           const m = c.mine;
           const pm = placed.cols[i];
           return (
-            <li key={c.contestId} className="iei-pp-col" style={at(i)} title={m === null ? `${c.label}: no candidacy of ${name}'s is on record` : m.sentence}>
+            <li key={c.contestId} className="iei-pp-col" style={at(i)} title={m === null ? undefined : m.sentence}>
               <div className={c.holder === null ? 'iei-pp-hold iei-pp-hold-none' : 'iei-pp-hold'} style={c.holder === null ? undefined : { background: fillFor(c.holder.key) }}>
                 {c.changedHands ? <span className="iei-pp-hand" aria-hidden="true" /> : null}
               </div>
@@ -199,7 +203,6 @@ export function CareerRun({ columns, name }: { columns: readonly RunColumn[]; na
                   </>
                 )}
               </p>
-              {m === null ? <p className="iei-sr">No candidacy of {name}&rsquo;s is on record for {c.label}.</p> : null}
             </li>
           );
         })}
@@ -239,10 +242,12 @@ export function CareerRun({ columns, name }: { columns: readonly RunColumn[]; na
           </ol>
         </>
       )}
-      {/* The table under the run is its twin: every figure here is in the record in full, and the title of each column holds its whole sentence. */}
-      {marked.length === 0 ? null : (
+      {/* The table under the run is its twin: every figure here is in the record in full, and the title of each column holds its whole sentence.
+          THE BLANK COLUMNS ARE SAID ONCE, here, and not as a sentence on each: the years are named, and what an absence is not ("not having stood") is
+          the caption of the record in full, which holds the top-five caveat. */}
+      {marked.length === 0 || blank.length === 0 ? null : (
         <p className="iei-note">
-          A blank column is an election with no candidacy of {name}&rsquo;s on record, which is not the same as not having stood: before 2026 the record holds each seat&rsquo;s top five.
+          No candidacy of {name}&rsquo;s is on record for {listed(blank.map((c) => c.label))}, which is not the same as not having stood.
         </p>
       )}
     </div>
@@ -294,11 +299,11 @@ export function ContestField({ election, subjectId }: { election: FieldElection;
 
 /* ───────────────────────────── the exact record ───────────────────────────── */
 
-export function RecordTable({ brief }: { brief: PersonBrief }) {
+export function RecordTable({ brief, withSources = true }: { brief: PersonBrief; /** False where the run above already carries the page's one drawer: the same three sources are not listed twice. */ withSources?: boolean }) {
   const cs = brief.candidacies;
   if (cs.length === 0) return null;
   return (
-    <Panel id="record" title="The record in full" question="Every contest on record, newest first" sources={brief.sources}>
+    <Panel id="record" title="The record in full" question="Every contest on record, newest first" sources={withSources ? brief.sources : undefined}>
       <Table
         label="Contests on record"
         caption={`${cs.length === 1 ? '1 contest' : `${inr(cs.length)} contests`} on record. Before 2026 the record holds each seat's top five only, so this is every contest on record, not necessarily every contest fought.`}

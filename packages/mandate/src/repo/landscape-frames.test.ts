@@ -3,7 +3,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
-import { LEVEL_FILL, frameSentence, framesOf } from "./landscape-frames.ts";
+import { LEVEL_FILL, frameSentence, framesOf, hasHistory } from "./landscape-frames.ts";
 import type { Landscape, LandscapeState } from "./situation-types.ts";
 
 const BJP = { key: "BJP", label: "BJP" };
@@ -76,4 +76,10 @@ test("the sentence for a stop uses only the frame's numbers and names no leader 
   assert.ok(!/ leads 2 states\./.test(frameSentence(level)), "a tie is not worded as a lead");
   assert.match(frameSentence({ ...fs[0]!, tally: [], withResult: 0 }), /no state in the registry has an assembly election on record by this year/);
   for (const f of fs) assert.ok(!/\b(he|she|they|never|only|first time)\b/i.test(frameSentence(f)), "no pronoun, 'never', 'only' or 'first time'");
+});
+
+test("the history is a section only when two or more states have an election on record", () => {
+  assert.equal(hasHistory([]), false, "no stop, no history");
+  assert.equal(hasHistory([{ withResult: 0 }, { withResult: 1 }, { withResult: 1 }]), false, "one state moving through its own years is that state's page");
+  assert.equal(hasHistory([{ withResult: 1 }, { withResult: 2 }]), true, "a second state with an election is a country's history");
 });

@@ -214,3 +214,30 @@ test("nothing loops, and every animation runs once", () => {
   assert.deepEqual(declarations(css, "animation-iteration-count").filter((d) => d.value !== "1"), []);
   assert.doesNotMatch(css, /animation\s*:[^;]*\binfinite\b/);
 });
+
+test("there is ONE entrance pattern: one duration, one curve, and a delay only on a page's first sections", () => {
+  // The stylesheet had five generations of entrance (wipe, grow, rise, arrive, draw) with a stagger of its own in each section's block. The contract is
+  // one authored moment: a page's first sections rise in, 60ms apart. A data mark that IS a quantity or a place may arrive too, but with the same
+  // duration token and the same curve, and with no delay of its own, so nothing on a page is a second choreography.
+  const css = stripComments(CSS);
+  const anims = declarations(css, "animation").filter((d) => !/^none\b/.test(d.value));
+  assert.ok(anims.length >= 10, `only ${anims.length} animations found — the parser has stopped matching`);
+  for (const d of anims) {
+    assert.match(d.value, /^iei-[a-z-]+ var\(--iei-t-2\) var\(--iei-ease\) backwards$/, `an animation is not the one pattern (name, --iei-t-2, --iei-ease, backwards): ${d.value}`);
+  }
+  assert.ok((ms2(css)) <= 360, "the entrance duration is over 360ms");
+  const names = new Set(anims.map((d) => d.value.split(" ")[0]));
+  assert.deepEqual([...names].sort(), ["iei-arrive", "iei-draw", "iei-grow", "iei-rise", "iei-rise-in", "iei-wipe"], "an entrance keyframe was added or lost");
+  // The only delay in the file is the page's first-sections stagger.
+  const delays = declarations(css, "animation-delay");
+  assert.equal(delays.length, 1, `${delays.length} animation-delay declarations: only the first sections of a page may stagger`);
+  const open = css.lastIndexOf("{", (delays[0] as { at: number }).at);
+  assert.match(css.slice(Math.max(0, open - 80), open), /\.iei-body > main > :nth-child\(-n \+ 5\)\s*$/, "the one delay is not on a page's first five sections");
+  // And nothing animates for a reader who asked for none: no running animation in the reduce block either (it names `none`).
+  assert.equal(declarations(css, "animation-iteration-count").length, 0);
+});
+
+/** The motion token an entrance uses, in milliseconds. */
+function ms2(css: string): number {
+  return motionTokens(css).ms["2"] as number;
+}

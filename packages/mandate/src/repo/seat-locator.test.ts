@@ -28,7 +28,7 @@ import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { SHARED_FRAME, electionMapView } from "./election-map.ts";
 import { fillFor } from "../viz/party-ink.ts";
-import { locatorCaption, locatorDescription, locatorSeatTitle, seatLocator, squareFrame } from "./seat-locator.ts";
+import { NEAR, locatorCaption, locatorDescription, locatorSeatTitle, nearest, seatLocator, squareFrame } from "./seat-locator.ts";
 import type { SeatLocatorView } from "./seat-locator.ts";
 
 const ROOT = new URL("../../../../", import.meta.url).pathname;
@@ -399,11 +399,25 @@ test("a Lok Sabha seat page says it is among the Lok Sabha seats", () => {
 test("a seat with no outline renders its header as it always was, with nothing in the locator's place", () => {
   for (const segments of ["xx/assembly/delta", "bb/assembly/bee-one", "zz/assembly/zed", "xx/assembly/eps"]) {
     const html = render(segments);
-    assert.match(html, /<div class="iei-head"><p class="iei-eyebrow">/, `${segments}: the header carries the locator's class`);
+    assert.match(html, /<div class="iei-head"><h1 class="iei-answer">[^<]*<\/h1><p class="iei-note">[^<]*(Assembly|Lok Sabha) constituency/, `${segments}: the title is first in the header and the kind of seat is the line under it`);
+    assert.doesNotMatch(html, /iei-eyebrow/, `${segments}: no label over the title`);
     assert.doesNotMatch(html, /iei-loc|after-locator|iei-head-seat/, `${segments}: something of the locator is in the page`);
   }
 });
 
 test("the locator is on the Brief and not on the Analysis lens", () => {
   assert.doesNotMatch(render("xx/assembly/alpha", "/constituency/analysis"), /iei-loc/);
+});
+
+test("only the seats nearest to the seat are links, nearest first, and a tie keeps the order given", () => {
+  const among = [
+    { id: "far", x: 100, y: 0 },
+    { id: "b", x: 3, y: 4 },
+    { id: "a", x: 0, y: 5 },
+    { id: "c", x: 0, y: -1 },
+  ];
+  assert.deepEqual([...nearest({ x: 0, y: 0 }, among, 3)], ["c", "b", "a"]);
+  // Fewer seats than the limit: every one is near.
+  assert.equal(nearest({ x: 0, y: 0 }, among).size, 4);
+  assert.equal(NEAR, 12);
 });

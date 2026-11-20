@@ -16,7 +16,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { execFileSync, spawnSync } from "node:child_process";
-import { existsSync, mkdtempSync, readFileSync, readdirSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { DEV_DB_PATH, open, openRead } from "../db/open.ts";
@@ -26,13 +26,16 @@ import type { ElectionSeat } from "./election-map.ts";
 import { kindOfBody } from "./routes.ts";
 import { stateView } from "./state-view.ts";
 import * as home from "./home.ts";
-import { houseScope, landscapeScope } from "./home-scope.ts";
+import { houseScope, landscapeScope, seatsLoadedLine } from "./home-scope.ts";
+import { homeSources } from "./home-sources.ts";
+import { hasHistory, framesOf } from "./landscape-frames.ts";
+import { landscapeOverTime } from "./landscape.ts";
 import { storyView } from "./home-story.ts";
 import { ordinal } from "./seat-story.ts";
 import { unverifiedTurnout } from "./turnout-trust.ts";
 import { currentSeat, marginRankBySql, seatOfEmptyContests } from "./testkit.ts";
 import { all } from "../db/index.ts";
-import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey } from "../viz/party-ink.ts";
+import { CURATED_KEYS, NOT_HELD, chromaOf, fillFor, partyKey, tokenFor } from "../viz/party-ink.ts";
 import { deltaE } from "../viz/colour.ts";
 
 const HAVE_DB = existsSync(process.env["MANDATE_DB_PATH"] ?? DEV_DB_PATH);
@@ -143,19 +146,40 @@ test("the homepage renders, and says what it is in the first screen", live, () =
   assert.ok(!/The electoral landscape/.test(t), "the topic title is back above the country's sentence");
   assert.match(t.replace(/\s+/g, " "), /The registry holds election results for \d+ of India's \d+ states and territories/, "the country's sentence is missing");
   // "Next up" is also a label in the rail, which comes first in the text, so the panel is found by its own question.
-  const order = ["India · Government", "Which elections come next?", "How we got here", "Closest contests", "Recent results", "Party landscape"].map((h) => [h, t.indexOf(h)] as const);
-  for (const [h, at] of order) assert.ok(at >= 0, `the "${h}" section is missing`);
+  // THREE SECTIONS ARE ALWAYS THERE and three appear only when the registry can answer their question (2026-11-20): the history needs two states with an
+  // election on record, the closest contests need a counted contest, and the party landscape needs two jurisdictions to rank. Absent, a section is absent, not
+  // an apology; the expectation is computed from the registry, so the test holds on a seed of one state and on a full registry.
+  const wanted = home.homeView(db, { thisYear: 2026 });
+  const frames = framesOf(landscapeOverTime(db));
+  const sections: [string, boolean][] = [
+    ["India · Government", true],
+    ["Which elections come next?", true],
+    ["How we got here", hasHistory(frames)],
+    ["Closest contests", wanted.fights.length > 0],
+    ["Recent results", true],
+    ["Party landscape", home.showsPartyLandscape(wanted)],
+  ];
+  for (const [h, there] of sections) {
+    if (there) assert.ok(t.includes(h), `the "${h}" section is missing`);
+    else assert.ok(!t.includes(h), `the "${h}" section is on the page and the registry cannot answer its question`);
+  }
+  const order = sections.filter(([, there]) => there).map(([h]) => [h, t.indexOf(h)] as const);
   assert.deepEqual(
     order.map(([h]) => h),
     [...order].sort((x, y) => x[1] - y[1]).map(([h]) => h),
     "the sections are out of order: the landscape, next up, how we got here, then the reference layer",
   );
-  // The rail: six places, the current one marked, every one a real destination.
+  // The rail: three places (2026-11-20; Landscape, Next up and History were in-page anchors and are gone from it), the current one marked, every one a real destination.
   const rail = /<nav class="iei-rail"[\s\S]*?<\/nav>/.exec(html)?.[0] ?? "";
-  for (const place of ["Overview", "Landscape", "Next up", "History", "People", "Data"]) assert.ok(rail.includes(`<span>${place}</span>`), `the rail has no ${place}`);
+  const places = [...rail.matchAll(/<a [^>]*href="([^"]*)"[^>]*>[\s\S]*?<span>([^<]*)<\/span><\/a>/g)].map((m) => [m[2], m[1]]);
+  assert.deepEqual(places, [["Overview", "/"], ["People", "/candidates"], ["Data", "/coverage"]], "the rail is not Overview, People and Data, each at its own page");
   assert.equal((rail.match(/aria-current="page"/g) ?? []).length, 1, "the rail marks one place as current, and only one");
+  assert.match(rail, /<a [^>]*href="\/"[^>]*aria-current="page"|<a [^>]*aria-current="page"[^>]*href="\/"/, "the front page is not the rail's current place");
   // The time machine: drawn from the registry's own states, and a state's colour is a style the client can change.
-  assert.ok((html.match(/data-state="[a-z]{2}"/g) ?? []).length >= 30, "the time machine's map does not carry a state per jurisdiction");
+  // It is on the page only where two or more states have an election on record (2026-11-20), and then it carries a state per jurisdiction.
+  const stateMarks = (html.match(/data-state="[a-z]{2}"/g) ?? []).length;
+  if (hasHistory(frames)) assert.ok(stateMarks >= 30, "the time machine's map does not carry a state per jurisdiction");
+  else assert.equal(stateMarks, 0, "the time machine is on a page whose registry cannot move it");
   // The one state's story the page used to carry is not here: it is the state page's, and the map is the way to it.
   assert.ok(!html.includes('id="state"') && !/iei-story-top/.test(html), "a state's story is back on the front page");
   for (const gone of ["What changed", "Votes and seats", "Open the record", "Upcoming"]) assert.ok(!t.includes(gone), `"${gone}" is back on the front page`);
@@ -195,7 +219,7 @@ test("the front page shows no provenance class labels and no dataset status", li
   assert.ok(drawers <= 3, `${drawers} evidence drawers on the front page — one per module is the rule`);
 });
 
-test("the front page's three result modules each cite their sources, and the map's drawer holds more than its outlines", live, () => {
+test("the front page's result modules each cite their sources once, and the map's drawer holds more than its outlines", live, () => {
   // THE DEFECT, as a measurement. The map panel's drawer held the boundary file and nothing else, so a source stood behind the outlines and none behind
   // the seat counts, the state card and the table drawn over them, and a correspondent could not defend "BJP 192 of 294" from the page. The boundary file
   // is one source; a map that has results to show has at least one more.
@@ -204,13 +228,27 @@ test("the front page's three result modules each cite their sources, and the map
   const map = named.find((d) => /^India · /.test(d.of));
   assert.ok(map !== undefined, "the map has no evidence drawer");
   assert.ok(map.n >= 2, `the map's drawer cites ${map.n} source: the outlines, and no result`);
-  for (const title of ["Recent results", "Party landscape"]) {
-    assert.ok(named.some((d) => d.of === title && d.n >= 1), `${title} shows registry results and has no evidence drawer`);
-  }
-  // A drawer says what the quiet words beside the figures mean, and only where one is on the page: each marker the surface prints is explained.
+  // A SOURCE IS LISTED ONCE (2026-11-20). Recent results has a drawer of its own only for sources the map's drawer does not already hold, and the party
+  // landscape has one only where it is on the page (two or more jurisdictions to rank). Both are computed from the registry, so the rule holds at any size.
+  const view = home.homeView(db, { thisYear: 2026 });
+  const srcs = homeSources(db, view);
+  const mapIds = new Set(srcs.map.map((x) => x.id));
+  const recentIds = srcs.recent.map((x) => x.id);
+  const recentExtra = recentIds.some((id) => !mapIds.has(id));
+  assert.equal(
+    named.some((d) => d.of === "Recent results"),
+    recentExtra,
+    recentExtra ? "Recent results reads sources the map's drawer does not hold and has no drawer" : "Recent results repeats the map's drawer",
+  );
+  assert.equal(named.some((d) => d.of === "Party landscape"), home.showsPartyLandscape(view), "the party landscape's drawer and the section disagree");
+  // What the quiet words beside the figures mean is said on the surface, once: one sentence above the list when every row is short in the same way, and the
+  // meaning of the marker where rows differ.
   const outside = html.replace(/<details class="iei-ev[\s\S]*?<\/details>/g, " ");
-  if (/partly loaded/.test(outside)) assert.ok(html.includes("“Partly loaded” marks an election"), "the surface says 'partly loaded' and nothing explains it");
-  if (/result unavailable/.test(outside)) assert.ok(html.includes("“Result unavailable” marks an election"), "the surface says 'result unavailable' and nothing explains it");
+  if (/partly loaded|result unavailable/.test(outside)) {
+    assert.match(text(outside), /partly loaded: the registry is missing|“Partly loaded” marks an election|"Partly loaded" marks an election|No contest is loaded for any election below|Result unavailable" marks an election/, "the surface says 'partly loaded' or 'result unavailable' and nothing explains it");
+    const rows = (outside.match(/>partly loaded</g) ?? []).length;
+    assert.ok(rows <= 1 || /marks an election/.test(text(outside)), `${rows} rows each repeat 'partly loaded' where one sentence says it`);
+  }
 });
 
 test("the front page says how much of India it counted over wherever the registry holds only part of it", live, () => {
@@ -221,10 +259,16 @@ test("the front page says how much of India it counted over wherever the registr
   const t = text(html);
   const view = home.homeView(db, { thisYear: 2026 });
   const scope = landscapeScope(view.snapshot);
-  if (scope === null) assert.ok(!t.includes("Counted over the"), "the party landscape says it counted over part of the country when it counted over all of it");
-  else assert.ok(t.includes(scope), `the party landscape does not say what it counted over: expected "${scope}"`);
-  // The order is stated, in the words the sort is held to (home-scope.test.ts).
-  assert.ok(t.includes(home.PARTY_RANK_RULE), "the party landscape does not say how it is ranked");
+  // The party landscape is on the page only where two or more jurisdictions feed it (2026-11-20), so its scope and its rule are asserted where it is, and
+  // their absence where it is not: the sentences belong to the section and nowhere else.
+  if (!home.showsPartyLandscape(view)) {
+    assert.ok(!t.includes("Counted over the") && !t.includes(home.PARTY_RANK_RULE), "the party landscape's sentences are on a page that has no party landscape");
+  } else {
+    if (scope === null) assert.ok(!t.includes("Counted over the"), "the party landscape says it counted over part of the country when it counted over all of it");
+    else assert.ok(t.includes(scope), `the party landscape does not say what it counted over: expected "${scope}"`);
+    // The order is stated, in the words the sort is held to (home-scope.test.ts).
+    assert.ok(t.includes(home.PARTY_RANK_RULE), "the party landscape does not say how it is ranked");
+  }
   // A Lok Sabha election the registry holds part of says how much of the house that is.
   for (const r of view.held) {
     const row = houseScope({ body: r.body, fill: r.fill, loaded: r.seatsContested, houseTotal: view.snapshot.lokSabhaSeatsTotal });
@@ -239,7 +283,10 @@ test("the second map is out of the tab order and still goes to a state, and the 
   const html = render("/");
   const fig = /<figure class="iei-map iei-tm-fig"[\s\S]*?<\/figure>/.exec(html)?.[0] ?? "";
   const links = [...fig.matchAll(/<a\b[^>]*>/g)].map((m) => m[0]);
-  assert.ok(links.length >= 1, "the History map has no links, or this test has stopped finding it");
+  // The History map is on the page only when two or more states have an election on record (2026-11-20): where it is not, there is no second map to be
+  // out of the tab order, and the page must not carry one.
+  if (hasHistory(framesOf(landscapeOverTime(db)))) assert.ok(links.length >= 1, "the History map has no links, or this test has stopped finding it");
+  else assert.equal(fig, "", "a second map is on a page whose registry holds one state's elections");
   for (const l of links) {
     assert.match(l, /tabindex="-1"/, `a link on the History map is in the tab order and shows no focus: ${l.slice(0, 90)}`);
     assert.match(l, /href="\/state\//, "a link on the History map no longer goes to a state");
@@ -266,12 +313,13 @@ test("the front page reads in the rail's order, with the map straight after the 
   const landscape = at('id="landscape"');
   const map = at('id="map"');
   const next = at('id="next"');
-  const history = at('id="history"');
   assert.ok(hero < landscape && landscape < map, "the map does not come straight after the hero");
   assert.ok(map < next, "Next up is above the map again");
-  assert.ok(next < history, "History is above Next up");
-  // The rail names the same places in the same order as the page.
-  const rail = [at('href="/#landscape"'), at('href="/#next"'), at('href="/#history"')];
+  // History is a section only where two or more states have an election on record; where it is there it comes after Next up, and where it is not its id is not.
+  if (hasHistory(framesOf(landscapeOverTime(db)))) assert.ok(next < at('id="history"'), "History is above Next up");
+  else assert.ok(!html.includes('id="history"'), "History is on the page and the registry cannot answer its question");
+  // The rail, where it still names these places, names them in the order the page has them (the rail's own items are Shell's, and are changing).
+  const rail = ["landscape", "next", "history"].map((a) => html.indexOf(`href="/#${a}"`)).filter((i) => i !== -1);
   assert.deepEqual([...rail].sort((a, b) => a - b), rail, "the rail lists Landscape, Next up and History in an order the page does not follow");
 });
 
@@ -344,6 +392,132 @@ test("the front page stays inside its stated weight, and a table a reader has to
   assert.ok(count(/class="iei-ev(?:\s|")/g) <= 3, "more than three evidence drawers on the front page");
 });
 
+test("the map's tabs are the layers the registry can fill, the ones it cannot are stated once, and the unloaded states are named once", live, () => {
+  // THE DEFECT, as a measurement (2026-11-20): three of six layer tabs read "unavailable", and the thirty-five states with no election were listed by the map's
+  // labels, an eight-chip row, the inspector and a second disclosure. A tab that cannot be used is not a tab; its absence is one sentence in the workbench, with the
+  // layer's own reason, and the states are one disclosure.
+  const html = render("/");
+  const t = text(html);
+  const view = home.homeView(db, { thisYear: 2026 });
+  const strip = /<div class="iei-tabs iei-tabs-row" role="group" aria-label="Map layer">([\s\S]*?)<\/div>/.exec(html)?.[1] ?? "";
+  const tabs = [...strip.matchAll(/<(?:a|span)\b[^>]*class="iei-tab[^"]*"[^>]*>([^<]*)/g)].map((m) => m[1] as string);
+  const fillable = view.layers.filter((l) => l.available).map((l) => l.label);
+  assert.deepEqual(tabs, fillable, "the layer strip is not exactly the layers the registry can fill");
+  assert.ok(!/class="iei-tab iei-tab-off"/.test(strip), "a layer that cannot be filled is a tab");
+  const unfilled = view.layers.filter((l) => !l.available);
+  if (unfilled.length === 0) assert.ok(!t.includes("Not available from this registry"), "the page says a layer is not available and every layer is");
+  else {
+    assert.equal((t.match(/Not available from this registry/g) ?? []).length, 1, "the layers the registry cannot fill are not stated exactly once");
+    for (const l of unfilled) {
+      assert.ok(l.why !== null && l.why.length > 0, `${l.key} cannot be filled and gives no reason`);
+      assert.ok(t.replace(/\s+/g, " ").includes(l.why as string), `${l.key}'s reason is not on the page: ${l.why}`);
+    }
+  }
+  // The states with no election: one disclosure that names them, and no second row of chips.
+  const bare = view.layer.cells.filter((c) => c.label === null);
+  const disclosures = [...html.matchAll(/<details class="iei-twin iei-story-unloaded">([\s\S]*?)<\/details>/g)];
+  assert.equal(disclosures.length, bare.length === 0 || bare.length === view.layer.cells.length ? 0 : 1, "the unloaded states are not one disclosure");
+  const tilesNamed = [...html.matchAll(/<ul class="iei-tiles"[\s\S]*?<\/ul>/g)].map((m) => m[0]).join("");
+  assert.ok(!tilesNamed.includes("not loaded"), "a chip row names the unloaded states again");
+  for (const c of bare.filter((c) => c.electionId === null).slice(0, 3)) {
+    const names = (t.match(new RegExp(`\\n${c.jurisdictionName.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\n`, "g")) ?? []).length;
+    assert.ok(names <= 1, `${c.jurisdictionName} is listed ${names} times as a line of its own`);
+  }
+});
+
+test("the inspector says what changed since the election before, in words that name the comparison, and the status strip is one scope line", live, () => {
+  const html = render("/");
+  const t = text(html).replace(/\s+/g, " ");
+  const view = home.homeView(db, { thisYear: 2026 });
+  // The change is shown for the one state the page lists (and for a chosen state); it is two published seat sets set side by side, and the page says which.
+  const rows = [...new Set(view.standings.map((s) => s.jurisdictionId))];
+  if (rows.length === 1) {
+    const c = view.changes.get(rows[0] as string);
+    if (c === undefined) assert.ok(!t.includes("Compared with"), "a comparison is printed for a state with no earlier election");
+    else {
+      assert.ok(t.includes(`Compared with ${c.sinceYear}:`), "the inspector does not say what the change is set against");
+      const line = home.changeLine(c);
+      if (line !== null) assert.ok(t.includes(line), `the changed-hands line is not the one the view holds: ${line}`);
+      const delta = home.changeDelta(c);
+      if (delta !== null) assert.ok(t.includes(delta), `the leader's change is not on the page: ${delta}`);
+    }
+  }
+  // A chosen state shows the same words.
+  const chosen = render("/", "state=wb");
+  const wb = view.changes.get("wb");
+  if (wb !== undefined && home.changeLine(wb) !== null) assert.ok(text(chosen).replace(/\s+/g, " ").includes(home.changeLine(wb) as string), "a chosen state does not say what changed");
+  // The comparison needs no drawer of its own: both elections are the map's.
+  assert.ok((html.match(/class="iei-ev(?:\s|")/g) ?? []).length <= 3, "the change brought a drawer");
+  // THE STRIP IS GONE (2026-11-20): no number-label-bar triplet, no hero metric. The one scope line sits beside the disclaimer, under the title.
+  assert.ok(!/iei-story-reach|iei-hero-reach/.test(html), "the status strip is back on the front page");
+  const scope = home.homeView(db, { thisYear: 2026 }).snapshot;
+  const line = seatsLoadedLine(scope);
+  if (line === null) assert.ok(!/are loaded\./.test(t), "a scope line is printed with no total to scope");
+  else assert.ok(t.includes(line), `the scope line is not on the page: ${line}`);
+  assert.ok(t.indexOf("Nothing here is a prediction") < t.indexOf(line ?? "are loaded") || line === null, "the scope line is not beside the disclaimer");
+});
+
+test("no label sits over a title on the front page: the live board's status is a line under its title, and a feed that cannot be used says so without one", live, () => {
+  assert.doesNotMatch(render("/"), /iei-eyebrow/, "an eyebrow is back on the front page");
+  const dir = mkdtempSync(join(tmpdir(), "mandate-live-"));
+  const renderWith = (feedPath: string): string =>
+    execFileSync(process.execPath, ["--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/", "", ""], {
+      cwd: ROOT,
+      env: { ...process.env, MANDATE_LIVE_PATH: feedPath },
+      encoding: "utf8",
+      maxBuffer: 64 * 1024 * 1024,
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+  // A feed that is valid: the board renders, its title comes first and its status is the quiet line under it.
+  const good = join(dir, "good.json");
+  writeFileSync(
+    good,
+    JSON.stringify({
+      version: 1,
+      boards: [
+        {
+          election: { id: null, name: "Demo Assembly 2026", jurisdictionId: "as", jurisdictionName: "Assam", kind: "assembly", year: 2026 },
+          status: "counting",
+          asOf: new Date().toISOString(),
+          seats: { total: 126, declared: 96, majority: 64 },
+          parties: [{ party: { key: "BJP", label: "BJP" }, won: 28, leading: 22 }],
+          projections: [],
+          events: [],
+        },
+      ],
+    }),
+  );
+  const board = renderWith(good);
+  assert.match(board, /class="iei-live-board"/, "a valid feed renders no live board");
+  assert.doesNotMatch(board, /iei-eyebrow/, "the live board has an eyebrow over its title");
+  const h = board.indexOf('class="iei-lb-title"');
+  const line = board.indexOf('<p class="iei-note"><span class="iei-dot iei-dot-live"', h);
+  assert.ok(h !== -1 && line > h, "the live status is not a line under the board's title");
+  // A feed that cannot be used is said to be unusable, in words, with no label over the sentence.
+  const bad = join(dir, "bad.json");
+  writeFileSync(bad, "not json");
+  const broken = renderWith(bad);
+  assert.match(text(broken), /The live feed is configured but cannot be used/, "an unusable feed is not said to be");
+  assert.doesNotMatch(broken, /iei-eyebrow/, "the unusable-feed notice has an eyebrow");
+});
+
+test("the map's evidence drawer opens closed on every layer and selection, floats over the workbench, and explains 'majority' only where the card prints it", live, () => {
+  const view = home.homeView(db, { thisYear: 2026 });
+  const shown = (html: string): boolean => /is counted here, not published/.test(html);
+  // Default: the glance prints "majority" for a state that holds one.
+  const base = render("/");
+  const printsMajority = /· majority/.test(text(base));
+  assert.equal(shown(base), printsMajority, "the majority note and the word 'majority' disagree");
+  // A chosen state with no result prints no majority, and the note is not offered for it.
+  const none = view.states.find((s) => !view.standings.some((x) => x.jurisdictionId === s.id) && !view.houseStandings.some((x) => x.jurisdictionId === s.id));
+  if (none !== undefined) {
+    const html = render("/", `state=${none.id}`);
+    assert.ok(!/· majority/.test(text(html)) && !shown(html), "a state with no result shows the majority note");
+  }
+  // A drawer is never rendered open (a plain <details> keeps its state across a layer tab, so the panel is keyed by what it shows).
+  for (const layer of ["government", "year"]) assert.ok(!/<details class="iei-ev"[^>]* open/.test(render("/", `layer=${layer}`)), `${layer}: the evidence drawer is rendered open`);
+});
+
 test("the homepage never prints a fabricated figure", live, () => {
   const t = text(render("/"));
   // A rendered 0.0% is the shape a fabrication takes here, and it has two sources. West Bengal 2026
@@ -387,7 +561,10 @@ test("the front page reaches a state, the people and the ledger, and a seat wher
   const fights = home.homeView(db, { thisYear: 2026 }).fights;
   const seats = [...html.matchAll(/href="\/constituency\/[a-z]{2}\/(?:assembly|lok-sabha)\/[^"]+"/g)];
   assert.ok(seats.length >= fights.length, `the front page links ${seats.length} seats for ${fights.length} close contests`);
-  if (fights.length === 0) assert.match(t, /has counted results to rank/, "an empty closest-contests panel does not say why it is empty");
+  // An empty closest-contests panel is not on the page (2026-11-20): a section the registry cannot fill is absent, and why there is nothing to rank is
+  // /coverage's to say. It is not an apology paragraph.
+  if (fights.length === 0) assert.ok(!t.includes("Closest contests") && !/has counted results to rank/.test(t), "an empty closest-contests section is on the page");
+  else assert.ok(t.includes("Closest contests"), "the registry has a counted close contest and the page does not list it");
   // A close result states its margin in votes, and a margin an election declared without counts is never given a share.
   if (fights.length > 0) assert.match(t, /\d+ votes?/, "a close result does not state its margin in votes");
   const declared = all<{ n: number }>(db, "SELECT COUNT(*) AS n FROM result WHERE margin IS NOT NULL")[0]?.n ?? 0;
@@ -538,7 +715,16 @@ test("the Analysis pages open on a finding, print no withheld figure, and each s
     for (const bad of [/96\.6/, /13\.6%/, /31\.9%/, /\b93\.0/, /Others \(\d/]) assert.doesNotMatch(t, bad, `${name} prints ${String(bad)}`);
     assert.match(t, new RegExp(`How ${name} got this way`));
     assert.match(t, /Why this finding:/);
-    assert.match(t, /What this page leaves out/);
+    // CHANGED 2026-11-20, on purpose: "What this page leaves out" was a section about the page. What a picture cannot say is under that picture (the ladder),
+    // and the per-measure caveats are one closed note at the foot.
+    assert.doesNotMatch(t, /What this page leaves out|Worth a second look|The numbers behind the pictures/, `${name}: a section about the page itself is back`);
+    const ladder = html.slice(html.indexOf('id="ladder"'), html.indexOf('id="close"') === -1 ? undefined : html.indexOf('id="close"'));
+    if (html.includes('id="ladder"')) assert.match(text(ladder), /These are parties, not people/, `${name}: the ladder's absence text is not under the ladder`);
+    const caveats = html.indexOf('class="iei-twin iei-an-caveats"');
+    assert.notEqual(caveats, -1, `${name}: the caveats are not a closed note`);
+    assert.doesNotMatch(html.slice(caveats, html.indexOf(">", caveats)), /\bopen\b/, `${name}: the caveats note is open`);
+    assert.match(text(html.slice(caveats, html.indexOf("</details>", caveats))), /What these measures do not tell you/);
+    assert.ok(html.indexOf('id="turnout"') === -1 || html.indexOf('id="turnout"') < caveats, `${name}: the caveats are not at the foot`);
     // Every swatch has its code, and a party is inked by its key.
     const swatches = [...html.matchAll(/<span class="iei-sw"[^>]*><\/span>/g)].length;
     const withCode = [...html.matchAll(/<span class="iei-sw"[^>]*><\/span>(?=<span class="iei-chip">|<b>|[A-Za-z])/g)].length;
@@ -613,7 +799,12 @@ test("an unshaded jurisdiction is called not loaded where no election is and has
       const n = new RegExp(`${word} <b>(\\d+)</b>`).exec(html)?.[1];
       return n === undefined ? null : Number(n);
     };
-    assert.equal(legend("Not loaded"), view.unloaded === 0 ? null : view.unloaded, `${layer}: the legend's count of what is not loaded`);
+    // The legend names the cause (the swatch's key) and no longer counts it: the count is said once, in the inspector's disclosure and the map's caption
+    // (2026-11-20), and a third "35" beside the swatch was the same figure again.
+    assert.equal(/<li><span class="iei-sw iei-sw-none" aria-hidden="true"><\/span>Not loaded<\/li>/.test(html), view.unloaded > 0, `${layer}: the legend's key for what is not loaded`);
+    assert.equal(legend("Not loaded"), null, `${layer}: the legend counts what is not loaded as well as the disclosure`);
+    const bareCount = view.cells.filter((c) => c.label === null).length;
+    if (bareCount > 0 && bareCount < view.cells.length) assert.ok(text(html).includes(`${bareCount} states and territories ${view.unknown === view.unloaded ? "not loaded" : "with no figure here"}`), `${layer}: the disclosure does not count the states with nothing`);
     assert.equal(legend("No figure"), view.unknown === view.unloaded ? null : view.unknown - view.unloaded, `${layer}: the legend's count of what has no figure`);
     // The tile row says the same, per jurisdiction: each tile is the word for its own cause.
     for (const m of html.matchAll(/<li><a[^>]* data-j="([a-z]{2})">[\s\S]*?<span class="iei-tile-v">([\s\S]*?)<\/span><span class="iei-sr">/g)) {
@@ -628,6 +819,11 @@ test("a party's row says what its figures count, and does not say 'one election'
   const html = render("/");
   const section = /id="parties"([\s\S]*?)<\/section>/.exec(html)?.[1] ?? "";
   const rows = [...section.matchAll(/<li id="[^"]*">([\s\S]*?)<\/li>/g)].map((m) => text(m[1] as string).replace(/\n/g, " "));
+  // The party landscape is on the page only where two or more jurisdictions feed it (2026-11-20); the rows' wording is held wherever it is.
+  if (!home.showsPartyLandscape(home.homeView(db, { thisYear: 2026 }))) {
+    assert.equal(rows.length, 0, "a party landscape is on a page whose registry holds one jurisdiction");
+    return;
+  }
   assert.ok(rows.length > 0, "the party landscape has no rows");
   for (const row of rows) {
     // The bold figure is assembly seats; "no assembly" beside 77 of them read as holding none, when it meant leading none.
@@ -721,15 +917,18 @@ test("the front page opens on India and chooses a state on a click", live, () =>
   // reference layer (the owner's order, docs/superpowers/specs/2026-11-03-situation-room-home-design.md: the landscape is second and next up third).
   assert.match(t, /The registry holds election results for 1 of India's 36 states and territories: West Bengal\./);
   assert.match(t, /Latest elections, state by state/);
-  assert.match(t, /Assembly 2026: BJP 192 of 294 · majority/);
-  assert.match(t, /Lok Sabha 2024: TMC 29 of 42 · majority/);
+  // Each result is its own row (2026-11-20): a label ("Assembly 2026") over the value ("BJP 192 of 294 · majority").
+  assert.match(t, /Assembly 2026 BJP 192 of 294 · majority/);
+  assert.match(t, /Lok Sabha 2024 TMC 29 of 42 · majority/);
   assert.ok(t.indexOf("The registry holds election results") < t.indexOf("India · Government"), "the country's sentence is not above the map");
   assert.ok(t.indexOf("India · Government") < t.indexOf("Which elections come next?"), "the elections that come next are above the map, which puts the map off the first screen");
   assert.equal((base.match(/<h1\b/g) ?? []).length, 1, "the page has a second title");
   // A state polygon, its row and its tile choose that state; the state's own page is a step on from the card.
   const chosen = render("/", "state=wb");
   const c = flat(chosen);
-  assert.match(c, /West Bengal Assembly 2026: BJP 192 of 294 · majority Lok Sabha 2024: TMC 29 of 42 · majority Open West Bengal All states/);
+  // The card's assembly line may carry what changed since the election before (2026-11-20: ", +116 on 2021" and a "Compared with 2021: …" line), and then
+  // the Lok Sabha line; the order and the ways on are what this holds.
+  assert.match(c, /West Bengal Assembly 2026 BJP 192 of 294 · majority(?: [+−±]\d+ on \d{4})?(?: Compared with \d{4}: [^]*?)? Lok Sabha 2024 TMC 29 of 42 · majority Open West Bengal All states/);
   assert.ok(chosen.includes('href="/state/wb"'), "the card does not open the state");
   assert.ok(chosen.includes('aria-current="true"'), "the chosen state is not marked");
   assert.ok(/class="iei-map-sel"/.test(chosen), "the chosen state's polygon is not outlined");
@@ -752,7 +951,7 @@ test("the election deep link moved to the page that is about it", live, () => {
   assert.match(t, /Lok Sabha/, "the election parameter was ignored");
   // And a hand-edited one falls back rather than breaking.
   const bogus = text(render("/coverage", "election=%27%3B+DROP+TABLE+result%3B+--"));
-  assert.match(bogus, /How much of this election do we actually hold/, "a bogus election id broke the page");
+  assert.match(bogus, /How much of this election is loaded/, "a bogus election id broke the page");
 });
 
 /* ────────────────────────────── the map's semantics ────────────────────────────── */
@@ -859,7 +1058,7 @@ test("provenance is not repeated once a page has already offered it", live, () =
 
 test("every party on the map has its own colour, and it is not assigned by rank", live, () => {
   const html = render("/");
-  const fills = [...html.matchAll(/<path d="[^"]*" fill="(#[0-9a-f]{6})"/g)].map((m) => m[1] as string);
+  const fills = [...html.matchAll(/<path d="[^"]*" fill="(light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\)|#[0-9a-f]{6})"/g)].map((m) => m[1] as string);
   assert.ok(fills.length >= 30, `only ${fills.length} polygons carry a fill`);
   // Seventeen parties lead a state. The old system had three hues and one grey, so at most four distinct
   // fills could ever appear; anything under ten means the identity system is not feeding the map.
@@ -909,7 +1108,7 @@ test("a party that won seats never renders in the register that means absence", 
     // Never the absence inks, whatever the seat count.
     assert.notEqual(fill.toLowerCase(), NOT_HELD.toLowerCase(), `${w.k} is drawn in the not-held ink`);
     if (key !== "unattached" && key !== "IND") {
-      assert.ok(chromaOf(fill) > 0.03, `${w.k} (${w.seats} seats) is drawn hueless, which reads as no data`);
+      assert.ok(chromaOf(tokenFor(key).fill) > 0.03, `${w.k} (${w.seats} seats) is drawn hueless, which reads as no data`);
     }
     // Four seats anywhere is the line curation was measured against, so it is the line asserted.
     if (w.seats >= 4 && key !== "unattached") {
@@ -1137,7 +1336,9 @@ test("the navigation graph walks all the way down, in five jurisdictions", live,
     // Asserted on the MARKUP, not the stripped text: the crumb separator is its own element, so `text()`
     // renders the trail as three lines and a regex over it is checking the helper rather than the page.
     assert.match(statePage, /href="\/"[^>]*>India</, `/state/${state} has no breadcrumb back to India`);
-    assert.ok(text(statePage).includes("Elections on record"), `/state/${state} does not list its elections`);
+    // CHANGED 2026-11-20: the strip headed "Elections on record" is gone; the year tabs above the map carry the newest eight elections as links,
+    // and "Earlier elections" carries the rest, so a state's elections are still all reachable from its page.
+    assert.match(statePage, /election=[a-z0-9-]+#map/, `/state/${state} does not link its elections`);
 
     // A district link is a three-segment path under this state.
     const district = new RegExp(`href="/district/${state}/([^/"]+)"`).exec(statePage)?.[1];

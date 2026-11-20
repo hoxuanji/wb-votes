@@ -45,6 +45,7 @@ import {
 } from "./elections.ts";
 import { INDIA, jurisdictions, type JurisdictionState } from "./coverage.ts";
 import { compareSeats } from "./seat-comparison.ts";
+import type { ComparableSeat } from "./seat-comparison.ts";
 import type { Choices, SeatFacts } from "./map-selection.ts";
 import {
   medianMarginShare,
@@ -56,7 +57,8 @@ import {
   type SeatResult,
 } from "./seat-results.ts";
 import { turnoutHeadline } from "./turnout-trust.ts";
-import { NOT_HELD, fillFor } from "../viz/party-ink.ts";
+import { NOT_HELD, NOT_HELD_DARK, NOT_HELD_LIGHT, fillFor } from "../viz/party-ink.ts";
+import { lightDark } from "../viz/colour.ts";
 import { INDIA_TOTALS, JURISDICTIONS } from "../ingest/india.ts";
 import { FULL_HOUSE, bodyIs, bodyWord, currentIds, facetOf, majorityOf } from "../core/election-kind.ts";
 import type { Body } from "../core/election-kind.ts";
@@ -80,10 +82,25 @@ import type { Body } from "../core/election-kind.ts";
  * Every step is a mark: at least 3:1 on every surface and well apart from the no-data ink (home.test.ts holds both), because a step that
  * fell toward the page would read as a place with no figure. The six are about 7.5 apart in OKLab, which is what six bands can afford.
  */
-export const SEQUENTIAL = ["#7055b0", "#8669cd", "#9d80e7", "#b399fb", "#c7b6fe", "#dad0fe"] as const;
+export const SEQUENTIAL_DARK = ["#7055b0", "#8669cd", "#9d80e7", "#b399fb", "#c7b6fe", "#dad0fe"] as const;
+
+/**
+ * The same ramp on the LIGHT page: the same hue (OKLCH 295) and chroma, and the same ORDER of contrast against the page. A step further along is
+ * further from the page in both themes (lighter on dark, darker on light), because that is what "more" means to a reader; the pale end of the dark
+ * ramp (#dad0fe) is 1.2:1 on a white card and would read as a place with no figure. Six steps from L 0.635 down to 0.26: 3.17:1 on the worst light
+ * surface, about 7.5 apart in OKLab (the dark ramp's spacing), and ΔE 30+ from the light no-data ink. home.test.ts holds all three.
+ */
+export const SEQUENTIAL_LIGHT = ["#9177d6", "#7b61bd", "#664aa5", "#52348d", "#3e1e75", "#2d025e"] as const;
+
+/** What the DOM is given for each step: `light-dark(light, dark)`. */
+export const SEQUENTIAL = SEQUENTIAL_DARK.map((d, i) => lightDark(SEQUENTIAL_LIGHT[i] as string, d)) as unknown as readonly [
+  string, string, string, string, string, string,
+];
 
 /** "No election of this kind is loaded here." Deliberately below the mark floor: absence is not a mark. */
 export const NO_DATA_HUE = NOT_HELD;
+/** Its two halves, for the maths that tells a ramp step from it. */
+export const NO_DATA_HUES = { dark: NOT_HELD_DARK, light: NOT_HELD_LIGHT } as const;
 
 /**
  * A legend entry. `key` is what makes the legend interactive — clicking a party highlights its polygons —
@@ -214,6 +231,11 @@ export type Layer = {
   /** How many of them have no election loaded; the rest are loaded, and their source gave this layer no figure. */
   unloaded: number;
   unknownWhy: string;
+  /**
+   * The reason a layer that colours nothing colours nothing, said alone: the loaded states' source's gap when any state is loaded, the plain
+   * absence of an election when none is. It is `unknownWhy` without the count of states that have no election, which the page says once elsewhere.
+   */
+  whyEmpty: string;
   /** False when NOTHING in the registry can feed this layer. Computed from the cells, never declared. */
   available: boolean;
 };
@@ -397,7 +419,11 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
             },
       );
     }
-    legend = spine.standings.length === 0 ? [] : bandLegend(lo, hi + 1, "");
+    // ONE SWATCH PER YEAR PRESENT, in whole years: a year is not a continuous quantity, and four equal bins over 2026 to 2027 printed "2026.0–2026.2" and
+    // implied an election in 2027. With one election year the legend is one swatch, labelled with that year.
+    legend = [...new Set(years)]
+      .sort((a, b) => a - b)
+      .map((y) => ({ key: null, label: String(y), fill: ramp(y, lo, hi) }));
   } else {
     // The three magnitude layers, all read off the same per-seat results. The shares are pulled ONLY for the
     // layer that shows them: `leaderShare()` is the 62-election party read, and turnout and margin have no
@@ -504,6 +530,7 @@ export function layer(db: DatabaseSync, key: LayerKey, spine: Spine): Layer {
         : unloaded === 0
           ? whyLoaded
           : `no election is loaded for ${unloaded} of them; for the rest, ${whyLoaded}`,
+    whyEmpty: unloaded === unknown ? whyNot : whyLoaded,
     // Derived, never declared: a layer is unavailable when nothing in the registry can colour a single
     // jurisdiction. That is the seam a future layer with no data arrives through.
     available: unknown < cells.length,
@@ -593,6 +620,15 @@ export function houseRun(db: DatabaseSync): { id: string; year: number }[] {
       ORDER BY ${CHRONO_DESC} LIMIT ?`,
     SPARK,
   ).reverse();
+}
+
+/**
+ * Whether the front page's "Party landscape" has anything the state card does not already say: it ranks parties over the jurisdictions' latest
+ * elections, so with fewer than two jurisdictions feeding it, it is that one state's card ranked again. The section is on the page only when this is true,
+ * and so are the `#party-…` anchors search links to (search.ts must ask the same question).
+ */
+export function showsPartyLandscape(v: { standings: readonly { jurisdictionId: string }[]; houseStandings: readonly { jurisdictionId: string }[] }): boolean {
+  return new Set([...v.standings, ...v.houseStandings].map((x) => x.jurisdictionId)).size >= 2;
 }
 
 export function partyLandscape(db: DatabaseSync, spine: Spine, limit = 10): PartyLandscape {
@@ -1449,6 +1485,77 @@ export type HomeParams = {
  * `spine` for where a state's elections live now.
  */
 
+/**
+ * WHAT CHANGED in a jurisdiction's latest assembly election against the one before it, from two published sets of seats. Nothing here is modelled: the
+ * leader's two seat totals, and the seat-by-seat comparison `compareSeats` makes (the one the state page and the signals use), with its own denominator,
+ * seats that held or flipped, and the seats it could not compare said and counted rather than folded in.
+ */
+export type AssemblyChange = {
+  /** The year of the election compared with. */
+  sinceYear: number;
+  /** The leader's seats then, and the change. `delta` is null where the two houses were not the same size: seat totals of different houses are not a change. */
+  leader: { key: string; label: string; seats: number; thenSeats: number; delta: number | null } | null;
+  flipped: number;
+  /** held + flipped: the only denominator. */
+  comparable: number;
+  /** Seats with no declared winner on one side or the other. */
+  unknown: number;
+  /** Seats with no counterpart under the same boundary: redrawn since. */
+  incomparable: number;
+};
+
+/** Pure over the two elections' seats and party totals, so every rule is tested on literals. */
+export function assemblyChange(i: {
+  now: Pick<Standing, "leaderKey" | "leaderLabel" | "leaderSeats">;
+  thenYear: number;
+  seatsNow: readonly ComparableSeat[];
+  seatsThen: readonly ComparableSeat[];
+  partiesThen: readonly Pick<PartyStanding, "key" | "seats">[];
+}): AssemblyChange {
+  const compared = compareSeats(i.seatsNow, i.seatsThen);
+  const thenSize = i.seatsThen.length;
+  const thenSeats = i.now.leaderKey === null ? 0 : (i.partiesThen.find((p) => p.key === i.now.leaderKey)?.seats ?? 0);
+  return {
+    sinceYear: i.thenYear,
+    leader:
+      i.now.leaderKey === null || i.now.leaderLabel === null
+        ? null
+        : {
+            key: i.now.leaderKey,
+            label: i.now.leaderLabel,
+            seats: i.now.leaderSeats,
+            thenSeats,
+            delta: thenSize === i.seatsNow.length ? i.now.leaderSeats - thenSeats : null,
+          },
+    flipped: compared.flipped.length,
+    comparable: compared.comparable,
+    unknown: compared.unknown.length,
+    incomparable: compared.incomparable.length,
+  };
+}
+
+/** "+116 on 2021": the leader's change in seats, in words that say what it was set against. Null where there is no change to state. */
+export function changeDelta(c: AssemblyChange): string | null {
+  const d = c.leader?.delta;
+  if (d === null || d === undefined) return null;
+  return `${d > 0 ? "+" : d < 0 ? "−" : "±"}${Math.abs(d)} on ${c.sinceYear}`;
+}
+
+/**
+ * The line under the seat count: how many seats changed hands since the earlier election, of the seats that could be compared, and what could not be.
+ * "Compared with 2021" is in the words because the figure is two published seat sets set side by side, not a figure any source published.
+ */
+export function changeLine(c: AssemblyChange): string | null {
+  const out: string[] = [];
+  if (c.comparable > 0) out.push(`${c.flipped} of ${c.comparable} seats changed hands`);
+  const gaps: string[] = [];
+  if (c.incomparable > 0) gaps.push(`${c.incomparable} ${c.incomparable === 1 ? "seat" : "seats"} redrawn since and not comparable`);
+  if (c.unknown > 0) gaps.push(`${c.unknown} left out because one of the two elections declared no winner there`);
+  if (out.length === 0 && gaps.length === 0) return null;
+  const head = out.length === 0 ? `No seat can be compared seat by seat` : out[0]!;
+  return `Compared with ${c.sinceYear}: ${head}${gaps.length === 0 ? "" : out.length === 0 ? ` (${gaps.join("; ")})` : `; ${gaps.join("; ")}`}.`;
+}
+
 export type HomeView = {
   snapshot: Snapshot;
   /** The ten-second answer, computed from the rows below rather than written. */
@@ -1458,7 +1565,8 @@ export type HomeView = {
   /** Each jurisdiction's slice of the latest Lok Sabha, in the shape of an assembly standing: with `standings`, the front page's glance. */
   houseStandings: readonly Standing[];
   layer: Layer;
-  layers: readonly { key: LayerKey; label: string; available: boolean }[];
+  /** Every layer, and for one the registry cannot fill, the reason in `why` (`Layer.whyEmpty`): the page offers the others as tabs and states these once. */
+  layers: readonly { key: LayerKey; label: string; available: boolean; why: string | null }[];
   /** Announced by the Commission. Empty until the ECI schedule is ingested. */
   announced: Dated[];
   /** A five-year term from the last election — derived, and labelled that way on every row. */
@@ -1475,6 +1583,8 @@ export type HomeView = {
    * first belongs beside a result.
    */
   coverageOf: Map<string, Completeness>;
+  /** Each jurisdiction's latest assembly election against the one before it; absent for a jurisdiction with no earlier election to compare with. */
+  changes: Map<string, AssemblyChange>;
   parties: PartyLandscape;
   /** The tightest results in the country. Five rows, each one a seat page. */
   fights: CloseFight[];
@@ -1500,11 +1610,12 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
   // predicates applied to the spine, because the first version of this line called `layer()` six times and
   // the vote-share build alone read `result` once per jurisdiction.
   const can = availability(withPoll);
-  const layers = LAYERS.map((l) => ({
-    key: l.key,
-    label: l.label,
-    available: l.key === key ? chosen.available : (can.get(l.key) ?? false),
-  }));
+  const layers = LAYERS.map((l) => {
+    const available = l.key === key ? chosen.available : (can.get(l.key) ?? false);
+    // A layer nothing can fill is built only to read why: it has no cell to colour, so it is cheap, and the reason is the layer's own words.
+    const why = available ? null : (l.key === key ? chosen : layer(db, l.key, withPoll)).whyEmpty;
+    return { key: l.key, label: l.label, available, why };
+  });
 
   const next = upcoming(db, p.thisYear);
   const snap = snapshot(db, sp.standings, sp.states, sp.houseStandings, held[0] ?? null, p.thisYear);
@@ -1523,6 +1634,25 @@ export function homeView(db: DatabaseSync, p: HomeParams): HomeView {
     held,
     heldTop: topParties(db, held.map((h) => h.id)),
     coverageOf: completenessOf(db, held.map((h) => h.id)),
+    changes: new Map(
+      sp.standings.flatMap((s): [string, AssemblyChange][] => {
+        const thenId = sp.previousOf(s.electionId);
+        const thenYear = thenId === null ? null : sp.yearOf(thenId);
+        if (thenId === null || thenYear === null) return [];
+        return [
+          [
+            s.jurisdictionId,
+            assemblyChange({
+              now: s,
+              thenYear,
+              seatsNow: sp.seats.filter((x) => x.electionId === s.electionId),
+              seatsThen: sp.seats.filter((x) => x.electionId === thenId),
+              partiesThen: sp.partiesOf(thenId),
+            }),
+          ],
+        ];
+      }),
+    ),
     parties,
     // Five, and each one navigable. The rule and the threshold are the same as Watch's knife-edge signal —
     // which is why Watch no longer carries it: this module reaches the SEAT, and a page of eight signals

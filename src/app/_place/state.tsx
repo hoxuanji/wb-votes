@@ -23,7 +23,6 @@ import { bodyWord, chipOf } from '../../../packages/mandate/src/core/election-ki
 import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { ElectionMap, MODES, MapHead, MapSection, NO_EARLIER_ELECTION, NoMap, ShapeTabs } from '../../components/iei/ElectionMap.tsx';
 import {
-  FlipMatrix,
   MarginBands,
   Trajectory,
   VoteSeatPlot,
@@ -84,7 +83,15 @@ export function StateSurface({
   asked,
   trajectory,
   selection,
+  showAll = false,
+  hrefs,
+  nothing = [],
 }: {
+  /** Whether the list shows every seat of the selection (`?all=1`), and the links between the short list and the whole one. */
+  showAll?: boolean;
+  hrefs: { all: string; few: string };
+  /** What the link asked for that matched nothing, in words: said in one line, and the page shows every seat it can. */
+  nothing?: string[];
   name: string;
   view: ElectionMapView;
   /** The offers to switch between, newest first: the state view's `choices`, not the map's `siblings`. */
@@ -119,6 +126,12 @@ export function StateSurface({
   const anySeat = view.seats.length > 0;
   const noRunnerUp = anySeat && view.seats.every((s) => s.runnerUpKey === null);
   const noBands = anySeat && marginBandCounts(view.seats).every((b) => b.n === 0);
+  // THE READINGS NOTHING CAN FILL are not tabs: a disabled tab said "unavailable" once each to a screen reader. They are said once, under the question.
+  // A reading the link asks for stays on offer, so the tab strip still shows where the reader is, and `blank` below says why it has nothing to show.
+  const fillable = (key: string): boolean =>
+    key === 'flips' ? view.flips !== null : key === 'runnerup' ? !noRunnerUp : key === 'margin' ? !noBands : true;
+  const offered = MODES.filter((m) => fillable(m.key) || m.key === mode);
+  const withheld = MODES.filter((m) => !fillable(m.key) && m.key !== mode);
   const blank =
     mode === 'runnerup' && noRunnerUp
       ? 'No runner-up is on record for any seat of this election'
@@ -171,7 +184,7 @@ export function StateSurface({
   // Eight rows, and what is left over is said under them: the rows are the biggest, not all.
   const unlisted = landscape.slice(8);
   const unlistedSeats = unlisted.reduce((n, r) => n + r.seats, 0);
-  const narrowed = band !== null || party !== null || focused !== null;
+  const narrowed = band !== null || party !== null || focused !== null || seat !== null;
   // The parties this election's map can isolate, which the run of elections' rows are links to; a party in the run that won
   // nothing here is not one of them.
   const isolable = stateChoicesOf(view).parties;
@@ -185,7 +198,8 @@ export function StateSurface({
    * The first draft showed 60 rows unconditionally. On Karnataka that put 60 constituencies between the map
    * and every analytical section, which is the giant table this surface exists to replace.
    */
-  const list = closestFirst(SEATS, narrowed ? 60 : 12);
+  const cap = narrowed ? 60 : 12;
+  const list = closestFirst(SEATS, showAll ? SEATS.length : cap);
   // WHAT THE LIST IS CALLED is read from the order `closestFirst` built it in and from what the reader narrowed it to, so a
   // list of an election with no vote counts is headed as the seat order it is, and not as the closest contests it is not.
   // An isolation names its party or band; a party is the runner-up's on the runner-up tab, as the selection reads it.
@@ -202,6 +216,29 @@ export function StateSurface({
     },
     list,
   );
+  // WHAT THE CHANGED-HANDS PART SAYS WHERE THERE IS NO PICTURE: that there is no earlier election to compare with, or that the seats were redrawn.
+  // An absence is a sentence, never a missing section; with nothing to say and nothing to draw, the part is not there.
+  const absentChange: string | null =
+    view.flips !== null
+      ? null
+      : view.incomparableSeats === 0
+        ? view.previous === null && e.fill === 'general'
+          ? NO_EARLIER_ELECTION
+          : null
+        : `Seat-level comparison unavailable: the constituencies were redrawn after ${
+            view.previous?.year ?? 'the previous election'
+          }, so no seat here has a predecessor to be compared with.`;
+  const runLength = trajectory.elections.length;
+  const showHistory = runLength >= 2 || view.flips !== null || absentChange !== null || choices.length > 8;
+  const sinceYear = view.previous?.year ?? 'the previous election';
+  const historyQuestion =
+    runLength >= 2 && (view.flips !== null || absentChange !== null)
+      ? `What has each party done across ${runLength} elections, and which seats changed hands since ${sinceYear}?`
+      : runLength >= 2
+        ? `What has each party done across ${runLength} elections?`
+        : view.flips !== null
+          ? `Which seats changed hands since ${sinceYear}?`
+          : 'How does this compare with the previous election?';
   // What names the map section for a screen reader, and the evidence drawer beside the page's name.
   const mapTitle = `${focused?.name ?? name} · ${MODES.find((m) => m.key === mode)?.label ?? ''}`;
 
@@ -209,10 +246,9 @@ export function StateSurface({
     <>
       {/* ══ 1 · WHO CONTROLS THE STATE ═════════════════════════════════════════════════════════
           A compact editorial hero: the party, the seats, the bar it had to clear, and one statement the
-          registry actually supports. Not a tile grid. The name leads the same line as the result and the page's
-          sources share the eyebrow's line, so nothing between the top of the page and the map is a heading. */}
+          registry actually supports. Not a tile grid. The name leads the same line as the result, with no label over it
+          (the breadcrumb already says it is a state), so nothing between the top of the page and the map is a heading. */}
       <MapHead
-        eyebrow="State or union territory"
         sources={view.sources}
         label={mapTitle}
         caveat={
@@ -282,17 +318,13 @@ export function StateSurface({
               }))}
             />
             <ShapeTabs view={view} selection={selection} />
-            <Tabs
-              label={mapped ? 'What the map shows' : 'What this page shows'}
-              current={mode}
-              choices={MODES.map((m) => ({
-                key: m.key,
-                label: m.label,
-                href: selection.href({ mode: m.key }),
-                available:
-                  m.key === 'flips' ? view.flips !== null : m.key === 'runnerup' ? !noRunnerUp : m.key === 'margin' ? !noBands : true,
-              }))}
-            />
+            {offered.length < 2 ? null : (
+              <Tabs
+                label={mapped ? 'What the map shows' : 'What this page shows'}
+                current={mode}
+                choices={offered.map((m) => ({ key: m.key, label: m.label, href: selection.href({ mode: m.key }) }))}
+              />
+            )}
           </>
         }
       >
@@ -302,9 +334,20 @@ export function StateSurface({
           <div className="iei-atlas-side">
             {/* WHAT THE MAP ANSWERS. It was the section heading's second half. */}
             <p className="iei-atlas-q">{MODES.find((m) => m.key === mode)?.question ?? ''}</p>
+            {nothing.length === 0 ? null : (
+              <p className="iei-note">
+                {nothing.join(', and ')}; {narrowed ? 'that filter is not applied' : 'showing every seat'}.
+              </p>
+            )}
             {blank === null ? null : (
               <p className="iei-absent">
                 {blank}, so there is nothing to {mapped ? 'colour' : 'show'}.
+              </p>
+            )}
+            {withheld.length === 0 ? null : (
+              <p className="iei-note">
+                Not available for this election: {withheld.map((m) => m.label).join(', ')} — nothing in the registry can fill{' '}
+                {withheld.length === 1 ? 'it' : 'them'}.
               </p>
             )}
             {/* A STATE'S LOK SABHA VIEW IS A NATIONAL ELECTION NARROWED TO ONE STATE, and the election's own page is where
@@ -402,7 +445,7 @@ export function StateSurface({
                  provenance affordance and reasonably assumed there was nothing behind it.
                  Now: its own control, open by default, and "open →" is a legible link with a hit area. The heading says
                  what choosing a name does and nothing about "open": every row already says it, in words. */
-              <details className="iei-districts" open>
+              <details className="iei-districts" open={focused !== null}>
                 <summary>
                   {focused === null
                     ? `${districts.length} districts — select one to ${
@@ -448,6 +491,7 @@ export function StateSurface({
             {/* ══ 7 · THE SEAT LIST — the current selection, with each seat's result ══
                 Headed with what it is and how much of it is shown, which is also where "12 of 294" is said: it used to be a
                 note under the last row, and the rows had no name. */}
+            <div id="seats" className="iei-seats-list">
             <ListHead head={head} said={shared.sentence} />
             <DataList label={head.title} tight>
               {list.seats.map((s) => (
@@ -457,30 +501,22 @@ export function StateSurface({
                   href={s.href ?? undefined}
                   aside={<RowMargin seat={s} />}
                   detail={
-                    <>
-                      <RowContest seat={s} quiet={shared} />
-                      {/* Focus this seat on the map, without leaving the page. There is nothing to focus it on without one, and
-                          a seat with no outline of its own has nothing to be outlined by. */}
-                      {mapped ? (
-                        s.path === null ? (
-                          <>
-                            {' · '}
-                            <span className="iei-absent">no boundary on record</span>
-                          </>
-                        ) : (
-                          <>
-                            {' · '}
-                            <Link className="iei-body-link" href={selection.href({ seat: s.placeId })}>
-                              {seat === s.placeId ? 'unfocus' : 'find on map'}
-                            </Link>
-                          </>
-                        )
-                      ) : null}
-                    </>
+                    <RowContest seat={s} quiet={shared} />
                   }
                 />
               ))}
             </DataList>
+            {/* EVERY SEAT IS READABLE: the short list is the closest contests, and the whole selection is one link away, server-rendered, with a way back. */}
+            {list.seats.length < SEATS.length ? (
+              <p className="iei-note">
+                <Link href={hrefs.all}>Show all {IN.format(SEATS.length)} seats</Link>
+              </p>
+            ) : showAll && SEATS.length > cap ? (
+              <p className="iei-note">
+                <Link href={hrefs.few}>Back to the first {IN.format(cap)}</Link>
+              </p>
+            ) : null}
+            </div>
             {narrowed ? (
               <p className="iei-note">
                 <Link href={selection.href('clear')}>Clear the selection</Link>
@@ -498,32 +534,19 @@ export function StateSurface({
         delegation={delegation ? name : null}
       />
 
-      {/* ══ 3 · WHAT CHANGED ══════════════════════════════════════════════════════════════════ */}
-      {view.flips === null ? (
-        view.incomparableSeats === 0 ? (
-          view.previous === null && e.fill === 'general' ? (
-            <Panel id="changed" title="What changed" question="How does this compare with the previous election?">
-              <p className="iei-absent">{NO_EARLIER_ELECTION}</p>
-            </Panel>
-          ) : null
-        ) : (
-          <Panel id="changed" title="What changed" question="How does this compare with the previous election?">
-            <p className="iei-absent">
-              Seat-level comparison unavailable: the constituencies were redrawn after{' '}
-              {view.previous?.year ?? 'the previous election'}, so no seat here has a predecessor to be
-              compared with.
-            </p>
-          </Panel>
-        )
-      ) : (
-        <Panel
-          id="changed"
-          title="What changed"
-          question={`Which seats changed hands since ${view.previous?.year ?? 'the previous election'}?`}
-        >
-          <SeatFlow flows={flows} previousYear={view.previous?.year ?? null} year={e.year} />
-          <div className="iei-two">
-            <div>
+      {/* ══ 3 · HOW THE STATE HAS CHANGED — one section where there were three ═══════════════════════════
+          "What changed" (this election against the one before), "Elections on record" (a strip of every election, which the year tabs
+          above the map already are for the recent ones) and "How the state has changed" (the run of elections) were one question asked
+          three times: how has this state voted, and what moved. It is now one section with two parts, the seats that changed hands
+          and the run of elections behind them, and what each part cannot say is said inside it. */}
+      {!showHistory ? null : (
+        <Panel id="changed" title="How the state has changed" question={historyQuestion}>
+          {absentChange !== null ? (
+            <p className="iei-absent">{absentChange}</p>
+          ) : view.flips === null ? null : (
+            <>
+              <h3 className="iei-limits-h">Seats that changed hands since {view.previous?.year ?? 'the previous election'}</h3>
+              <SeatFlow flows={flows} previousYear={view.previous?.year ?? null} year={e.year} />
               <ul className="iei-tally" aria-label="Seats held, changed hands, and not comparable">
                 <li>
                   <b>{IN.format(view.flips.flipped)}</b> changed hands
@@ -542,15 +565,57 @@ export function StateSurface({
                   <Link href={selection.href({ mode: 'flips' })}>Show this on the map</Link>
                 </p>
               ) : null}
-            </div>
-            <FlipMatrix
-              pairs={view.flips.pairs}
-              hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }, { mode: 'flips' }))}
-            />
-          </div>
+            </>
+          )}
+          {trajectory.elections.length < 2 ? null : (
+            <>
+              <h3 className="iei-limits-h">Across {trajectory.elections.length} elections</h3>
+              <div className="iei-two iei-two-wide">
+                <div>
+                  <p className="iei-note iei-traj-head">Seats</p>
+                  <Trajectory
+                    data={trajectory}
+                    metric="seatPct"
+                    selected={party}
+                    isolable={isolable}
+                    hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
+                  />
+                </div>
+                <div>
+                  <p className="iei-note iei-traj-head">Vote share</p>
+                  <Trajectory
+                    data={trajectory}
+                    metric="votePct"
+                    selected={party}
+                    isolable={isolable}
+                    hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
+                  />
+                </div>
+              </div>
+              {trajectory.epochBreaks.length === 0 ? null : (
+                <p className="iei-note">
+                  The seat lines break where the constituencies were redrawn — seats either side of a
+                  delimitation are different territories, so they are not joined. Vote share runs unbroken,
+                  because a share of a whole state&rsquo;s votes survives a redraw.
+                </p>
+              )}
+            </>
+          )}
+          {/* THE ELECTIONS THE YEAR TABS ABOVE THE MAP LEAVE OUT: they carry the newest eight, so an election from 1978 is still one click away. */}
+          {choices.length <= 8 ? null : (
+            <>
+              <h3 className="iei-limits-h">Earlier elections</h3>
+              <ul className="iei-sibs">
+                {choices.slice(8).map((sib) => (
+                  <li key={sib.id}>
+                    <Link href={selection.href({ election: sib.id })}>{chipOf(sib.body, sib.fill, sib.year)}</Link>
+                  </li>
+                ))}
+              </ul>
+            </>
+          )}
         </Panel>
       )}
-
       {/* ══ 4 · COMPETITIVENESS ═══════════════════════════════════════════════════════════════ */}
       {bands.every((b) => b.n === 0) ? null : (
         <Panel id="close" title="Competitiveness" question="How many seats are actually in play?">
@@ -644,65 +709,6 @@ export function StateSurface({
         </Panel>
       )}
 
-      {/* EVERY ELECTION ON RECORD, as a compact strip. The selector above shows the recent ones because a
-          reader almost always wants those; this is the complete set, so an election from 1978 is still one
-          click away rather than unreachable. It replaced a 17-row table that carried the same links. */}
-      {choices.length <= 1 ? null : (
-        <Panel id="elections" title="Elections on record" question="What has this state voted in?">
-          <ul className="iei-sibs">
-            {choices.map((sib) => (
-              <li key={sib.id}>
-                <Link
-                  href={selection.href({ election: sib.id })}
-                  aria-current={sib.id === e.id ? 'page' : undefined}
-                  className={sib.id === e.id ? 'iei-legend-on' : undefined}
-                >
-                  {chipOf(sib.body, sib.fill, sib.year)}
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </Panel>
-      )}
-
-      {/* ══ 6 · TRAJECTORY ════════════════════════════════════════════════════════════════════ */}
-      {trajectory.elections.length < 2 ? null : (
-        <Panel
-          id="trajectory"
-          title="How the state has changed"
-          question={`What has each party done across ${trajectory.elections.length} elections?`}
-        >
-          <div className="iei-two iei-two-wide">
-            <div>
-              <p className="iei-note iei-traj-head">Seats</p>
-              <Trajectory
-                data={trajectory}
-                metric="seatPct"
-                selected={party}
-                isolable={isolable}
-                hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
-              />
-            </div>
-            <div>
-              <p className="iei-note iei-traj-head">Vote share</p>
-              <Trajectory
-                data={trajectory}
-                metric="votePct"
-                selected={party}
-                isolable={isolable}
-                hrefFor={(p) => (p === null ? selection.href('release') : selection.href({ party: p }))}
-              />
-            </div>
-          </div>
-          {trajectory.epochBreaks.length === 0 ? null : (
-            <p className="iei-note">
-              The seat lines break where the constituencies were redrawn — seats either side of a
-              delimitation are different territories, so they are not joined. Vote share runs unbroken,
-              because a share of a whole state&rsquo;s votes survives a redraw.
-            </p>
-          )}
-        </Panel>
-      )}
     </>
   );
 }

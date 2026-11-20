@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { INDIA_SHAPES, INDIA_VIEWBOX } from '../../lib/india-geo.ts';
 import { electionHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
 import type { Frame } from '../../../packages/mandate/src/repo/landscape-frames.ts';
+import { TEXT_MUTED } from '../../../packages/mandate/src/viz/palette.ts';
 import { NOT_HELD } from '../../../packages/mandate/src/viz/party-ink.ts';
 import type { NextUp } from '../../../packages/mandate/src/repo/situation-types.ts';
 
@@ -28,7 +29,7 @@ export function LandscapeMap({ states, initial }: { states: readonly { id: strin
           {/* A state whose parties are level for most seats: a hatch, so "level" is a shape and not a colour. */}
           <pattern id="iei-tm-level" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
             <rect width="6" height="6" fill={NOT_HELD} />
-            <rect width="2.2" height="6" fill="#8b8ba2" />
+            <rect width="2.2" height="6" fill={TEXT_MUTED} />
           </pattern>
           {/* EACH OUTLINE IS WRITTEN ONCE. The geometry is the heaviest thing on the page (about 60 kB a copy), and this map used to carry two: a fill
               layer and a border layer. Here the outlines are defined once and drawn by reference, with the border as a stroke on the fill, so the page
