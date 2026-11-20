@@ -11,7 +11,7 @@ import { DEV_DB_PATH, openRead } from "../db/open.ts";
 import { all } from "../db/index.ts";
 import { CURATED_KEYS, chromaOf, fillFor, tokenFor } from "../viz/party-ink.ts";
 import { contrastOf } from "../viz/colour.ts";
-import { FLOOR, NEUTRAL_ALPHA, alphaFor, glowOf, glowParty, seatGlow } from "./seat-glow.ts";
+import { FLOOR, NEUTRAL_ALPHA, alphaFor, alphaForLight, glowOf, glowParty, seatGlow } from "./seat-glow.ts";
 import type { GlowHistory } from "./seat-glow.ts";
 import { readSeatHistory } from "./seat-history.ts";
 import { currentSeat } from "./testkit.ts";
@@ -35,6 +35,15 @@ function brightestUnder(colour: string): string {
   const [r, g, b, a] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
   const lit = [7, 7, 11].map((v) => 255 * 0.04 + v * 0.96);
   const px = [r, g, b].map((v, i) => v * a + (lit[i] as number) * (1 - a));
+  return `#${px.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
+}
+
+/** The darkest the LIGHT page gets under a glow: the glow over the light canvas (the white highlight has no alpha there, iei.css). */
+function darkestUnder(colour: string): string {
+  const m = RGBA.exec(colour);
+  assert.ok(m !== null, `not an rgba colour: ${colour}`);
+  const [r, g, b, a] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])];
+  const px = [r, g, b].map((v, i) => v * a + ([0xee, 0xf0, 0xf6][i] as number) * (1 - a));
   return `#${px.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
 }
 
@@ -71,10 +80,13 @@ test("a party with a recorded hue is lit in that hue, as an rgba the page can se
   for (const key of ["BJP", "AITC", "INC", "CPI(M)"]) {
     const g = glowOf(key);
     assert.ok(g !== null, `${key} has a recorded hue and no glow`);
-    const m = RGBA.exec(g.colour);
-    assert.ok(m !== null, `${key}: ${g.colour}`);
+    const m = RGBA.exec(g.dark);
+    assert.ok(m !== null, `${key}: ${g.dark}`);
+    // What the page is given follows the theme: the light half is the party's light fill, the dark half its fill.
+    assert.equal(g.colour, `light-dark(${g.light}, ${g.dark})`, `${key}: the glow does not follow the theme`);
+    assert.ok(RGBA.exec(g.light) !== null, `${key}: ${g.light}`);
     // The channels are the party's own fill, not a hand-picked value.
-    const fill = fillFor(key);
+    const fill = tokenFor(key).fill;
     assert.equal(`#${[m[1], m[2], m[3]].map((v) => Number(v).toString(16).padStart(2, "0")).join("")}`, fill, `${key}'s glow is not its ink`);
   }
   assert.notEqual(glowOf("BJP")?.colour, glowOf("AITC")?.colour, "two parties are lit alike");
@@ -92,8 +104,8 @@ test("a key that is a curated party in another case is lit as that party, as eve
 });
 
 test("the alpha is the neutral glow's at most, and falls for a pale ink until a label still clears the floor", () => {
-  assert.equal(alphaFor(fillFor("BJP")), NEUTRAL_ALPHA);
-  const pale = alphaFor(fillFor("TDP"));
+  assert.equal(alphaFor(tokenFor("BJP").fill), NEUTRAL_ALPHA);
+  const pale = alphaFor(tokenFor("TDP").fill);
   assert.ok(pale !== null && pale < NEUTRAL_ALPHA, `a yellow glow is as strong as the neutral one (${pale})`);
 });
 
@@ -106,10 +118,10 @@ test("under every curated party's glow, the dimmest label ink still clears the f
       continue;
     }
     lit += 1;
-    const c = contrastOf(brightestUnder(g.colour), "#8b8ba2");
+    const c = contrastOf(brightestUnder(g.dark), "#8b8ba2");
     assert.ok(c >= FLOOR, `${key}: ink-3 measures ${c.toFixed(2)} under its glow, below ${FLOOR}`);
     assert.ok(c >= 4.5, `${key}: below the 4.5 small-text floor`);
-    assert.ok(Number(RGBA.exec(g.colour)?.[4]) <= NEUTRAL_ALPHA, `${key}: stronger than the neutral light`);
+    assert.ok(Number(RGBA.exec(g.dark)?.[4]) <= NEUTRAL_ALPHA, `${key}: stronger than the neutral light`);
   }
   assert.ok(lit >= 50, `only ${lit} curated parties are lit: the check has stopped reaching them`);
 });
@@ -139,8 +151,9 @@ test("every current seat of the registry gets a glow or the neutral light, and n
     }
     assert.ok(newest?.winner !== null && newest?.winner !== undefined, `seat ${id}: lit with no winner`);
     assert.equal(g.party, tokenFor(newest.winner.party.key).key, `seat ${id}: lit for another party than its winner`);
-    assert.match(g.colour, RGBA, `seat ${id}: ${g.colour}`);
-    assert.ok(contrastOf(brightestUnder(g.colour), "#8b8ba2") >= FLOOR, `seat ${id}: a label loses its contrast`);
+    assert.match(g.dark, RGBA, `seat ${id}: ${g.dark}`);
+    assert.ok(contrastOf(brightestUnder(g.dark), "#8b8ba2") >= FLOOR, `seat ${id}: a label loses its contrast`);
+    assert.ok(contrastOf(darkestUnder(g.light), "#585b70") >= FLOOR, `seat ${id}: a label loses its contrast on the light page`);
     lit.set(g.party, (lit.get(g.party) ?? 0) + 1);
   }
   assert.equal(neutral + [...lit.values()].reduce((a, b) => a + b, 0), seats.length);
@@ -166,7 +179,8 @@ function render(route: string, query = "", segments = ""): string {
 
 /** The page wrapper's own style attribute, which is where `Shell` sets the light. */
 function wrapperStyle(html: string): string | null {
-  const m = /<div class="iei"(?: style="([^"]*)")?>/.exec(html);
+  // `data-here` names the kind of page and picks the chrome's hue; it is not the light and is allowed beside it.
+  const m = /<div class="iei"(?: data-here="[^"]*")?(?: style="([^"]*)")?>/.exec(html);
   assert.ok(m !== null, "the page has no wrapper to read the light from");
   return m[1] ?? null;
 }
@@ -213,4 +227,20 @@ test("the front page, a person, a state, an election, the candidates list, the c
     assert.equal(wrapperStyle(html), null, `${route} ${query} ${segments} sets a glow`);
     assert.doesNotMatch(html, /--iei-glow/, `${route} ${query} ${segments} names the glow`);
   }
+});
+
+test("on the light page the glow is the party's light fill, and under every party's glow the dimmest label ink still clears the floor at the darkest the page gets", () => {
+  // On a light page a glow DARKENS the canvas, so the worry runs the other way: ink-3 (#585b70) over the darkest the page gets under it.
+  let lit = 0;
+  for (const key of CURATED_KEYS) {
+    const g = glowOf(key);
+    if (g === null) continue;
+    lit += 1;
+    assert.equal(g.light.startsWith(`rgba(${[1, 3, 5].map((n) => Number.parseInt(tokenFor(key).fillLight.slice(n, n + 2), 16)).join(", ")}, `), true, `${key}'s light glow is not its light ink`);
+    const c = contrastOf(darkestUnder(g.light), "#585b70");
+    assert.ok(c >= FLOOR, `${key}: ink-3 measures ${c.toFixed(2)} under its light glow, below ${FLOOR}`);
+    assert.ok(Number(RGBA.exec(g.light)?.[4]) <= NEUTRAL_ALPHA, `${key}: stronger than the neutral light`);
+  }
+  assert.ok(lit >= 50, `only ${lit} curated parties are lit on the light page: the check has stopped reaching them`);
+  assert.equal(alphaForLight(tokenFor("BJP").fillLight), NEUTRAL_ALPHA, "a saturated ink keeps the neutral glow's full alpha on the light page");
 });

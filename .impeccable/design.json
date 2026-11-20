@@ -1,0 +1,158 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-20T00:00:00.000Z",
+  "title": "Design System: India Election Intelligence",
+  "extensions": {
+    "colorMeta": {
+      "accent-light": { "role": "primary", "displayName": "Accent Indigo (light)", "canonical": "#4350d6", "tonalRamp": ["#141a63", "#1f2889", "#2c37b0", "#4350d6", "#6571e6", "#8d97f0", "#bcc2f7", "#e6e8fc"] },
+      "accent-dark": { "role": "primary", "displayName": "Accent Indigo (dark)", "canonical": "#8b9bff", "tonalRamp": ["#1b2370", "#2c389f", "#4351cc", "#6676f0", "#8b9bff", "#adb8ff", "#cdd3ff", "#eceeff"] },
+      "canvas-light": { "role": "neutral", "displayName": "Canvas (light)", "canonical": "#eef0f6", "tonalRamp": ["#12131c", "#454859", "#585b70", "#8a8ea3", "#c3c7d6", "#dcdfea", "#eef0f6", "#f8f9fc"] },
+      "panel-light": { "role": "neutral", "displayName": "Panel (light)", "canonical": "#f8f9fc", "tonalRamp": ["#12131c", "#454859", "#585b70", "#8a8ea3", "#c3c7d6", "#dcdfea", "#eef0f6", "#f8f9fc"] },
+      "canvas-dark": { "role": "neutral", "displayName": "Canvas (dark)", "canonical": "#07070b", "tonalRamp": ["#07070b", "#0d0d13", "#14141c", "#1e1e28", "#2a2a38", "#8b8ba2", "#a3a3b3", "#f2f2f7"] },
+      "panel-dark": { "role": "neutral", "displayName": "Panel (dark)", "canonical": "#0d0d13", "tonalRamp": ["#07070b", "#0d0d13", "#14141c", "#1e1e28", "#2a2a38", "#8b8ba2", "#a3a3b3", "#f2f2f7"] },
+      "ink-3-light": { "role": "neutral", "displayName": "Label Ink (light)", "canonical": "#585b70" },
+      "ink-3-dark": { "role": "neutral", "displayName": "Label Ink (dark)", "canonical": "#8b8ba2" },
+      "good-dark": { "role": "tertiary", "displayName": "Good (dark)", "canonical": "#7fd4a8" },
+      "good-light": { "role": "tertiary", "displayName": "Good (light)", "canonical": "#0b6b3f" },
+      "warn-dark": { "role": "tertiary", "displayName": "Warn, derived (dark)", "canonical": "#e0b458" },
+      "warn-light": { "role": "tertiary", "displayName": "Warn, derived (light)", "canonical": "#7a4f00" },
+      "alert-dark": { "role": "tertiary", "displayName": "Alert (dark)", "canonical": "#e8927c" },
+      "alert-light": { "role": "tertiary", "displayName": "Alert (light)", "canonical": "#a8341c" }
+    },
+    "typographyMeta": {
+      "answer": { "displayName": "Answer", "purpose": "The page's one large line; fluid 32 to 56px, capped at 30ch." },
+      "lead": { "displayName": "Lead", "purpose": "A figure, a lead sentence, the state named in the inspector; fluid 22 to 30px." },
+      "title": { "displayName": "Title", "purpose": "A section heading with an accent dot before it; fluid 18 to 22px." },
+      "body": { "displayName": "Body", "purpose": "Prose and the one-line scope statement under a title." },
+      "data": { "displayName": "Data", "purpose": "Table cells, notes and caveats at 14px." },
+      "meta": { "displayName": "Meta", "purpose": "Segments, captions and change notes at 13px, 600 as a label." },
+      "label": { "displayName": "Label", "purpose": "Column titles, rail words and figure names: 12px, 600, sentence case, untracked." },
+      "inspector-value": { "displayName": "Inspector value", "purpose": "The figure in an inspector row at 20px/600; carried off the seven-size scale." }
+    },
+    "shadows": [
+      { "name": "elev-light", "value": "0 0 0 1px rgba(24,28,64,0), 0 1px 2px rgba(24,30,72,0.07), 0 8px 24px -8px rgba(24,30,72,0.1)", "purpose": "A card on the tinted light canvas: a soft two-layer shadow, no visible border." },
+      { "name": "elev-dark", "value": "0 0 0 1px rgba(255,255,255,0.075), 0 1px 2px rgba(0,0,0,0.5), 0 8px 24px -8px rgba(0,0,0,0.3)", "purpose": "A card on the near-black canvas: a 1px low-alpha ring and a faint shadow." },
+      { "name": "elev-up-light", "value": "0 0 0 1px rgba(24,28,64,0), 0 1px 3px rgba(24,30,72,0.07), 0 12px 32px -8px rgba(24,30,72,0.1)", "purpose": "A floating surface such as the evidence drawer, light theme." },
+      { "name": "elev-up-dark", "value": "0 0 0 1px rgba(255,255,255,0.075), 0 1px 3px rgba(0,0,0,0.5), 0 12px 32px -8px rgba(0,0,0,0.3)", "purpose": "A floating surface such as the evidence drawer, dark theme." },
+      { "name": "bar-frost", "value": "background rgba(248,249,252,0.84) / rgba(13,13,19,0.84); backdrop-filter: blur(12px); 0 1px 0 line", "purpose": "The sticky top bar. The bottom tab bar is the same at 92% with a top foot; both are opaque at 640px and below." }
+    ],
+    "motion": [
+      { "name": "ease", "value": "cubic-bezier(0.2, 0.7, 0.2, 1)", "purpose": "The one easing." },
+      { "name": "t-1", "value": "160ms", "purpose": "State changes (hover, press, theme) and the cross-document view transition." },
+      { "name": "t-2", "value": "360ms", "purpose": "The fade-up of a page's first five sections (60ms apart) and data-mark entrances." },
+      { "name": "t-3", "value": "640ms", "purpose": "The longest duration token." }
+    ],
+    "breakpoints": [
+      { "name": "phone", "value": "640px" },
+      { "name": "stack", "value": "900px" },
+      { "name": "strip", "value": "1080px" },
+      { "name": "sidebar", "value": "1360px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Segmented tabs",
+      "kind": "nav",
+      "refersTo": "segment",
+      "description": "A tinted 12px track of 8px segments; the chosen one is filled with the accent.",
+      "html": "<ul class=\"ds-tabs\"><li><a class=\"ds-tab ds-tab-on\" href=\"#\" aria-current=\"true\">Winners</a></li><li><a class=\"ds-tab\" href=\"#\">Margin</a></li><li><span class=\"ds-tab ds-tab-off\">Turnout</span></li></ul>",
+      "css": ".ds-tabs{display:flex;gap:2px;width:fit-content;margin:0;padding:4px;list-style:none;background:var(--iei-tint,rgba(24,28,64,.045));border-radius:12px}.ds-tab{display:inline-flex;align-items:center;font-size:13px;font-weight:600;text-decoration:none;color:var(--iei-ink-2,#454859);border:1px solid transparent;border-radius:8px;padding:4px 12px;white-space:nowrap;transition:background 160ms cubic-bezier(.2,.7,.2,1),color 160ms cubic-bezier(.2,.7,.2,1)}.ds-tab:hover{color:var(--iei-ink,#12131c);background:var(--iei-tint-2,rgba(24,28,64,.075))}.ds-tab:focus-visible{outline:2px solid var(--accent,#4350d6);outline-offset:2px}.ds-tab-on,.ds-tab-on:hover{color:var(--iei-on-accent,#fff);background:var(--accent,#4350d6)}.ds-tab-off{color:var(--iei-ink-3,#585b70);border-style:dashed;border-color:var(--iei-line-2,#c3c7d6);cursor:not-allowed}"
+    },
+    {
+      "name": "Rail",
+      "kind": "nav",
+      "refersTo": "rail-item",
+      "description": "Three places as icon-over-word pills; the current one sits in an accent wash.",
+      "html": "<nav class=\"ds-rail\"><a class=\"ds-rail-a\" href=\"#\" aria-current=\"page\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4 11l8-7 8 7v9H4z\"/></svg>Overview</a><a class=\"ds-rail-a\" href=\"#\"><svg viewBox=\"0 0 24 24\" width=\"24\" height=\"24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"1.5\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"8\" r=\"4\"/><path d=\"M4 20c1-4 4-6 8-6s7 2 8 6\"/></svg>People</a></nav>",
+      "css": ".ds-rail{display:flex;flex-direction:column;gap:4px;width:72px;padding:16px 8px}.ds-rail-a{display:grid;justify-items:center;gap:2px;padding:8px 4px;border-radius:8px;color:var(--iei-ink-2,#454859);font-size:12px;font-weight:600;line-height:1.2;text-decoration:none;transition:color 160ms,background 160ms}.ds-rail-a:hover{color:var(--iei-ink,#12131c);background:var(--iei-tint-2,rgba(24,28,64,.075))}.ds-rail-a:focus-visible{outline:2px solid var(--accent,#4350d6);outline-offset:2px}.ds-rail-a[aria-current=page]{color:var(--accent,#4350d6);background:color-mix(in oklab,var(--accent,#4350d6) 12%,transparent);font-weight:700}"
+    },
+    {
+      "name": "Section card",
+      "kind": "card",
+      "refersTo": "section-card",
+      "description": "A 12px panel with the theme's elevation and a heading with an accent dot.",
+      "html": "<section class=\"ds-card\"><h2 class=\"ds-h\">Next up</h2><p class=\"ds-sub\">Elections on the calendar and where each term stands.</p></section>",
+      "css": ".ds-card{background:var(--iei-panel,#f8f9fc);border-radius:12px;box-shadow:var(--iei-elev,0 1px 2px rgba(24,30,72,.07),0 8px 24px -8px rgba(24,30,72,.1));padding:24px;color:var(--iei-ink,#12131c);font-family:ui-sans-serif,system-ui,sans-serif}.ds-h{margin:0;font-size:18px;font-weight:600;letter-spacing:-.01em}.ds-h::before{content:'';display:inline-block;width:8px;height:8px;margin-right:8px;border-radius:50%;background:var(--accent,#4350d6);vertical-align:.1em}.ds-sub{margin:16px 0 0;font-size:15px;line-height:1.6;color:var(--iei-ink-2,#454859);max-width:64ch}"
+    },
+    {
+      "name": "Inspector row",
+      "kind": "custom",
+      "refersTo": "inspector-value",
+      "description": "A label over a 20px/600 value, with its change note beneath.",
+      "html": "<div class=\"ds-hb\"><div class=\"ds-hb-l\">Seats held</div><div class=\"ds-hb-v\">215 <b>of 294</b></div><span class=\"ds-hb-n\">Up 12 since the previous election</span></div>",
+      "css": ".ds-hb{display:grid;font-family:ui-sans-serif,system-ui,sans-serif;font-variant-numeric:tabular-nums}.ds-hb-l{font-size:13px;line-height:1.4;color:var(--iei-ink-3,#585b70)}.ds-hb-v{margin-top:2px;font-size:20px;font-weight:600;line-height:1.3;color:var(--iei-ink,#12131c)}.ds-hb-v b{font-weight:700}.ds-hb-n{display:block;margin-top:2px;font-size:13px;line-height:1.45;color:var(--iei-ink-2,#454859)}"
+    },
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Accent fill with on-accent ink for submit actions.",
+      "html": "<button class=\"ds-btn\" type=\"submit\">Find</button>",
+      "css": ".ds-btn{font-family:inherit;font-size:12px;font-weight:600;color:var(--iei-on-accent,#fff);background:var(--accent,#4350d6);border:0;border-radius:8px;padding:8px 12px;cursor:pointer;transition:background 160ms,transform 160ms}.ds-btn:hover{background:color-mix(in oklab,var(--accent,#4350d6) 86%,var(--iei-ink,#12131c))}.ds-btn:active{transform:translateY(1px)}.ds-btn:focus-visible{outline:2px solid var(--accent,#4350d6);outline-offset:2px}"
+    },
+    {
+      "name": "Command bar",
+      "kind": "input",
+      "refersTo": "command-bar",
+      "description": "The one search field: tinted, edgeless, with the accent outline round the group on focus.",
+      "html": "<label class=\"ds-cmd\"><input class=\"ds-cmd-in\" placeholder=\"Search states, seats, people\"><kbd class=\"ds-kbd\">/</kbd></label>",
+      "css": ".ds-cmd{display:flex;align-items:center;gap:8px;max-width:420px;padding:0 8px 0 12px;background:var(--iei-tint,rgba(24,28,64,.045));border-radius:8px;height:32px}.ds-cmd:hover{background:var(--iei-tint-2,rgba(24,28,64,.075))}.ds-cmd:focus-within{background:var(--iei-panel,#f8f9fc);outline:2px solid var(--accent,#4350d6);outline-offset:2px}.ds-cmd-in{flex:1;border:0;background:transparent;font:inherit;font-size:14px;color:var(--iei-ink,#12131c);outline:0}.ds-cmd-in::placeholder{color:var(--iei-ink-3,#585b70);opacity:1}.ds-kbd{font:inherit;font-size:12px;color:var(--iei-ink-3,#585b70);background:var(--iei-tint-2,rgba(24,28,64,.075));border-radius:8px;padding:0 8px}"
+    },
+    {
+      "name": "Provenance marker",
+      "kind": "custom",
+      "refersTo": "provenance-marker",
+      "description": "A word with a rule under it: solid measured, warn-coloured derived, dashed reference, dotted absent.",
+      "html": "<span class=\"ds-pv\">Measured</span> <span class=\"ds-pv ds-pv-d\">Derived</span> <span class=\"ds-pv ds-pv-r\">Reference</span> <span class=\"ds-pv ds-pv-a\">Absent</span>",
+      "css": ".ds-pv{font-size:12px;font-weight:600;color:var(--iei-ink-2,#454859);border-bottom:2px solid var(--iei-ink-2,#454859)}.ds-pv-d{color:var(--iei-warn,#7a4f00);border-bottom-color:var(--iei-warn,#7a4f00)}.ds-pv-r{border-bottom-style:dashed}.ds-pv-a{color:var(--iei-ink-3,#585b70);border-bottom-style:dotted}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Adaptive Workbench",
+    "overview": "The product is a tool for looking at elections, and it behaves like a modern tool rather than an instrument room: one sans voice, sentence-case labels, soft rounded cards, a single accent, two themes that follow the reader's system, and a shell that rearranges itself to the screen. The data is still the loudest thing on a screen, because a party's own colour is never the product's. This replaces the earlier dark-only Night Desk world; its neutral hexes, contrast floors, party-colour rules and provenance rules carry over.\n\nThe voice is forensic, calm and civic: every figure carries its source, how it was derived and what is missing; the chrome is neutral and rounded and moves only to carry state; nothing recommends, ranks or editorialises, and the one accent is for wayfinding and affordance, never for a mark.",
+    "keyCharacteristics": [
+      "Two themes from one light-dark() token block, with a System / Light / Dark toggle and a pre-paint script.",
+      "One voice: the system sans, tabular numerals; monospace only for real code.",
+      "One indigo accent, the same on every page, never on a data mark.",
+      "Two radii (12px, 8px) and seven spacing steps.",
+      "Depth by theme: a soft shadow in light, a 1px ring and faint shadow in dark.",
+      "Adaptive navigation: icon rail, labelled sidebar from 1360px, bottom tab bar at 640px and below.",
+      "Motion inside prefers-reduced-motion: no-preference only, carrying state."
+    ],
+    "rules": [
+      { "name": "The Data Hue Rule", "body": "A hue on a data mark means what the data says, and nothing else. A party's colour is the party's, a ramp is a magnitude, a semantic ink is its meaning. The accent is not on this list.", "section": "colors" },
+      { "name": "The One Accent Rule", "body": "There is one accent hue per theme and it is the same on every page. It says where you are and what you can press, never what a mark is.", "section": "colors" },
+      { "name": "The Floor Rule", "body": "Every ink clears 4.5:1 as text on all three surfaces, and every mark clears 3:1, in both themes. iei.test.ts holds the neutral hexes.", "section": "colors" },
+      { "name": "The Three-Ink Rule", "body": "Three reading inks and no fourth.", "section": "colors" },
+      { "name": "The One Voice Rule", "body": "Sans for everything; tabular numerals for every figure. Never uppercase, never tracked, never monospace for a label, a figure or a tag.", "section": "typography" },
+      { "name": "The Fluid Three Rule", "body": "Answer, lead and title are clamp() between a phone's size and a laptop's.", "section": "typography" },
+      { "name": "The Seven Steps Rule", "body": "Every length is a token on the 4-8-12-16-24-32-48 scale; values off the scale are carried drift, not a licence.", "section": "layout" },
+      { "name": "The Theme Elevation Rule", "body": "Light separates by shadow and no border; dark separates by a ring and a faint shadow.", "section": "elevation" },
+      { "name": "The Quiet State Rule", "body": "Hover and press change a fill or an ink, and press moves a control down 1px. They do not change a shadow.", "section": "elevation" },
+      { "name": "The Two Radii Rule", "body": "12px holds things, 8px is pressed. A third corner is a new decision.", "section": "shapes" },
+      { "name": "The Word Not Colour Rule", "body": "Status is a word, a rule style or a shape, never a colour alone.", "section": "components" },
+      { "name": "The Once Rule", "body": "An animation runs once and never loops. It exists only where the motion is the information or the state change.", "section": "components" }
+    ],
+    "dos": [
+      "Do spend hue on data first: a party's own ink, a semantic ink for its meaning only, series inks for non-party lines.",
+      "Do use the one accent for the current place, the selected segment, links, focus, primary buttons and the section dot, and nothing else.",
+      "Do pair every colour mark with a word, an abbreviation or a shape.",
+      "Do write labels in sentence case at 12-13px, weight 600, and set every figure in tabular numerals.",
+      "Do declare a new colour once as light-dark(LIGHT, DARK) and run iei.test.ts, party-ink.test.ts and palette.test.ts after any change to a neutral, an accent or a party ink.",
+      "Do say an absence in words (\"not loaded\", \"not reported\") at an ink that clears 4.5:1.",
+      "Do keep every animation inside prefers-reduced-motion: no-preference.",
+      "Do put a page's scope in the one-line descriptor under its title."
+    ],
+    "donts": [
+      "Don't fill or stroke a seat, bar, ribbon, dot or legend swatch with the accent.",
+      "Don't give a page its own hue, or cycle hues by section.",
+      "Don't let a party's colour change with rank, count, page or neighbour.",
+      "Don't set a label, figure or tag in uppercase, tracked or monospace type.",
+      "Don't add a kicker or eyebrow above a title; the descriptor goes below it.",
+      "Don't add a third radius, a fourth ink tier, or a border to a card in the light theme.",
+      "Don't change a shadow on hover or press, or draw a focus ring that is not the 2px accent outline.",
+      "Don't print an absence as a bare dash, or a derived figure as if it were announced.",
+      "Don't load a webfont, or loop an animation."
+    ]
+  }
+}

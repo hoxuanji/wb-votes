@@ -98,7 +98,6 @@ export default async function PersonBriefPage({ params }: { params: { person: st
         ]}
       />
       <div className="iei-head">
-        <p className="iei-eyebrow">Person</p>
         <h1 className="iei-answer" title={brief.person.canonicalName}>
           {name}
         </h1>
@@ -121,7 +120,8 @@ export default async function PersonBriefPage({ params }: { params: { person: st
       )}
       {history === null ? null : <AgainstWhom history={history} brief={brief} />}
       {newest === undefined ? null : <ContestField election={newest} subjectId={brief.person.id} />}
-      <RecordTable brief={brief} />
+      {/* The page's sources sit in one drawer: the run's, or the record's where there is no run. */}
+      <RecordTable brief={brief} withSources={columns.length === 0} />
       <DeclaredFacts brief={brief} />
       <SamePersonList same={same} />
       <AssemblyDetails brief={brief} />

@@ -12,6 +12,7 @@ import { displayName } from '../../../packages/mandate/src/repo/display-name.ts'
 import type { PlaceStory } from '../../../packages/mandate/src/repo/place-story.ts';
 import type { MarginStrip } from '../../../packages/mandate/src/repo/seat-proof.ts';
 import { ordinal } from '../../../packages/mandate/src/repo/seat-story.ts';
+import { electionHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { Finding } from './Finding.tsx';
 import { Icon, trend } from './Icon.tsx';
 import { MarginFigure, PartyChip, PersonLink, TableTwin } from './marks.tsx';
@@ -40,7 +41,6 @@ const sgn = (n: number): string => (n > 0 ? '+' : n < 0 ? '−' : '±');
 export function AnalysisHead({ name, story }: { name: string; story: PlaceStory }) {
   return (
     <div className="iei-head iei-an-head">
-      <p className="iei-eyebrow">Constituency · analysis</p>
       <h1 className="iei-answer">How {name} got this way</h1>
       <Finding finding={story.finding} />
       <p className="iei-an-rule">Why this finding: {story.rule}</p>
@@ -57,7 +57,7 @@ export function VoteLadder({ story, followHref }: { story: PlaceStory; followHre
   const parties = new Map<string, string>();
   for (const r of rows) for (const s of r.segments) if (s.key !== null && !parties.has(s.key)) parties.set(s.key, s.label);
   return (
-    <Panel id="ladder" title="Where did the vote go?" question={`Each bar is the votes polled at one election of ${story.ladder.length === 1 ? 'the record' : 'the window'}.`}>
+    <Panel id="ladder" title="Where did the vote go?">
       <div className="iei-an-two">
         <div>
           <div className="iei-an-ladder">
@@ -113,13 +113,20 @@ export function VoteLadder({ story, followHref }: { story: PlaceStory; followHre
               </li>
             ))}
           </ul>
-          <p className="iei-note">
-            Outlined is the winner; dashed is an election with no candidate votes on record; the unfilled end of a bar is votes the registry does not itemise by candidate. A ribbon joins
-            the same party across two counted elections: it is not a count of voters who moved. <a href="#tables">Exact figures</a>
+          <p className="iei-sr">
+            Outlined is the winner; dashed is an election with no candidate votes on record; the unfilled end of a bar is votes the registry does not itemise by candidate.
           </p>
+          <p className="iei-note">A ribbon joins the same party across two counted elections: it is not a count of voters who moved.</p>
+          {/* WHAT THE LADDER CANNOT SAY, at the picture it qualifies: it was a section of the page about itself, a long way from the bars. */}
+          {story.leavesOut.map((l) => (
+            <p className="iei-note" key={l}>
+              {l}
+            </p>
+          ))}
+          <ShareTable story={story} />
         </div>
         <aside className="iei-an-follow" aria-label="Follow one party">
-          <h3 className="iei-eyebrow">Follow one party</h3>
+          <h3 className="iei-label">Follow one party</h3>
           <Tabs label="Party to follow" current={story.followed?.label ?? ''} choices={story.chips.map((c) => ({ key: c.label, label: c.label, href: followHref(c.label) }))} />
           {story.followed === null ? null : (
             <ul className="iei-an-fl">
@@ -142,7 +149,7 @@ export function VoteLadder({ story, followHref }: { story: PlaceStory; followHre
 
 /* ───────────────────────────── how close ───────────────────────────── */
 
-export function MarginHero({ story, retrieved }: { story: PlaceStory; retrieved: string | null }) {
+export function MarginHero({ story }: { story: PlaceStory }) {
   const h = story.hero;
   if (h === null) return null;
   const placed = marginColumns(h.columns, { signed: false });
@@ -222,14 +229,14 @@ export function MarginHero({ story, retrieved }: { story: PlaceStory; retrieved:
                 );
               })}
             </ol>
-            <p className="iei-note">
-              One scale, from zero. Each column is in its winner&rsquo;s ink; a rule between two columns is where the seat changed hands. Rank is by votes within each election, closest first, over the contests that have a
+            <p className="iei-sr">
+              One scale, from zero. Each column is in its winner&rsquo;s ink. Rank is by votes within each election, closest first, over the contests that have a
               result and a margin.
             </p>
           </div>
         )}
       </div>
-      {retrieved === null ? null : <p className="iei-rule">Results retrieved {retrieved}</p>}
+      <RecordTable story={story} />
     </Panel>
   );
 }
@@ -295,42 +302,7 @@ export function MarginStripPanel({ s }: { s: MarginStrip }) {
           </p>
         )}
       </figure>
-      <TableTwin summary={`All ${s.of} margins, closest first`}>
-        <Table
-          label={`All ${s.of} margins of ${s.year}`}
-          caption={`The ${s.of} ${s.scope} margins of ${s.year}, closest first, each seat linked.`}
-          captionVisible
-          tight
-          tall
-          head={
-            <>
-              <th scope="col" className="iei-n">
-                Place
-              </th>
-              <th scope="col">Seat</th>
-              <th scope="col">Won by</th>
-              <th scope="col" className="iei-n">
-                Margin, votes
-              </th>
-            </>
-          }
-        >
-          {s.rows.map((r) => (
-            <tr key={r.placeId} aria-current={r.placeId === s.self.placeId ? 'true' : undefined}>
-              <th scope="row" className="iei-n">
-                {r.rank}
-              </th>
-              <td>{r.placeId === s.self.placeId ? <b>{r.name}</b> : <Link href={r.href}>{r.name}</Link>}</td>
-              <td>
-                <PartyChip partyId={r.party.key} code={r.party.label} />
-              </td>
-              <td className="iei-n">
-                <MarginFigure votes={r.votes} basis={r.basis} />
-              </td>
-            </tr>
-          ))}
-        </Table>
-      </TableTwin>
+      <StripTwin s={s} />
     </Panel>
   );
 }
@@ -373,10 +345,12 @@ export function GapPanels({ story, stateName }: { story: PlaceStory; stateName: 
           </div>
         ))}
       </div>
-      <p className="iei-note">
+      <p className="iei-sr">
         A dot is the party&rsquo;s share here, a ring is its share across the state, on one axis from 0 to 60%. The state&rsquo;s share is the party&rsquo;s votes over the votes polled in the seats of that
-        election with candidate votes on record. Nothing is drawn for an election with none.
+        election with candidate votes on record.
       </p>
+      <p className="iei-note">Nothing is drawn for an election with no candidate votes on record.</p>
+      <GapTable story={story} stateName={stateName} />
     </Panel>
   );
 }
@@ -413,74 +387,102 @@ export function TurnoutRows({ story, district, state }: { story: PlaceStory; dis
           </li>
         ))}
       </ol>
-      <p className="iei-note">
-        A filled dot is this seat, a ring {district === null ? 'its district' : `is ${district}`}, a tick {state ?? 'the state'}. The axis runs from {dots.min}% to {dots.max}%, not from zero: from zero a gap of one to
-        three points would show as nothing.
+      <p className="iei-sr">
+        A filled dot is this seat, a ring {district === null ? 'its district' : `is ${district}`}, a tick {state ?? 'the state'}.
       </p>
+      <p className="iei-note">
+        The axis runs from {dots.min}% to {dots.max}%, not from zero.
+      </p>
+      <TurnoutTable story={story} district={district} stateName={state ?? 'the state'} />
     </Panel>
   );
 }
 
-/* ───────────────────────────── notes, limits, tables ───────────────────────────── */
+/* ───────────────────────────── the caveats of the measures, and each picture's table twin ───────────────────────────── */
 
-export function Notes({ story }: { story: PlaceStory }) {
-  if (story.notes.length === 0) return null;
+/**
+ * What each measure does not tell you, one entry a measure, closed: the reading aid for the pictures above and not a section of the page about
+ * itself. Whatever the page leaves out of a picture is said at that picture (the ladder, the margin, the turnout); this is the methodology behind them.
+ */
+export function MeasureCaveats({ caveats }: { caveats: readonly { label: string; text: string }[] }) {
+  if (caveats.length === 0) return null;
   return (
-    <Panel id="notes" title="Worth a second look" question="What in this record meets a stated rule?">
-      <ul className="iei-an-notes">
-        {story.notes.map((n) => (
-          <li key={n.text}>
-            <span>{n.text}</span>
-            <span className="iei-rule">{n.rule}</span>
-          </li>
+    <details className="iei-twin iei-an-caveats">
+      <summary>What these measures do not tell you</summary>
+      <dl>
+        {caveats.map((c) => (
+          <div key={c.label}>
+            <dt>{c.label}</dt>
+            <dd>{c.text}</dd>
+          </div>
         ))}
-      </ul>
-    </Panel>
+      </dl>
+    </details>
   );
 }
 
-export function LeavesOut({ story, caveats }: { story: PlaceStory; caveats: readonly { label: string; text: string }[] }) {
+/**
+ * THE TWIN OF THE MARGIN STRIP, and not a table of every seat: 293 rows and 293 links under one dot plot were most of the page's words. It lists the
+ * five closest margins, the five widest, and the seats either side of this one, each seat linked, closest first, and says where the rest are: the
+ * election's own page lists every seat. The strip's name (its aria-label) carries the seat's place and the spread in words.
+ */
+function StripTwin({ s }: { s: MarginStrip }) {
+  const n = s.rows.length;
+  const at = s.rows.findIndex((r) => r.placeId === s.self.placeId);
+  const keep = new Set<number>();
+  for (let i = 0; i < Math.min(5, n); i++) keep.add(i);
+  for (let i = Math.max(0, n - 5); i < n; i++) keep.add(i);
+  if (at !== -1) for (let i = Math.max(0, at - 2); i <= Math.min(n - 1, at + 2); i++) keep.add(i);
+  const rows = s.rows.filter((_, i) => keep.has(i));
   return (
-    <Panel id="leaves" title="What this page leaves out" question="Where does the record stop?">
-      <div className="iei-limits">
-        <ul>
-          {story.leavesOut.map((l) => (
-            <li key={l}>{l}</li>
-          ))}
-        </ul>
-      </div>
-      <details className="iei-twin iei-an-caveats">
-        <summary>What these measures do not tell you</summary>
-        <dl>
-          {caveats.map((c) => (
-            <div key={c.label}>
-              <dt>{c.label}</dt>
-              <dd>{c.text}</dd>
-            </div>
-          ))}
-        </dl>
-      </details>
-    </Panel>
+    <TableTwin summary={`The exact margins: ${rows.length} of ${s.of}`}>
+      <Table
+        label={`${rows.length} of the ${s.of} margins of ${s.year}`}
+        caption={`${rows.length} of the ${s.of} ${s.scope} margins of ${s.year}, closest first, each seat linked: the five closest, the five widest and the seats either side of ${s.self.name}.`}
+        tight
+        head={
+          <>
+            <th scope="col" className="iei-n">
+              Place
+            </th>
+            <th scope="col">Seat</th>
+            <th scope="col">Won by</th>
+            <th scope="col" className="iei-n">
+              Margin, votes
+            </th>
+          </>
+        }
+      >
+        {rows.map((r) => (
+          <tr key={r.placeId} aria-current={r.placeId === s.self.placeId ? 'true' : undefined}>
+            <th scope="row" className="iei-n">
+              {r.rank}
+            </th>
+            <td>{r.placeId === s.self.placeId ? <b>{r.name}</b> : <Link href={r.href}>{r.name}</Link>}</td>
+            <td>
+              <PartyChip partyId={r.party.key} code={r.party.label} />
+            </td>
+            <td className="iei-n">
+              <MarginFigure votes={r.votes} basis={r.basis} />
+            </td>
+          </tr>
+        ))}
+      </Table>
+      <p className="iei-note">
+        Every seat of the election is on <Link href={electionHref(s.electionId)}>its own page</Link>.
+      </p>
+    </TableTwin>
   );
 }
 
-export function Tables({ story, stateName, district }: { story: PlaceStory; stateName: string; district: string | null }) {
+export function RecordTable({ story }: { story: PlaceStory }) {
   const h = story.hero;
-  const counted = story.ladder.filter((r) => r.evidence === 'counted');
-  const parties = [...new Map(counted.flatMap((r) => r.segments.filter((s) => s.key !== null).map((s) => [s.key as string, s.label] as const))).entries()];
+  if (h === null) return null;
   return (
-    <section className="iei-sec" id="tables" aria-labelledby="tables-h">
-      <div className="iei-h">
-        <div className="iei-h-title">
-          <h2 id="tables-h">The numbers behind the pictures</h2>
-          <p>Each picture above has its exact figures here.</p>
-        </div>
-      </div>
-      {h === null ? null : (
+    <TableTwin summary="The exact margins, election by election">
         <Table
           label="The record"
           caption="The record: each election's winner, margin and where the margin ranks among its election's contests, closest first, by votes."
-          captionVisible
           tight
           head={
             <>
@@ -509,11 +511,20 @@ export function Tables({ story, stateName, district }: { story: PlaceStory; stat
             );
           })}
         </Table>
-      )}
-      {counted.length === 0 ? null : (
+      
+    </TableTwin>
+  );
+}
+
+export function ShareTable({ story }: { story: PlaceStory }) {
+  const counted = story.ladder.filter((r) => r.evidence === 'counted');
+  if (counted.length === 0) return null;
+  const parties = [...new Map(counted.flatMap((r) => r.segments.filter((s) => s.key !== null).map((s) => [s.key as string, s.label] as const))).entries()];
+  return (
+    <TableTwin summary="The exact shares, party by party">
         <Table
           label="Share of votes polled, by candidate party"
-          caption="Share of the votes polled, by candidate party, at each counted election. A party outside an election's listed candidates is not listed there."
+          caption="A party outside an election's listed candidates is not listed there."
           captionVisible
           tight
           head={
@@ -545,12 +556,18 @@ export function Tables({ story, stateName, district }: { story: PlaceStory; stat
             </tr>
           ))}
         </Table>
-      )}
-      {story.wave.panels.length === 0 ? null : (
+      
+    </TableTwin>
+  );
+}
+
+export function GapTable({ story, stateName }: { story: PlaceStory; stateName: string }) {
+  if (story.wave.panels.length === 0) return null;
+  return (
+    <TableTwin summary={`The exact shares, here and across ${stateName}`}>
         <Table
           label="Seat against state"
           caption={`Each party's share here against its share across ${stateName}, in percent of the votes polled, and the gap in percentage points.`}
-          captionVisible
           tight
           head={
             <>
@@ -582,11 +599,18 @@ export function Tables({ story, stateName, district }: { story: PlaceStory; stat
             )),
           )}
         </Table>
-      )}
-      {story.turnout.rows.length === 0 ? null : (
+      
+    </TableTwin>
+  );
+}
+
+export function TurnoutTable({ story, district, stateName }: { story: PlaceStory; district: string | null; stateName: string }) {
+  if (story.turnout.rows.length === 0) return null;
+  return (
+    <TableTwin summary="The exact turnout, election by election">
         <Table
           label="Turnout"
-          caption={`Turnout at each election, here${district === null ? '' : `, in ${district}`} and across ${stateName}. A withheld election has no figure.`}
+          caption="A withheld election has no figure."
           captionVisible
           tight
           head={
@@ -621,8 +645,7 @@ export function Tables({ story, stateName, district }: { story: PlaceStory; stat
             </tr>
           ))}
         </Table>
-      )}
-    </section>
+      
+    </TableTwin>
   );
 }
-

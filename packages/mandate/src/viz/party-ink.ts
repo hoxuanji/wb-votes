@@ -31,16 +31,24 @@
 // instance — the production build died on exactly that, at "Collecting page data for /coverage". An import
 // also gets the config traced into the server bundle, so the colours ship with the code that needs them.
 import config from "../../../../data/party-ink.json" with { type: "json" };
-import { contrastOf, oklch, oklabOf, linearOf } from "./colour.ts";
+import { contrastOf, lightDark, oklch, oklabOf, linearOf } from "./colour.ts";
 
 /** A party's visual token. Everything a mark needs, and nothing about where the mark is. */
 export type PartyToken = {
   /** The party's id in the registry — `party.id`, or the raw string a source printed. */
   key: string;
-  /** The fill, wherever this party appears. */
+  /** The fill on the DARK page, wherever this party appears. Plain hex, and what every piece of colour maths reads. */
   fill: string;
-  /** Text drawn ON the fill, chosen so it clears the small-text contrast floor against it. */
+  /** The fill on the LIGHT page: the same hue and chroma, lightness brought down until it is a mark there (see `lightFillOf`). */
+  fillLight: string;
+  /** What the DOM is given: `light-dark(fillLight, fill)`. A string-built SVG cannot read a CSS variable, and this is how it follows the theme. */
+  paint: string;
+  /** Text drawn ON the dark-page fill, chosen so it clears the small-text contrast floor against it. */
   on: string;
+  /** Text drawn on the light-page fill. */
+  onLight: string;
+  /** What the DOM is given for text on the fill: `light-dark(onLight, on)`, or the one colour when they agree. */
+  onPaint: string;
   /** A hairline for a mark that needs an edge against its own fill — a swatch on a panel, say. */
   border: string;
   /** How this colour was arrived at. */
@@ -107,6 +115,43 @@ function inkOn(fill: string): string {
   return cd > cl ? dark : light;
 }
 
+/**
+ * THE LIGHT PAGE'S SURFACES, copied from iei.css (`light-dark(LIGHT, …)` of --iei-bg, --iei-panel, --iei-raised); iei.test.ts holds them equal.
+ * A fill has to be a mark on the DARKEST of them, the canvas, and so is a mark on the other two.
+ */
+export const LIGHT_SURFACES = { bg: "#eef0f6", panel: "#f8f9fc", raised: "#ffffff" } as const;
+
+/** The mark floor (WCAG 1.4.11), with a hair of headroom, because the hex is rounded. */
+const LIGHT_MARK = 3.05;
+
+/** A fill is legal on the light page when it is a mark on the canvas and one of the two inks clears the text floor on it. */
+function legalOnLight(hex: string): boolean {
+  const { light, dark, floor } = CONFIG.ink;
+  return contrastOf(hex, LIGHT_SURFACES.bg) >= LIGHT_MARK && Math.max(contrastOf(hex, light), contrastOf(hex, dark)) >= floor + 0.02;
+}
+
+/**
+ * The light page's version of a party's colour: the SAME HUE and chroma, with lightness brought down.
+ *
+ * Every curated fill sits at OKLCH L 0.5-0.86, tuned to a near-black page, and 31 of the 60 fail the 3:1 mark floor on white (BJP 2.2:1, INC
+ * 2.6:1). On the light canvas a mark has to be about L 0.62 or darker, so the band is compressed into 0.42-0.62 by a MONOTONE map
+ * (lightness is the axis a dichromat keeps, and the code separates same-family parties on it: BJP and AITC, CPI and CPM), and the result is
+ * moved to the nearest lightness that is legal, because there is a dead band around L 0.55-0.58 where neither ink clears 4.5:1 and no fill may
+ * sit. The slope was the largest that keeps the saffron saffron: at 0.64 it was a brown.
+ */
+function lightFillOf(l: number, c: number, h: number): string {
+  const target = Math.max(0.3, Math.min(0.62, 0.42 + (l - 0.5) * 0.75));
+  for (let d = 0; d <= 0.3; d += 0.0025) {
+    for (const sign of [-1, 1]) {
+      const L = target + sign * d;
+      if (L < 0.28 || L > 0.64) continue;
+      const hex = oklch(L, c, h);
+      if (legalOnLight(hex)) return hex;
+    }
+  }
+  return oklch(target, c, h);
+}
+
 /** A hairline a shade of its own fill, so a swatch has an edge without spending a second colour. */
 function edgeOf(l: number, c: number, h: number): string {
   return oklch(Math.max(0.3, l - 0.16), c, h);
@@ -144,10 +189,15 @@ export function tokenFor(raw: string | null | undefined): PartyToken {
   let token: PartyToken;
   if (curated !== undefined) {
     const fill = oklch(curated.l, curated.c, curated.h);
+    const fillLight = lightFillOf(curated.l, curated.c, curated.h);
     token = {
       key,
       fill,
+      fillLight,
+      paint: lightDark(fillLight, fill),
       on: inkOn(fill),
+      onLight: inkOn(fillLight),
+      onPaint: lightDark(inkOn(fillLight), inkOn(fill)),
       border: edgeOf(curated.l, curated.c, curated.h),
       basis: "curated",
       source: curated.note,
@@ -162,10 +212,15 @@ export function tokenFor(raw: string | null | undefined): PartyToken {
     const ls = DERIVED.lightnesses;
     const l = ls[n % ls.length] as number;
     const fill = oklch(l, DERIVED.chroma, h);
+    const fillLight = lightFillOf(l, DERIVED.chroma, h);
     token = {
       key,
       fill,
+      fillLight,
+      paint: lightDark(fillLight, fill),
       on: inkOn(fill),
+      onLight: inkOn(fillLight),
+      onPaint: lightDark(inkOn(fillLight), inkOn(fill)),
       border: edgeOf(l, DERIVED.chroma, h),
       basis: "derived",
       source: `hue from a hash of the party id, at chroma ${DERIVED.chroma} — this party's own colour is not recorded`,
@@ -177,18 +232,31 @@ export function tokenFor(raw: string | null | undefined): PartyToken {
   return token;
 }
 
-/** Just the fill, for the many callers that need nothing else. */
+/**
+ * Just the fill, for the many callers that need nothing else, AS THE DOM WANTS IT: `light-dark(light, dark)`. Anything that does colour
+ * maths on a party's colour reads `tokenFor(k).fill` (the dark hex) or `.fillLight` instead, never this.
+ */
 export function fillFor(raw: string | null | undefined): string {
-  return tokenFor(raw).fill;
+  return tokenFor(raw).paint;
 }
 
 /**
  * The ink for "no election of this kind is loaded here".
  *
- * Not a party and not a token: an unlit polygon must not read as a mark, so it deliberately sits below the
- * 3:1 floor a real mark has to clear. It is the one colour on a map that means absence.
+ * Not a party: an unlit polygon must not read as a mark, so it deliberately sits below the 3:1 floor a real
+ * mark has to clear. It is the one colour on a map that means absence, and it is `--iei-void`, a deep indigo,
+ * copied because an SVG fill built as a string cannot read a CSS variable. It was a grey-violet (#1d1b26) until
+ * the stylesheet's void moved to indigo and this did not, so a legend's "none" swatch and an unlit state were one
+ * colour while an unlit seat, the arc's empty seats and the time machine's frames were another; iei.test.ts now
+ * holds the two equal.
  */
-export const NOT_HELD = "#1d1b26";
+export const NOT_HELD_DARK = "#1c203b";
+
+/** The light page's no-data ink: `--iei-void`'s light half. Below the mark floor on every light surface, and visible against the canvas. */
+export const NOT_HELD_LIGHT = "#dfe3f2";
+
+/** What the DOM is given for "not held": `light-dark(NOT_HELD_LIGHT, NOT_HELD_DARK)`. */
+export const NOT_HELD = lightDark(NOT_HELD_LIGHT, NOT_HELD_DARK);
 
 /** The OKLab chroma of a colour — what separates the curated register from the derived one. */
 export function chromaOf(hex: string): number {

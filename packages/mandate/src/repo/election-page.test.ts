@@ -183,7 +183,7 @@ function panel(html: string, id: string): string {
   return html.slice(open, close === -1 ? undefined : close);
 }
 
-/** The markup between the header's opening and the map section: the answer, its sub-line and the seats-won strip. */
+/** The markup between the header's opening and the map section: the answer and its sub-line. */
 const header = (html: string): string => html.slice(html.indexOf('class="iei-head iei-head-map"'), html.indexOf('id="map"'));
 /** The legend beside the map. */
 const legend = (html: string): string => {
@@ -198,7 +198,13 @@ const links = (markup: string): string[] => [...markup.matchAll(/<a [^>]*href="(
 test("the Lok Sabha of which the registry holds 3 of 543 seats is those seats, said so, and has no majority", () => {
   const html = render("", "ls-2024");
   const head = text(header(html));
-  assert.match(head, /Ee State · Lok Sabha Election · 2024/, "the eyebrow names the state the seats are in, not India");
+  assert.match(head, /Ee State · Lok Sabha Election · 2024/, "the descriptor names the state the seats are in, not India");
+  assert.match(
+    html,
+    /<\/h1><p class="iei-note">Ee State · Lok Sabha Election · 2024<\/p><p class="iei-sub">/,
+    "the descriptor is the line directly under the title, ahead of the lead",
+  );
+  assert.doesNotMatch(html, /iei-eyebrow/, "no label over the title");
   assert.match(head, /AAA won 2 of the 3 seats on record/);
   assert.match(head, /3 of 543 seats on record/);
   assert.doesNotMatch(head, /majority|India/);
@@ -255,18 +261,22 @@ const tab = (html: string, label: string): string => {
   return m[0];
 };
 
-test("an election that published winners and declared margins only offers neither Margin nor Runner-up", () => {
+test("an election that published winners and declared margins only offers neither Margin nor Runner-up, and says so once", () => {
   const html = render("", "ee-assembly-2021");
-  for (const label of ["Margin", "Runner-up"]) {
-    assert.match(tab(html, label), /^<span class="iei-tab iei-tab-off" aria-disabled="true">/, `${label} is a live tab`);
-  }
-  assert.match(tab(html, "Winners"), /^<a [^>]*class="iei-tab iei-tab-on"/);
+  // A reading nothing can fill is not a disabled tab (that said "unavailable" again to a screen reader for each): it is one line.
+  assert.doesNotMatch(html, /iei-tab-off|unavailable: nothing in the registry/);
+  for (const label of ["Margin", "Runner-up"]) assert.doesNotMatch(html, new RegExp(`<(?:a|span) [^>]*class="iei-tab[^"]*"[^>]*>${label}`), `${label} is offered`);
+  const said = text(html).match(/Not available for this election: ([^—]*) — nothing in the registry can fill them\./);
+  assert.ok(said !== null, "the unavailable readings are not said");
+  assert.match(said?.[1] as string, /Margin, Runner-up/);
+  assert.equal((text(html).match(/Not available for this election/g) ?? []).length, 1);
+  // With nothing to switch between there is no strip of modes at all.
+  assert.doesNotMatch(html, /aria-label="What the map shows"/);
 });
 
-test("a link into a mode that nothing can fill shows the winners instead, with the Winners tab current", () => {
+test("a link into a mode that nothing can fill shows the winners instead", () => {
   for (const mode of ["margin", "runnerup"]) {
     const html = render(`mode=${mode}`, "ee-assembly-2021");
-    assert.match(tab(html, "Winners"), /^<a [^>]*class="iei-tab iei-tab-on"/, mode);
     assert.doesNotMatch(html, /came second, and where|have a computable margin|Brightest where/, mode);
     assert.match(legend(html), /AAA<b>10<\/b>/, `${mode}: the winners' legend`);
   }
@@ -281,36 +291,21 @@ test("an election with votes keeps all four modes, and a link into Margin or Run
 
 /* ───────────────────────── the seats-won strip ───────────────────────── */
 
-test("the strip under the answer is seats won, so on the Runner-up tab its links go to the winners", () => {
-  const strip = (q: string): string => {
-    const html = render(q, "ee-assembly-2016");
-    const at = html.indexOf('<ul class="iei-standing"');
-    return html.slice(at, html.indexOf("</ul>", at));
-  };
-  for (const href of links(strip("mode=runnerup"))) {
-    assert.ok(!href.includes("mode=runnerup"), `${href} keeps the runner-up tab, where the party would mean the one that came second`);
-    assert.ok(href.includes("party="), href);
+test("the header holds the answer and no strip of parties: the key beside the map is where seats won by party are said, once", () => {
+  for (const id of ["ee-assembly-2016", "ee-assembly-2011"]) {
+    const html = render("", id);
+    assert.doesNotMatch(html, /iei-standing/, id);
+    assert.doesNotMatch(text(header(html)), /Seats won, by party/, id);
+    assert.ok(links(legend(html)).length > 0, `${id}: no key beside the map`);
   }
-  // On the tabs where a party still means its winner, the mode is kept.
-  for (const href of links(strip("mode=margin"))) assert.ok(href.includes("mode=margin"), href);
 });
 
-test("a strip that stops at eight parties says how many it left out, and what they hold", () => {
+test("a key that stops at ten parties says how many it left out, and what they hold; a key with every party has no 'other parties' item", () => {
   const html = render("", "ee-assembly-2011");
-  const at = html.indexOf('<ul class="iei-standing"');
-  const strip = html.slice(at, html.indexOf("</ul>", at));
-  assert.equal(links(strip).length, 8);
-  assert.match(text(strip), /\+ 3 other parties · 3 seats/);
-  // The legend beside the map stops at ten.
   const key = legend(html);
   assert.equal(links(key).length, 10);
   assert.match(text(key), /\+ 1 other party · 1 seat\b/);
-});
-
-test("a strip with every party in it has no 'other parties' item", () => {
-  const html = render("", "ee-assembly-2016");
-  assert.doesNotMatch(text(html.slice(html.indexOf('<ul class="iei-standing"'), html.indexOf('id="map"'))), /other part/);
-  assert.doesNotMatch(legend(html), /other part/);
+  assert.doesNotMatch(legend(render("", "ee-assembly-2016")), /other part/);
 });
 
 /* ───────────────────────── the legends, and the seats they leave out ───────────────────────── */

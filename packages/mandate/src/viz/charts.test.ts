@@ -3,7 +3,26 @@ import test from "node:test";
 import { percent, percentagePoints } from "../semantic/index.ts";
 import { bars, lines, slope } from "./charts.ts";
 import { barPath, escapeXml, hueMap, labelIndices, ticks } from "./marks.ts";
-import { CATEGORICAL, DIVERGING, LINE_SUBTLE, OTHERS, SURFACE, TEXT_MUTED, TEXT_PRIMARY } from "./palette.ts";
+import {
+  CATEGORICAL,
+  CATEGORICAL_DARK,
+  CATEGORICAL_LIGHT,
+  DIVERGING,
+  LINE_SUBTLE,
+  OTHERS,
+  OTHERS_DARK,
+  OTHERS_LIGHT,
+  SURFACE,
+  SURFACE_LIGHT,
+  SURFACE_PAINT,
+  TEXT_MUTED,
+  TEXT_PRIMARY,
+} from "./palette.ts";
+
+/** A palette value as it appears inside a regex: the paints are `light-dark(a, b)`, whose parentheses are not groups. */
+const esc = (v: string): string => v.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+/** A colour in the SVG the charts write: a plain `#rrggbb`, or a `light-dark(#rrggbb, #rrggbb)` paint. */
+const PAINT_RE = "(light-dark\\([^)]*\\)|#[0-9a-fA-F]{6})";
 
 const ELECTIONS = ["2011", "2016", "2021", "2026"] as const;
 
@@ -260,7 +279,7 @@ test("a missing figure is words in the table where the caller knows why, and a d
 
 test("a bar may bring its own colour, and then takes none of the capped hues", () => {
   const fills = (svg: string): string[] =>
-    [...svg.matchAll(/<path d="[^"]*" fill="(#[0-9a-fA-F]{6})"/g)].flatMap((m) => (m[1] ? [m[1]] : []));
+    [...svg.matchAll(new RegExp(`<path d="[^"]*" fill="${PAINT_RE}"`, "g"))].flatMap((m) => (m[1] ? [m[1]] : []));
   const c = bars({
     title: "Votes polled, 2021",
     finding: "x",
@@ -292,7 +311,7 @@ test("bars caps entity colour at three hues without folding any row away", () =>
 
 test("bars paints a keyless aggregate row with the neutral, never the top party's hue", () => {
   const fills = (svg: string): string[] =>
-    [...svg.matchAll(/<path d="[^"]*" fill="(#[0-9a-fA-F]{6})"/g)].flatMap((m) => (m[1] ? [m[1]] : []));
+    [...svg.matchAll(new RegExp(`<path d="[^"]*" fill="${PAINT_RE}"`, "g"))].flatMap((m) => (m[1] ? [m[1]] : []));
   const c = bars({
     title: "Votes polled, 2021",
     finding: "three parties and the rest of the field",
@@ -352,7 +371,7 @@ test("line markers are >= 8px and carry a 2px surface ring", () => {
   assert.equal([...frame(c.svg).matchAll(/<circle /g)].length, 4);
   // SURFACE, not a literal: the halo around a data point is the page's own panel colour, and hard-coding it
   // is how a chart kept drawing itself on a surface the stylesheet had stopped painting.
-  assert.ok(c.svg.includes(`r="4" fill="${CATEGORICAL[0]}" stroke="${SURFACE}" stroke-width="2"`));
+  assert.ok(c.svg.includes(`r="4" fill="${CATEGORICAL[0]}" stroke="${SURFACE_PAINT}" stroke-width="2"`));
   assert.ok(c.svg.includes(`stroke="${CATEGORICAL[0]}" stroke-width="2"`), "2px line");
 });
 
@@ -398,7 +417,7 @@ test("direct labels land on the first, last and extreme values only", () => {
   // Two are printed: the peak, and the end label (which carries the line's name too). The first, 10.0%, is the lowest
   // value and sits on the axis with the line rising out of it, so there is nowhere for it to go and it is left to the table.
   for (const name of ["narrow", "mid", "wide"]) {
-    const printed = [...frame(c.svg, name).matchAll(new RegExp(`fill="${TEXT_PRIMARY}"`, "g"))].length;
+    const printed = [...frame(c.svg, name).matchAll(new RegExp(`fill="${esc(TEXT_PRIMARY)}"`, "g"))].length;
     assert.equal(printed, 2, `${name}: the peak and the end label`);
   }
 });
@@ -432,7 +451,7 @@ test("direct labels never stack on one baseline", () => {
     format: percent,
   });
   for (const name of ["narrow", "mid", "wide"]) {
-    const texts = [...frame(c.svg, name).matchAll(new RegExp(`<text (?:class="iei-tag" )?x="([\\d.]+)" y="([\\d.]+)" fill="${TEXT_PRIMARY}"`, "g"))].map(
+    const texts = [...frame(c.svg, name).matchAll(new RegExp(`<text (?:class="iei-tag" )?x="([\\d.]+)" y="([\\d.]+)" fill="${esc(TEXT_PRIMARY)}"`, "g"))].map(
       (m) => ({ x: Number(m[1]), y: Number(m[2]) }),
     );
     assert.ok(texts.length >= 3, `${name}: the three end labels at least`);
@@ -691,7 +710,7 @@ test("the table row count matches the data point count", () => {
   assert.deepEqual(s.table.rows[0], ["BJP", "9.6%", "38.0%", "+28.4 pp"]);
   assert.deepEqual(s.table.rows[2], ["New entrant", "—", "4.1%", "—"]);
   const one = frame(s.svg);
-  assert.equal([...one.matchAll(/stroke="#1e1e28"/g)].length, 2, "2 axes");
+  assert.equal([...one.matchAll(new RegExp(`stroke="${esc(LINE_SUBTLE)}"`, "g"))].length, 2, "2 axes");
   assert.equal([...one.matchAll(/class="iei-line-ink"/g)].length, 2, "and 2 slopes");
 });
 
@@ -779,10 +798,25 @@ function contrast(a: string, b: string): number {
 }
 
 test("the Others neutral clears the 3:1 mark floor; §24.6's ramp midpoint does not", () => {
-  assert.ok(contrast(OTHERS, SURFACE) >= 3, `OTHERS is ${contrast(OTHERS, SURFACE).toFixed(2)}:1`);
+  assert.ok(contrast(OTHERS_DARK, SURFACE) >= 3, `OTHERS is ${contrast(OTHERS_DARK, SURFACE).toFixed(2)}:1`);
   // this is why the diverging midpoint is not reused as a fill, measured rather than argued
   assert.ok(contrast("#383835", SURFACE) < 3, "the ramp midpoint is invisible as a mark");
-  for (const hue of CATEGORICAL) assert.ok(contrast(hue, SURFACE) >= 3, `${hue} below 3:1`);
+  for (const hue of CATEGORICAL_DARK) assert.ok(contrast(hue, SURFACE) >= 3, `${hue} below 3:1`);
+});
+
+test("on the light page the same holds: the fold grey and every categorical slot are a mark on the light panel", () => {
+  assert.ok(contrast(OTHERS_LIGHT, SURFACE_LIGHT) >= 3, `OTHERS is ${contrast(OTHERS_LIGHT, SURFACE_LIGHT).toFixed(2)}:1 on the light panel`);
+  for (const hue of CATEGORICAL_LIGHT) assert.ok(contrast(hue, SURFACE_LIGHT) >= 3, `${hue} below 3:1 on the light panel`);
+});
+
+test("every palette value the charts write is a well-formed paint whose halves are the dark and light constants", () => {
+  assert.equal(OTHERS, `light-dark(${OTHERS_LIGHT}, ${OTHERS_DARK})`);
+  // A slot whose two halves agree (magenta and green are fine on either page) is the one plain colour, not a pair of equal ones.
+  CATEGORICAL.forEach((paint, i) => {
+    const [l, d] = [CATEGORICAL_LIGHT[i], CATEGORICAL_DARK[i]];
+    assert.equal(paint, l === d ? d : `light-dark(${l}, ${d})`);
+  });
+  assert.equal(SURFACE_PAINT, `light-dark(${SURFACE_LIGHT}, ${SURFACE})`);
 });
 
 // ── scales ───────────────────────────────────────────────────────────────────────────────────────

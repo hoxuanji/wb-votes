@@ -21,8 +21,8 @@
 // differ without hue. No text is drawn over a ribbon (names are in columns beside the picture, the ladder's codes are on the bars), so nothing
 // here has to clear the 4.5:1 a label does.
 
-import { contrastOf, linearOf, oklabOf, oklch } from "./colour.ts";
-import { SURFACE } from "./palette.ts";
+import { contrastOf, halvesOf, lightDark, linearOf, oklabOf, oklch } from "./colour.ts";
+import { SURFACE, SURFACE_LIGHT } from "./palette.ts";
 
 export type RibbonTier = "bright" | "mid" | "faint";
 
@@ -33,12 +33,22 @@ export const RIBBON_CAP = 6;
 export const RIBBON_SHARE: Readonly<Record<RibbonTier, number>> = { bright: 1, mid: 0.7, faint: 0.42 };
 
 /** --iei-ink-3: the ribbon of "smaller parties together", and of seats that were held and changed hands in one. Not a party's ink. */
-export const NEUTRAL_RIBBON_INK = "#8b8ba2";
+export const NEUTRAL_RIBBON_INK_DARK = "#8b8ba2";
+/** --iei-ink-3 on the light page. */
+export const NEUTRAL_RIBBON_INK_LIGHT = "#585b70";
+/** What the DOM is given: `light-dark(light, dark)`. */
+export const NEUTRAL_RIBBON_INK = lightDark(NEUTRAL_RIBBON_INK_LIGHT, NEUTRAL_RIBBON_INK_DARK);
 
 const cache = new Map<string, string>();
 
-/** The opaque fill of a ribbon in `ink` (a `#rrggbb`) on `surface`, at the tier's contrast. */
-export function ribbonInk(ink: string, tier: RibbonTier, surface: string = SURFACE): string {
+/**
+ * The opaque fill of a ribbon in `ink` on `surface`, at the tier's contrast. Both are plain `#rrggbb`: this is the maths, for ONE theme.
+ *
+ * On a DARK surface contrast rises with the ribbon's lightness; on a LIGHT one it falls. Either way contrast is monotone in lightness at a
+ * fixed hue and chroma, so the search is the same halving with its direction decided by which of the two ends of the lightness range is
+ * further from the surface.
+ */
+export function ribbonInkOn(ink: string, tier: RibbonTier, surface: string): string {
   const id = `${ink}|${tier}|${surface}`;
   const hit = cache.get(id);
   if (hit !== undefined) return hit;
@@ -47,15 +57,28 @@ export function ribbonInk(ink: string, tier: RibbonTier, surface: string = SURFA
   const [, a, b] = oklabOf(linearOf(ink));
   const chroma = Math.hypot(a, b);
   const hue = ((Math.atan2(b, a) * 180) / Math.PI + 360) % 360;
-  // Contrast rises with lightness at a fixed hue and chroma, so the lightness that reaches the target is found by halving.
+  // The light end of the range is the far one when the surface is dark: more lightness, more contrast.
+  const raises = contrastOf(oklch(1, chroma, hue), surface) > contrastOf(oklch(0, chroma, hue), surface);
   let lo = 0;
   let hi = 1;
   for (let i = 0; i < 24; i += 1) {
     const mid = (lo + hi) / 2;
-    if (contrastOf(oklch(mid, chroma, hue), surface) < target) lo = mid;
+    const c = contrastOf(oklch(mid, chroma, hue), surface);
+    // `lo` is always the side that does not reach the target.
+    if (raises ? c < target : c >= target) lo = mid;
     else hi = mid;
   }
-  const out = oklch(hi, chroma, hue);
+  const out = oklch(raises ? hi : lo, chroma, hue);
   cache.set(id, out);
   return out;
+}
+
+/**
+ * What the DOM is given for a ribbon: `ink` is a party's paint (`light-dark(light, dark)`) or a plain colour, and the result is the
+ * light-dark of the two halves each worked out against the surface of its own theme (`surface` is the dark one; the light one is the panel).
+ * Defaults to the card the charts draw on.
+ */
+export function ribbonInk(ink: string, tier: RibbonTier, surface: string = SURFACE, surfaceLight: string = SURFACE_LIGHT): string {
+  const { light, dark } = halvesOf(ink);
+  return lightDark(ribbonInkOn(light, tier, surfaceLight), ribbonInkOn(dark, tier, surface));
 }

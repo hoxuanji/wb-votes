@@ -1,4 +1,3 @@
-import { CountUp } from './CountUp.tsx';
 import Link from 'next/link';
 import type { CSSProperties, ReactNode } from 'react';
 import { dumbbell } from '../../../packages/mandate/src/viz/story.ts';
@@ -7,6 +6,8 @@ import { fillFor } from '../../../packages/mandate/src/viz/party-ink.ts';
 import { electionHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
 import type { StoryDistrict, StoryParty, StoryView, StoryVote } from '../../../packages/mandate/src/repo/home-story.ts';
 import type { GlanceRow, StateChoice } from '../../../packages/mandate/src/repo/home-glance.ts';
+import { changeDelta, changeLine } from '../../../packages/mandate/src/repo/home.ts';
+import type { AssemblyChange } from '../../../packages/mandate/src/repo/home.ts';
 import { DataList, DataRow, Panel, Table } from './parts.tsx';
 import { SeatFlow } from './SeatFlow.tsx';
 import { MarginDistribution } from './Distribution.tsx';
@@ -74,15 +75,12 @@ export function StoryHead({ view }: { view: StoryView }) {
   // Why this state is the one shown, said every time: a page that shows one state owes the reader the reason.
   const why =
     view.basis === 'asked'
-      ? 'Chosen on the map. Choose another state there to see its latest election here.'
+      ? 'Chosen on the map.'
       : view.choices > 1
-        ? 'Showing the most recent election on record. Choose another state on the map to see its latest election here.'
+        ? 'Showing the most recent election on record.'
         : `${view.jurisdiction.name} is the only state with an assembly result on record, so it is the one shown here.`;
   return (
     <div className="iei-head iei-story-head" id="state">
-      <p className="iei-eyebrow">
-        {view.jurisdiction.name} · latest assembly election, {view.latest.year}
-      </p>
       <h2 className="iei-story-lead iei-story-sentence">
         <Party p={lead} bold /> won <b>{s.seats}</b> of {view.jurisdiction.name}&rsquo;s <b>{view.total}</b> seats in {view.latest.year}
         {s.direction === null || earlier.length === 0 ? null : (
@@ -100,19 +98,36 @@ export function StoryHead({ view }: { view: StoryView }) {
 
 /* ───────────────────────────── the whole country, and the state chosen in it ───────────────────────────── */
 
-const houseLine = (label: string, h: GlanceRow['assembly']): ReactNode =>
-  h === null ? (
-    <span className="iei-absent">no {label} result on record</span>
-  ) : h.leader === null ? (
-    <>
-      {label} {h.year}: <span className="iei-absent">no winner declared</span>
-    </>
-  ) : (
-    <>
-      {label} {h.year}: <Party p={h.leader} /> <b>{h.seats}</b> of {h.of}
-      {h.majority ? ' · majority' : ' · no majority'}
-    </>
+/**
+ * ONE RESULT, AS ITS OWN ROW: a small label ("Assembly 2026") over the value ("BJP 192 of 294 · majority"), and, for the assembly, what changed since the election
+ * before directly under it, in two quiet lines. The label and the value used to be one sentence at title size that wrapped, and the note ran into the next result's row.
+ */
+const houseBlock = (label: string, h: GlanceRow['assembly'], change: AssemblyChange | undefined = undefined): ReactNode => {
+  const delta = change === undefined ? null : changeDelta(change);
+  const note = change === undefined ? null : changeLine(change);
+  return (
+    <div className="iei-hb">
+      <span className="iei-hb-l">
+        {label}
+        {h === null ? '' : ` ${h.year}`}
+      </span>
+      <span className="iei-hb-v">
+        {h === null ? (
+          <span className="iei-absent">no {label} result on record</span>
+        ) : h.leader === null ? (
+          <span className="iei-absent">no winner declared</span>
+        ) : (
+          <>
+            <Party p={h.leader} /> <b>{h.seats}</b> of {h.of}
+            {h.majority ? ' · majority' : ' · no majority'}
+          </>
+        )}
+      </span>
+      {delta === null ? null : <span className="iei-hb-n">{delta}</span>}
+      {note === null ? null : <span className="iei-hb-n">{note}</span>}
+    </div>
   );
+};
 
 /**
  * The card beside the map, and it is two things on purpose. With no state chosen it is a GLANCE: the latest election of every state that has one, in one
@@ -125,6 +140,7 @@ export function StateCard({
   hrefFor,
   clearHref,
   storyHere,
+  changes,
 }: {
   rows: readonly GlanceRow[];
   chosen: StateChoice | null;
@@ -132,17 +148,19 @@ export function StateCard({
   clearHref: string;
   /** The state the section below the map is about, so the card can point at it. */
   storyHere: string | null;
+  /** Each state's latest assembly election against the one before it (home.ts `changes`). Shown for the chosen state, and for the only one. */
+  changes?: ReadonlyMap<string, AssemblyChange>;
 }) {
   if (chosen !== null) {
     const name = chosen.status === 'loaded' ? chosen.row.name : chosen.name;
     return (
       <section className="iei-story-card" aria-label={`Latest elections in ${name}`}>
-        <p className="iei-eyebrow">{name}</p>
+        <p className="iei-story-card-h iei-story-card-name">{name}</p>
         {chosen.status === 'loaded' ? (
-          <>
-            <p className="iei-story-card-l">{houseLine('Assembly', chosen.row.assembly)}</p>
-            <p className="iei-story-card-l">{houseLine('Lok Sabha', chosen.row.loksabha)}</p>
-          </>
+          <div className="iei-hb-list">
+            {houseBlock('Assembly', chosen.row.assembly, changes?.get(chosen.row.id))}
+            {houseBlock('Lok Sabha', chosen.row.loksabha)}
+          </div>
         ) : (
           <p className="iei-story-card-l">
             <span className="iei-absent">No election result is on record for {name} yet.</span>{' '}
@@ -159,7 +177,7 @@ export function StateCard({
   }
   return (
     <section className="iei-story-card" aria-label="Latest elections, state by state">
-      <p className="iei-eyebrow">Latest elections, state by state</p>
+      <p className="iei-story-card-h iei-story-card-sub">Latest elections, state by state</p>
       {rows.length === 0 ? (
         <p className="iei-absent">No election result is on record yet.</p>
       ) : (
@@ -169,13 +187,14 @@ export function StateCard({
               <Link href={hrefFor(r.id)} className="iei-story-gname">
                 {r.name}
               </Link>
-              <span className="iei-story-gl">{houseLine('Assembly', r.assembly)}</span>
-              <span className="iei-story-gl">{houseLine('Lok Sabha', r.loksabha)}</span>
+              <div className="iei-hb-list">
+                {houseBlock('Assembly', r.assembly, rows.length === 1 ? changes?.get(r.id) : undefined)}
+                {houseBlock('Lok Sabha', r.loksabha)}
+              </div>
             </li>
           ))}
         </ul>
       )}
-      <p className="iei-note">Most recent election first, then by name. Choose a state on the map or here to see its latest election.</p>
     </section>
   );
 }
@@ -183,7 +202,7 @@ export function StateCard({
 export function StoryDoors({ view }: { view: StoryView }) {
   return (
     <nav className="iei-story-doors" aria-labelledby="story-doors-h">
-      <h2 className="iei-eyebrow" id="story-doors-h">
+      <h2 className="iei-label" id="story-doors-h">
         Open the record
       </h2>
       <ul>
@@ -254,9 +273,8 @@ export function StoryHouses({ view }: { view: StoryView }) {
           );
         })}
       </ol>
-      <figcaption className="iei-note">
-        Each bar is the whole house, {IN.format(view.total)} seats, and the line is half of it. The order of the colours means nothing else: the
-        party in the sentence starts at the left, and the party that lost it most seats ends at the right. Hatched is the smaller parties added
+      <figcaption className="iei-sr">
+        Each bar is the whole house, {IN.format(view.total)} seats, and the line is half of it. Hatched is the smaller parties added
         together; dashed is seats with no declared winner.
       </figcaption>
       <details className="iei-twin">
@@ -383,11 +401,11 @@ export function StoryWhere({ view }: { view: StoryView }) {
           </ol>
         </details>
       )}
-      <p className="iei-note">
+      <p className="iei-sr">
         A bar is a district&rsquo;s seats that can be compared with the earlier election. The coloured part changed hands, in the colour of the
         party that won them; the grey part did not.
-        {view.noDistrict === 0 ? null : <> {view.noDistrict} seats are in no district on record and are not listed.</>}
       </p>
+      {view.noDistrict === 0 ? null : <p className="iei-note">{view.noDistrict} seats are in no district on record and are not listed.</p>}
     </Panel>
   );
 }
@@ -455,7 +473,7 @@ export function StoryVotes({ view }: { view: StoryView }) {
           ...(partner === null || w === null ? [] : [<VoteRow key={`${v.electionId}-${partner.key}`} p={partner} v={w} first={false} />]),
         ])}
       </ol>
-      <p className="iei-note">
+      <p className="iei-sr">
         A circle is a share of the votes polled in the seats where the registry holds candidates&rsquo; votes; a square is a share of the
         house&rsquo;s seats; the line between them is how far the seats ran from the votes. The dashed line is half.
       </p>
@@ -658,31 +676,5 @@ export function StoryCannot({ view }: { view: StoryView }) {
         ))}
       </ul>
     </Panel>
-  );
-}
-
-/* ───────────────────────────── the reach ledger ───────────────────────────── */
-
-export type Reach = { label: string; have: number; of: number; unit: string };
-
-/** Three figures against their true denominators, once: the absence said in one place instead of in 35 rows. */
-export function HomeReach({ reach }: { reach: readonly Reach[] }) {
-  return (
-    <ul className="iei-story-reach" aria-label="How much of India the registry holds">
-      {reach.map((r) => (
-        <li key={r.label}>
-          <span className="iei-story-reach-l">{r.label}</span>
-          <span className="iei-story-reach-v">
-            <b>
-              <CountUp value={r.have} />
-            </b>{' '}
-            of {IN.format(r.of)} {r.unit}
-          </span>
-          <span className="iei-story-reach-bar" aria-hidden="true">
-            <i style={{ width: `${(100 * r.have) / r.of}%` }} />
-          </span>
-        </li>
-      ))}
-    </ul>
   );
 }

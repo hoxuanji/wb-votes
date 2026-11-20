@@ -171,7 +171,8 @@ function declarationsOf(selector: string): string {
 
 test("a words tile is set smaller than a numeral, from the type scale, with its unit on its own line", () => {
   const size = (name: string): number => {
-    const m = CSS.match(new RegExp(`--iei-f-${name}:\\s*([0-9.]+)px`));
+    // A size is `Npx` or a fluid `clamp(Npx, …, Mpx)` (iei.css, 2026-11-20); the comparison is at the phone's end, where a words tile is tightest.
+    const m = CSS.match(new RegExp(`--iei-f-${name}:\\s*(?:clamp\\()?([0-9.]+)px`));
     assert.ok(m !== null, `--iei-f-${name} is not declared in px`);
     return Number(m[1]);
   };

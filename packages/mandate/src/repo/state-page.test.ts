@@ -5,6 +5,7 @@
 //       a by-election; and the Lok Sabha 2019 and 2024, which publish winners and nothing else and no turnout.
 //         winner of seat 1..6   2011: A A A A B B   2016: A A B B B C   2021: A B B B C C
 //   uu  three assembly seats, assembly 2016 and 2021; in 2021 seat 3 has no declared winner. It has two seats in the Lok Sabha 2024.
+//   mm  fourteen assembly seats, assembly 2021 with vote counts: more seats than the short list shows, for the list's way to the rest.
 //   nv  two assembly seats; assembly 2021 with vote counts, assembly 2026 with winners and a declared margin and nothing else,
 //       and a turnout that nothing corroborates.
 
@@ -34,9 +35,11 @@ function fixture(db: DatabaseSync): DatabaseSync {
     INSERT INTO party_version (id, party_id, valid_from, name) VALUES (1,'AAA','1990-01-01','A Party');
     INSERT INTO party_version (id, party_id, valid_from, name) VALUES (2,'BBB','1990-01-01','B Party');
     INSERT INTO party_version (id, party_id, valid_from, name) VALUES (3,'CCC','1990-01-01','C Party');
+    INSERT INTO party (id, name, short_name) VALUES ('DDD','D Party','DD');
+    INSERT INTO party_version (id, party_id, valid_from, name) VALUES (4,'DDD','1990-01-01','D Party');
   `);
   const place = db.prepare(`INSERT INTO place (id, kind, canonical_name, parent_id) VALUES (?, ?, ?, ?)`);
-  for (const [id, name] of [["tt", "Tt"], ["uu", "Uu"], ["nv", "Nv"]] as const) place.run(id, "state", `${name} State`, "in");
+  for (const [id, name] of [["tt", "Tt"], ["uu", "Uu"], ["nv", "Nv"], ["mm", "Mm"]] as const) place.run(id, "state", `${name} State`, "in");
   place.run("tt.d1", "district", "North", "tt");
   place.run("tt.d2", "district", "South", "tt");
   const version = db.prepare(
@@ -60,12 +63,13 @@ function fixture(db: DatabaseSync): DatabaseSync {
   const uu = [1, 2, 3].map((n) => seat("uu", "ac", n, true));
   const uuPc = [1, 2].map((n) => seat("uu", "pc", n, true));
   const nv = [1, 2].map((n) => seat("nv", "ac", n, true));
+  const mm = Array.from({ length: 14 }, (_, i) => seat("mm", "ac", i + 1, true));
 
   const election = db.prepare(
     `INSERT INTO election (id, kind, level, jurisdiction_place_id, epoch_id, name, lifecycle, house, year, polling_month, occurrence)
      VALUES (?, ?, ?, ?, 'e1', ?, 'declared', ?, ?, ?, 1)`,
   );
-  for (const [s, year] of [["tt", 2011], ["tt", 2016], ["tt", 2021], ["uu", 2016], ["uu", 2021], ["nv", 2021], ["nv", 2026]] as const) {
+  for (const [s, year] of [["tt", 2011], ["tt", 2016], ["tt", 2021], ["uu", 2016], ["uu", 2021], ["nv", 2021], ["nv", 2026], ["mm", 2021]] as const) {
     election.run(`${s}-assembly-${year}`, "assembly", "state", s, `${s.toUpperCase()} ${year}`, "ac", year, 5);
   }
   election.run("tt-bypoll-ae-2022", "bypoll", "state", "tt", "TT bypoll 2022", "ac", 2022, null);
@@ -111,6 +115,9 @@ function fixture(db: DatabaseSync): DatabaseSync {
   contest("uu-assembly-2021", uu[2] as number, 1, "undeclared", true);
   run("nv-assembly-2021", nv, [1, 2], "counted", true);
   run("nv-assembly-2026", nv, [2, 2], "declared", true);
+  run("mm-assembly-2021", mm, mm.map((_, i) => (i % 3 === 0 ? 2 : 1) as 1 | 2), "counted", true);
+  // Party DDD is shown as "DD": its key and its printed label differ, as TMC's (AITC) do.
+  db.exec(`UPDATE candidacy SET party_version_id = 4 WHERE id LIKE 'mm-assembly-2021:%-w' AND party_version_id = 2`);
   return db;
 }
 
@@ -212,13 +219,18 @@ test("a state's share of the Lok Sabha is not given a majority of its own", () =
 
 /* ───────────────────────────── a map mode with nothing in it ───────────────────────────── */
 
-test("a mode no seat can fill is offered as unavailable, as Flips is where there is no earlier election", () => {
+// CHANGED 2026-11-20, on purpose: a disabled tab said "unavailable" to a screen reader once each. A mode nothing can fill is no tab, and one line says
+// which, as the election page does.
+test("a mode no seat can fill is not a tab, and one line says it is not available", () => {
   const nv26 = render("/state", "", "nv");
-  assert.deepEqual(tabs(nv26, "What the map shows"), ["Winners", "Flips", "~Margin", "~Runner-up"]);
+  assert.deepEqual(tabs(nv26, "What the map shows"), ["Winners", "Flips"]);
+  assert.match(text(nv26), /Not available for this election: Margin, Runner-up — nothing in the registry can fill them\./);
+  assert.doesNotMatch(nv26, /unavailable: nothing in the registry can fill this/);
   // Elections that published counts keep all four.
   assert.deepEqual(tabs(render("/state", "", "tt"), "What the map shows"), ["Winners", "Flips", "Margin", "Runner-up"]);
   // The Lok Sabha of this registry published winners only.
-  assert.deepEqual(tabs(render("/state", "house=pc", "tt"), "What the map shows"), ["Winners", "Flips", "~Margin", "~Runner-up"]);
+  assert.deepEqual(tabs(render("/state", "house=pc", "tt"), "What the map shows"), ["Winners", "Flips"]);
+  assert.doesNotMatch(text(render("/state", "", "tt")), /Not available for this election/);
 });
 
 test("a link that still asks for an empty mode is told it is empty, straight under the question", () => {
@@ -265,8 +277,8 @@ test("the year strips say a Lok Sabha year and a by-poll, in the words the gloss
   assert.deepEqual(tabs(render("/state", "", "tt"), "Election"), ["2021", "2016", "2011"]);
   assert.deepEqual(tabs(render("/state", "house=pc", "tt"), "Election"), ["LS 2024", "LS 2019"]);
   assert.deepEqual(tabs(render("/state", "election=tt-bypoll-ae-2022", "tt"), "Election"), ["2022 by-poll"]);
-  const sibs = /<ul class="iei-sibs">(.*?)<\/ul>/s.exec(render("/state", "house=pc", "tt"))?.[1] as string;
-  assert.deepEqual([...sibs.matchAll(/<a [^>]*>([^<]*)<\/a>/g)].map((m) => m[1]), ["LS 2024", "LS 2019"]);
+  // The strip of every election is only for the ones the year tabs leave out (they carry the newest eight): two elections are two tabs and no strip.
+  assert.doesNotMatch(render("/state", "house=pc", "tt"), /iei-sibs/);
 });
 
 /* ───────────────────────────── what the no-vote-counts caveat says of turnout ───────────────────────────── */
@@ -282,8 +294,8 @@ test("the caveat says what is on record from the data: declared margins, and tur
   assert.match(nv, /Winners and declared margins are on record, and its turnout is awaiting verification;/);
   assert.match(text(render("/state", "", "nv")), /turnout — verification pending/);
   for (const c of [ls, nv]) {
-    assert.match(c, /margins over votes polled, competitiveness and vote-to-seat conversion are not on record,/);
-    assert.match(c, /a chart that needs them is left out or replaced by a sentence, never drawn as zero\.$/);
+    assert.match(c, /margins over votes polled, competitiveness and vote-to-seat conversion are not on record\.$/);
+    assert.doesNotMatch(c, /never drawn as zero/, "the caveat says what is missing and not how the page was built");
   }
 });
 
@@ -304,20 +316,22 @@ test("a link to another house's election is told which house this view is, not t
 
 /* ───────────────────────────── find on map ───────────────────────────── */
 
-test("a seat with no outline is not offered to be found on the map, and says so", () => {
+// CHANGED 2026-11-20, on purpose: each listed seat used to end in "find on map" (or "no boundary on record"), the same words twelve times down a list
+// whose seats are links already. The map's own caption names the seats it cannot draw, so that is said once, at the map; a list row says nothing of
+// the map. `?seat=` still outlines a seat, and the selection's one "Clear the selection" link releases it.
+test("a listed seat does not repeat an offer to find it on the map; the map says once which seats it cannot draw", () => {
   const html = render("/state", "", "tt");
-  assert.equal(html.split("find on map").length - 1, 5, "one for each seat with an outline");
-  assert.equal(html.split('<span class="iei-absent">no boundary on record</span>').length - 1, 1, "and the sixth says why it has none");
-  const six = html.split('<li><div class="iei-row-h">').find((row) => row.includes(">Seat ttac6<"));
-  assert.ok(six !== undefined);
-  assert.match(text(six), /no boundary on record/);
-  assert.doesNotMatch(six, /find on map|unfocus/);
-  // A link that asks for it anyway is not told it is focused on anything.
+  assert.doesNotMatch(html, /find on map|unfocus/, "the per-row offer is back");
+  assert.equal(html.split('<span class="iei-absent">no boundary on record</span>').length - 1, 0, "the per-row absence is back");
+  assert.match(text(html), /5 of 6 drawn — no boundary on record for the other 1/, "the map does not say which seat it cannot draw");
+  assert.ok(text(html).includes("Seat ttac6"), "the seat with no outline is still listed");
+  // A link that asks for the undrawn seat is not told it is focused on anything.
   const focused = render("/state", "seat=tt.ac.006", "tt");
-  assert.doesNotMatch(focused, /unfocus/);
   assert.doesNotMatch(focused, /iei-seat-focus/);
-  // Another seat still offers to be released.
-  assert.match(render("/state", "seat=tt.ac.005", "tt"), /unfocus/);
+  // A seat that is drawn is outlined, and the selection offers to be cleared.
+  const five = render("/state", "seat=tt.ac.005", "tt");
+  assert.match(five, /iei-seat-focus/);
+  assert.match(text(five), /Clear the selection/);
 });
 
 /* ───────────────────────────── the Lok Sabha view's way to the whole election ───────────────────────────── */
@@ -345,4 +359,40 @@ test("a state and a district name themselves in the document title, and name the
 
   // A place the registry does not hold keeps the site's own title: the page is a 404 and has nothing to name.
   assert.deepEqual(metadata("./src/app/state/[state]/page.tsx", { state: "nowhere" }), {});
+});
+
+/* ───────────────────────────── every seat can be read, and a filter that matches nothing says so ───────────────────────────── */
+
+test("the short list says how many it shows and links to every seat of the selection, and back", () => {
+  const html = render("/state", "", "mm");
+  const list = (h: string): number => (h.slice(h.indexOf('id="seats"')).match(/<li><div class="iei-row-h">/g) ?? []).length;
+  assert.equal(list(html), 12);
+  assert.match(text(html), /12 of 14/);
+  assert.match(html, /<a href="\/state\/mm\?all=1#seats">Show all 14 seats<\/a>/);
+  const all = render("/state", "all=1", "mm");
+  assert.equal(list(all), 14, "every seat is a row");
+  assert.match(text(all), /14 of 14/);
+  assert.match(all, /<a href="\/state\/mm#seats">Back to the first 12<\/a>/);
+  assert.doesNotMatch(all, /Show all/);
+  // `all` is the list's switch and not part of a selection: a link to another selection starts the list short again.
+  assert.doesNotMatch(all, /href="\/state\/mm[^"]*all=1[^"]*#map"/);
+  // A filtered list has the same way: a party with more seats than the filtered cap (60) is not in this fixture, so the short list of 12 is whole here.
+  assert.doesNotMatch(render("/state", "party=AAA", "mm"), /Show all/);
+  // Nothing to expand where the list is already whole.
+  assert.doesNotMatch(render("/state", "", "tt"), /Show all|Back to the first/);
+});
+
+test("a party is asked by the label the page prints, and a value that matches nothing is said, not ignored in silence", () => {
+  // The page prints DD for the party whose key is DDD, and links ?party=DDD; typing the printed label means the same party.
+  const key = render("/state", "party=DDD", "mm");
+  const label = render("/state", "party=DD", "mm");
+  const count = (h: string): string | undefined => /class="iei-list-count">([^<]*)</.exec(h)?.[1];
+  assert.equal(count(key), "5 of 5", "the key isolates the party's five seats");
+  assert.equal(count(label), count(key), "the printed label is not an alias for the key");
+  assert.doesNotMatch(text(label), /No party/);
+  const t = text(render("/state", "party=ZZZ", "mm"));
+  assert.match(t, /No party \u2018ZZZ\u2019 in this election; showing every seat\./);
+  assert.match(text(render("/state", "district=zz", "tt")), /No district \u2018zz\u2019 in Tt State; showing every seat\./);
+  assert.match(text(render("/state", "party=ZZZ&district=zz", "tt")), /No party \u2018ZZZ\u2019 in this election, and no district \u2018zz\u2019 in Tt State; showing every seat\./);
+  assert.doesNotMatch(text(render("/state", "", "mm")), /showing every seat\./);
 });

@@ -135,7 +135,7 @@ export const VERTICALS: readonly Vertical[] = [
     probe: null,
     reachProbe: null,
     unit: "activity rows",
-    scope: "no tenure or activity model exists yet — see phase 0 and 2",
+    scope: "no tenure or activity model exists yet",
     source: "PRS India, Lok Sabha / Rajya Sabha / assembly records",
   },
   {

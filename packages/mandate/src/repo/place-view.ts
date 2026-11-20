@@ -8,6 +8,7 @@
 // build itself reported success. Here it is a static import from the page and a checked file under
 // registry:typecheck.
 
+import { displayName } from "./display-name.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { inr, percent } from "../semantic/index.ts";
 import { all, get } from "../db/index.ts";
@@ -395,7 +396,7 @@ function parentView(
     children: {
       caption:
         `Every assembly seat in ${place.name} with its ${year} result — ` +
-        `${inr(rows.length)} seat${rows.length === 1 ? "" : "s"}. Open one for its brief.`,
+        `${inr(rows.length)} seat${rows.length === 1 ? "" : "s"}.`,
       headers: ["No.", "Seat", "Won by", "Member", "Margin", "Turnout"],
       numeric: [true, false, false, false, true, true],
       rows: rows.map((x) => ({
@@ -411,7 +412,7 @@ function parentView(
           x.number === null ? "—" : String(x.number),
           x.name + (x.reservation == null ? "" : ` · ${RESERVATION[x.reservation] ?? x.reservation}`),
           x.winner?.party.label ?? "no result declared",
-          x.winner?.name ?? "not reported",
+          x.winner === undefined || x.winner === null ? "not reported" : displayName(x.winner.name),
           // A margin a source declared without counting the votes says so, as the election page's list does.
           x.margin === null
             ? "not reported"

@@ -121,21 +121,20 @@ export function NoMap({ view }: { view: ElectionMapView }) {
 export const NO_EARLIER_ELECTION = 'No earlier election of this house is on record, so there is nothing to compare this one with.';
 
 /**
- * THE HEADER OF A MAP PAGE, as one band: the eyebrow with the page's evidence drawer at the other end of its line, then
- * whatever the page leads with.
+ * THE HEADER OF A MAP PAGE, as one band: the page's evidence drawer at the end of its own line, then whatever the page
+ * leads with. There is no label above the title: a page that wants to say what kind of page it is does so in a line
+ * under its h1, which is the caller's to write.
  *
  * The drawer used to sit in a section heading of its own, under the page's name and over the controls, which said the
  * name a second time and pushed the map down by a heading's height. The sources back the whole page, so they sit with
  * its name now; the turnout caveat that rides in the drawer reaches a reader who opens it exactly as before.
  */
 export function MapHead({
-  eyebrow,
   sources,
   label,
   caveat,
   children,
 }: {
-  eyebrow: React.ReactNode;
   sources: ElectionMapView['sources'];
   /** What the sources are evidence FOR, for the screen reader: the drawer's visible text has no room for it. */
   label: string;
@@ -145,10 +144,11 @@ export function MapHead({
 }) {
   return (
     <div className="iei-head iei-head-map">
-      <div className="iei-head-top">
-        <p className="iei-eyebrow">{eyebrow}</p>
-        {sources.length === 0 ? null : <Evidence sources={sources} label={label} caveat={caveat} />}
-      </div>
+      {sources.length === 0 ? null : (
+        <div className="iei-head-top">
+          <Evidence sources={sources} label={label} caveat={caveat} />
+        </div>
+      )}
       {children}
     </div>
   );

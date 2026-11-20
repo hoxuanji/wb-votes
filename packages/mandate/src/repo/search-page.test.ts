@@ -21,7 +21,7 @@ import type { DatabaseSync } from "node:sqlite";
 import { blockingKeys } from "../core/index.ts";
 import { open, openRead } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { PER_GROUP, outcomeWords, searchAll } from "./search.ts";
+import { PER_GROUP, outcomeWords, searchAll, searchExamples } from "./search.ts";
 
 const ROOT = new URL("../../../../", import.meta.url).pathname;
 const NOW = "2026-08-12T00:00:00.000Z";
@@ -231,8 +231,9 @@ test("a district is searchable, and its row opens its page", () => {
 test("a party hit links to the landscape only where the front page has a row for the party", () => {
   const home = render("/", "");
   const ids = new Set([...home.matchAll(/id="(party-[^"]*)"/g)].map((m) => m[1]));
-  assert.ok(ids.has("party-aitc") && ids.has("party-bbb"), "the fixture's governing party and the one with a Lok Sabha seat have a row");
-  assert.ok(!ids.has("party-ccc") && !ids.has("party-ddd"), "the one with no seat in the latest houses, and the one that wins nothing, have none");
+  // The fixture is one state, and the front page draws its party landscape only where two or more jurisdictions feed it: there are no rows
+  // to open, so no party hit may link to one (a `/#party-…` link would land at the top of the page).
+  assert.equal(ids.size, 0, "a one-state registry has a party landscape");
 
   const html = search("party");
   const hits = [...html.matchAll(/<li[^>]*>([\s\S]*?)<\/li>/g)].map((m) => m[1] as string).filter((li) => /Party/.test(li));
@@ -266,4 +267,33 @@ test("a result page is titled for its query and left out of search engines, and 
   assert.deepEqual(meta("Mamata"), { title: "Search: Mamata", robots: { index: false, follow: true } });
   assert.deepEqual(meta("  "), { title: "Search" });
   assert.deepEqual(meta(""), { title: "Search" });
+});
+
+// ── the empty search, and the count under each kind ────────────────────────────────────────────────
+
+test("a kind says how many it matched under its heading, and the empty search offers real searches that find themselves", () => {
+  const people = text(panel(search("Sukanta"), "People"));
+  assert.match(people, /Who\? 10 matches/);
+  assert.match(text(panel(search("Pc"), "Constituencies")), /Which seat\? 3 matches/);
+  assert.match(text(panel(search("Hh"), "States")), /Which jurisdiction\? 1 match\b/);
+
+  const d = openRead(PATH);
+  const examples = (() => {
+    try {
+      return searchExamples(d);
+    } finally {
+      d.close();
+    }
+  })();
+  const kinds = examples.map((x) => x.group);
+  for (const k of ["state", "election", "seat", "person"]) assert.ok(kinds.includes(k as never), `no ${k} example: ${kinds.join(", ")}`);
+  const html = search("");
+  assert.match(text(html), /Start from one/);
+  for (const x of examples) {
+    assert.ok(html.includes(`href="/search?q=${encodeURIComponent(x.q)}"`), `${x.q} is not a link`);
+    // Taken from the registry, so it finds itself: a click never lands on "nothing matches".
+    assert.ok(found(x.q).total > 0, `the example ${x.q} finds nothing`);
+  }
+  assert.ok(examples.find((x) => x.group === "state")?.label === "Hh State", "the state with the most elections on record");
+  assert.doesNotMatch(text(search("Sukanta")), /Start from one/, "the examples are for the empty search only");
 });

@@ -2,8 +2,9 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { inr, marginText } from "../../../packages/mandate/src/repo/brief.ts";
 import { readOrder } from "../../../packages/mandate/src/repo/place-filters.ts";
+import { hoistShared } from "../../../packages/mandate/src/repo/place-presentation.ts";
 import { seatGlow } from "../../../packages/mandate/src/repo/seat-glow.ts";
-import { resultRetrieved, seatFinding, seatFlags, seatLimits, seatNumbers } from "../../../packages/mandate/src/repo/seat-story.ts";
+import { seatFinding, seatFlags, seatLimits, seatNumbers } from "../../../packages/mandate/src/repo/seat-story.ts";
 import { marginRankFigure, photoFinishOf } from "../../../packages/mandate/src/repo/seat-proof.ts";
 import { turnoutHeadline } from '../../../packages/mandate/src/repo/turnout-trust.ts';
 import type { Tile } from "../../../packages/mandate/src/repo/brief.ts";
@@ -13,7 +14,7 @@ import type { PlaceQuery } from "../../../packages/mandate/src/repo/place-resolv
 import { fillFor } from "../../../packages/mandate/src/viz/party-ink.ts";
 import { stateChoicesOf } from "../../../packages/mandate/src/repo/election-map.ts";
 import { stateView } from "../../../packages/mandate/src/repo/state-view.ts";
-import { readAsk, readSelection } from "../../../packages/mandate/src/repo/map-selection.ts";
+import { queryHref, readAsk, readSelection } from "../../../packages/mandate/src/repo/map-selection.ts";
 import { bodyOfKind, personHref, stateHref } from '../../../packages/mandate/src/repo/routes.ts';
 import { bodyWord } from "../../../packages/mandate/src/core/election-kind.ts";
 import { StateSurface } from "./state.tsx";
@@ -22,7 +23,7 @@ import { Foot, Shell } from "../../components/iei/Shell.tsx";
 import { HeldBy } from "../../components/iei/SeatHistory.tsx";
 import { Finding } from "../../components/iei/Finding.tsx";
 import { MarginFigure, PartyChip, PersonLink } from "../../components/iei/marks.tsx";
-import { SeatFlags, SeatKpis, SeatLimits, SeatMarginRank, SeatPanels, SeatPhotoFinish, SeatRoster } from "../../components/iei/Seat.tsx";
+import { SeatKpis, SeatLimits, SeatMarginRank, SeatPanels, SeatPhotoFinish, SeatRoster } from "../../components/iei/Seat.tsx";
 import { SeatLocator } from "../../components/iei/SeatLocator.tsx";
 import {
   Crumbs,
@@ -150,7 +151,47 @@ export async function PlaceSurface({
         // has to be one this election returned, ran or came second for, a band one of the five, a district or a seat
         // one of its own. The selection holds one isolation, since two on one map are two answers to one question, and
         // every link on the page is a move of it, anchored at the map.
-        const selection = readSelection(searchParams, stateChoicesOf(s.map), { base, anchor: "map" });
+        const choices = stateChoicesOf(s.map);
+        // A PARTY IS ASKED BY THE NAME THE PAGE PRINTS: "TMC 77" is a link to ?party=AITC, and a reader who types ?party=TMC means the same.
+        // The short label is accepted as an alias for the key (only where it names exactly one party of this election), and `all` is the list's
+        // own switch, not a selection: it is read here and dropped, so a link to another selection starts the list short again.
+        const labelsToKey = new Map<string, Set<string>>();
+        for (const x of s.map.seats) {
+          if (x.partyKey !== null && x.partyLabel !== null) labelsToKey.set(x.partyLabel.toLowerCase(), (labelsToKey.get(x.partyLabel.toLowerCase()) ?? new Set()).add(x.partyKey));
+          if (x.runnerUpKey !== null && x.runnerUpLabel !== null) labelsToKey.set(x.runnerUpLabel.toLowerCase(), (labelsToKey.get(x.runnerUpLabel.toLowerCase()) ?? new Set()).add(x.runnerUpKey));
+        }
+        const asked = new Map(ask);
+        const askedParty = asked.get("party");
+        const aliased = askedParty === undefined || choices.parties.has(askedParty) ? undefined : labelsToKey.get(askedParty.toLowerCase());
+        if (aliased !== undefined && aliased.size === 1) asked.set("party", [...aliased][0] as string);
+        const showAll = asked.get("all") === "1";
+        asked.delete("all");
+        const selection = readSelection(new URLSearchParams([...asked]), choices, { base, anchor: "map" });
+        // A VALUE THAT MATCHES NOTHING IS SAID, in words, and never silently dropped into the unfiltered page.
+        const said = selection.ignored.flatMap((name) => {
+          const v = ask.get(name);
+          if (v === undefined) return [];
+          switch (name) {
+            case "party":
+              return [`No party \u2018${v}\u2019 in this election`];
+            case "band":
+              return [`No margin band \u2018${v}\u2019`];
+            case "district":
+              return [`No district \u2018${v}\u2019 in ${view.name}`];
+            case "seat":
+              return [`No seat \u2018${v}\u2019 in this election`];
+            case "mode":
+              return [`No map reading \u2018${v}\u2019 is offered for this election`];
+            default:
+              return [];
+          }
+        });
+        // One sentence: the first item opens it, the others follow in lower case.
+        const nothing = said.map((x, i) => (i === 0 ? x : `${x.charAt(0).toLowerCase()}${x.slice(1)}`));
+        const listHrefs = {
+          all: queryHref(base, new Map([...asked]), { all: "1" }, "seats"),
+          few: queryHref(base, new Map([...asked]), {}, "seats"),
+        };
 
         return (
           <Shell here="place">
@@ -162,6 +203,9 @@ export async function PlaceSurface({
               asked={s.asked}
               trajectory={s.trajectory}
               selection={selection}
+              showAll={showAll}
+              hrefs={listHrefs}
+              nothing={nothing}
             />
             <Foot />
           </Shell>
@@ -183,41 +227,47 @@ export async function PlaceSurface({
     }
 
     // A DISTRICT has no map: its level of the state's map is reached by selecting it there, which reframes the map.
+    const shared = hoistShared(view.children);
     return (
       <Shell here="place" reading>
         <Crumbs trail={view.trail} />
         <div className="iei-head">
-          <p className="iei-eyebrow">District</p>
           <h1 className="iei-answer">{view.name}</h1>
           {/* A district has no election of its own, so its sentence is the computed headline. */}
           <p className="iei-sub">{view.headline}</p>
         </div>
 
         <Panel title="Seats" question="Which seats does this district elect?" sources={view.sources}>
+          {/* The seat number is the lowest-priority column: it goes below 900px so the margin is never clipped (the seat's own name and page are the row's identity).
+              WHAT EVERY ROW WOULD SAY, SAID ONCE: a turnout that is awaiting verification, or a margin that was declared, is the same word
+              on every row of a district, so it is a sentence over the rows and a row says something only where it differs. */}
+          {shared.said.length === 0 ? null : (
+            <p className="iei-caveat">{shared.said.join(" ")}</p>
+          )}
           <Table
             label="Seats in this district"
             caption={view.children.caption}
             captionVisible
-            tight={view.children.rows.length > 20}
-            head={view.children.headers.map((h, i) => (
-              <th scope="col" className={view.children.numeric[i] === true ? "iei-n" : undefined} key={h}>
+            tight={shared.table.rows.length > 20}
+            head={shared.table.headers.map((h, i) => (
+              <th scope="col" className={[shared.table.numeric[i] === true ? "iei-n" : "", i === 0 && h === "No." ? "iei-seat-hide" : ""].filter(Boolean).join(" ") || undefined} key={h}>
                 {h}
               </th>
             ))}
           >
-            {view.children.rows.map((r) => (
+            {shared.table.rows.map((r) => (
               <tr key={r.href}>
                 {r.cols.map((c, i) =>
                   i === 0 ? (
-                    <th scope="row" key={i}>
-                      {view.children.headers[0] === "No." ? c : <Link href={r.href}>{c}</Link>}
+                    <th scope="row" key={i} className={shared.table.headers[0] === "No." ? "iei-seat-hide" : undefined}>
+                      {shared.table.headers[0] === "No." ? c : <Link href={r.href}>{c}</Link>}
                     </th>
-                  ) : i === 1 && view.children.headers[0] === "No." ? (
+                  ) : i === 1 && shared.table.headers[0] === "No." ? (
                     <td key={i}>
                       <Link href={r.href}>{c}</Link>
                     </td>
                   ) : (
-                    <td className={view.children.numeric[i] === true ? "iei-n" : undefined} key={i}>
+                    <td className={shared.table.numeric[i] === true ? "iei-n" : undefined} key={i}>
                       {c}
                     </td>
                   ),
@@ -247,7 +297,6 @@ export async function PlaceSurface({
   // The roster is the newest election's field, where that election published no counts to rank it by.
   const newest = field.elections.at(0);
   const roster = newest !== undefined && newest.evidence !== "counted" && newest.candidates.length > 1 ? newest : null;
-  const retrieved = resultRetrieved(brief);
 
   return (
     // The light along the top is the colour of the party that holds the seat, where the record names one (repo/seat-glow.ts).
@@ -256,14 +305,14 @@ export async function PlaceSurface({
       {/* BESIDE THE HEADER where there is room, below it where there is not, and not there at all where the seat has no
           outline to draw: the header is then the markup it always was, with no frame in its place. */}
       <div className={locator === null ? "iei-head" : "iei-head iei-head-seat"}>
-        {/* WHICH BODY, said ONCE and near the title. "Constituency" alone is ambiguous in India: a reader cannot tell a Lok Sabha seat
+        {/* WHICH BODY, said ONCE and under the title. "Constituency" alone is ambiguous in India: a reader cannot tell a Lok Sabha seat
             from an assembly seat, and the two are different offices with different electorates. */}
-        <p className="iei-eyebrow">
-          {`${bodyWord(bodyOfKind(p.kind))} Constituency`}
+        <h1 className="iei-answer">{p.canonicalName}</h1>
+        <p className="iei-note">
+          {`${bodyWord(bodyOfKind(p.kind))} constituency`}
           {p.number !== null && ` · No. ${p.number}`}
           {p.reservation !== null && ` · ${RESERVATION[p.reservation] ?? p.reservation}`}
         </p>
-        <h1 className="iei-answer">{p.canonicalName}</h1>
         {/* THE FINDING: the one true, notable thing about this seat, computed from its record (repo/seat-story.ts), with its people as
             links and its parties as swatches. Where the seat has none it is today's headline, so the page never invents a story. */}
         <Finding finding={finding} />
@@ -289,7 +338,7 @@ export async function PlaceSurface({
         /* ONE DRAWER FOR THE MODULE. Every tile used to carry its own inline ⓘ over the same handful of sources. */
         sources={brief.sources}
       >
-        <SeatKpis nums={nums} retrieved={retrieved} />
+        <SeatKpis nums={nums} />
       </Panel>
 
       {finish === null ? null : <SeatPhotoFinish finish={finish} />}
@@ -297,7 +346,7 @@ export async function PlaceSurface({
 
       {field.elections.length === 0 ? null : (
         <Panel title="How each election divided the vote" question="Who stood, and how did the votes fall?">
-          <SeatPanels field={field} history={history} brief={brief} />
+          <SeatPanels field={field} history={history} brief={brief} rosterBelow={roster !== null} />
         </Panel>
       )}
 
@@ -309,7 +358,7 @@ export async function PlaceSurface({
           caption={
             brief.contests.length === 0
               ? `No contest is on record for ${p.canonicalName}.`
-              : `${brief.contests.length === 1 ? "1 election on record" : `${inr(brief.contests.length)} elections on record`}, newest first. The member links to their page.`
+              : `${brief.contests.length === 1 ? "1 election on record" : `${inr(brief.contests.length)} elections on record`}, newest first.`
           }
           captionVisible
           head={
@@ -318,15 +367,8 @@ export async function PlaceSurface({
                 Year
               </th>
               <th scope="col">Won by</th>
-              <th scope="col">Member</th>
-              <th scope="col" className="iei-n">
-                Share
-              </th>
               <th scope="col" className="iei-n">
                 Margin
-              </th>
-              <th scope="col" className="iei-seat-hide">
-                Runner-up
               </th>
               <th scope="col" className="iei-n iei-seat-hide">
                 Turnout
@@ -334,9 +376,10 @@ export async function PlaceSurface({
             </>
           }
         >
+          {/* THE SHARE AND THE RUNNER-UP ARE THE PANELS' ABOVE, per election, with the candidates they belong to; here, one line a year: who won, by how many,
+              and what turned out. A "not reported" in every cell of a declared year said what the section below says once. */}
           {history.results.map((r) => {
             const c = brief.contests.find((x) => x.contestId === r.contestId);
-            const f = field.elections.find((x) => x.contestId === r.contestId);
             return (
               <tr key={r.contestId}>
                 <th scope="row">{r.label}</th>
@@ -344,31 +387,14 @@ export async function PlaceSurface({
                   {r.winner === null ? (
                     <span className="iei-absent">no result declared</span>
                   ) : (
-                    <PartyChip partyId={r.winner.party.key} code={r.winner.party.label} />
+                    <>
+                      <PartyChip partyId={r.winner.party.key} code={r.winner.party.label} />{" "}
+                      <PersonLink id={c?.winner?.personId ?? null} name={r.winner.name} />
+                    </>
                   )}
-                </td>
-                <td>
-                  {r.winner === null ? (
-                    <Value value={null} absent="not reported" />
-                  ) : (
-                    <PersonLink id={c?.winner?.personId ?? null} name={r.winner.name} />
-                  )}
-                </td>
-                <td className="iei-n">
-                  <Value value={c?.winner?.voteShare ?? null} unit="%" decimals={1} absent="not reported" />
                 </td>
                 <td className="iei-n">
                   {r.margin === null ? <Value value={null} absent="not reported" /> : <MarginFigure votes={r.margin.votes} basis={r.margin.basis} />}
-                </td>
-                <td className="iei-seat-hide">
-                  {r.runnerUp === null ? (
-                    <span className="iei-absent">not reported</span>
-                  ) : (
-                    <>
-                      <PartyChip partyId={r.runnerUp.party.key} code={r.runnerUp.party.label} />{" "}
-                      <PersonLink id={f?.candidates.find((x) => x.rank === 2)?.personId ?? null} name={r.runnerUp.name} />
-                    </>
-                  )}
                 </td>
                 <td className="iei-n iei-seat-hide">
                   {c === undefined ? null : (turnoutHeadline(c.turnout)?.replace(" turnout", "") ?? <Value value={null} absent="not reported" />)}
@@ -379,8 +405,7 @@ export async function PlaceSurface({
         </Table>
       </Panel>
 
-      <SeatFlags flags={flags} elections={brief.contests.length} />
-      <SeatLimits limits={limits} />
+      <SeatLimits limits={limits} flags={flags} />
 
       <Foot />
     </Shell>

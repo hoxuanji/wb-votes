@@ -37,7 +37,7 @@ import {
   HUE_CAP,
   LINE_SUBTLE,
   OTHERS,
-  SURFACE,
+  SURFACE_PAINT,
   TEXT_MUTED,
   TEXT_PRIMARY,
   TEXT_SECONDARY,
@@ -103,9 +103,9 @@ const FRAMES = [
 ] as const;
 type Frame = (typeof FRAMES)[number];
 
-/** IBM Plex Mono is the data face (§25); the generic stack is the fallback the page's CSS overrides. */
-const NUM = "font-variant-numeric:tabular-nums;font-family:ui-monospace,SFMono-Regular,Menlo,monospace";
-/** Mono advance at 12px. "A value that will hold 7 digits reserves 7 digits" is this times 7. */
+/** The product has one voice, the system sans (iei.css `--iei-sans`), with tabular numerals so a column of figures lines up. */
+const NUM = "font-variant-numeric:tabular-nums;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif";
+/** The advance the layout reserves per digit at 12px: the sans's tabular digit is about 6.6, so 7.2 is generous. "A value that will hold 7 digits reserves 7 digits" is this times 7. */
 const CH = 7.2;
 const AX = 11; // axis / tick text
 const VAL = 11; // direct value labels
@@ -159,12 +159,12 @@ function line(x1: number, y1: number, x2: number, y2: number, stroke: string, w 
 
 /** §24.7: a 2px surface ring, so two markers landing on the same point stay two markers. */
 function marker(x: number, y: number, fill: string): string {
-  return `<circle cx="${num(x)}" cy="${num(y)}" r="4" fill="${fill}" stroke="${SURFACE}" stroke-width="2"/>`;
+  return `<circle cx="${num(x)}" cy="${num(y)}" r="4" fill="${fill}" stroke="${SURFACE_PAINT}" stroke-width="2"/>`;
 }
 
 /**
- * What an end label is given: the name (the quiet 12px ink), a gap, and the value (the bright 11px mono). `labelWidth`
- * is the monospace advance, which is generous for a name in the page's proportional face and about right for the
+ * What an end label is given: the name (the quiet 12px ink), a gap, and the value (the bright 11px figure). `labelWidth`
+ * is a generous advance for the page's sans and about right for the
  * capitals of an acronym; a name that overruns it is still inside the `END_AIR` the plot leaves.
  */
 function tagWidth(name: string, value: string): number {
@@ -191,7 +191,7 @@ function tag(name: string, value: string, x: number, y: number, anchor: "start" 
   return (
     `<text class="iei-tag" x="${num(x)}" y="${num(y + 4)}" fill="${TEXT_PRIMARY}" font-size="${VAL}"` +
     (anchor === "start" ? "" : ` text-anchor="${anchor}"`) +
-    ` stroke="${SURFACE}" stroke-width="3" stroke-linejoin="round" paint-order="stroke">` +
+    ` stroke="${SURFACE_PAINT}" stroke-width="3" stroke-linejoin="round" paint-order="stroke">` +
     (valueFirst ? v + n : n + v) +
     `</text>`
   );

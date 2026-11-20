@@ -107,11 +107,11 @@ test("subjects that wait on one model are named once, and a subject keeps what i
   ]);
   const caveat = (key: string) => none.entries.find((e) => e.key === key)?.caveat;
   // Only the missing model: said by the group, so nothing is printed beside the name.
-  for (const key of ["sessions", "bills", "schemes", "funding", "rti", "budget", "spending"]) assert.equal(caveat(key), null, key);
+  for (const key of ["sessions", "bills", "schemes", "funding", "rti", "budget", "spending", "performance"]) assert.equal(caveat(key), null, key);
   // The shared model is said once; what a subject adds to it is its own.
   assert.equal(caveat("cdf"), "also needs the tenure spine to scope money to a member");
   // A subject with its own model keeps its whole caveat, so the model it lacks is not separated from what is said of it.
-  for (const key of ["performance", "votes", "promises"]) assert.equal(caveat(key), VERTICALS.find((v) => v.key === key)?.scope, key);
+  for (const key of ["votes", "promises"]) assert.equal(caveat(key), VERTICALS.find((v) => v.key === key)?.scope, key);
   assert.match(caveat("votes") ?? "", /rarely hold division votes/);
 });
 

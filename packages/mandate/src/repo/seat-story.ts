@@ -428,7 +428,7 @@ export function seatLimits(input: Pick<SeatStoryInput, "brief" | "history" | "fi
   for (const l of field.lookAlikes) {
     out.push({
       id: `look-${l.name}`,
-      text: `${l.records.map((r) => `"${r.name}" (${r.years.join(", ")})`).join(", ")} are ${l.records.length} separate records with similar names. No line joins them, and this page does not say they are one person.`,
+      text: `${l.records.map((r) => `"${displayName(r.name)}" (${r.years.join(", ")})`).join(", ")} are ${l.records.length} separate records with similar names. No line joins them, and this page does not say they are one person.`,
     });
   }
   const pop = brief.demographics.find((d) => d.value.key === "population");

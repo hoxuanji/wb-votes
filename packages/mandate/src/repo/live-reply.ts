@@ -6,12 +6,14 @@
 
 import type { LiveBoard, LiveRead } from "./situation-types.ts";
 import { liveSentence } from "./live-feed.ts";
-import { fillFor } from "../viz/party-ink.ts";
+import { tokenFor } from "../viz/party-ink.ts";
 
 export type LiveReply =
   | { state: "none" }
   | { state: "error"; error: string }
-  | { state: "boards"; boards: LiveBoard[]; sentences: string[]; fills: Record<string, string> };
+  // `fills` is the PUBLIC shape of /v1/live and stays plain `#rrggbb` (the dark page's colour). `paints` is what a page puts in a style attribute:
+  // `light-dark(light, dark)`, so the board follows the theme. A consumer that does not know `paints` loses nothing.
+  | { state: "boards"; boards: LiveBoard[]; sentences: string[]; fills: Record<string, string>; paints: Record<string, string> };
 
 export function liveReply(feed: LiveRead): LiveReply {
   if (feed === null) return { state: "none" };
@@ -19,9 +21,15 @@ export function liveReply(feed: LiveRead): LiveReply {
   const boards = feed.boards.filter((b) => b.status !== "declared");
   if (boards.length === 0) return { state: "none" };
   const fills: Record<string, string> = {};
+  const paints: Record<string, string> = {};
+  const note = (key: string): void => {
+    const t = tokenFor(key);
+    fills[key] = t.fill;
+    paints[key] = t.paint;
+  };
   for (const b of boards) {
-    for (const p of b.parties) fills[p.party.key] = fillFor(p.party.key);
-    for (const pr of b.projections) for (const r of pr.ranges) fills[r.party.key] = fillFor(r.party.key);
+    for (const p of b.parties) note(p.party.key);
+    for (const pr of b.projections) for (const r of pr.ranges) note(r.party.key);
   }
-  return { state: "boards", boards, sentences: boards.map(liveSentence), fills };
+  return { state: "boards", boards, sentences: boards.map(liveSentence), fills, paints };
 }

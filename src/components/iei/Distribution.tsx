@@ -156,7 +156,7 @@ export function MarginDistribution({
       </div>
       <figcaption>
         {selected === null ? (
-          <>{mapped ? 'Margin over votes polled. Select a bar to find those seats on the map.' : 'Margin over votes polled.'}</>
+          <>Margin over votes polled.</>
         ) : (
           <>
             Showing seats decided by {bins.find((b) => b.lo === selected)?.overflow ? `${selected}% and wider` : `${selected}–${selected + 2}%`}.{' '}
@@ -366,12 +366,8 @@ export function VoteSeatPlot({
         )}
       </svg>
       <figcaption>
-        Above the line, a party won a larger share of seats than of votes. {shareBase(shown)}{' '}
-        {selected === null ? (
-          mapped ? 'Select a party to find its seats on the map.' : null
-        ) : (
-          <Link href={hrefFor(null)}>Show every party</Link>
-        )}
+        {shareBase(shown)}{' '}
+        {selected === null ? null : <Link href={hrefFor(null)}>Show every party</Link>}
       </figcaption>
     </figure>
   );

@@ -277,7 +277,7 @@ export function marginStripOf(story: PlaceStory, margins: ReadonlyMap<string, Ma
     selfLabel: `${self.name} · ${inr(self.votes)} votes`,
     left: left.length === 0 ? null : left.join(" "),
     caption:
-      `One dot for each ${scope} seat's winning margin in ${year}, inked by the winner's party. ${self.name} is ringed. The axis is logarithmic: each labelled tick is ten times the one before it, so equal distances are equal ratios.` +
+      "The axis is logarithmic: each labelled tick is ten times the one before it." +
       (declared === 0 ? "" : declared === field.seats.length ? " Every dot is hollow, because every margin was declared by the source with no counts behind it." : " A hollow dot is a margin the source declared with no counts behind it."),
     ariaLabel: `${self.name}'s margin of ${inr(self.votes)} votes is the ${rank.rank === 1 ? "closest" : `${ordinal(rank.rank)} closest`} of the ${field.seats.length} ${scope} margins of ${year}.`,
   };

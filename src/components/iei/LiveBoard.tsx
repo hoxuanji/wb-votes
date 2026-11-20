@@ -21,8 +21,8 @@ import type { LiveBoard as Board } from '../../../packages/mandate/src/repo/situ
  * live is a false statement about the world. A failed poll keeps the last board and says when it last updated.
  */
 
-/** `fills` maps a party key to its colour, computed on the server (viz/party-ink.ts) so the client carries no palette. */
-type Reply = { boards: Board[]; sentences: string[]; fills: Record<string, string> };
+/** `fills` maps a party key to its colour, computed on the server (viz/party-ink.ts) so the client carries no palette. `paints` is the same map as `light-dark(light, dark)`, which follows the theme. */
+type Reply = { boards: Board[]; sentences: string[]; fills: Record<string, string>; paints?: Record<string, string> };
 
 const POLL_MS = 20_000;
 
@@ -67,7 +67,8 @@ export function LiveBoard({
         if (alive && Array.isArray(body.boards)) {
           setBoards(body.boards);
           setLines(body.sentences);
-          setFills(body.fills);
+          // The board paints with the theme-following colours when the server sends them, and with the plain ones when an older server does not.
+          setFills(body.paints ?? body.fills);
           setFailed(null);
         }
       } catch (e) {
@@ -92,12 +93,13 @@ export function LiveBoard({
   return (
     <section className="iei-live-board" id="live" aria-label="Live election">
       <header className="iei-lb-head">
-        <p className="iei-eyebrow">
-          <span className="iei-dot iei-dot-live" aria-hidden="true" /> Live · {STATUS[board.status]}
-        </p>
         <h2 className="iei-lb-title">
           {board.election.jurisdictionName} <span className="iei-rule">{board.election.name}</span>
         </h2>
+        {/* WHAT STATE THE COUNT IS IN, one quiet line under the title and not a label over it. */}
+        <p className="iei-note">
+          <span className="iei-dot iei-dot-live" aria-hidden="true" /> Live · {STATUS[board.status]}
+        </p>
         {boards.length < 2 ? null : (
           <div className="iei-lb-pick" role="group" aria-label="Live elections">
             {boards.map((b, i) => (

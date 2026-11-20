@@ -31,6 +31,42 @@ export function provenance(sources: readonly SourceRef[]): Provenance {
   };
 }
 
+// ── a caveat that is true of every row is said once, above the rows ────────────────────────────
+
+/** A table of rows as the page draws it: headers, which columns are figures, and each row's cells. */
+export type SharedTable = { headers: string[]; numeric: boolean[]; rows: { href: string; cols: string[] }[] };
+
+/**
+ * Lifts what every row says the same into one sentence above the table. Two things are lifted, and only where the table has two rows or more:
+ *
+ *  · a Turnout column whose every cell is the same WORD (verification pending, not reported) and not a figure: the column goes, and the sentence says it
+ *    for every seat listed. A figure in any cell keeps the column, because then a row differs and says so.
+ *  · a " (declared)" suffix on every Margin cell: the suffix goes and the sentence says every margin was declared.
+ *
+ * Nothing is dropped without being said: the sentence carries exactly what the cells did.
+ */
+export function hoistShared(t: SharedTable): { table: SharedTable; said: string[] } {
+  const said: string[] = [];
+  let { headers, numeric, rows } = t;
+  if (rows.length < 2) return { table: t, said };
+  const turn = headers.indexOf("Turnout");
+  if (turn !== -1) {
+    const cell = rows[0]?.cols[turn];
+    if (cell !== undefined && !/\d/.test(cell) && rows.every((r) => r.cols[turn] === cell)) {
+      said.push(`Turnout: ${cell} for every seat listed.`);
+      headers = headers.filter((_, i) => i !== turn);
+      numeric = numeric.filter((_, i) => i !== turn);
+      rows = rows.map((r) => ({ ...r, cols: r.cols.filter((_, i) => i !== turn) }));
+    }
+  }
+  const mar = headers.indexOf("Margin");
+  if (mar !== -1 && rows.every((r) => (r.cols[mar] ?? "").endsWith(" (declared)"))) {
+    said.push("Every margin is as the source declared it, not counted from candidates' votes.");
+    rows = rows.map((r) => ({ ...r, cols: r.cols.map((c, i) => (i === mar ? c.slice(0, -" (declared)".length) : c)) }));
+  }
+  return { table: { headers, numeric, rows }, said };
+}
+
 // ── Floor 1: the headline ────────────────────────────────────────────────────────────────────────
 
 function round1(n: number): number {

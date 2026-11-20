@@ -137,7 +137,8 @@ test("the 2026 election of a seat that had a close 2021 draws no ruler for 2026:
   const html = render("/constituency", "alpha", "xx", "assembly", PATH);
   assert.equal(count(html, /id="finish"/g), 1);
   assert.ok(!text(seatFig(html, "finish")).includes("2026"), "the ruler is for 2026");
-  assert.match(text(seatFig(html, "finish")), /2021: the two leading totals/);
+  assert.match(text(seatFig(html, "finish")), /2021/);
+  assert.doesNotMatch(text(seatFig(html, "finish")), /the two leading totals/, "the panel's subtitle names the election and does not describe the chart");
 });
 
 test("a list of margins that would leave a contest out is not drawn: one sentence says how many are missing", () => {
@@ -225,7 +226,15 @@ test("Dinhata's page has the ruler, Baharampur's the list, Mekliganj's neither, 
     const s = seatFig(an, "field");
     assert.equal(count(s, /<i class="iei-st-dot/g), dots, seat);
     assert.equal(count(s, /iei-st-dot-me/g), 1, seat);
-    assert.equal(count(s, /<tr/g), 1 + dots, seat);
+    // CHANGED 2026-11-20, on purpose: the strip still DRAWS every seat (a dot each, above), but its table twin is the five closest, the five widest and the
+    // seats either side of this one (at most 15 rows), each linked, with a link to the election's own page for the rest, and not 293 rows and 293 links.
+    const rowsOf = count(s, /<tr/g) - 1;
+    assert.ok(rowsOf >= 10 && rowsOf <= 15, `${seat}: ${rowsOf} rows in the twin`);
+    assert.match(text(s), new RegExp(`${rowsOf} of the ${dots} .*margins`), seat);
+    assert.equal(count(s, /aria-current="true"/g), 1, `${seat}: the seat's own row`);
+    assert.equal(count(s, /<th scope="row" class="iei-n">1<\/th>/g), 1, `${seat}: the closest margin is in the twin`);
+    assert.equal(count(s, new RegExp(`<th scope="row" class="iei-n">${dots}<\\/th>`, "g")), 1, `${seat}: the widest margin is in the twin`);
+    assert.match(s, /href="\/election\/[^"]+">its own page<\/a>/, `${seat}: no way to the rest`);
     assert.doesNotMatch(text(an), /NaN|undefined|Infinity/);
   }
 });
@@ -269,4 +278,15 @@ test("the figures' words and marks follow the page's rules: no pronoun, no uncon
   // A strip or a list of declared margins never has a solid dot or a solid bar, and a dashed one is never solid.
   const bhm = render("/constituency/analysis", "baharampur", "wb", "lok-sabha");
   assert.equal(count(seatFig(bhm, "field"), /class="iei-st-dot"/g), 0, "a declared margin is a solid dot");
+});
+
+test("every person name on the seat page and the district page is a display name: Title Case, never the source's ALL CAPS, in a tooltip as in the text", live, () => {
+  const seat = render("/constituency", "ballygunge", "wb");
+  // The held-by strip's tooltips used to carry the winner as the source wrote it.
+  assert.match(seat, /title="2011: won by TMC \(Subrata Mukherjee\)"/);
+  assert.doesNotMatch(seat, /won by \w+ \([A-Z]{2,}[A-Z .'-]* [A-Z]{2,}\)/, "an ALL CAPS winner is in the strip's tooltips");
+  const district = execFileSync(process.execPath, ["--no-warnings", "--import", "./ops/probe/render/register.mjs", "./ops/probe/render/render.mjs", "/district", "", "wb/kolkata"], { cwd: ROOT, encoding: "utf8", maxBuffer: 64 * 1024 * 1024, stdio: ["ignore", "pipe", "pipe"] });
+  const members = [...district.matchAll(/<td>([^<]*)<\/td><td class="iei-n">/g)].map((m) => m[1] as string);
+  assert.ok(members.length >= 10, "no member column");
+  for (const m of members) assert.ok(!/^[^a-z]*$/.test(m) || m === "not reported", `${m} is ALL CAPS`);
 });

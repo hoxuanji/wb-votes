@@ -29,12 +29,19 @@ import {
   NO_DATA_HUE,
   MOVE_PP,
   PER_RULE,
+  NO_DATA_HUES,
   SEQUENTIAL,
+  SEQUENTIAL_DARK,
+  SEQUENTIAL_LIGHT,
   availability,
   electionCoverage,
   electionCoverageView,
   headline,
+  assemblyChange,
+  changeDelta,
+  changeLine,
   homeView,
+  showsPartyLandscape,
   isLayer,
   layer,
   partyLandscape,
@@ -805,7 +812,7 @@ test("homeView renders for every layer, and falls back rather than throwing on a
       // `fights` and `heldTop` arrived with the final design pass: the front page reaches a SEAT now (five
       // closest contests, each a link to a constituency) and a recent-result card names a runner-up, because
       // "BJP 240" alone does not tell a reader what the election was.
-      ["announced", "coverageOf", "fights", "headline", "held", "heldTop", "houseStandings", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
+      ["announced", "changes", "coverageOf", "fights", "headline", "held", "heldTop", "houseStandings", "layer", "layers", "overdue", "parties", "signals", "snapshot", "standings", "states", "upcoming"],
       "homeView returns something the page does not render, or has stopped returning something it does",
     );
   } finally {
@@ -1047,17 +1054,35 @@ test("every step of the magnitude ramp is a mark: it clears the floor on every s
   const surfaces = { bg: "#07070b", panel: "#0d0d13", raised: "#14141c" };
   // Three of the six steps were 1.25, 1.62 and 2.24 against the page, and the darkest was 1.06 against the ink that says a
   // jurisdiction has no data: a seat with a figure looked like a seat without one.
-  for (const step of SEQUENTIAL) {
+  for (const step of SEQUENTIAL_DARK) {
     for (const [name, surface] of Object.entries(surfaces)) {
       assert.ok(contrast(step, surface) >= 3, `${step} on ${name} is ${contrast(step, surface).toFixed(2)}:1`);
     }
-    assert.ok(deltaE(step, NO_DATA_HUE, "normal") >= 20, `${step} is not told apart from the no-data ink`);
+    assert.ok(deltaE(step, NO_DATA_HUES.dark, "normal") >= 20, `${step} is not told apart from the no-data ink`);
   }
-  for (let i = 1; i < SEQUENTIAL.length; i += 1) {
-    const [a, b] = [SEQUENTIAL[i - 1] as string, SEQUENTIAL[i] as string];
+  for (let i = 1; i < SEQUENTIAL_DARK.length; i += 1) {
+    const [a, b] = [SEQUENTIAL_DARK[i - 1] as string, SEQUENTIAL_DARK[i] as string];
     assert.ok(luminance(b) > luminance(a), `${b} is not lighter than ${a}: the ramp is a ramp because it is ordered`);
     assert.ok(deltaE(a, b, "normal") >= 7, `${a} and ${b} are ${deltaE(a, b, "normal").toFixed(1)} apart`);
   }
+});
+
+test("on the light page the ramp is the same ramp: every step a mark on every light surface, apart from the no-data ink, and ordered by contrast with the page", () => {
+  const surfaces = { bg: "#eef0f6", panel: "#f8f9fc", raised: "#ffffff" };
+  for (const step of SEQUENTIAL_LIGHT) {
+    for (const [name, surface] of Object.entries(surfaces)) {
+      assert.ok(contrast(step, surface) >= 3, `${step} on the light ${name} is ${contrast(step, surface).toFixed(2)}:1`);
+    }
+    assert.ok(deltaE(step, NO_DATA_HUES.light, "normal") >= 20, `${step} is not told apart from the light no-data ink`);
+  }
+  // A step further along is further from the page in both themes: lighter on the dark page, darker on the light one.
+  for (let i = 1; i < SEQUENTIAL_LIGHT.length; i += 1) {
+    const [a, b] = [SEQUENTIAL_LIGHT[i - 1] as string, SEQUENTIAL_LIGHT[i] as string];
+    assert.ok(luminance(b) < luminance(a), `${b} is not darker than ${a}: on the light page the ramp runs toward the ink`);
+    assert.ok(deltaE(a, b, "normal") >= 7, `${a} and ${b} are ${deltaE(a, b, "normal").toFixed(1)} apart`);
+  }
+  // The DOM gets the pair.
+  SEQUENTIAL.forEach((paint, i) => assert.equal(paint, `light-dark(${SEQUENTIAL_LIGHT[i]}, ${SEQUENTIAL_DARK[i]})`));
 });
 
 /* ────────────────────────────── the headline's counts ────────────────────────────── */
@@ -1147,4 +1172,107 @@ test("a coverage count agrees with its verb, whether it is one contest or candid
   } finally {
     d.close();
   }
+});
+
+test("the party landscape needs two jurisdictions, and a layer the registry cannot fill carries its own reason", () => {
+  const st = (jurisdictionId: string) => ({ jurisdictionId });
+  assert.equal(showsPartyLandscape({ standings: [], houseStandings: [] }), false);
+  assert.equal(showsPartyLandscape({ standings: [st("wb")], houseStandings: [st("wb")] }), false, "one state, assembly and house, is one jurisdiction ranked twice");
+  assert.equal(showsPartyLandscape({ standings: [st("wb")], houseStandings: [st("kl")] }), true);
+});
+
+test("every layer the page cannot offer as a tab says why, and every one it can says nothing", live, () => {
+  const v = homeView(db(), { thisYear: THIS_YEAR });
+  for (const l of v.layers) {
+    if (l.available) assert.equal(l.why, null, `${l.key} is available and carries a reason`);
+    else {
+      assert.ok(typeof l.why === "string" && l.why.trim().length > 0, `${l.key} cannot be filled and gives no reason`);
+      assert.ok(!/unavailable|\bnothing in the registry\b/i.test(l.why as string), `${l.key}'s reason repeats the word the tab used to say`);
+    }
+  }
+});
+
+/* ────────────────────────────── what changed since the election before ────────────────────────────── */
+
+const SEAT = (placeId: string, party: string | null, epochId = "e1") => ({
+  placeId,
+  epochId,
+  winner: party === null ? null : { party: { key: party, label: party } },
+});
+const THEN_PARTIES = [
+  { key: "TMC", seats: 3 },
+  { key: "BJP", seats: 1 },
+];
+
+test("the change since the election before is two seat totals and one seat-by-seat comparison, with its own denominator", () => {
+  // Four seats then (TMC TMC TMC BJP), four now (BJP BJP TMC BJP): the BJP gained two seats, and two seats changed hands of four that held or flipped.
+  const then = [SEAT("a", "TMC"), SEAT("b", "TMC"), SEAT("c", "TMC"), SEAT("d", "BJP")];
+  const now = [SEAT("a", "BJP"), SEAT("b", "BJP"), SEAT("c", "TMC"), SEAT("d", "BJP")];
+  const c = assemblyChange({ now: { leaderKey: "BJP", leaderLabel: "BJP", leaderSeats: 3 }, thenYear: 2021, seatsNow: now, seatsThen: then, partiesThen: THEN_PARTIES });
+  assert.deepEqual(c.leader, { key: "BJP", label: "BJP", seats: 3, thenSeats: 1, delta: 2 });
+  assert.equal(c.flipped, 2);
+  assert.equal(c.comparable, 4);
+  assert.equal(changeDelta(c), "+2 on 2021");
+  assert.equal(changeLine(c), "Compared with 2021: 2 of 4 seats changed hands.");
+});
+
+test("a seat nobody declared, and a seat redrawn, are said and never folded into the denominator", () => {
+  const then = [SEAT("a", "TMC"), SEAT("b", null), SEAT("c", "BJP"), SEAT("x", "BJP", "old")];
+  const now = [SEAT("a", "BJP"), SEAT("b", "BJP"), SEAT("c", "BJP"), SEAT("x", "BJP", "new")];
+  const c = assemblyChange({ now: { leaderKey: "BJP", leaderLabel: "BJP", leaderSeats: 4 }, thenYear: 2016, seatsNow: now, seatsThen: then, partiesThen: THEN_PARTIES });
+  assert.equal(c.comparable, 2, "held + flipped is the only denominator");
+  assert.equal(c.flipped, 1);
+  assert.equal(c.unknown, 1);
+  assert.equal(c.incomparable, 1);
+  assert.equal(c.comparable + c.unknown + c.incomparable, now.length, "every seat of now is in exactly one bucket");
+  const line = changeLine(c) as string;
+  assert.match(line, /^Compared with 2016: 1 of 2 seats changed hands; /);
+  assert.match(line, /1 seat redrawn since and not comparable/);
+  assert.match(line, /1 left out because one of the two elections declared no winner there/);
+  assert.equal(changeDelta(c), "+3 on 2016", "the two houses were the same size, so the totals are a change");
+  // Houses of different sizes: the seat totals are not a change, and no delta is printed.
+  const smaller = assemblyChange({ now: { leaderKey: "BJP", leaderLabel: "BJP", leaderSeats: 4 }, thenYear: 2016, seatsNow: now, seatsThen: then.slice(0, 3), partiesThen: THEN_PARTIES });
+  assert.equal(changeDelta(smaller), null, "the two houses were not the same size");
+});
+
+test("with nothing comparable the line says so, a lost seat is a minus, and no earlier election means no line at all", () => {
+  const redrawn = assemblyChange({
+    now: { leaderKey: "TMC", leaderLabel: "TMC", leaderSeats: 2 },
+    thenYear: 2011,
+    seatsNow: [SEAT("a", "TMC", "new"), SEAT("b", "TMC", "new")],
+    seatsThen: [SEAT("a", "TMC", "old"), SEAT("b", "TMC", "old")],
+    partiesThen: [{ key: "TMC", seats: 5 }],
+  });
+  assert.equal(redrawn.comparable, 0);
+  assert.equal(changeLine(redrawn), "Compared with 2011: No seat can be compared seat by seat (2 seats redrawn since and not comparable).");
+  assert.equal(changeDelta(redrawn), "−3 on 2011");
+  const nothing = assemblyChange({ now: { leaderKey: null, leaderLabel: null, leaderSeats: 0 }, thenYear: 2011, seatsNow: [], seatsThen: [], partiesThen: [] });
+  assert.equal(nothing.leader, null);
+  assert.equal(changeDelta(nothing), null);
+  assert.equal(changeLine(nothing), null);
+  for (const c of [redrawn, nothing]) assert.ok(!/\b(Measured|Derived|Complete|Partial|Unavailable)\b/.test(changeLine(c) ?? ""), "a banned status word is in the line");
+});
+
+test("the registry's changes are the state page's own comparison, one per jurisdiction with an earlier election", live, () => {
+  const v = homeView(db(), { thisYear: THIS_YEAR });
+  for (const [id, c] of v.changes) {
+    const s = v.standings.find((x) => x.jurisdictionId === id);
+    assert.ok(s !== undefined, `${id} has a change and no latest election`);
+    assert.ok(c.sinceYear < s.year, `${id} is compared with an election that is not earlier`);
+    assert.ok(c.flipped <= c.comparable, `${id}: more seats changed hands than were comparable`);
+    assert.ok(c.flipped + (c.comparable - c.flipped) + c.unknown + c.incomparable <= s.seatsContested, `${id}: the buckets exceed the seats contested`);
+    if (c.leader?.delta !== null && c.leader !== null) assert.equal(c.leader.delta, c.leader.seats - c.leader.thenSeats);
+  }
+});
+
+test("the election-year layer's legend is one swatch per year present, in whole years, and never names a year with no election", live, () => {
+  const v = homeView(db(), { layer: "year", thisYear: THIS_YEAR });
+  const years = [...new Set(v.standings.map((x) => x.year))].sort((a, b) => a - b);
+  assert.deepEqual(
+    v.layer.legend.map((l) => l.label),
+    years.map(String),
+    "the legend is not exactly the years the registry holds an election in",
+  );
+  assert.ok(v.layer.legend.every((l) => l.key === null && /^\d{4}$/.test(l.label)), "a year bin is fractional or isolable");
+  assert.ok(Math.max(...v.layer.legend.map((l) => Number(l.label))) <= Math.max(...years), "the legend implies a year after the latest election");
 });

@@ -12,9 +12,11 @@
 }
 
 .rv-side {
-  border: 1px solid var(--iei-line);
+  border: 0;
+  border-radius: var(--iei-r);
   background: var(--iei-panel);
-  padding: var(--iei-3);
+  box-shadow: var(--iei-elev);
+  padding: var(--iei-4);
   min-width: 0;
 }
 
@@ -27,10 +29,8 @@
 }
 
 .rv-side dt {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  font-weight: 600;
   color: var(--iei-ink-3);
 }
 
@@ -48,7 +48,6 @@
 }
 
 .rv-id {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   color: var(--iei-ink-3);
 }
@@ -66,7 +65,6 @@
 
 /* The resolver's own scoring, behind a disclosure — the same idea as the evidence drawer. */
 .rv-ev {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-mark);
   margin: var(--iei-4) 0;
 }
@@ -74,7 +72,6 @@
 .rv-ev summary {
   cursor: pointer;
   color: var(--iei-ink-3);
-  letter-spacing: 0.06em;
   list-style: none;
   padding-bottom: 2px;
   border-bottom: 2px solid var(--iei-line-2);
@@ -90,9 +87,9 @@
 }
 
 .rv-ev summary:focus-visible {
-  outline: none;
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
   color: var(--iei-ink);
-  border-bottom-color: var(--iei-ink);
 }
 
 .rv-ev table {
@@ -109,35 +106,40 @@
 }
 
 .rv-actions button {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
-  letter-spacing: 0.06em;
   color: var(--iei-ink);
-  background: var(--iei-raised);
-  border: 1px solid var(--iei-line-2);
-  border-radius: var(--iei-r);
-  padding: var(--iei-2) var(--iei-3);
+  font-weight: 600;
+  background: var(--iei-tint);
+  border: 0;
+  border-radius: var(--iei-r-sm);
+  padding: var(--iei-2) var(--iei-4);
   cursor: pointer;
+  transition:
+    background var(--iei-t-1) var(--iei-ease),
+    transform var(--iei-t-1) var(--iei-ease);
 }
 
 .rv-actions button:hover {
-  border-color: var(--iei-ink-3);
+  background: var(--iei-tint-2);
+}
+
+.rv-actions button:active {
+  transform: translateY(1px);
 }
 
 .rv-actions button:focus-visible {
-  outline: none;
-  border-color: var(--iei-ink);
-  box-shadow: inset 0 -2px 0 0 var(--iei-ink);
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
 }
 
 /* The two judgements that assert something get the two hues this product spends on direction. "Cannot tell"
    gets none, because it asserts nothing. */
 .rv-same {
-  border-color: var(--iei-good) !important;
+  box-shadow: inset 0 0 0 1px var(--iei-good);
 }
 
 .rv-diff {
-  border-color: var(--iei-alert) !important;
+  box-shadow: inset 0 0 0 1px var(--iei-alert);
 }
 
 .rv-est {
@@ -147,11 +149,10 @@
 /* What was recorded. Shown for all three outcomes, because a decision that silently failed to record is the
    one failure mode that would corrupt the measurement while looking like progress. */
 .rv-saved {
-  font-family: var(--iei-mono);
   font-size: var(--iei-f-meta);
   line-height: 1.6;
   color: var(--iei-ink-2);
-  border-left: 2px solid var(--iei-good);
+  border-left: 1px solid var(--iei-good);
   padding-left: var(--iei-3);
   margin: var(--iei-4) 0;
   max-width: 88ch;

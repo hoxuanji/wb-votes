@@ -3,9 +3,8 @@ import { placeStory } from "../../../../packages/mandate/src/repo/place-story.ts
 import type { PlaceView } from "../../../../packages/mandate/src/repo/place-view.ts";
 import { seatGlow } from "../../../../packages/mandate/src/repo/seat-glow.ts";
 import { marginStripOf } from "../../../../packages/mandate/src/repo/seat-proof.ts";
-import { resultRetrieved } from "../../../../packages/mandate/src/repo/seat-story.ts";
 import { Foot, Shell } from "../../../components/iei/Shell.tsx";
-import { AnalysisHead, GapPanels, LeavesOut, MarginHero, MarginStripPanel, Notes, Tables, TurnoutRows, VoteLadder } from "../../../components/iei/Dash.tsx";
+import { AnalysisHead, GapPanels, MarginHero, MarginStripPanel, MeasureCaveats, TurnoutRows, VoteLadder } from "../../../components/iei/Dash.tsx";
 import { Crumbs, Panel, Tabs } from "../../../components/iei/parts.tsx";
 import "../../iei.css";
 
@@ -13,8 +12,9 @@ import "../../iei.css";
  * Floor 2 — Analysis. "How did this seat get this way?"
  *
  * It opens on one computed sentence and the picture that proves it (repo/place-story.ts chooses the sentence by a printed rule), then answers the
- * next question with one picture each: where the vote went, how close it was, whether the state did it, whether people turned out; then what is
- * worth a second look, what the page leaves out, and the exact table behind every picture, open, at the foot.
+ * next question with one picture each: where the vote went, how close it was, whether the state did it, whether people turned out. The exact table
+ * behind each picture is its twin, closed, under it; what a picture cannot say is said under that picture; and the per-measure caveats are one
+ * closed note at the foot. There is no section about the page itself.
  *
  * It used to open on a three-select form and eight cards, 6,167px of them, and say nothing: it plotted a turnout the Brief withheld, coloured parties
  * by rank, folded the party list twice and called a state the district of a Lok Sabha seat. The window is still a GET form and the chips and presets
@@ -73,8 +73,7 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
       />
 
       <Panel
-        title="Window"
-        question="Which elections do the pictures below cover?"
+        title="Which elections do these pictures cover?"
         /* ONE DRAWER FOR THE PAGE'S SOURCES, with the retrieval date of the results beside it. */
         sources={analysis.sources}
       >
@@ -146,13 +145,11 @@ export default function AnalysisFloor({ view }: { view: Extract<PlaceView, { kin
       </Panel>
 
       <VoteLadder story={story} followHref={withParty} />
-      <MarginHero story={story} retrieved={resultRetrieved(brief)} />
+      <MarginHero story={story} />
       {strip === null ? null : <MarginStripPanel s={strip} />}
       <GapPanels story={story} stateName={analysis.place.stateName ?? "the state"} />
       <TurnoutRows story={story} district={analysis.place.districtName} state={analysis.place.stateName} />
-      <Notes story={story} />
-      <LeavesOut story={story} caveats={analysisCaveats(analysis)} />
-      <Tables story={story} stateName={analysis.place.stateName ?? "the state"} district={analysis.place.districtName} />
+      <MeasureCaveats caveats={analysisCaveats(analysis)} />
 
       <Foot>
         <a className="iei-body-link" href={base}>

@@ -46,9 +46,27 @@ export type SeatLocatorView = {
     /** Null for a seat with no contest on record. `winner` is null where the latest contest declared none. */
     latest: { year: number; winner: PartyRef | null } | null;
   };
-  /** The other seats drawn, each at its own address: its name's, or its registry id's where another seat of the state and body has the name. */
-  neighbours: (LocatorOutline & { href: string })[];
+  /**
+   * The other seats drawn, each at its own address: its name's, or its registry id's where another seat of the state and body has the name.
+   * `near` is whether the seat is one of the `NEAR` closest to this one: only those are links on the page, because a state has hundreds
+   * and a keyboard reader would pass a tab stop for each. Every other seat is drawn and named in its tooltip, and the state's page lists them all.
+   */
+  neighbours: (LocatorOutline & { href: string; near: boolean })[];
 };
+
+/** How many neighbours are links: the ones round the seat, which are the ones a reader goes to. */
+export const NEAR = 12;
+
+/** The ids of the `n` outlines whose centres lie closest to the point (x, y), nearest first; ties keep the order given. */
+export function nearest(from: { x: number; y: number }, among: readonly { id: string; x: number; y: number }[], n: number = NEAR): Set<string> {
+  return new Set(
+    among
+      .map((o, i) => ({ id: o.id, i, d: Math.hypot(o.x - from.x, o.y - from.y) }))
+      .sort((a, b) => a.d - b.d || a.i - b.i)
+      .slice(0, n)
+      .map((o) => o.id),
+  );
+}
 
 /** A frame grown on its short side to a square about the same centre. */
 export function squareFrame(viewBox: string): string {
@@ -149,6 +167,15 @@ export function seatLocator(db: DatabaseSync, versionId: number): SeatLocatorVie
         ? undefined
         : readSeats(db, { elections: [newest.id], within: here.stateId }).find((r) => r.versionId === versionId);
 
+    const others = drawn.filter((o) => o.versionId !== versionId);
+    const centre = (path: string): { x: number; y: number } => {
+      const b = boundsOf(path);
+      return b === null ? { x: Infinity, y: Infinity } : { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 };
+    };
+    const close = nearest(
+      { x: (bounds.x0 + bounds.x1) / 2, y: (bounds.y0 + bounds.y1) / 2 },
+      others.map((o) => ({ id: o.placeId, ...centre(o.path) })),
+    );
     return {
       viewBox: squareFrame(frameOf(drawn.map((o) => o.path))),
       body: bodyOfKind(here.kind),
@@ -161,14 +188,13 @@ export function seatLocator(db: DatabaseSync, versionId: number): SeatLocatorVie
         bounds,
         latest: newest === undefined ? null : { year: newest.year, winner: result?.winner?.party ?? null },
       },
-      neighbours: drawn
-        .filter((o) => o.versionId !== versionId)
-        .map((o) => ({
-          id: o.placeId,
-          name: o.name,
-          path: o.path,
-          href: seatHref(tied, { versionId: o.versionId, placeId: o.placeId, stateId: here.stateId as string, kind: o.kind, name: o.name }),
-        })),
+      neighbours: others.map((o) => ({
+        id: o.placeId,
+        name: o.name,
+        path: o.path,
+        href: seatHref(tied, { versionId: o.versionId, placeId: o.placeId, stateId: here.stateId as string, kind: o.kind, name: o.name }),
+        near: close.has(o.placeId),
+      })),
     };
   });
 }

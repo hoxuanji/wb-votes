@@ -27,7 +27,7 @@ export async function GET() {
   const r = liveReply(readLiveFeed(process.env['MANDATE_LIVE_PATH'], new Date()));
   if (r.state === 'none') return problem(404, 'live-feed-none', 'Nothing is live', 'No live feed is configured, or no election in it is still being counted.');
   if (r.state === 'error') return problem(503, 'live-feed-invalid', 'The live feed cannot be used', r.error);
-  return new Response(JSON.stringify({ boards: r.boards, sentences: r.sentences, fills: r.fills }), {
+  return new Response(JSON.stringify({ boards: r.boards, sentences: r.sentences, fills: r.fills, paints: r.paints }), {
     status: 200,
     headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
   });

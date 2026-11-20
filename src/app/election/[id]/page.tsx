@@ -145,6 +145,8 @@ export default function ElectionPage({
   const choices = { ...choicesOf(v), margin: marginTotal > 0, runnerup: v.seats.some((s) => s.runnerUpKey !== null) };
   const sel = readSelection(searchParams, choices, { base: electionHref(e.id), anchor: 'map' });
   const mode = sel.mode;
+  const offered = MODES.filter((m) => offersMode(choices, m.key));
+  const withheld = MODES.filter((m) => !offersMode(choices, m.key));
   const party = sel.isolation?.by === 'party' ? sel.isolation.key : null;
   const bin = sel.isolation?.by === 'bin' ? sel.isolation.lo : null;
   // A link to another election keeps the mode and the shape and drops every selection, each being a statement about one
@@ -212,14 +214,9 @@ export default function ElectionPage({
         ]}
       />
 
-      {/* ── 1 · HEADER. One sentence of result, a line of scale, then the seats won by party. Not a tile grid. The page's
-             sources share the eyebrow's line, so nothing between this and the map is a heading. ── */}
+      {/* ── 1 · HEADER. One sentence of result, one line saying which election, and a line of scale. The seats won by party are the key beside the map, once. Not a tile grid. The page's
+             sources sit at the end of the line above the title, so nothing between this and the map is a heading. ── */}
       <MapHead
-        eyebrow={
-          /* THE TYPE, FROM ElectionContext. The body alone says "Lok Sabha" for a Lok Sabha by-election, which
-             would describe 829 elections as something they are not. */
-          ctx === null ? null : `${place} · ${typeLabel(ctx.body, ctx.kind)} · ${ctx.year}`
-        }
         sources={v.sources}
         label={mapTitle}
         caveat={
@@ -257,6 +254,9 @@ export default function ElectionPage({
             </>
           )}
         </h1>
+        {/* WHICH ELECTION, under the title and not over it. THE TYPE COMES FROM ElectionContext: the body alone says "Lok Sabha" for a
+            Lok Sabha by-election, which would describe 829 elections as something they are not. */}
+        {ctx === null ? null : <p className="iei-note">{`${place} · ${typeLabel(ctx.body, ctx.kind)} · ${ctx.year}`}</p>}
         <p className="iei-sub">
           {ctx === null
             ? null
@@ -278,21 +278,6 @@ export default function ElectionPage({
             </>
           )}
         </p>
-        {/* The parties, as marks rather than as a table. This is seats WON, so on the tab where a party means the one that
-            came second its links go to the winners, as the arc's do. */}
-        <ul className="iei-standing" aria-label="Seats won, by party">
-          {v.legend.slice(0, 8).map((l) => (
-            <li key={l.key}>
-              <Link
-                href={mode === 'runnerup' ? sel.href({ mode: 'winners' }, { party: l.key }) : sel.href({ party: l.key })}
-              >
-                <span className="iei-sw" style={{ background: fillFor(l.key) }} aria-hidden="true" />
-                {l.label} <b>{l.n}</b>
-              </Link>
-            </li>
-          ))}
-          <More rest={v.legend.slice(8)} />
-        </ul>
       </MapHead>
 
       {/* ── 2 and 3 · THE MAP, and the four ways of reading it ── */}
@@ -301,20 +286,25 @@ export default function ElectionPage({
         controls={
           <>
             <ShapeTabs view={v} selection={sel} />
-            <Tabs
-              label={mapped ? 'What the map shows' : 'What this page shows'}
-              current={mode}
-              choices={MODES.map((m) => ({
-                key: m.key,
-                label: m.label,
-                href: sel.href({ mode: m.key }),
-                // Flips need a previous election under the same boundaries; margin a seat with a share; runner-up a seat with a second.
-                available: offersMode(choices, m.key),
-              }))}
-            />
+            {offered.length < 2 ? null : (
+              <Tabs
+                label={mapped ? 'What the map shows' : 'What this page shows'}
+                current={mode}
+                choices={offered.map((m) => ({ key: m.key, label: m.label, href: sel.href({ mode: m.key }) }))}
+              />
+            )}
           </>
         }
       >
+        {/* THE READINGS NOTHING CAN FILL, said once, here, and not as a disabled tab each (which said it again to a screen reader three times).
+            Flips need a previous election under the same boundaries; margin a seat with a share; runner-up a seat with a second. */}
+        {withheld.length === 0 ? null : (
+          <p className="iei-note">
+            Not available for this election: {withheld.map((m) => m.label).join(', ')} — nothing in the registry can fill{' '}
+            {withheld.length === 1 ? 'it' : 'them'}.
+          </p>
+        )}
+
         {/* WHY THERE IS NO MAP, where there is none, and which of the two reasons it is. */}
         <NoMap view={v} />
 
@@ -327,7 +317,6 @@ export default function ElectionPage({
             {/* THE LEGEND CHANGES WITH THE MODE, because the mode changes what a colour means. */}
             {mode === 'margin' ? (
               <p className="iei-note">
-                {mapped ? 'Brightest where the margin was smallest. ' : ''}
                 {IN.format(marginTotal)} of {IN.format(e.seats)} seats have a computable margin.
               </p>
             ) : mode === 'flips' ? (
@@ -494,8 +483,7 @@ export default function ElectionPage({
               </ul>
               {mapped ? (
                 <p className="iei-note">
-                  <Link href={sel.href({ mode: 'flips' })}>Show this on the map</Link> — flipped seats wear the
-                  colour of the party that gained them.
+                  <Link href={sel.href({ mode: 'flips' })}>Show this on the map</Link>
                 </p>
               ) : null}
             </div>

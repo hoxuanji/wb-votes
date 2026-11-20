@@ -43,6 +43,9 @@ const HUELESS = 0.02;
 const CANVAS = "#07070b";
 const HIGHLIGHT = 0.04;
 const INK_3 = "#8b8ba2";
+// The light page's: the canvas, no highlight (a card on a light page is already lit, so iei.css gives the white wash no alpha there), and the label ink.
+const CANVAS_LIGHT = "#eef0f6";
+const INK_3_LIGHT = "#585b70";
 
 const channels = (hex: string): [number, number, number] => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)) as [number, number, number];
 const hex = (rgb: readonly number[]): string => `#${rgb.map((v) => Math.round(v).toString(16).padStart(2, "0")).join("")}`;
@@ -64,8 +67,22 @@ export function alphaFor(fill: string): number | null {
   return null;
 }
 
-/** What `Shell` is given: the party the light is in the colour of, and the colour, as a CSS value for `--iei-glow`. */
-export type SeatGlow = { party: string; colour: string };
+/**
+ * On the LIGHT page the glow is the party's light fill over the canvas, which DARKENS it, so the worry is the darkest the page gets under a
+ * label and not the brightest. Same rule, same floor, same steps: the strongest alpha at which ink-3 still measures FLOOR.
+ */
+export function alphaForLight(fillLight: string): number | null {
+  for (let a = NEUTRAL_ALPHA; a >= 0.02; a = Math.round((a - 0.005) * 1000) / 1000) {
+    if (contrastOf(hex(over(channels(fillLight), a, channels(CANVAS_LIGHT))), INK_3_LIGHT) >= FLOOR) return a;
+  }
+  return null;
+}
+
+/**
+ * What `Shell` is given: the party the light is in the colour of, and the colour as a CSS value for `--iei-glow`
+ * (`light-dark(rgba(…), rgba(…))`, so it follows the theme). `dark` and `light` are the two rgba halves, for maths and tests.
+ */
+export type SeatGlow = { party: string; colour: string; dark: string; light: string };
 
 /** Only the part of a seat's history the rule reads, so a literal can stand in for one. `results` is newest first. */
 export type GlowHistory = { results: readonly { winner: { party: { key: string } } | null }[] };
@@ -83,9 +100,12 @@ export function glowOf(party: string): SeatGlow | null {
   const token = tokenFor(party);
   if (token.basis !== "curated" || chromaOf(token.fill) < HUELESS) return null;
   const alpha = alphaFor(token.fill);
-  if (alpha === null) return null;
-  const [r, g, b] = channels(token.fill);
-  return { party: token.key, colour: `rgba(${r}, ${g}, ${b}, ${alpha})` };
+  const alphaLight = alphaForLight(token.fillLight);
+  if (alpha === null || alphaLight === null) return null;
+  const rgba = (c: string, a: number): string => `rgba(${channels(c).join(", ")}, ${a})`;
+  const dark = rgba(token.fill, alpha);
+  const light = rgba(token.fillLight, alphaLight);
+  return { party: token.key, colour: `light-dark(${light}, ${dark})`, dark, light };
 }
 
 /** The glow for a seat's page, or null when the page keeps the neutral one. Total: it reads a history and throws on none. */

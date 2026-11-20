@@ -59,6 +59,7 @@ export function Panel({
   sources,
   note,
   caveat,
+  className,
   children,
 }: {
   id?: string;
@@ -70,10 +71,12 @@ export function Panel({
   /** A caveat the reader needs before the numbers, not after them. Keep it to one sentence: the long
    *  methodology paragraphs that used to live here belong in the evidence drawer. */
   note?: React.ReactNode;
+  /** A modifier on the card: `iei-bench` is the front page's map panel, set as a toolbar, a tab strip and a map beside its inspector. */
+  className?: string;
   children: React.ReactNode;
 }) {
   return (
-    <section className="iei-sec" id={id} aria-labelledby={id === undefined ? undefined : `${id}-h`}>
+    <section className={className === undefined ? 'iei-sec' : `iei-sec ${className}`} id={id} aria-labelledby={id === undefined ? undefined : `${id}-h`}>
       <div className="iei-h">
         <div className="iei-h-title">
           <h2 id={id === undefined ? undefined : `${id}-h`}>{title}</h2>
@@ -439,9 +442,20 @@ export function Change({ value, unit = '', absent = 'n/a' }: { value: number | n
  */
 export type Choice = { key: string; label: string; href?: string; available?: boolean };
 
-export function Tabs({ label, choices, current }: { label: string; choices: readonly Choice[]; current: string }) {
+export function Tabs({
+  label,
+  choices,
+  current,
+  row = false,
+}: {
+  label: string;
+  choices: readonly Choice[];
+  current: string;
+  /** One row at a phone's width, scrolled sideways, where the default wraps. For a strip of more choices than a phone has room for, such as the map's layers. */
+  row?: boolean;
+}) {
   return (
-    <div className="iei-tabs" role="group" aria-label={label}>
+    <div className={row ? 'iei-tabs iei-tabs-row' : 'iei-tabs'} role="group" aria-label={label}>
       {choices.map((c) =>
         c.available === false || c.href === undefined ? (
           <span key={c.key} className="iei-tab iei-tab-off" aria-disabled="true">

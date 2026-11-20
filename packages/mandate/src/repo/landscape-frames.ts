@@ -68,3 +68,11 @@ export function frameSentence(f: Frame): string {
     ? `${f.year}: ${states(f.withResult)} of ${f.total} with a result; no party leads more than the others, each of the leading parties has ${states(lead.states)}.`
     : `${f.year}: ${states(f.withResult)} of ${f.total} with a result; ${lead.label} leads ${states(lead.states)}.`;
 }
+
+/**
+ * Whether the time machine has a country to show: two or more states with an assembly election on record by some stop.
+ * With one state the scrubber would move one state's colour through that state's own years, which is the state page's chapter.
+ */
+export function hasHistory(frames: readonly Pick<Frame, "withResult">[]): boolean {
+  return frames.some((f) => f.withResult >= 2);
+}

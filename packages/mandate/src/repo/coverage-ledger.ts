@@ -62,9 +62,9 @@ export type LedgerGroup = {
 };
 
 const MEANING: Record<Status, string> = {
-  present: "A query found rows. The reach is counted; the line under it is what it leaves out.",
-  empty: "A table in the schema models each.",
-  "no-model": "Nothing in the schema can hold these.",
+  present: "Rows are loaded; each subject says what they leave out.",
+  empty: "A table exists for each and holds nothing.",
+  "no-model": "Nothing is built to hold these yet.",
 };
 
 /** The order a reader wants the groups in. */

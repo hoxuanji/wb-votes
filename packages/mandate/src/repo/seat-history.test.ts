@@ -683,19 +683,19 @@ test("the strip is in the header under the sentence, oldest first, each block wi
     ["2026", "TMC", false],
   ]);
   assert.match(html.slice(strip, tabs), /5 elections, 2011 to 2026 — changed hands 3 times/);
-  assert.match(html.slice(strip, tabs), /A rule between two blocks is where the seat changed hands\./);
+  assert.doesNotMatch(html.slice(strip, tabs), /A rule between two blocks/, "the strip is not captioned with how to read it");
   // The ink is the party's key's: TMC is AITC, which is curated, and not the derived colour the name TMC would give.
   const inks = [...html.slice(strip, tabs).matchAll(/class="iei-held-ink" style="background:([^"]*)"/g)].map((m) => m[1]);
   assert.deepEqual(inks, ["AAA", "BBB", "CCC", "AITC", "AITC"].map(fillFor));
   assert.notEqual(fillFor("AITC"), fillFor("TMC"));
 });
 
-test("an election with no declared winner is a dashed block with the words, and the strip says what a dashed block is", () => {
+test("an election with no declared winner is a dashed block with the words, and the strip carries no key for it", () => {
   const html = render("xx/assembly/beta");
   const strip = html.slice(at(html, '<figure class="iei-held">'), at(html, "</figure>", at(html, '<figure class="iei-held">')));
   assert.equal((strip.match(/iei-held-none/g) ?? []).length, 2);
   assert.equal((strip.match(/no result declared/g) ?? []).length, 2);
-  assert.match(strip, /A dashed block is an election with no declared winner\./);
+  assert.doesNotMatch(strip, /A dashed block is an election/, "the words in the block say it; no key is printed");
   assert.doesNotMatch(strip, /A rule between two blocks/, "no rule is drawn and none is explained");
 });
 
@@ -718,21 +718,30 @@ test("a panel per election sits above the election table, which keeps every one 
   assert.match(text(counted[3] ?? ""), /AAA.*50\.0%.*BBB.*30\.0%.*CCC.*10\.0%.*Not itemised 10\.0%/);
   assert.ok(counted.every((p) => !/iei-seat-bar"[^>]*>/.test(p) || p.includes('aria-hidden="true"')), "a bar is read out");
   assert.doesNotMatch(html, /Others \(\d+\)/, "a tail of candidates is added together under a name that is not a party's");
-  assert.match(text(section), /All the bars here share one scale: full width is \d+% of the votes polled/);
+  assert.match(section, /<p class="iei-sr">All the bars share one scale: full width is \d+% of the votes polled/, "the scale is for a screen reader, not printed");
+  assert.match(text(section), /Earlier contests are shown only where the registry has linked the records/, "the data limit stays on the page");
   // Beta has no counted election and so no bars to explain.
   const beta = render("xx/assembly/beta");
-  assert.doesNotMatch(beta, /All the bars here share one scale/);
+  assert.doesNotMatch(beta, /All the bars share one scale/);
   assert.equal((beta.match(/class="iei-seat-bar"/g) ?? []).length, 0);
 });
 
-test("a declared-only election says so in words beside the winner and the margin, and draws no bar", () => {
+// CHANGED 2026-11-20, on purpose: the panel's heading said who won AND by how many, a third telling of the lead's and the table's margin, and the panel
+// repeated "no candidate's votes are on record" that "What the record does not say" holds. The panel says who held the seat and who else stood; the margin
+// is in the lead and the history table (declared, in words), and the absence is in the limits section, which this test also holds.
+test("a declared-only election names the winner and says who else stood, draws no bar, and leaves its margin and its absence to the lead, the table and the limits", () => {
   const html = render("xx/assembly/alpha");
   const start = at(html, 'aria-label="2026"');
   const panel = html.slice(start, at(html, "</section>", start));
   const t = text(panel);
-  assert.match(t, /TMC took the seat from TMC|TMC (?:held the seat|won|took the seat from \w+) by 777 votes \(declared\)/);
-  assert.match(t, /No candidate.s votes are on record for 2026, so there are no bars\./);
+  assert.match(t, /TMC took the seat from TMC|TMC (?:held the seat|won|took the seat from \w+)/);
+  assert.doesNotMatch(t, /777 votes/, "the margin is told a third time");
   assert.doesNotMatch(panel, /iei-seat-bar|iei-seat-rows|iei-res-bar/);
+  // The margin is in the history table, in words as declared; the absence is in the one section that holds each absence.
+  const table = html.slice(at(html, 'aria-label="Election history"'));
+  assert.match(text(table), /2026 TMC .* 777 declared/);
+  const limits = text(html.slice(at(html, 'id="limits"')));
+  assert.match(limits, /2026: the registry holds the declared winner and the declared margin, and no candidate&#x27;s votes/);
 });
 
 test("ten candidates on record are shown as the five the source holds, with what they leave not itemised, and no Others", () => {

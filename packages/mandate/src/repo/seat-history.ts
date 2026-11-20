@@ -242,7 +242,7 @@ function statementOf(
   // The margin as the tile above prints it: the margin_pct measure, over the votes polled.
   const share = margin_pct.compute({ rank1Votes: votes, rank2Votes: 0, validVotes: polled });
   if (margin !== null && margin.basis === "counted" && margin.votes === 0 && runnerUp !== null) {
-    return `${named(winner)} and ${named(runnerUp)} polled the same ${inr(winner.votes ?? 0)} votes; the source declares ${winner.name} the winner.`;
+    return `${named(winner)} and ${named(runnerUp)} polled the same ${inr(winner.votes ?? 0)} votes; the source declares ${displayName(winner.name)} the winner.`;
   }
   const by =
     margin === null

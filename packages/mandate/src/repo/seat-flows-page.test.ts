@@ -18,8 +18,8 @@ import type { DatabaseSync } from "node:sqlite";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
 import { fillFor } from "../viz/party-ink.ts";
-import { contrastOf } from "../viz/colour.ts";
-import { SURFACE } from "../viz/palette.ts";
+import { contrastOf, halvesOf } from "../viz/colour.ts";
+import { SURFACE, SURFACE_LIGHT } from "../viz/palette.ts";
 import { NEUTRAL_RIBBON_INK, ribbonInk } from "../viz/ribbon-ink.ts";
 import { seatFlows } from "./seat-flows.ts";
 
@@ -156,7 +156,9 @@ test("a ribbon is inked by the party that won the seats, and brighter where the 
   assert.equal(moved.fill, ribbonInk(fillFor("AITC"), "bright"));
   const held = rs.find((r) => r.title.startsWith("TMC → TMC"));
   assert.equal(held?.fill, ribbonInk(fillFor("AITC"), "faint"));
-  assert.ok(contrastOf(moved.fill, SURFACE) > contrastOf(held?.fill ?? "#000000", SURFACE) + 1, "changed hands is not brighter than held");
+  // `fill` is the paint the page carries, `light-dark(light, dark)`; each half is measured against its own page's card.
+  assert.ok(contrastOf(halvesOf(moved.fill).dark, SURFACE) > contrastOf(halvesOf(held?.fill ?? "#000000").dark, SURFACE) + 1, "changed hands is not brighter than held");
+  assert.ok(contrastOf(halvesOf(moved.fill).light, SURFACE_LIGHT) > contrastOf(halvesOf(held?.fill ?? "#000000").light, SURFACE_LIGHT) + 1, "on the light page, changed hands is not more contrasty than held");
   assert.doesNotMatch(moved.fill, /rgba|opacity/, "a ribbon's fill is opaque");
   assert.match(moved.title, /BBB → TMC · 2 seats, changed hands/);
   assert.match(held?.title ?? "", /TMC → TMC · 2 seats, held/);

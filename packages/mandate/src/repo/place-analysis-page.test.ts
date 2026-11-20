@@ -19,9 +19,9 @@ import { join } from "node:path";
 import type { DatabaseSync } from "node:sqlite";
 import { open } from "../db/index.ts";
 import { migrate } from "../db/migrate.ts";
-import { CATEGORICAL, OTHERS, SURFACE } from "../viz/palette.ts";
+import { CATEGORICAL, OTHERS, SURFACE, SURFACE_LIGHT } from "../viz/palette.ts";
 import { fillFor } from "../viz/party-ink.ts";
-import { contrastOf } from "../viz/colour.ts";
+import { contrastOf, halvesOf } from "../viz/colour.ts";
 import { ribbonInk } from "../viz/ribbon-ink.ts";
 
 const ROOT = new URL("../../../../", import.meta.url).pathname;
@@ -177,14 +177,36 @@ test("the Brief keeps the declared margin in votes and withholds its share: in t
 });
 
 test("the turnout section says the election is withheld, draws the verified ones, and tables the word", () => {
-  const section = html.slice(html.indexOf('id="turnout"'), html.indexOf('id="notes"') === -1 ? html.indexOf('id="leaves"') : html.indexOf('id="notes"'));
+  const start = html.indexOf('id="turnout"');
+  assert.notEqual(start, -1, "no turnout section");
+  const section = html.slice(start, html.indexOf('class="iei-twin iei-an-caveats"', start));
   assert.match(text(section), /verification pending/);
   assert.match(text(section), /The axis runs from \d+% to \d+%, not from zero/);
-  const t = rows(tableOf(html, "Turnout at each election, here"));
+  const t = rows(tableOf(html, "A withheld election has no figure"));
   assert.deepEqual(t.at(-1), ["2026", "verification pending"]);
   assert.deepEqual(t.slice(1, 3).map((r) => r[0]), ["2016", "2021"]);
   assert.deepEqual(t.find((r) => r[0] === "2021")?.slice(0, 2), ["2021", "45.5%"]);
   assert.doesNotMatch(text(section), /79\.2|2,400/, "the 2026 turnout or its electors is drawn");
+});
+
+// CHANGED 2026-11-20, on purpose: the exact tables were one section at the foot, "The numbers behind the pictures", and three more sections talked about the
+// page ("Worth a second look", "What this page leaves out"). Each table is now the twin of its own picture, inside a closed disclosure under it, and a section
+// is a question a reader asks. What each picture cannot say is said under that picture.
+test("every table is the twin of its picture, closed, under it, and no section talks about the page itself", () => {
+  assert.doesNotMatch(html, /The numbers behind the pictures|What this page leaves out|Worth a second look|id="tables"|id="notes"|id="leaves"/);
+  for (const caption of ["The record: each election", "listed candidates is not listed there", "share here against its share across", "A withheld election has no figure"]) {
+    const at = html.indexOf(caption);
+    assert.notEqual(at, -1, `no table: ${caption}`);
+    const open = html.lastIndexOf("<details", at);
+    assert.notEqual(open, -1, `${caption}: not in a disclosure`);
+    assert.ok(!html.slice(open, at).includes("</details>"), `${caption}: not inside the disclosure that opens before it`);
+    assert.doesNotMatch(html.slice(open, html.indexOf(">", open)), /\bopen\b/, `${caption}: its disclosure is open`);
+  }
+  // Each twin follows its own picture's panel: the ladder's shares, the margin's record, the gap's pairs and the turnout's rows.
+  const at = (id: string): number => html.indexOf(`id="${id}"`);
+  assert.ok(at("ladder") < html.indexOf("listed candidates is not listed there") && html.indexOf("listed candidates is not listed there") < at("close"));
+  assert.ok(at("close") < html.indexOf("The record: each election"));
+  assert.ok(html.indexOf("share here against its share across") < at("turnout") && at("turnout") < html.indexOf("A withheld election has no figure"));
 });
 
 test("the record keeps the declared margin in votes, says it is declared, and withholds any share of it", () => {
@@ -198,7 +220,7 @@ test("the record keeps the declared margin in votes, says it is declared, and wi
 });
 
 test("the share table lists every candidate on record, so a runner-up is a number and an absence is 'not listed', never a dash or a zero", () => {
-  const t = rows(tableOf(html, "Share of the votes polled, by candidate party"));
+  const t = rows(tableOf(html, "listed candidates is not listed there"));
   assert.deepEqual(t[0], ["Party", "2016", "2021"], "2026 is not a counted election and has no column");
   const by = (p: string): string[] => (t.find((r) => r[0] === p) ?? []).slice(1).map((c) => c.replace(/\s*[+−±][\d.]+$/, ""));
   assert.deepEqual(by("AIFB"), ["48.0%", "10.0%"]);
@@ -217,39 +239,50 @@ test("a party is the colour of its identity: TMC is the ink the maps give party 
   assert.ok(!ladder.includes(fillFor("TMC")), "TMC is inked by its name, which is a third green");
   // CHANGED 2026-10-31, on purpose: a ribbon was `fill-opacity` on the party's ink (0.14, or 0.5 for the party followed) and is now an opaque tint
   // of it (viz/ribbon-ink.ts), because translucent ink over the card went grey-brown. A ribbon is still drawn between two counted rows.
-  assert.match(ladder, /<polygon[^>]*style="fill:#[0-9a-f]{6}"/, "no ribbon joins the counted rows");
+  assert.match(ladder, /<polygon[^>]*style="fill:(?:light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\)|#[0-9a-f]{6})"/, "no ribbon joins the counted rows");
   assert.doesNotMatch(ladder, /<polygon[^>]*opacity/, "a ribbon is drawn with an opacity again");
   assert.equal((ladder.match(/<polygon/g) ?? []).length > 0, true);
 });
 
 test("the party followed has the brightest ribbon and the others are the faint tier, all opaque", () => {
-  const fills = (page: string): string[] => [...page.slice(page.indexOf('id="ladder"'), page.indexOf('id="close"')).matchAll(/<polygon[^>]*style="fill:(#[0-9a-f]{6})"/g)].map((m) => m[1] as string);
+  const fills = (page: string): string[] => [...page.slice(page.indexOf('id="ladder"'), page.indexOf('id="close"')).matchAll(/<polygon[^>]*style="fill:(light-dark\(#[0-9a-f]{6}, #[0-9a-f]{6}\)|#[0-9a-f]{6})"/g)].map((m) => m[1] as string);
   const faint = ["AIFB", "BJP", "BSP", "INC", "AITC"].map((k) => ribbonInk(fillFor(k), "faint"));
   const bright = ribbonInk(fillFor("INC"), "bright");
   const inc = fills(render("party=INC"));
   assert.ok(inc.length >= 2, "fewer than two ribbons between the counted rows");
   assert.equal(inc.filter((f) => f === bright).length, 1, "the followed party has one bright ribbon between two counted rows");
   assert.ok(inc.every((f) => f === bright || faint.includes(f)), `a ribbon that is not followed is not the faint tier: ${inc.join(" ")}`);
-  assert.ok(contrastOf(bright, SURFACE) > contrastOf(ribbonInk(fillFor("INC"), "faint"), SURFACE) + 1.5, "bright is not brighter than faint");
+  const faintInc = ribbonInk(fillFor("INC"), "faint");
+  assert.ok(contrastOf(halvesOf(bright).dark, SURFACE) > contrastOf(halvesOf(faintInc).dark, SURFACE) + 1.5, "bright is not brighter than faint");
+  assert.ok(contrastOf(halvesOf(bright).light, SURFACE_LIGHT) > contrastOf(halvesOf(faintInc).light, SURFACE_LIGHT) + 1.5, "on the light page, bright is not stronger than faint");
 });
 
 test("an election with no candidate votes is a dashed row with one sentence, and nothing proportional, and its table cells say why they are empty", () => {
   const ladder = html.slice(html.indexOf('id="ladder"'), html.indexOf('id="close"'));
   assert.equal([...text(ladder).matchAll(/won, taking it from \w+ · no candidate votes published|won, holding it from \d+ · no candidate votes published/g)].length, 1);
   assert.match(ladder, /iei-an-declared/);
-  const share = rows(tableOf(html, "Share of the votes polled, by candidate party"));
+  const share = rows(tableOf(html, "listed candidates is not listed there"));
   assert.ok(share.every((r) => r[0] !== "2026" && !r.includes("2026")), "a share is tabled for an election with no counts");
   const gap = rows(tableOf(html, "share here against its share across"));
   assert.ok(gap.some((r) => r[1] === "2026" && /no candidate votes published/.test(r.join(" "))));
 });
 
 test("the caveats are one entry a measure in a reader's words, computed, and the stale counts are gone", () => {
-  const panel = html.slice(html.indexOf('id="leaves"'), html.indexOf('id="tables"'));
+  const start = html.indexOf('class="iei-twin iei-an-caveats"');
+  assert.notEqual(start, -1, "the caveats are not a closed note");
+  const panel = html.slice(start, html.indexOf("</details>", start));
   const labels = [...panel.matchAll(/<dt>([^<]*)<\/dt>/g)].map((m) => m[1]);
   assert.deepEqual(labels, ["Turnout", "Vote share", "Margin", "Swing", "Effective number of parties", "Sources"]);
   assert.match(text(panel), /Turnout for 2026 is withheld/);
   assert.doesNotMatch(panel, /22,414|2,932|72\.9|data\/seed|`|BIASED DOWNWARD|confidence=/);
-  assert.match(text(panel), /2026: only the winner, the party and a declared margin are on record/);
+});
+
+test("what the ladder cannot say is said under the ladder, and what a declared year lacks is said at that year, once", () => {
+  const ladder = html.slice(html.indexOf('id="ladder"'), html.indexOf('id="close"'));
+  assert.match(text(ladder), /Only the leading candidates are on record for 2016, 2021, so the shares add up to less than 100%/);
+  assert.match(text(ladder), /These are parties, not people/);
+  assert.match(text(ladder), /no candidate votes published/);
+  assert.doesNotMatch(text(html), /only the winner, the party and a declared margin are on record/, "the page's own account of itself is back");
 });
 
 test("a party the reader follows is highlighted, and says what it follows; the finding does not change with it", () => {
