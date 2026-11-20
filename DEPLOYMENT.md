@@ -28,8 +28,8 @@ a SQLite file, runs its `SELECT`s and closes the handle.
 `runtime = 'nodejs'` on every data route, because they use `node:sqlite`. `dynamic = 'force-dynamic'`,
 because `.data/` is gitignored and a route that tried to prerender at build time would have nothing to read.
 
-Client JavaScript: 94.3 kB first load, of which the application's own share is under 500 B per route. The one
-client component is `CommandKey`, twenty lines that bind ⌘K to the search field.
+Client JavaScript is small: the client components are `CommandKey` (⌘K to the search field), `ThemeToggle` (the reader's light/dark/system choice),
+`TimeMachine`, `LiveBoard` and `CountUp`. Measure first load with `next build` rather than trusting a figure written here.
 
 ## Local
 
@@ -69,13 +69,16 @@ directory:
 MANDATE_DIST=.next-verify npx next build
 ```
 
+The step-by-step release sequence, with a check and a way back at every step, is [docs/release/RUNBOOK-1.0.md](docs/release/RUNBOOK-1.0.md).
+This file is the reference for why; that one is the order to do it in.
+
 ## Checks before shipping
 
 ```bash
 npm run type-check           # tsc over the app
 npm run registry:typecheck   # tsc over packages/mandate
 npm run lint                 # next lint, via .eslintrc.json
-npm test                     # needs the full registry: 52 fail on the seed one; CI fails only on a test not in .github/test-baseline.txt
+npm test                     # needs the full registry: 51 fail on the seed one; CI fails only on a test not in .github/test-baseline.txt
 MANDATE_DIST=.next-verify npx next build
 npm run mandate -- geography validate   # constituency identity
 npm run mandate -- elections validate   # election-event identity
@@ -170,7 +173,7 @@ Three measured requirements decided it, and each ruled out an alternative:
 | --- | --- | --- |
 | Read a SQLite file from disk | 581 MB (446 MB with resolution working data dropped) | Vercel functions (250 MB), Workers (10 MB) |
 | `node:sqlite`, synchronous | 151 call sites, 127 repo functions, 3 already async | Any network database, without an async port |
-| Node ≥ 23.6 | type stripping unflagged, for the image's own `.ts` import check only | Node 22 without `--experimental-strip-types`, while that check stays |
+| Node ≥ 24 (`engines`, `.nvmrc`, CI and the image all say 24) | type stripping unflagged, for the image's own `.ts` import check only | Node 22 without `--experimental-strip-types`, while that check stays |
 
 Verified on the first real build: `node:24-slim` passes the image's own self-check, and the image is 162 MB.
 
@@ -315,7 +318,8 @@ URLs now. Port it to `rewrites()` in `next.config.mjs` if they still matter.
 * Affidavit figures are **self-declared** and are carried as cited claims, never as findings. A declared
   pending-case count is a count: the source records no stage, no court and no outcome, and the page says so
   where the figure is.
-* No cookies, no analytics, no personal data collected. There is no client-side telemetry of any kind.
+* No cookies, no analytics, no personal data collected. There is no client-side telemetry of any kind. The one thing the page stores in the
+  browser is the reader's theme choice (`localStorage` key `iei-theme`; no choice stored means the system's).
 * Boundary geometry credits its publisher in the map's own caption, on the page.
 * The Model Code of Conduct applies during election periods. Check ECI guidance before deploying close to a
   poll.
